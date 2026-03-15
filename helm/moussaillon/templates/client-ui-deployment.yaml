@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moussaillon.fullname" . }}-client-ui
+  labels:
+    {{- include "moussaillon.labels" . | nindent 4 }}
+    app.kubernetes.io/component: client-ui
+spec:
+  replicas: {{ .Values.clientUi.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: client-ui
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: client-ui
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: client-ui
+          image: {{ include "moussaillon.image" (dict "global" .Values.global "image" .Values.clientUi.image) }}
+          imagePullPolicy: {{ .Values.clientUi.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.clientUi.resources | nindent 12 }}

@@ -1,0 +1,53 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      - backend-data:/app/data
+    environment:
+      AI_OPENAI_API_KEY: ${AI_OPENAI_API_KEY:-not-set}
+      AI_ANTHROPIC_API_KEY: ${AI_ANTHROPIC_API_KEY:-not-set}
+      STRIPE_API_KEY: ${STRIPE_API_KEY:-not-set}
+      PAYPLUG_API_KEY: ${PAYPLUG_API_KEY:-not-set}
+      MAILER_FROM: ${MAILER_FROM:-noreply@moussaillon.local}
+      MAILER_HOST: ${MAILER_HOST:-mailhog}
+      MAILER_PORT: ${MAILER_PORT:-1025}
+      MAILER_MOCK: ${MAILER_MOCK:-true}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/q/health/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  chantier-ui:
+    build:
+      context: chantier-ui
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  client-ui:
+    build:
+      context: client-ui
+    ports:
+      - "3001:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  technicien-ui:
+    build:
+      context: technicien-ui
+    ports:
+      - "3002:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  backend-data:

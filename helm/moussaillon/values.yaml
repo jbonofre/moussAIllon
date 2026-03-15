@@ -1,0 +1,114 @@
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+backend:
+  replicaCount: 1
+  image:
+    repository: moussaillon/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  env:
+    MAILER_FROM: noreply@moussaillon.local
+    MAILER_HOST: localhost
+    MAILER_PORT: "1025"
+    MAILER_MOCK: "true"
+  # Sensitive keys injected only when no existingSecret is provided
+  secretEnv:
+    AI_OPENAI_API_KEY: not-set
+    AI_ANTHROPIC_API_KEY: not-set
+    STRIPE_API_KEY: not-set
+    PAYPLUG_API_KEY: not-set
+  # Reference to an existing Kubernetes secret for sensitive values
+  # Keys: AI_OPENAI_API_KEY, AI_ANTHROPIC_API_KEY, STRIPE_API_KEY, PAYPLUG_API_KEY
+  existingSecret: ""
+
+chantierUi:
+  replicaCount: 1
+  image:
+    repository: moussaillon/chantier-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+clientUi:
+  replicaCount: 1
+  image:
+    repository: moussaillon/client-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+technicienUi:
+  replicaCount: 1
+  image:
+    repository: moussaillon/technicien-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: moussaillon.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: chantier-ui
+        - path: /api
+          pathType: Prefix
+          service: backend
+    - host: client.moussaillon.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: client-ui
+    - host: technicien.moussaillon.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: technicien-ui
+  tls: []

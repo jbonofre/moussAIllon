@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moussaillon.fullname" . }}-chantier-ui
+  labels:
+    {{- include "moussaillon.labels" . | nindent 4 }}
+    app.kubernetes.io/component: chantier-ui
+spec:
+  replicas: {{ .Values.chantierUi.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: chantier-ui
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: chantier-ui
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: chantier-ui
+          image: {{ include "moussaillon.image" (dict "global" .Values.global "image" .Values.chantierUi.image) }}
+          imagePullPolicy: {{ .Values.chantierUi.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.chantierUi.resources | nindent 12 }}

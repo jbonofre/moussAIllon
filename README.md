@@ -101,6 +101,108 @@ Tests avec Jest et React Testing Library.
 CI=true npm test -- --watchAll=false
 ```
 
+## Docker
+
+### Images
+
+Chaque composant dispose d'un `Dockerfile` multi-stage :
+
+| Image | Base build | Base runtime | Port |
+|---|---|---|---|
+| `backend/Dockerfile` | `maven:3.9-eclipse-temurin-21` | `eclipse-temurin:21-jre` | 8080 |
+| `chantier-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
+| `client-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
+| `technicien-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
+
+Les frontends utilisent nginx pour servir le SPA et proxifier `/api/` vers le backend.
+
+### Docker Compose
+
+Demarrage de l'ensemble de la plateforme :
+
+```bash
+docker compose up --build
+```
+
+| Service | URL |
+|---|---|
+| Backend API | `http://localhost:8080` |
+| Chantier UI | `http://localhost:3000` |
+| Client UI | `http://localhost:3001` |
+| Technicien UI | `http://localhost:3002` |
+
+Les variables d'environnement peuvent etre definies dans un fichier `.env` a la racine du projet.
+
+### Build individuel
+
+```bash
+# Backend (contexte = racine du projet)
+docker build -f backend/Dockerfile -t moussaillon/backend .
+
+# Frontends (contexte = repertoire du frontend)
+docker build -t moussaillon/chantier-ui chantier-ui/
+docker build -t moussaillon/client-ui client-ui/
+docker build -t moussaillon/technicien-ui technicien-ui/
+```
+
+## Helm Chart
+
+Le chart Helm se trouve dans `helm/moussaillon/`.
+
+### Installation
+
+```bash
+helm install moussaillon ./helm/moussaillon
+```
+
+### Configuration
+
+Les valeurs principales sont definies dans `values.yaml` :
+
+| Parametre | Description | Defaut |
+|---|---|---|
+| `backend.replicaCount` | Nombre de replicas backend | `1` |
+| `backend.persistence.enabled` | Activer le volume persistant (H2) | `true` |
+| `backend.persistence.size` | Taille du volume | `1Gi` |
+| `backend.existingSecret` | Secret Kubernetes pour les cles API | `""` |
+| `chantierUi.replicaCount` | Replicas chantier-ui | `1` |
+| `clientUi.replicaCount` | Replicas client-ui | `1` |
+| `technicienUi.replicaCount` | Replicas technicien-ui | `1` |
+| `ingress.enabled` | Activer l'Ingress | `false` |
+
+### Secrets
+
+Pour les cles sensibles (API AI, Stripe, PayPlug), creer un secret Kubernetes et le referencer :
+
+```bash
+kubectl create secret generic moussaillon-secrets \
+  --from-literal=AI_OPENAI_API_KEY=sk-... \
+  --from-literal=AI_ANTHROPIC_API_KEY=sk-ant-... \
+  --from-literal=STRIPE_API_KEY=sk_live_... \
+  --from-literal=PAYPLUG_API_KEY=...
+
+helm install moussaillon ./helm/moussaillon \
+  --set backend.existingSecret=moussaillon-secrets
+```
+
+### Ingress
+
+L'Ingress (desactive par defaut) utilise un routage par host :
+
+| Host | Service |
+|---|---|
+| `moussaillon.local` | chantier-ui (+ `/api` vers backend) |
+| `client.moussaillon.local` | client-ui |
+| `technicien.moussaillon.local` | technicien-ui |
+
+```bash
+helm install moussaillon ./helm/moussaillon \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx
+```
+
+> **Note :** Le backend utilise H2 (base embarquee fichier). Pour un deploiement Kubernetes en production avec plusieurs replicas, il est recommande de migrer vers PostgreSQL (`quarkus-jdbc-postgresql`).
+
 ## Integration continue
 
 GitHub Actions (`.github/workflows/ci.yml`) — declenchement sur push et PR vers `main`.

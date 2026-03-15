@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "moussaillon.fullname" . }}-technicien-ui
+  labels:
+    {{- include "moussaillon.labels" . | nindent 4 }}
+    app.kubernetes.io/component: technicien-ui
+spec:
+  type: {{ .Values.technicienUi.service.type }}
+  ports:
+    - port: {{ .Values.technicienUi.service.port }}
+      targetPort: 80
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/component: technicien-ui
+    app.kubernetes.io/instance: {{ .Release.Name }}
