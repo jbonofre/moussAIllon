@@ -181,14 +181,29 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       };
       if (editing && editing.id) {
         // update
-        await axios.put(`/bateaux/${editing.id}`, payload);
+        const res = await axios.put(`/bateaux/${editing.id}`, payload);
         message.success("Bateau modifié");
+        const updated = res.data;
+        setEditing(updated);
+        form.setFieldsValue({
+          ...updated,
+          modeleId: updated.modele?.id || undefined,
+          proprietaires: updated.proprietaires?.map((p: any) => p.id || p) || [],
+          moteurs: updated.moteurs?.map((m: any) => m.id || m) || [],
+        });
       } else {
         // create
-        await axios.post("/bateaux", payload);
+        const res = await axios.post("/bateaux", payload);
         message.success("Bateau ajouté");
+        const created = res.data;
+        setEditing(created);
+        form.setFieldsValue({
+          ...created,
+          modeleId: created.modele?.id || undefined,
+          proprietaires: created.proprietaires?.map((p: any) => p.id || p) || [],
+          moteurs: created.moteurs?.map((m: any) => m.id || m) || [],
+        });
       }
-      setModalVisible(false);
       fetchBateaux();
     } catch (e) {
       if (e && e.response) {

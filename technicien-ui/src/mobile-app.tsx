@@ -139,7 +139,7 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
         try {
             const values = await form.validateFields();
             setSaving(true);
-            await axios.put(`/technicien-portal/taches/${currentTask.taskId}`, {
+            const res = await axios.put(`/technicien-portal/taches/${currentTask.taskId}`, {
                 status: values.status,
                 dureeReelle: values.dureeReelle || 0,
                 notes: values.notes || '',
@@ -147,9 +147,15 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
                 incidentDetails: values.status === 'INCIDENT' ? values.incidentDetails : null,
             });
             message.success('Tache mise a jour');
-            setModalVisible(false);
-            setCurrentTask(null);
-            form.resetFields();
+            const updated = res.data;
+            setCurrentTask({ ...currentTask, ...updated, taskStatus: updated.taskStatus || values.status });
+            form.setFieldsValue({
+                status: updated.taskStatus || values.status,
+                dureeReelle: updated.dureeReelle ?? values.dureeReelle,
+                notes: updated.notes ?? values.notes,
+                incidentDate: updated.incidentDate || values.incidentDate,
+                incidentDetails: updated.incidentDetails || values.incidentDetails,
+            });
             fetchTasks();
         } catch {
             message.error('Erreur lors de la mise a jour');

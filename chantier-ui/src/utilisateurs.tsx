@@ -143,9 +143,9 @@ export default function Utilisateurs() {
                 }
                 return res.json();
             })
-            .then(() => {
+            .then((created) => {
                 message.success("Utilisateur créé !");
-                setModalOpen(false);
+                setEditUser({ ...created, roles: rolesToArray(created.roles) });
                 fetchUsers();
             })
             .catch(e => message.error("Erreur création: " + e.message))
@@ -167,10 +167,9 @@ export default function Utilisateurs() {
                 }
                 return res.json();
             })
-            .then(() => {
+            .then((updated) => {
                 message.success("Utilisateur modifié !");
-                setModalOpen(false);
-                setEditUser(null);
+                setEditUser({ ...updated, roles: rolesToArray(updated.roles) });
                 fetchUsers();
             })
             .catch(e => message.error("Erreur modification: " + e.message))

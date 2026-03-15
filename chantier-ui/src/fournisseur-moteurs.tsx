@@ -202,13 +202,14 @@ const FournisseurMoteurs = ({
 
       setLoading(true);
       if (editing && editing.id) {
-        await axios.put(`/fournisseur-moteur/${editing.id}`, body);
+        const res = await axios.put(`/fournisseur-moteur/${editing.id}`, body);
         message.success("Modifié avec succès");
+        setEditing(res.data);
       } else {
-        await axios.post("/fournisseur-moteur", body);
+        const res = await axios.post("/fournisseur-moteur", body);
         message.success("Ajouté avec succès");
+        setEditing(res.data);
       }
-      setModalVisible(false);
       fetchAssocies();
     } catch (e: any) {
       if (e.errorFields) return;

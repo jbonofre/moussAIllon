@@ -96,14 +96,17 @@ export default function Services() {
                 ...values
             };
             if (isEdit && currentService?.id) {
-                await axios.put(`/services/${currentService.id}`, { ...currentService, ...payload });
+                const res = await axios.put(`/services/${currentService.id}`, { ...currentService, ...payload });
                 message.success('Service modifié avec succès');
+                setCurrentService(res.data);
+                form.setFieldsValue(res.data);
             } else {
-                await axios.post('/services', payload);
+                const res = await axios.post('/services', payload);
                 message.success('Service ajouté avec succès');
+                setIsEdit(true);
+                setCurrentService(res.data);
+                form.setFieldsValue(res.data);
             }
-            setModalVisible(false);
-            form.resetFields();
             fetchServices(searchQuery);
         } catch {
             // Validation errors are handled by form rules.

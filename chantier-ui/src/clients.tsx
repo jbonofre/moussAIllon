@@ -158,14 +158,19 @@ function Clients() {
       setLoading(true);
       if (editing && editing.id) {
         // update
-        await axios.put(`/clients/${editing.id}`, values);
+        const res = await axios.put(`/clients/${editing.id}`, values);
         message.success("Client modifié");
+        const updated = res.data;
+        setEditing(updated);
+        form.setFieldsValue(updated);
       } else {
         // create
-        await axios.post("/clients", values);
+        const res = await axios.post("/clients", values);
         message.success("Client ajouté");
+        const created = res.data;
+        setEditing(created);
+        form.setFieldsValue(created);
       }
-      setModalVisible(false);
       fetchClients();
     } catch (e) {
       // fields errors managed by antd form, API errors generic

@@ -117,15 +117,18 @@ const CatalogueProduits: React.FC = () => {
             const values = await form.validateFields();
             values.images = values.images || [];
             if (isEdit && currentProduit && currentProduit.id) {
-                await axios.put(`/catalogue/produits/${currentProduit.id}`, { ...currentProduit, ...values });
+                const res = await axios.put(`/catalogue/produits/${currentProduit.id}`, { ...currentProduit, ...values });
                 message.success('Produit modifié avec succès');
+                setCurrentProduit(res.data);
+                form.setFieldsValue({ ...defaultProduit, ...res.data, images: res.data.images || [] });
             } else {
-                await axios.post('/catalogue/produits', values);
+                const res = await axios.post('/catalogue/produits', values);
                 message.success('Produit ajouté avec succès');
+                setIsEdit(true);
+                setCurrentProduit(res.data);
+                form.setFieldsValue({ ...defaultProduit, ...res.data, images: res.data.images || [] });
             }
-            setModalVisible(false);
             fetchProduits();
-            form.resetFields();
         } catch (err) {
             // form validation error
         }

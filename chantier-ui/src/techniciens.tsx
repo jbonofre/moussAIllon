@@ -84,17 +84,20 @@ const Techniciens: React.FC = () => {
                 ...values,
                 couleur: values.couleur || defaultTechnicien.couleur
             };
-            
+
             if (isEdit && currentTechnicien && currentTechnicien.id) {
-                await axios.put(`/techniciens/${currentTechnicien.id}`, { ...currentTechnicien, ...payload });
+                const res = await axios.put(`/techniciens/${currentTechnicien.id}`, { ...currentTechnicien, ...payload });
                 message.success('Technicien modifié avec succès');
+                setCurrentTechnicien(res.data);
+                form.setFieldsValue(res.data);
             } else {
-                await axios.post('/techniciens', payload);
+                const res = await axios.post('/techniciens', payload);
                 message.success('Technicien ajouté avec succès');
+                setIsEdit(true);
+                setCurrentTechnicien(res.data);
+                form.setFieldsValue(res.data);
             }
-            setModalVisible(false);
             fetchTechniciens(searchQuery);
-            form.resetFields();
         } catch (err) {
             // form validation error
         }

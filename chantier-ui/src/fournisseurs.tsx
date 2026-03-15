@@ -126,7 +126,10 @@ const Fournisseurs = () => {
           body: JSON.stringify({ ...editing, ...values }),
         });
         if (!res.ok) throw new Error();
+        const updated = await res.json();
         message.success("Fournisseur modifié");
+        setEditing(updated);
+        form.setFieldsValue(updated);
       } else {
         // Create
         const res = await fetch("/catalogue/fournisseurs", {
@@ -135,9 +138,11 @@ const Fournisseurs = () => {
           body: JSON.stringify(values),
         });
         if (!res.ok) throw new Error();
+        const created = await res.json();
         message.success("Fournisseur créé");
+        setEditing(created);
+        form.setFieldsValue(created);
       }
-      setModalVisible(false);
       fetchFournisseurs();
     } catch (e: any) {
       if (e.errorFields) return; // Validation error

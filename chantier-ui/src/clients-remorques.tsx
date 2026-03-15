@@ -152,14 +152,27 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
       };
       if (editing && editing.id) {
         // update
-        await axios.put(`/remorques/${editing.id}`, payload);
+        const res = await axios.put(`/remorques/${editing.id}`, payload);
         message.success("Remorque modifiée");
+        const updated = res.data;
+        setEditing(updated);
+        form.setFieldsValue({
+          ...updated,
+          modeleId: updated.modele?.id || undefined,
+          proprietaireId: updated.proprietaire?.id || undefined,
+        });
       } else {
         // create
-        await axios.post("/remorques", payload);
+        const res = await axios.post("/remorques", payload);
         message.success("Remorque ajoutée");
+        const created = res.data;
+        setEditing(created);
+        form.setFieldsValue({
+          ...created,
+          modeleId: created.modele?.id || undefined,
+          proprietaireId: created.proprietaire?.id || undefined,
+        });
       }
-      setModalVisible(false);
       fetchRemorques();
     } catch (e) {
       if (e && e.response) {

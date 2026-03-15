@@ -209,14 +209,15 @@ const FournisseurProduits = ({
 
       if (editing && editing.id) {
         // update
-        await axios.put(`/fournisseur-produit/${editing.id}`, body);
+        const res = await axios.put(`/fournisseur-produit/${editing.id}`, body);
         message.success("Modifié avec succès");
+        setEditing(res.data);
       } else {
         // create
-        await axios.post("/fournisseur-produit", body);
+        const res = await axios.post("/fournisseur-produit", body);
         message.success("Ajouté avec succès");
+        setEditing(res.data);
       }
-      setModalVisible(false);
       fetchAssocies();
     } catch (e: any) {
       if (e.errorFields) return;

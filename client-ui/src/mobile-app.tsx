@@ -337,7 +337,7 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
                 status: 'ACTIVE',
                 client: { id: clientId },
             };
-            await axios.post('/annonces', payload);
+            const res = await axios.post('/annonces', payload);
             message.success('Annonce creee');
             setAnnonceFormOpen(false);
             fetchData('annonces');

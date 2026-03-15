@@ -152,14 +152,29 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       };
       if (editing && editing.id) {
         // update
-        await axios.put(`/moteurs/${editing.id}`, payload);
+        const res = await axios.put(`/moteurs/${editing.id}`, payload);
         message.success("Moteur modifié");
+        const updated = res.data;
+        setEditing(updated);
+        form.setFieldsValue({
+          ...updated,
+          modeleId: updated.modele?.id || undefined,
+          proprietaireId: updated.proprietaire?.id || undefined,
+          images: updated.images ?? [],
+        });
       } else {
         // create
-        await axios.post("/moteurs", payload);
+        const res = await axios.post("/moteurs", payload);
         message.success("Moteur ajouté");
+        const created = res.data;
+        setEditing(created);
+        form.setFieldsValue({
+          ...created,
+          modeleId: created.modele?.id || undefined,
+          proprietaireId: created.proprietaire?.id || undefined,
+          images: created.images ?? [],
+        });
       }
-      setModalVisible(false);
       fetchMoteurs();
     } catch (e: any) {
       if (e && e.response) {

@@ -155,13 +155,14 @@ export default function PetitesAnnonces({ clientId }: PetitesAnnoncesProps) {
                 payload.bateau = { id: values.bateauId };
             }
             if (editing) {
-                await axios.put(`/annonces/${editing.id}`, payload);
+                const res = await axios.put(`/annonces/${editing.id}`, payload);
                 message.success('Annonce mise a jour');
+                setEditing(res.data);
             } else {
-                await axios.post('/annonces', payload);
+                const res = await axios.post('/annonces', payload);
                 message.success('Annonce creee');
+                setEditing(res.data);
             }
-            setModalOpen(false);
             fetchData();
         } catch {
             // validation error

@@ -199,13 +199,14 @@ const FournisseurRemorques = ({
       setLoading(true);
 
       if (editing && editing.id) {
-        await axios.put(`/fournisseur-remorque/${editing.id}`, body);
+        const res = await axios.put(`/fournisseur-remorque/${editing.id}`, body);
         message.success("Modifié avec succès");
+        setEditing(res.data);
       } else {
-        await axios.post("/fournisseur-remorque", body);
+        const res = await axios.post("/fournisseur-remorque", body);
         message.success("Ajouté avec succès");
+        setEditing(res.data);
       }
-      setModalVisible(false);
       fetchAssocies();
     } catch (e: any) {
       if (e.errorFields) return;

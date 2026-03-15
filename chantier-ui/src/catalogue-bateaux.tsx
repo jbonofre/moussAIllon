@@ -126,15 +126,18 @@ const CatalogueBateaux: React.FC = () => {
             const bateauToSave = values;
 
             if (isEdit && currentBateau && currentBateau.id) {
-                await axios.put(`/catalogue/bateaux/${currentBateau.id}`, bateauToSave);
+                const res = await axios.put(`/catalogue/bateaux/${currentBateau.id}`, bateauToSave);
                 message.success('Bateau modifié avec succès');
+                setCurrentBateau(res.data);
+                form.setFieldsValue(res.data);
             } else {
-                await axios.post('/catalogue/bateaux', bateauToSave);
+                const res = await axios.post('/catalogue/bateaux', bateauToSave);
                 message.success('Bateau ajouté avec succès');
+                setIsEdit(true);
+                setCurrentBateau(res.data);
+                form.setFieldsValue(res.data);
             }
-            setModalVisible(false);
             fetchBateaux();
-            form.resetFields();
         } catch (err) {
             // Validation error already shown by Form.Item
         }

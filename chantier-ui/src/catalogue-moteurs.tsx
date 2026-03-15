@@ -188,16 +188,24 @@ const MoteurCatalogue = () => {
       };
 
       if (editingMoteur && editingMoteur.id != null) {
-        await axios.put(`/catalogue/moteurs/${editingMoteur.id}`, moteurToSave);
+        const res = await axios.put(`/catalogue/moteurs/${editingMoteur.id}`, moteurToSave);
         message.success('Moteur modifié avec succès');
+        setEditingMoteur(res.data);
+        form.setFieldsValue({
+          ...res.data,
+          helicesCompatibles: (res.data.helicesCompatibles || []).map((h: { id: number }) => h.id),
+        });
       } else {
-        await axios.post('/catalogue/moteurs', moteurToSave);
+        const res = await axios.post('/catalogue/moteurs', moteurToSave);
         message.success('Moteur ajouté avec succès');
+        setEditingMoteur(res.data);
+        form.setFieldsValue({
+          ...res.data,
+          helicesCompatibles: (res.data.helicesCompatibles || []).map((h: { id: number }) => h.id),
+        });
       }
-      setModalVisible(false);
       await fetchMoteurs();
       await fetchHelices();
-      form.resetFields();
     } catch (err) {
       // Already shown by Form.Item
     }

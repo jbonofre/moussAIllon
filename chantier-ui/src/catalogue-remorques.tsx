@@ -145,13 +145,16 @@ const RemorqueCatalogue: React.FC = () => {
 
       setLoading(true);
       if (editingRemorque && editingRemorque.id) {
-        await axios.put(`/catalogue/remorques/${editingRemorque.id}`, { ...editingRemorque, ...values });
+        const res = await axios.put(`/catalogue/remorques/${editingRemorque.id}`, { ...editingRemorque, ...values });
         message.success("Remorque modifiée");
+        setEditingRemorque(res.data);
+        form.setFieldsValue(res.data);
       } else {
-        await axios.post("/catalogue/remorques", values);
+        const res = await axios.post("/catalogue/remorques", values);
         message.success("Remorque ajoutée");
+        setEditingRemorque(res.data);
+        form.setFieldsValue(res.data);
       }
-      setModalVisible(false);
       fetchRemorques();
     } catch (e: any) {
       if (e?.errorFields) return; // Ant design form error

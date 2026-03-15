@@ -249,7 +249,12 @@ const HeliceCatalogueView: React.FC = () => {
                 message.success('Hélice créée');
             }
             await syncMoteursForHelice(result, moteurIds);
-            setModalOpen(false);
+            setEditing(result);
+            setModalMode('edit');
+            form.setFieldsValue({
+                ...result,
+                moteursCompatibles: moteurIds,
+            });
             await loadHelices();
             await loadMoteurs();
         } catch (e: any) {
