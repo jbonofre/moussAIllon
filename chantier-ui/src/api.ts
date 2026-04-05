@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const api = axios.create();
+const api = axios.create({ baseURL: '/api' });
 
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('moussaillon-token');
@@ -24,7 +24,8 @@ api.interceptors.response.use(
 
 export default api;
 
-export function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+export function fetchWithAuth(rawUrl: string, options: RequestInit = {}): Promise<Response> {
+    const url = rawUrl.startsWith('./') ? '/api/' + rawUrl.slice(2) : rawUrl.startsWith('/') ? '/api' + rawUrl : '/api/' + rawUrl;
     const token = localStorage.getItem('moussaillon-token');
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',

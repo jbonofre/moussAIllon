@@ -11,7 +11,7 @@ export default function Login(props) {
 
     const handleLogin = (values) => {
         setLoading(true);
-        fetch('/users/authenticate', {
+        fetch('/api/users/authenticate', {
             method: 'POST',
             body: JSON.stringify(values),
             headers: {

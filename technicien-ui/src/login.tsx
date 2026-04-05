@@ -25,7 +25,7 @@ export default function Login({ setUser }: LoginProps) {
     const handleLogin = async (values: { email: string; motDePasse?: string }) => {
         setLoading(true);
         try {
-            const res = await axios.post('/technicien-portal/login', {
+            const res = await axios.post('/api/technicien-portal/login', {
                 email: values.email,
                 motDePasse: values.motDePasse || ''
             });

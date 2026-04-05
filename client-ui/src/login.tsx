@@ -26,7 +26,7 @@ export default function Login({ setUser }: LoginProps) {
     const handleLogin = async (values: { email: string; password?: string }) => {
         setLoading(true);
         try {
-            const res = await axios.post('/portal/login', { email: values.email, password: values.password });
+            const res = await axios.post('/api/portal/login', { email: values.email, password: values.password });
             const { token, ...userData } = res.data;
             localStorage.setItem('moussaillon-client-token', token);
             localStorage.setItem('moussaillon-client-user', JSON.stringify(userData));

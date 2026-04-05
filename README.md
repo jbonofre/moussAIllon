@@ -114,7 +114,7 @@ Chaque composant dispose d'un `Dockerfile` multi-stage :
 | `client-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
 | `technicien-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
 
-Les frontends utilisent nginx pour servir le SPA et proxifier `/api/` vers le backend.
+Les frontends utilisent nginx pour servir le SPA et proxifier `/api/` vers le backend (le préfixe `/api` est strippé avant transmission).
 
 ### Docker Compose
 
@@ -408,7 +408,8 @@ server {
     server_name _;
 
     location /api/ {
-        proxy_pass http://localhost:8080/;
+        rewrite ^/api/(.*) /$1 break;
+        proxy_pass http://localhost:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }

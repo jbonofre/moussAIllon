@@ -33,7 +33,6 @@ import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import dayjs from "dayjs";
-import clients from "./clients";
 import LocationPicker from "./LocationPicker.tsx";
 import { useHistory } from "react-router-dom";
 
