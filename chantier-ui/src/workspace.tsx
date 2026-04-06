@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, AmazonOutlined, SettingOutlined, ToolOutlined, StockOutlined, FileOutlined, FileProtectOutlined, ReadOutlined, DesktopOutlined, DeploymentUnitOutlined, DisconnectOutlined, DashboardOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, RedoOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DeploymentUnitOutlined, DisconnectOutlined, DashboardOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -88,9 +88,9 @@ function SideMenu(props) {
     const allMenuItems = [
       { key: '/', label: 'Accueil', icon: <HomeOutlined/> },
       { key: '/dashboard', label: 'Tableau de Bord', icon: <DashboardOutlined/> },
-      { key: 'Vente', label: 'Vente', icon: <StockOutlined/>, requiredRole: 'vendeur', children: [
-        { key: '/comptoir', label: 'Comptoir', icon: <DesktopOutlined/> },
-        { key: '/prestations', label: 'Prestations', icon: <CheckSquareOutlined/> },
+      { key: 'Vente', label: 'Vente', icon: <DollarOutlined/>, requiredRole: 'vendeur', children: [
+        { key: '/comptoir', label: 'Comptoir', icon: <ShopOutlined/> },
+        { key: '/prestations', label: 'Prestations', icon: <SolutionOutlined/> },
         { key: '/clients', label: 'Clients', icon: <TeamOutlined /> },
       ]},
       { key: 'parc', label: 'Parc', icon: <Icon component={ ParcOutlined } />, requiredRole: 'manager', children: [
@@ -99,30 +99,30 @@ function SideMenu(props) {
         { key: '/clients/remorques', label: 'Remorques', icon: <Icon component={ TailerOutlined } /> }
       ] },
       { key: 'catalogue', label: 'Catalogue', icon: <ReadOutlined/>, requiredRole: 'magasinier', children: [
-        { key: '/catalogue/produits', label: 'Produits', icon: <StockOutlined /> },
+        { key: '/catalogue/produits', label: 'Produits', icon: <AppstoreOutlined /> },
         { key: '/catalogue/bateaux', label: 'Bateaux', icon: <Icon component={ BoatOutlined } /> },
         { key: '/catalogue/moteurs', label: 'Moteurs', icon: <Icon component={ EngineOutlined } /> },
         { key: '/catalogue/helices', label: 'Hélices', icon: <DeploymentUnitOutlined /> },
         { key: '/catalogue/remorques', label: 'Remorques', icon: <Icon component={ TailerOutlined } /> },
-        { key: '/main-oeuvres', label: "Main d'Oeuvres", icon: <RedoOutlined/> },
+        { key: '/main-oeuvres', label: "Main d'Oeuvres", icon: <HourglassOutlined/> },
         { key: '/forfaits', label: 'Forfaits', icon: <FileDoneOutlined/> },
-        { key: '/catalogue/fournisseurs', label: 'Fournisseurs', icon: <FileProtectOutlined/> },
+        { key: '/catalogue/fournisseurs', label: 'Fournisseurs', icon: <TruckOutlined/> },
         { key: '/commandes-fournisseur', label: 'Commandes Fournisseur', icon: <ShoppingCartOutlined/> },
       ]},
       { key: 'atelier', label: 'Atelier', icon: <ToolOutlined/>, requiredRole: 'admin', children: [
         { key: '/techniciens', label: 'Equipe', icon: <TeamOutlined/> },
         { key: '/planning', label: 'Planning', icon: <CalendarOutlined/> },
       ] },
-      { key: 'market', label: 'Marketing', icon: <AmazonOutlined/>, requiredRole: 'admin', children: [
-        { key: '/annonces', label: 'Petites annonces', icon: <FileOutlined/> },
+      { key: 'market', label: 'Marketing', icon: <RocketOutlined/>, requiredRole: 'admin', children: [
+        { key: '/annonces', label: 'Petites annonces', icon: <NotificationOutlined/> },
         { key: '/campagnes', label: 'Campagnes', icon: <SendOutlined/> }
       ] },
       { key: 'parametrage', label: 'Paramétrage', icon: <SettingOutlined/>, requiredRole: 'admin', children: [
-        { key: '/societe', label: 'Société', icon: <DeploymentUnitOutlined/> },
+        { key: '/societe', label: 'Société', icon: <BankOutlined/> },
         { key: '/utilisateurs', label: 'Utilisateurs', icon: <UserOutlined/> },
         { key: '/emails', label: 'Emails', icon: <MailOutlined/> },
-        { key: '/sequence-emails', label: 'Séquence emails', icon: <SendOutlined/> },
-        { key: '/reference-valeurs', label: 'Valeurs de Référence', icon: <SettingOutlined/> }
+        { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> },
+        { key: '/reference-valeurs', label: 'Valeurs de Référence', icon: <DatabaseOutlined/> }
       ] }
     ];
 
