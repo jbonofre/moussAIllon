@@ -385,7 +385,7 @@ export default function Forfaits() {
                 title: "Modifications non enregistrées",
                 content: "Vous avez des modifications non enregistrées. Voulez-vous vraiment fermer ?",
                 okText: "Fermer",
-                cancelText: "Fermer",
+                cancelText: "Annuler",
                 onOk: () => {
                     setFormDirty(false);
                     setModalVisible(false);
@@ -402,7 +402,7 @@ export default function Forfaits() {
                 title: "Modifications non enregistrées",
                 content: "Vous avez des modifications non enregistrées. Voulez-vous vraiment fermer ?",
                 okText: "Fermer",
-                cancelText: "Fermer",
+                cancelText: "Annuler",
                 onOk: () => {
                     setNewProduitFormDirty(false);
                     setNewProduitModalVisible(false);
@@ -419,7 +419,7 @@ export default function Forfaits() {
                 title: "Modifications non enregistrées",
                 content: "Vous avez des modifications non enregistrées. Voulez-vous vraiment fermer ?",
                 okText: "Fermer",
-                cancelText: "Fermer",
+                cancelText: "Annuler",
                 onOk: () => {
                     setNewMainOeuvreFormDirty(false);
                     setNewMainOeuvreModalVisible(false);

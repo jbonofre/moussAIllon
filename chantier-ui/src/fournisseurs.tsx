@@ -112,7 +112,7 @@ const Fournisseurs = () => {
         title: "Modifications non enregistrées",
         content: "Vous avez des modifications non enregistrées. Voulez-vous vraiment fermer ?",
         okText: "Fermer",
-        cancelText: "Fermer",
+        cancelText: "Annuler",
         onOk: () => {
           setFormDirty(false);
           setModalVisible(false);
