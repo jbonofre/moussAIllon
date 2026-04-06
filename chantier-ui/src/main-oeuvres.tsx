@@ -5,6 +5,7 @@ import api from './api.ts';
 
 interface MainOeuvreEntity {
     id?: number;
+    reference?: string;
     nom: string;
     description?: string;
     prixHT?: number;
@@ -14,6 +15,7 @@ interface MainOeuvreEntity {
 }
 
 interface MainOeuvreFormValues {
+    reference?: string;
     nom: string;
     description?: string;
     prixHT?: number;
@@ -23,6 +25,7 @@ interface MainOeuvreFormValues {
 }
 
 const defaultMainOeuvre: MainOeuvreFormValues = {
+    reference: '',
     nom: '',
     description: '',
     prixHT: 0,
@@ -153,6 +156,12 @@ export default function MainOeuvres() {
 
     const columns = [
         {
+            title: 'Référence',
+            dataIndex: 'reference',
+            sorter: (a: MainOeuvreEntity, b: MainOeuvreEntity) => (a.reference || '').localeCompare(b.reference || ''),
+            render: (value: string) => value || '-'
+        },
+        {
             title: 'Nom',
             dataIndex: 'nom',
             sorter: (a: MainOeuvreEntity, b: MainOeuvreEntity) => (a.nom || '').localeCompare(b.nom || '')
@@ -241,6 +250,9 @@ export default function MainOeuvres() {
                     initialValues={defaultMainOeuvre}
                     onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }}
                 >
+                    <Form.Item name="reference" label="Référence">
+                        <Input allowClear />
+                    </Form.Item>
                     <Form.Item
                         name="nom"
                         label="Nom"

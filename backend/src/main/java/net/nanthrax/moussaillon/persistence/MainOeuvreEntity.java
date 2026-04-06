@@ -6,6 +6,8 @@ import jakarta.persistence.Entity;
 @Entity
 public class MainOeuvreEntity extends PanacheEntity {
 
+    public String reference;
+
     public String nom;
 
     public String description;

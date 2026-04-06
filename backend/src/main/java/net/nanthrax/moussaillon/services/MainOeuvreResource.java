@@ -35,7 +35,7 @@ public class MainOeuvreResource {
             return MainOeuvreEntity.listAll();
         }
         String likePattern = "%" + q.toLowerCase() + "%";
-        return MainOeuvreEntity.list("LOWER(nom) LIKE ?1 OR LOWER(description) LIKE ?1", likePattern);
+        return MainOeuvreEntity.list("LOWER(nom) LIKE ?1 OR LOWER(description) LIKE ?1 OR LOWER(reference) LIKE ?1", likePattern);
     }
 
     @POST
@@ -76,6 +76,7 @@ public class MainOeuvreResource {
             throw new WebApplicationException("La main d'oeuvre (" + id + ") n'est pas trouvée", 404);
         }
 
+        entity.reference = mainOeuvre.reference;
         entity.nom = mainOeuvre.nom;
         entity.description = mainOeuvre.description;
         entity.prixHT = mainOeuvre.prixHT;
