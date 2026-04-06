@@ -196,6 +196,7 @@ const defaultNewProduit = {
 
 interface MainOeuvreEntity {
     id: number;
+    reference?: string;
     nom: string;
     description?: string;
     prixHT?: number;
@@ -572,7 +573,7 @@ export default function Vente() {
     );
 
     const mainOeuvreOptions = useMemo(
-        () => mainOeuvres.map((mo) => ({ value: mo.id, label: mo.nom })),
+        () => mainOeuvres.map((mo) => ({ value: mo.id, label: mo.reference ? `${mo.reference} - ${mo.nom}` : mo.nom })),
         [mainOeuvres]
     );
 

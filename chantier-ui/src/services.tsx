@@ -8,6 +8,7 @@ import api from './api.ts';
 
 interface MainOeuvreEntity {
     id: number;
+    reference?: string;
     nom: string;
     description?: string;
     prixHT?: number;
@@ -73,7 +74,7 @@ const defaultService: ServiceFormValues = {
 };
 
 const defaultNewMainOeuvre = {
-    nom: '', description: '', prixHT: 0, tva: 20, montantTVA: 0, prixTTC: 0,
+    reference: '', nom: '', description: '', prixHT: 0, tva: 20, montantTVA: 0, prixTTC: 0,
 };
 
 const defaultNewProduit = {
@@ -109,7 +110,7 @@ export default function Services() {
     const [newProduitFormDirty, setNewProduitFormDirty] = useState(false);
 
     const mainOeuvreOptions = useMemo(
-        () => allMainOeuvres.map((mo) => ({ value: mo.id, label: mo.nom })),
+        () => allMainOeuvres.map((mo) => ({ value: mo.id, label: mo.reference ? `${mo.reference} - ${mo.nom}` : mo.nom })),
         [allMainOeuvres]
     );
 
@@ -750,6 +751,9 @@ export default function Services() {
                 width={700}
             >
                 <Form form={newMainOeuvreForm} layout="vertical" initialValues={defaultNewMainOeuvre} onValuesChange={(...args) => { setNewMainOeuvreFormDirty(true); onNewMainOeuvreValuesChange(...args); }}>
+                    <Form.Item name="reference" label="Référence">
+                        <Input allowClear />
+                    </Form.Item>
                     <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
                         <Input allowClear />
                     </Form.Item>

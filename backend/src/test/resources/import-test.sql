@@ -34,8 +34,8 @@ INSERT INTO ProduitCatalogueEntity (id, nom, marque, categorie, description, eva
 INSERT INTO ProduitCatalogueEntity (id, nom, marque, categorie, description, evaluation, stock, stockMini, prixPublic, frais, tauxMarge, tauxMarque, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (101, 'Filtre a huile', 'Mercury', 'Entretien', 'Filtre compatible Mercury', 0, 2, 5, 15.0, 0, 0, 0, 12.0, 20.0, 2.4, 14.4);
 
 -- Main d'oeuvres (all primitive fields included)
-INSERT INTO MainOeuvreEntity (id, nom, description, prixHT, tva, montantTVA, prixTTC) VALUES (100, 'Revision annuelle', 'Revision complete moteur', 150.0, 20.0, 30.0, 180.0);
-INSERT INTO MainOeuvreEntity (id, nom, description, prixHT, tva, montantTVA, prixTTC) VALUES (101, 'Vidange moteur', 'Vidange huile et filtre', 80.0, 20.0, 16.0, 96.0);
+INSERT INTO MainOeuvreEntity (id, reference, nom, description, prixHT, tva, montantTVA, prixTTC) VALUES (100, 'MO-001', 'Revision annuelle', 'Revision complete moteur', 150.0, 20.0, 30.0, 180.0);
+INSERT INTO MainOeuvreEntity (id, reference, nom, description, prixHT, tva, montantTVA, prixTTC) VALUES (101, 'MO-002', 'Vidange moteur', 'Vidange huile et filtre', 80.0, 20.0, 16.0, 96.0);
 
 -- Services (all primitive fields included)
 INSERT INTO ServiceEntity (id, nom, description, dureeEstimee, prixHT, tva, montantTVA, prixTTC) VALUES (100, 'Entretien complet', 'Service entretien complet moteur', 3.0, 230.0, 20.0, 46.0, 276.0);
