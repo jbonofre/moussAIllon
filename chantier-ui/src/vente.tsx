@@ -37,20 +37,30 @@ interface ClientEntity {
     email?: string;
 }
 
+interface CatalogueMoteurEntity {
+    id: number;
+    marque?: string;
+    modele?: string;
+}
+
 interface BateauClientEntity {
     id: number;
     name?: string;
     immatriculation?: string;
+    proprietaires?: ClientEntity[];
+    moteurs?: CatalogueMoteurEntity[];
 }
 
 interface MoteurClientEntity {
     id: number;
     numeroSerie?: string;
+    proprietaire?: ClientEntity;
 }
 
 interface RemorqueClientEntity {
     id: number;
     immatriculation?: string;
+    proprietaire?: ClientEntity;
 }
 
 interface TechnicienEntity {
@@ -1048,6 +1058,54 @@ export default function Vente() {
             const montantTVA = Math.round((((prixTTC / (100 + tva)) * tva) + Number.EPSILON) * 100) / 100;
             newForfaitForm.setFieldValue('montantTVA', montantTVA);
             newForfaitForm.setFieldValue('prixHT', Math.round(((prixTTC - montantTVA) + Number.EPSILON) * 100) / 100);
+        }
+    };
+
+    const handleClientChange = (clientId: number | undefined) => {
+        if (!clientId) {
+            return;
+        }
+        // Auto-populate bateau from client's proprietaire relationship
+        const clientBateau = bateaux.find((b) => b.proprietaires?.some((p) => p.id === clientId));
+        if (clientBateau && !form.getFieldValue('bateauId')) {
+            form.setFieldValue('bateauId', clientBateau.id);
+        }
+        // Auto-populate moteur from client's proprietaire relationship
+        const clientMoteur = moteurs.find((m) => m.proprietaire?.id === clientId);
+        if (clientMoteur && !form.getFieldValue('moteurId')) {
+            form.setFieldValue('moteurId', clientMoteur.id);
+        }
+        // Auto-populate remorque from client's proprietaire relationship
+        const clientRemorque = remorques.find((r) => r.proprietaire?.id === clientId);
+        if (clientRemorque && !form.getFieldValue('remorqueId')) {
+            form.setFieldValue('remorqueId', clientRemorque.id);
+        }
+        // Suggest forfaits matching the selected bateau/moteur or the bateau's moteurs
+        const selectedBateauId = clientBateau?.id || form.getFieldValue('bateauId');
+        const selectedMoteurId = clientMoteur?.id || form.getFieldValue('moteurId');
+        const selectedBateau = bateaux.find((b) => b.id === selectedBateauId);
+        const bateauMoteurIds = new Set((selectedBateau?.moteurs || []).map((m) => m.id));
+        if (selectedBateauId || selectedMoteurId || bateauMoteurIds.size > 0) {
+            const matchingForfaits = forfaits.filter((f) =>
+                (selectedBateauId && f.bateauxAssocies?.some((b) => b.id === selectedBateauId)) ||
+                (selectedMoteurId && f.moteursAssocies?.some((m) => m.id === selectedMoteurId)) ||
+                (bateauMoteurIds.size > 0 && f.moteursAssocies?.some((m) => bateauMoteurIds.has(m.id)))
+            );
+            if (matchingForfaits.length > 0) {
+                const currentLines = form.getFieldValue('venteForfaits') || [];
+                const existingForfaitIds = new Set(currentLines.filter((l: any) => l?.forfaitId).map((l: any) => l.forfaitId));
+                const newForfaits = matchingForfaits.filter((f) => !existingForfaitIds.has(f.id));
+                if (newForfaits.length > 0) {
+                    const filledLines = currentLines.filter((l: any) => l?.forfaitId);
+                    const newLines = [
+                        ...filledLines,
+                        ...newForfaits.map((f) => ({ forfaitId: f.id, quantite: 1, status: 'EN_ATTENTE' })),
+                        { status: 'EN_ATTENTE', quantite: 1 }
+                    ];
+                    form.setFieldValue('venteForfaits', newLines);
+                    recalculateFromLines('auto');
+                }
+            }
         }
     };
 
@@ -2133,7 +2191,7 @@ export default function Vente() {
                             <Form.Item label="Client" required>
                                 <Space.Compact style={{ width: '100%' }}>
                                     <Form.Item name="clientId" noStyle rules={[{ required: true, message: 'Le client est obligatoire' }]}>
-                                        <Select allowClear showSearch options={clientOptions} style={{ width: '100%' }} />
+                                        <Select allowClear showSearch options={clientOptions} style={{ width: '100%' }} onChange={handleClientChange} />
                                     </Form.Item>
                                     <Button icon={<PlusOutlined />} title="Créer un client" onClick={openNewClientModal} />
                                 </Space.Compact>
