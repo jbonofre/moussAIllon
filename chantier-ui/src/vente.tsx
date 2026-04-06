@@ -699,6 +699,11 @@ export default function Vente() {
                 const currentLines = form.getFieldValue('produits') || [];
                 const updated = [...currentLines];
                 updated[newProduitTargetLine] = { ...updated[newProduitTargetLine], produitId: created.id };
+                // Check if this was the last line and add a new empty line
+                const lastLine = updated[updated.length - 1];
+                if (!!lastLine?.produitId && (lastLine?.quantite || 0) > 0) {
+                    updated.push({ quantite: 1 });
+                }
                 form.setFieldValue('produits', updated);
                 recalculateFromLines('auto', { produits: [...produits, created] });
             }
@@ -811,6 +816,11 @@ export default function Vente() {
                     const currentLines = form.getFieldValue('venteServices') || [];
                     const updatedLines = [...currentLines];
                     updatedLines[newServiceTargetLine] = { ...updatedLines[newServiceTargetLine], serviceId: created.id };
+                    // Check if this was the last line and add a new empty line
+                    const lastLine = updatedLines[updatedLines.length - 1];
+                    if (!!lastLine?.serviceId && (lastLine?.quantite || 0) > 0) {
+                        updatedLines.push({ status: 'EN_ATTENTE', quantite: 1 });
+                    }
                     form.setFieldValue('venteServices', updatedLines);
                     recalculateFromLines('auto', { services: [...services, created] });
                 }
@@ -951,6 +961,11 @@ export default function Vente() {
                 const currentLines = form.getFieldValue('venteForfaits') || [];
                 const updated = [...currentLines];
                 updated[newForfaitTargetLine] = { ...updated[newForfaitTargetLine], forfaitId: created.id };
+                // Check if this was the last line and add a new empty line
+                const lastLine = updated[updated.length - 1];
+                if (!!lastLine?.forfaitId && (lastLine?.quantite || 0) > 0) {
+                    updated.push({ status: 'EN_ATTENTE', quantite: 1 });
+                }
                 form.setFieldValue('venteForfaits', updated);
                 recalculateFromLines('auto', { forfaits: [...forfaits, created] });
             }
