@@ -4,6 +4,7 @@ import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/ic
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import FournisseurBateaux from './fournisseur-bateaux.tsx';
+import ForfaitFormModal from './ForfaitFormModal.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 
@@ -77,12 +78,15 @@ const defaultBateau: BateauCatalogueEntity = {
 const CatalogueBateaux: React.FC = () => {
     const bateauTypes = useReferenceValeurs('TYPE_BATEAU');
     const [bateaux, setBateaux] = useState<BateauCatalogueEntity[]>([]);
+    const [forfaits, setForfaits] = useState<any[]>([]);
+    const [initialForfaitIds, setInitialForfaitIds] = useState<number[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [modalVisible, setModalVisible] = useState<boolean>(false);
     const [isEdit, setIsEdit] = useState<boolean>(false);
     const [currentBateau, setCurrentBateau] = useState<BateauCatalogueEntity | null>(null);
     const [form] = Form.useForm();
     const [formDirty, setFormDirty] = useState(false);
+    const [forfaitModalVisible, setForfaitModalVisible] = useState(false);
 
     const marqueOptions = useMemo(() => {
         const uniqueMarques = Array.from(new Set(bateaux.map((bateau) => bateau.marque))).filter(Boolean) as string[];
@@ -100,8 +104,18 @@ const CatalogueBateaux: React.FC = () => {
         setLoading(false);
     };
 
+    const fetchForfaits = async () => {
+        try {
+            const res = await api.get('/forfaits');
+            setForfaits(res.data || []);
+        } catch {
+            setForfaits([]);
+        }
+    };
+
     useEffect(() => {
         fetchBateaux();
+        fetchForfaits();
     }, []);
 
     const handleModalCancel = () => {
@@ -125,33 +139,90 @@ const CatalogueBateaux: React.FC = () => {
         if (bateau) {
             setIsEdit(true);
             setCurrentBateau(bateau);
-            form.setFieldsValue(bateau);
+            const associatedForfaitIds = forfaits
+                .filter(f => (f.bateauxAssocies || []).some((b: any) => b.id === bateau.id))
+                .map(f => f.id);
+            setInitialForfaitIds(associatedForfaitIds);
+            form.setFieldsValue({ ...bateau, forfaitIds: associatedForfaitIds });
         } else {
             setIsEdit(false);
             setCurrentBateau(null);
+            setInitialForfaitIds([]);
             form.resetFields();
         }
         setFormDirty(false);
         setModalVisible(true);
     };
 
+    const updateForfaitAssociations = async (bateauId: number, selectedForfaitIds: number[]) => {
+        const added = selectedForfaitIds.filter(id => !initialForfaitIds.includes(id));
+        const removed = initialForfaitIds.filter(id => !selectedForfaitIds.includes(id));
+
+        for (const forfaitId of added) {
+            const forfait = forfaits.find(f => f.id === forfaitId);
+            if (forfait) {
+                const alreadyLinked = (forfait.bateauxAssocies || []).some((b: any) => b.id === bateauId);
+                if (!alreadyLinked) {
+                    await api.put(`/forfaits/${forfaitId}`, {
+                        ...forfait,
+                        bateauxAssocies: [...(forfait.bateauxAssocies || []), { id: bateauId }],
+                    });
+                }
+            }
+        }
+
+        for (const forfaitId of removed) {
+            const forfait = forfaits.find(f => f.id === forfaitId);
+            if (forfait) {
+                await api.put(`/forfaits/${forfaitId}`, {
+                    ...forfait,
+                    bateauxAssocies: (forfait.bateauxAssocies || []).filter((b: any) => b.id !== bateauId),
+                });
+            }
+        }
+
+        if (added.length > 0 || removed.length > 0) {
+            await fetchForfaits();
+        }
+    };
+
+    const handleForfaitCreated = async (newForfait: any) => {
+        setForfaitModalVisible(false);
+        await fetchForfaits();
+        const currentForfaits = form.getFieldValue('forfaitIds') || [];
+        form.setFieldsValue({ forfaitIds: [...currentForfaits, newForfait.id] });
+    };
+
     const handleModalOk = async () => {
         try {
             const values = await form.validateFields();
-            const bateauToSave = values;
+            const { forfaitIds, ...bateauToSave } = values;
 
+            let savedBateau;
             if (isEdit && currentBateau && currentBateau.id) {
                 const res = await api.put(`/catalogue/bateaux/${currentBateau.id}`, bateauToSave);
                 message.success('Bateau modifié avec succès');
-                setCurrentBateau(res.data);
-                form.setFieldsValue(res.data);
+                savedBateau = res.data;
+                setCurrentBateau(savedBateau);
+                form.setFieldsValue({ ...savedBateau, forfaitIds });
             } else {
                 const res = await api.post('/catalogue/bateaux', bateauToSave);
                 message.success('Bateau ajouté avec succès');
+                savedBateau = res.data;
                 setIsEdit(true);
-                setCurrentBateau(res.data);
-                form.setFieldsValue(res.data);
+                setCurrentBateau(savedBateau);
+                form.setFieldsValue({ ...savedBateau, forfaitIds });
             }
+
+            if (savedBateau?.id) {
+                await updateForfaitAssociations(savedBateau.id, forfaitIds || []);
+                const updatedForfaitIds = forfaits
+                    .filter(f => (forfaitIds || []).includes(f.id) ||
+                        (f.bateauxAssocies || []).some((b: any) => b.id === savedBateau.id))
+                    .map(f => f.id);
+                setInitialForfaitIds(forfaitIds || []);
+            }
+
             setFormDirty(false);
             fetchBateaux();
         } catch (err) {
@@ -504,11 +575,45 @@ const CatalogueBateaux: React.FC = () => {
                                     </Form.Item>
                                 </Col>
                             </Row>
+                        {/* Forfaits associés */}
+                            <Form.Item label="Forfaits associés" style={{ marginBottom: 0 }}>
+                                <Space.Compact style={{ width: "100%" }}>
+                                    <Form.Item name="forfaitIds" noStyle>
+                                        <Select
+                                            mode="multiple"
+                                            style={{ width: '100%' }}
+                                            placeholder="Associer des forfaits"
+                                            optionFilterProp="children"
+                                            allowClear
+                                            showSearch
+                                            filterOption={(input, option) =>
+                                                `${option?.children ?? ""}`.toLowerCase().includes(input.toLowerCase())
+                                            }
+                                        >
+                                            {forfaits.map((forfait: any) => (
+                                                <Select.Option key={forfait.id} value={forfait.id}>
+                                                    {forfait.reference ? `${forfait.reference} - ` : ''}{forfait.nom}
+                                                </Select.Option>
+                                            ))}
+                                        </Select>
+                                    </Form.Item>
+                                    <Button
+                                        icon={<PlusCircleOutlined />}
+                                        onClick={() => setForfaitModalVisible(true)}
+                                    />
+                                </Space.Compact>
+                            </Form.Item>
                         {/* Affiche la liste des fournisseurs pour ce bateau quand en modification */}
                         {isEdit && currentBateau && currentBateau.id && (
                             <FournisseurBateaux bateauId={currentBateau.id} />
                         )}
                         </Form>
+                        <ForfaitFormModal
+                            open={forfaitModalVisible}
+                            onCancel={() => setForfaitModalVisible(false)}
+                            onCreated={handleForfaitCreated}
+                            preAssociatedBateauId={currentBateau?.id}
+                        />
                     </Modal>
                 </Col>
             </Row>
