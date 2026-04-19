@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Badge, Button, Card, Col, DatePicker, Empty, Form, Input, Modal, Row, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { CalendarOutlined, EditOutlined, EyeOutlined, LeftOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
+import { Line } from '@ant-design/charts';
 import api from './api.ts';
 import dayjs from 'dayjs';
 
@@ -159,6 +160,54 @@ const technicienPalette = [
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
+// --- Marées (données réelles SHOM via proxy backend) ---
+
+interface TideLocation {
+    id: string;
+    name: string;
+    shomCode: string; // code port SHOM
+}
+
+const TIDE_LOCATIONS: TideLocation[] = [
+    { id: 'carantec',    name: 'Carantec',      shomCode: 'MORLAIX_PEN_AL_LANN' },
+    { id: 'roscoff',     name: 'Roscoff',       shomCode: 'ROSCOFF' },
+    { id: 'brest',       name: 'Brest',         shomCode: 'BREST' },
+    { id: 'saint-malo',  name: 'Saint-Malo',    shomCode: 'SAINT-MALO' },
+    { id: 'cherbourg',   name: 'Cherbourg',     shomCode: 'CHERBOURG' },
+    { id: 'la-rochelle', name: 'La Rochelle',   shomCode: 'LA_ROCHELLE-PALLICE' },
+    { id: 'dunkerque',   name: 'Dunkerque',     shomCode: 'DUNKERQUE' },
+    { id: 'lorient',     name: 'Lorient',       shomCode: 'PORT_COMMERCE_LORIENT' },
+    { id: 'saint-naz',   name: 'Saint-Nazaire', shomCode: 'SAINT-NAZAIRE' },
+    { id: 'marseille',   name: 'Marseille',     shomCode: 'MARSEILLE' },
+    { id: 'nice',        name: 'Nice',          shomCode: 'NICE' },
+    { id: 'toulon',      name: 'Toulon',        shomCode: 'TOULON' },
+];
+
+interface TidePoint {
+    time: string;
+    height: number;
+}
+
+interface TideExtremum {
+    time: string;
+    height: number;
+    type: 'PM' | 'BM';
+}
+
+interface TideData {
+    wl: [string, number][];                        // [["HH:mm:ss", height], ...]
+    hlt?: [string, string, string, string][];       // [["tide.high"|"tide.low"|"tide.none", "HH:MM", "height", "coeff"], ...]
+    coefficients: string[];                        // ["97", "101"]
+}
+
+const coefficientLabel = (coeff: number): { label: string; color: string } => {
+    if (coeff < 45) return { label: 'Morte-eau', color: '#8c8c8c' };
+    if (coeff < 70) return { label: 'Intermédiaire', color: '#13c2c2' };
+    if (coeff < 95) return { label: 'Vive-eau', color: '#fa8c16' };
+    return { label: 'Grande vive-eau', color: '#f5222d' };
+};
+
+
 const getClientLabel = (client?: ClientEntity) => {
     if (!client) {
         return '-';
@@ -286,6 +335,11 @@ export default function Planning() {
     const [prestationModalVisible, setPrestationModalVisible] = useState(false);
     const [prestationVente, setPrestationVente] = useState<VenteEntity | null>(null);
     const [prestationLoading, setPrestationLoading] = useState(false);
+    const [selectedTideLocationId, setSelectedTideLocationId] = useState<string>('carantec');
+    const [tideDate, setTideDate] = useState<string>(todayIso);
+    const [tideData, setTideData] = useState<TideData | null>(null);
+    const [tideLoading, setTideLoading] = useState(false);
+    const [tideError, setTideError] = useState<string | null>(null);
 
     const openPrestationModal = async (venteId: number) => {
         setPrestationModalVisible(true);
@@ -479,6 +533,79 @@ export default function Planning() {
                 .filter(Boolean) as CalendarEvent[],
         [allItems, selectedTechnicien]
     );
+
+    const selectedTideLocation = useMemo(
+        () => TIDE_LOCATIONS.find(l => l.id === selectedTideLocationId) || TIDE_LOCATIONS[0],
+        [selectedTideLocationId]
+    );
+
+    useEffect(() => {
+        setTideData(null);
+        setTideError(null);
+        setTideLoading(true);
+        api.get('/marees', { params: { port: selectedTideLocation.shomCode, date: tideDate } })
+            .then(res => setTideData(res.data))
+            .catch(() => setTideError('Impossible de charger les données de marée SHOM.'))
+            .finally(() => setTideLoading(false));
+    }, [tideDate, selectedTideLocation]);
+
+    // 1440 points (1 min) — précision maximale pour la détection des extrêmes
+    const tidePointsFull = useMemo<TidePoint[]>(() => {
+        if (!tideData?.wl) return [];
+        return tideData.wl.map(([t, h]) => ({
+            time: t.slice(0, 5),
+            height: h,
+        }));
+    }, [tideData]);
+
+    // Sous-échantillonnage à 15 min pour le graphique
+    const tidePoints = useMemo<TidePoint[]>(
+        () => tidePointsFull.filter((_, i) => i % 15 === 0),
+        [tidePointsFull]
+    );
+
+    const tideExtrema = useMemo<TideExtremum[]>(() => {
+        // Priorité aux données HLT exactes fournies par le SHOM
+        if (tideData?.hlt && tideData.hlt.length > 0) {
+            return tideData.hlt
+                .filter(([type]) => type === 'tide.high' || type === 'tide.low')
+                .map(([type, time, height]) => ({
+                    type: type === 'tide.high' ? 'PM' : 'BM',
+                    time,
+                    height: parseFloat(height),
+                }));
+        }
+
+        // Repli : dérivation depuis WL (moins précis)
+        const WINDOW = 120;
+        if (tidePointsFull.length < WINDOW * 2 + 1) return [];
+        const candidates: TideExtremum[] = [];
+        for (let i = WINDOW; i < tidePointsFull.length - WINDOW; i++) {
+            const curr = tidePointsFull[i].height;
+            const neighbours = tidePointsFull.slice(i - WINDOW, i + WINDOW + 1).map(p => p.height);
+            if (curr === Math.max(...neighbours)) candidates.push({ time: tidePointsFull[i].time, height: curr, type: 'PM' });
+            else if (curr === Math.min(...neighbours)) candidates.push({ time: tidePointsFull[i].time, height: curr, type: 'BM' });
+        }
+        const result: TideExtremum[] = [];
+        for (const c of candidates) {
+            const last = result[result.length - 1];
+            if (last && last.type === c.type) {
+                result[result.length - 1] = c.type === 'PM'
+                    ? (c.height >= last.height ? c : last)
+                    : (c.height <= last.height ? c : last);
+            } else {
+                result.push(c);
+            }
+        }
+        return result;
+    }, [tideData, tidePointsFull]);
+
+    const tideCoefficients = useMemo<number[]>(() => {
+        if (!tideData?.coefficients) return [];
+        return tideData.coefficients
+            .map(c => parseInt(c, 10))
+            .filter(c => !isNaN(c));
+    }, [tideData]);
 
     const HOUR_START = 7;
     const HOUR_END = 19;
@@ -742,9 +869,9 @@ export default function Planning() {
 
     return (
         <Card title="Planning">
-            <Row gutter={[16, 16]}>
-                <Col flex="auto">
-                    <Card size="small" title="Filtres">
+            <Row gutter={[16, 16]} align="stretch">
+                <Col flex="auto" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <Card size="small" title="Filtres" style={{ height: '100%' }}>
                         <Space direction="vertical" style={{ width: '100%' }}>
                             <Select
                                 allowClear
@@ -769,8 +896,8 @@ export default function Planning() {
                         </Space>
                     </Card>
                 </Col>
-                <Col flex="auto">
-                    <Card size="small" title="Synthese">
+                <Col flex="auto" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <Card size="small" title="Synthese" style={{ height: '100%' }}>
                         <Space direction="vertical" style={{ width: '100%' }}>
                             <div>
                                 <Badge status="processing" /> Semaine: <strong>{weekLabel}</strong>
@@ -785,6 +912,77 @@ export default function Planning() {
                                 <Badge status="default" /> En attente (total): <strong>{pendingItems.length}</strong>
                             </div>
                         </Space>
+                    </Card>
+                </Col>
+                <Col flex="auto" style={{ display: 'flex', flexDirection: 'column' }}>
+                    <Card
+                        size="small"
+                        title={`Marées — ${tideDate}`}
+                        style={{ height: '100%' }}
+                        extra={<Typography.Text type="secondary" style={{ fontSize: 11 }}>Source : SHOM</Typography.Text>}
+                        loading={tideLoading}
+                    >
+                        <Row gutter={[16, 16]}>
+                            <Col xs={24} sm={8}>
+                                <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
+                                    <Select
+                                        options={TIDE_LOCATIONS.map(l => ({ value: l.id, label: l.name }))}
+                                        value={selectedTideLocationId}
+                                        onChange={setSelectedTideLocationId}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <DatePicker
+                                        value={toDayjs(tideDate)}
+                                        format="DD/MM/YYYY"
+                                        onChange={(d) => d && setTideDate(d.format('YYYY-MM-DD'))}
+                                        allowClear={false}
+                                    />
+                                </Space.Compact>
+                                {tideError ? (
+                                    <Typography.Text type="danger">{tideError}</Typography.Text>
+                                ) : (
+                                    <>
+                                        {tideCoefficients.length > 0 && (() => {
+                                            const maxCoeff = Math.max(...tideCoefficients);
+                                            const { label, color } = coefficientLabel(maxCoeff);
+                                            return (
+                                                <div style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <span style={{ fontSize: 28, fontWeight: 700, color, lineHeight: 1 }}>{tideCoefficients.join(' / ')}</span>
+                                                    <span style={{ color, fontWeight: 600, fontSize: 13 }}>{label}</span>
+                                                </div>
+                                            );
+                                        })()}
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                                            {tideExtrema.map((e) => (
+                                                <div key={`${e.time}-${e.type}`} style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                    <Tag color={e.type === 'PM' ? 'blue' : 'orange'} style={{ margin: 0, minWidth: 80, textAlign: 'center' }}>
+                                                        {e.type === 'PM' ? 'Pleine Mer' : 'Basse Mer'}
+                                                    </Tag>
+                                                    <span style={{ fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{e.time}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                            </Col>
+                            <Col xs={24} sm={16}>
+                                {!tideError && tidePoints.length > 0 && (
+                                    <Line
+                                        data={tidePoints}
+                                        xField="time"
+                                        yField="height"
+                                        smooth
+                                        height={200}
+                                        style={{ lineWidth: 2, stroke: '#1677ff' }}
+                                        axis={{
+                                            y: { title: 'Hauteur (m)' },
+                                            x: { title: false }
+                                        }}
+                                        area={{ style: { fill: 'l(270) 0:#ffffff 1:#1677ff', fillOpacity: 0.15 } }}
+                                    />
+                                )}
+                            </Col>
+                        </Row>
                     </Card>
                 </Col>
             </Row>
