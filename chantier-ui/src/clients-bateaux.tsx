@@ -88,6 +88,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [bateaux, setBateaux] = useState<BateauClient[]>([]);
   const [bateauxCatalogue, setBateauxCatalogue] = useState<any[]>([]);
   const [moteursCatalogue, setMoteursCatalogue] = useState<any[]>([]);
+  const [produitsCatalogue, setProduitsCatalogue] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -588,7 +589,15 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               />
             </Space.Compact>
           </Form.Item>
-          {/* moteurs, équipements could be handled by extra fields/components if needed */}
+          <Form.Item label="Équipements" name="equipements">
+            <Select
+              mode="tags"
+              style={{ width: '100%' }}
+              placeholder="Saisir les équipements (sondeur, GPS, VHF, ...)"
+              tokenSeparators={[',']}
+              allowClear
+            />
+          </Form.Item>
         </Form>
       </Modal>
       <Modal
