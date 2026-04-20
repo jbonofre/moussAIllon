@@ -4,6 +4,7 @@ import { EditOutlined, DeleteOutlined, PlusCircleOutlined } from '@ant-design/ic
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import FournisseurMoteurs from './fournisseur-moteurs.tsx';
+import ForfaitFormModal from './ForfaitFormModal.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 
@@ -114,9 +115,12 @@ const MoteurCatalogue = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [moteurs, setMoteurs] = useState<Moteur[]>([]);
   const [helices, setHelices] = useState<Helice[]>([]);
+  const [forfaits, setForfaits] = useState<any[]>([]);
+  const [initialForfaitIds, setInitialForfaitIds] = useState<number[]>([]);
   const [form] = Form.useForm();
   const [editingMoteur, setEditingMoteur] = useState<Moteur | null>(null);
   const [formDirty, setFormDirty] = useState(false);
+  const [forfaitModalVisible, setForfaitModalVisible] = useState(false);
 
   const fetchMoteurs = async () => {
     setLoading(true);
@@ -145,9 +149,19 @@ const MoteurCatalogue = () => {
     }
   };
 
+  const fetchForfaits = async () => {
+    try {
+      const res = await api.get('/forfaits');
+      setForfaits(res.data || []);
+    } catch {
+      setForfaits([]);
+    }
+  };
+
   useEffect(() => {
     fetchMoteurs();
     fetchHelices();
+    fetchForfaits();
   }, []);
 
   const handleModalCancel = () => {
@@ -172,13 +186,19 @@ const MoteurCatalogue = () => {
     setFormDirty(false);
     setModalVisible(true);
     if (record) {
+      const associatedForfaitIds = forfaits
+        .filter(f => (f.moteursAssocies || []).some((m: any) => m.id === (record as any).id))
+        .map(f => f.id);
+      setInitialForfaitIds(associatedForfaitIds);
       form.setFieldsValue({
         ...(record as object),
         helicesCompatibles: (record as any)?.helicesCompatibles
           ? (record as any).helicesCompatibles.map((h: { id: number }) => h.id)
           : [],
+        forfaitIds: associatedForfaitIds,
       });
     } else {
+      setInitialForfaitIds([]);
       form.resetFields();
       form.setFieldsValue(defaultMoteur);
     }
@@ -195,33 +215,84 @@ const MoteurCatalogue = () => {
     }
   };
 
+  const updateForfaitAssociations = async (moteurId: number, selectedForfaitIds: number[]) => {
+    const added = selectedForfaitIds.filter(id => !initialForfaitIds.includes(id));
+    const removed = initialForfaitIds.filter(id => !selectedForfaitIds.includes(id));
+
+    for (const forfaitId of added) {
+      const forfait = forfaits.find(f => f.id === forfaitId);
+      if (forfait) {
+        const alreadyLinked = (forfait.moteursAssocies || []).some((m: any) => m.id === moteurId);
+        if (!alreadyLinked) {
+          await api.put(`/forfaits/${forfaitId}`, {
+            ...forfait,
+            moteursAssocies: [...(forfait.moteursAssocies || []), { id: moteurId }],
+          });
+        }
+      }
+    }
+
+    for (const forfaitId of removed) {
+      const forfait = forfaits.find(f => f.id === forfaitId);
+      if (forfait) {
+        await api.put(`/forfaits/${forfaitId}`, {
+          ...forfait,
+          moteursAssocies: (forfait.moteursAssocies || []).filter((m: any) => m.id !== moteurId),
+        });
+      }
+    }
+
+    if (added.length > 0 || removed.length > 0) {
+      await fetchForfaits();
+    }
+  };
+
+  const handleForfaitCreated = async (newForfait: any) => {
+    setForfaitModalVisible(false);
+    await fetchForfaits();
+    const currentForfaits = form.getFieldValue('forfaitIds') || [];
+    form.setFieldsValue({ forfaitIds: [...currentForfaits, newForfait.id] });
+  };
+
   const handleModalOk = async () => {
     try {
       const values = await form.validateFields();
+      const { forfaitIds, ...restValues } = values;
       // handle helices compatibles
-      const selectedHelices = helices.filter(h => (values.helicesCompatibles || []).includes(h.id));
+      const selectedHelices = helices.filter(h => (restValues.helicesCompatibles || []).includes(h.id));
       let moteurToSave = {
-        ...values,
+        ...restValues,
         helicesCompatibles: selectedHelices,
       };
 
+      let savedMoteur;
       if (editingMoteur && editingMoteur.id != null) {
         const res = await api.put(`/catalogue/moteurs/${editingMoteur.id}`, moteurToSave);
         message.success('Moteur modifié avec succès');
-        setEditingMoteur(res.data);
+        savedMoteur = res.data;
+        setEditingMoteur(savedMoteur);
         form.setFieldsValue({
-          ...res.data,
-          helicesCompatibles: (res.data.helicesCompatibles || []).map((h: { id: number }) => h.id),
+          ...savedMoteur,
+          helicesCompatibles: (savedMoteur.helicesCompatibles || []).map((h: { id: number }) => h.id),
+          forfaitIds,
         });
       } else {
         const res = await api.post('/catalogue/moteurs', moteurToSave);
         message.success('Moteur ajouté avec succès');
-        setEditingMoteur(res.data);
+        savedMoteur = res.data;
+        setEditingMoteur(savedMoteur);
         form.setFieldsValue({
-          ...res.data,
-          helicesCompatibles: (res.data.helicesCompatibles || []).map((h: { id: number }) => h.id),
+          ...savedMoteur,
+          helicesCompatibles: (savedMoteur.helicesCompatibles || []).map((h: { id: number }) => h.id),
+          forfaitIds,
         });
       }
+
+      if (savedMoteur?.id) {
+        await updateForfaitAssociations(savedMoteur.id, forfaitIds || []);
+        setInitialForfaitIds(forfaitIds || []);
+      }
+
       setFormDirty(false);
       await fetchMoteurs();
       await fetchHelices();
@@ -547,8 +618,42 @@ const MoteurCatalogue = () => {
                   </Form.Item>
                 </Col>
               </Row>
+              {/* Forfaits associés */}
+              <Form.Item label="Forfaits associés" style={{ marginBottom: 0 }}>
+                <Space.Compact style={{ width: "100%" }}>
+                  <Form.Item name="forfaitIds" noStyle>
+                    <Select
+                      mode="multiple"
+                      style={{ width: '100%' }}
+                      placeholder="Associer des forfaits"
+                      optionFilterProp="children"
+                      allowClear
+                      showSearch
+                      filterOption={(input, option) =>
+                        `${option?.children ?? ""}`.toLowerCase().includes(input.toLowerCase())
+                      }
+                    >
+                      {forfaits.map((forfait: any) => (
+                        <Select.Option key={forfait.id} value={forfait.id}>
+                          {forfait.reference ? `${forfait.reference} - ` : ''}{forfait.nom}
+                        </Select.Option>
+                      ))}
+                    </Select>
+                  </Form.Item>
+                  <Button
+                    icon={<PlusCircleOutlined />}
+                    onClick={() => setForfaitModalVisible(true)}
+                  />
+                </Space.Compact>
+              </Form.Item>
             </Form>
             {editingMoteur && <FournisseurMoteurs moteurId={editingMoteur.id} />}
+            <ForfaitFormModal
+              open={forfaitModalVisible}
+              onCancel={() => setForfaitModalVisible(false)}
+              onCreated={handleForfaitCreated}
+              preAssociatedMoteurId={editingMoteur?.id}
+            />
           </Modal>
         </Col>
       </Row>
