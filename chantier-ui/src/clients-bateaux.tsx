@@ -39,6 +39,12 @@ import { useNavigation } from './navigation-context.tsx';
 const { Option } = Select;
 const { Search } = Input;
 
+const formatAnnee = (anneeDebut: number, anneeFin: number) => {
+  if (!anneeDebut) return '';
+  if (!anneeFin || anneeDebut === anneeFin) return `${anneeDebut}`;
+  return `${anneeDebut}-${anneeFin}`;
+};
+
 // Define minimal typing for BateauClientEntity
 interface BateauClient {
   id?: number;
@@ -365,8 +371,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       onFilter: (value, record) => record.proprietaires?.some((p: any) => p.id === value),
     },
     { title: "Modèle", dataIndex: "modele", key: "modele",
-      render: (modele: any) => (modele ? (modele.marque) + " " + (modele.modele) + " (" + (modele.annee) + ")" : ""),
-      filters: bateauxCatalogue.map((bateau) => ({ text: `${bateau.marque} ${bateau.modele} ${bateau.annee ? `(${bateau.annee})` : ""}`, value: bateau.id })),
+      render: (modele: any) => { if (!modele) return ""; const a = formatAnnee(modele.anneeDebut, modele.anneeFin); return `${modele.marque} ${modele.modele}${a ? ` (${a})` : ''}`; },
+      filters: bateauxCatalogue.map((bateau) => { const a = formatAnnee(bateau.anneeDebut, bateau.anneeFin); return { text: `${bateau.marque} ${bateau.modele}${a ? ` (${a})` : ''}`, value: bateau.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
     },
     {
@@ -519,7 +525,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                 >
                   {bateauxCatalogue.map((bateau) => (
                     <Select.Option key={bateau.id} value={bateau.id}>
-                      {bateau.marque} {bateau.modele} {bateau.annee ? `(${bateau.annee})` : ''}
+                      {bateau.marque} {bateau.modele} {formatAnnee(bateau.anneeDebut, bateau.anneeFin) ? `(${formatAnnee(bateau.anneeDebut, bateau.anneeFin)})` : ''}
                     </Select.Option>
                   ))}
                 </Select>
@@ -575,7 +581,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                 >
                   {moteursCatalogue && moteursCatalogue.map((moteur: any) => (
                     <Select.Option key={moteur.id} value={moteur.id}>
-                      {moteur.marque} {moteur.modele} {moteur.annee ? `(${moteur.annee})` : ''}
+                      {moteur.marque} {moteur.modele} {formatAnnee(moteur.anneeDebut, moteur.anneeFin) ? `(${formatAnnee(moteur.anneeDebut, moteur.anneeFin)})` : ''}
                     </Select.Option>
                   ))}
                 </Select>
@@ -613,7 +619,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         <Form
           layout="vertical"
           form={catalogueForm}
-          initialValues={{ annee: new Date().getFullYear(), tva: 20 }}
+          initialValues={{ anneeDebut: new Date().getFullYear(), anneeFin: new Date().getFullYear(), tva: 20 }}
           onValuesChange={(changedValues) => {
             if (changedValues.prixVenteHT || changedValues.tva) {
               const prixVenteHT = catalogueForm.getFieldValue('prixVenteHT');
@@ -656,8 +662,19 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               </Form.Item>
             </Col>
             <Col span={12}>
-              <Form.Item name="annee" label="Année">
-                <InputNumber min={1900} max={new Date().getFullYear()} step={1} style={{ width: '100%' }} />
+              <Form.Item label="Années">
+                <Row gutter={8}>
+                  <Col span={12}>
+                    <Form.Item name="anneeDebut" noStyle>
+                      <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Début" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="anneeFin" noStyle>
+                      <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Fin" />
+                    </Form.Item>
+                  </Col>
+                </Row>
               </Form.Item>
             </Col>
           </Row>

@@ -64,7 +64,8 @@ public class BateauCatalogueResource {
         entity.type = updatedBateauCatalogue.type;
         entity.description = updatedBateauCatalogue.description;
         entity.evaluation = updatedBateauCatalogue.evaluation;
-        entity.annee = updatedBateauCatalogue.annee;
+        entity.anneeDebut = updatedBateauCatalogue.anneeDebut;
+        entity.anneeFin = updatedBateauCatalogue.anneeFin;
         entity.longueurExterieure = updatedBateauCatalogue.longueurExterieure;
         entity.longueurCoque = updatedBateauCatalogue.longueurCoque;
         entity.hauteur = updatedBateauCatalogue.hauteur;

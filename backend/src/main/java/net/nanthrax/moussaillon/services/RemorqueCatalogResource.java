@@ -93,6 +93,8 @@ public class RemorqueCatalogResource {
         entity.modele = remorque.modele;
         entity.marque = remorque.marque;
         entity.description = remorque.description;
+        entity.anneeDebut = remorque.anneeDebut;
+        entity.anneeFin = remorque.anneeFin;
         entity.evaluation = remorque.evaluation;
         entity.ptac = remorque.ptac;
         entity.chargeAVide = remorque.chargeAVide;

@@ -34,7 +34,7 @@ public class BateauCommand {
                 if (json) {
                     System.out.println(api.prettyPrint(response));
                 } else {
-                    System.out.println(api.formatTable(response, "id", "marque", "modele", "type", "annee", "prixPublic", "stock"));
+                    System.out.println(api.formatTable(response, "id", "marque", "modele", "type", "anneeDebut", "anneeFin", "prixPublic", "stock"));
                 }
             } catch (Exception e) {
                 System.err.println("Erreur : " + e.getMessage());
@@ -76,7 +76,7 @@ public class BateauCommand {
                 if (json) {
                     System.out.println(api.prettyPrint(response));
                 } else {
-                    System.out.println(api.formatTable(response, "id", "marque", "modele", "type", "annee", "prixPublic", "stock"));
+                    System.out.println(api.formatTable(response, "id", "marque", "modele", "type", "anneeDebut", "anneeFin", "prixPublic", "stock"));
                 }
             } catch (Exception e) {
                 System.err.println("Erreur : " + e.getMessage());
@@ -97,8 +97,11 @@ public class BateauCommand {
         @CommandLine.Option(names = "--type", required = true, description = "Type de bateau")
         String type;
 
-        @CommandLine.Option(names = "--annee", description = "Année")
-        Integer annee;
+        @CommandLine.Option(names = "--annee-debut", description = "Année début")
+        Integer anneeDebut;
+
+        @CommandLine.Option(names = "--annee-fin", description = "Année fin")
+        Integer anneeFin;
 
         @CommandLine.Option(names = "--prix-public", description = "Prix public")
         Double prixPublic;
@@ -116,7 +119,8 @@ public class BateauCommand {
                         .add("marque", marque)
                         .add("modele", modele)
                         .add("type", type);
-                if (annee != null) builder.add("annee", annee);
+                if (anneeDebut != null) builder.add("anneeDebut", anneeDebut);
+                if (anneeFin != null) builder.add("anneeFin", anneeFin);
                 if (prixPublic != null) builder.add("prixPublic", prixPublic);
                 if (stock != null) builder.add("stock", stock);
                 if (description != null) builder.add("description", description);
@@ -145,8 +149,11 @@ public class BateauCommand {
         @CommandLine.Option(names = "--type", description = "Type de bateau")
         String type;
 
-        @CommandLine.Option(names = "--annee", description = "Année")
-        Integer annee;
+        @CommandLine.Option(names = "--annee-debut", description = "Année début")
+        Integer anneeDebut;
+
+        @CommandLine.Option(names = "--annee-fin", description = "Année fin")
+        Integer anneeFin;
 
         @CommandLine.Option(names = "--prix-public", description = "Prix public")
         Double prixPublic;
@@ -164,7 +171,8 @@ public class BateauCommand {
                 if (marque != null) builder.add("marque", marque);
                 if (modele != null) builder.add("modele", modele);
                 if (type != null) builder.add("type", type);
-                if (annee != null) builder.add("annee", annee);
+                if (anneeDebut != null) builder.add("anneeDebut", anneeDebut);
+                if (anneeFin != null) builder.add("anneeFin", anneeFin);
                 if (prixPublic != null) builder.add("prixPublic", prixPublic);
                 if (stock != null) builder.add("stock", stock);
                 if (description != null) builder.add("description", description);

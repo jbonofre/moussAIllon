@@ -93,6 +93,8 @@ public class ProduitCatalogueResource {
         entity.images = produit.images;
         entity.documents = produit.documents;
         entity.description = produit.description;
+        entity.anneeDebut = produit.anneeDebut;
+        entity.anneeFin = produit.anneeFin;
         entity.evaluation = produit.evaluation;
         entity.stock = produit.stock;
         entity.stockMini = produit.stockMini;

@@ -19,6 +19,8 @@ interface ProduitCatalogueEntity {
     images?: string[];
     documents?: string[];
     description?: string;
+    anneeDebut?: number;
+    anneeFin?: number;
     evaluation?: number;
     stock?: number;
     stockMini?: number;
@@ -42,6 +44,8 @@ const defaultProduit: ProduitCatalogueEntity = {
     images: [],
     documents: [],
     description: '',
+    anneeDebut: new Date().getFullYear(),
+    anneeFin: new Date().getFullYear(),
     evaluation: 0,
     stock: 0,
     stockMini: 0,
@@ -329,6 +333,24 @@ const CatalogueProduits: React.FC = () => {
                                     <Col span={12}>
                                         <Form.Item name="ref" label="Référence interne">
                                             <Input />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item label="Années">
+                                            <Row gutter={8}>
+                                                <Col span={12}>
+                                                    <Form.Item name="anneeDebut" noStyle>
+                                                        <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Début" />
+                                                    </Form.Item>
+                                                </Col>
+                                                <Col span={12}>
+                                                    <Form.Item name="anneeFin" noStyle>
+                                                        <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Fin" />
+                                                    </Form.Item>
+                                                </Col>
+                                            </Row>
                                         </Form.Item>
                                     </Col>
                                 </Row>
