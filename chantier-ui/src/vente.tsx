@@ -296,6 +296,26 @@ interface RappelHistoriqueEntity {
     dateEnvoi?: string;
 }
 
+type LigneType = 'forfait' | 'service' | 'produit';
+
+interface LigneUnifiee {
+    type?: LigneType;
+    itemId?: number;
+    quantite?: number;
+    technicienIds?: number[];
+    status?: PlanningStatus;
+    datePlanification?: string;
+    dateDebut?: string;
+    dateFin?: string;
+    dureeReelle?: number;
+    notes?: string;
+    incidentDate?: string;
+    incidentDetails?: string;
+    taches?: Array<{ nom?: string; description?: string; done?: boolean }>;
+    images?: string[];
+    documents?: string[];
+}
+
 interface VenteFormValues {
     status: VenteStatus;
     bonPourAccord?: boolean;
@@ -305,39 +325,7 @@ interface VenteFormValues {
     bateauId?: number;
     moteurId?: number;
     remorqueId?: number;
-    venteForfaits: Array<{
-        forfaitId?: number;
-        quantite?: number;
-        technicienIds?: number[];
-        status?: PlanningStatus;
-        datePlanification?: string;
-        dateDebut?: string;
-        dateFin?: string;
-        dureeReelle?: number;
-        notes?: string;
-        incidentDate?: string;
-        incidentDetails?: string;
-        taches?: Array<{ nom?: string; description?: string; done?: boolean }>;
-        images?: string[];
-        documents?: string[];
-    }>;
-    venteServices: Array<{
-        serviceId?: number;
-        quantite?: number;
-        technicienIds?: number[];
-        status?: PlanningStatus;
-        datePlanification?: string;
-        dateDebut?: string;
-        dateFin?: string;
-        dureeReelle?: number;
-        notes?: string;
-        incidentDate?: string;
-        incidentDetails?: string;
-        taches?: Array<{ nom?: string; description?: string; done?: boolean }>;
-        images?: string[];
-        documents?: string[];
-    }>;
-    produits: Array<{ produitId?: number; quantite?: number }>;
+    lignes: LigneUnifiee[];
     date?: string;
     montantHT: number;
     remise: number;
@@ -440,9 +428,7 @@ const defaultVente: VenteFormValues = {
     status: 'DEVIS',
     bonPourAccord: false,
     ordreDeReparation: false,
-    venteForfaits: [{ status: 'EN_ATTENTE', quantite: 1 }],
-    venteServices: [{ status: 'EN_ATTENTE', quantite: 1 }],
-    produits: [{ quantite: 1 }],
+    lignes: [{ quantite: 1 }],
     montantHT: 0,
     remise: 0,
     remisePourcentage: 0,
@@ -497,7 +483,7 @@ export default function Vente() {
     const [modalVisible, setModalVisible] = useState(false);
     const [formDirty, setFormDirty] = useState(false);
     const suppressDirtyRef = React.useRef(false);
-    const savedLinesRef = React.useRef<{ forfaitIds: number[]; serviceIds: number[]; produitIds: number[] }>({ forfaitIds: [], serviceIds: [], produitIds: [] });
+    const savedLinesRef = React.useRef<string[]>([]);
     const [isEdit, setIsEdit] = useState(false);
     const [currentVente, setCurrentVente] = useState<VenteEntity | null>(null);
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
@@ -581,6 +567,41 @@ export default function Vente() {
         () => services.map((service) => ({ value: service.id, label: service.nom })),
         [services]
     );
+
+    const ligneUnifieeOptions = useMemo(
+        () => [
+            {
+                label: 'Forfaits',
+                options: forfaits.map((f) => ({
+                    value: `forfait:${f.id}`,
+                    label: f.reference ? `${f.reference} - ${f.nom}` : f.nom,
+                    searchText: `${f.reference || ''} ${f.nom}`.toLowerCase(),
+                })),
+            },
+            {
+                label: 'Produits',
+                options: produits.map((p) => ({
+                    value: `produit:${p.id}`,
+                    label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}`,
+                    searchText: `${p.nom} ${p.marque || ''}`.toLowerCase(),
+                })),
+            },
+        ],
+        [forfaits, produits]
+    );
+
+    const parseLigneValue = (compositeValue?: string): { type: LigneType; id: number } | null => {
+        if (!compositeValue) return null;
+        const [type, idStr] = compositeValue.split(':');
+        const id = parseInt(idStr, 10);
+        if (!type || isNaN(id)) return null;
+        return { type: type as LigneType, id };
+    };
+
+    const toLigneCompositeValue = (type?: LigneType, itemId?: number): string | undefined => {
+        if (!type || !itemId) return undefined;
+        return `${type}:${itemId}`;
+    };
 
     const mainOeuvreOptions = useMemo(
         () => mainOeuvres.map((mo) => ({ value: mo.id, label: mo.reference ? `${mo.reference} - ${mo.nom}` : mo.nom })),
@@ -707,15 +728,14 @@ export default function Vente() {
             message.success('Produit ajouté avec succès');
             setProduits((prev) => [...prev, created]);
             if (newProduitTargetLine !== null && created.id) {
-                const currentLines = form.getFieldValue('produits') || [];
+                const currentLines: LigneUnifiee[] = form.getFieldValue('lignes') || [];
                 const updated = [...currentLines];
-                updated[newProduitTargetLine] = { ...updated[newProduitTargetLine], produitId: created.id };
-                // Check if this was the last line and add a new empty line
+                updated[newProduitTargetLine] = { ...updated[newProduitTargetLine], type: 'produit', itemId: created.id };
                 const lastLine = updated[updated.length - 1];
-                if (!!lastLine?.produitId && (lastLine?.quantite || 0) > 0) {
+                if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
                     updated.push({ quantite: 1 });
                 }
-                form.setFieldValue('produits', updated);
+                form.setFieldValue('lignes', updated);
                 recalculateFromLines('auto', { produits: [...produits, created] });
             }
             setNewProduitModalVisible(false);
@@ -824,15 +844,14 @@ export default function Vente() {
                 message.success('Service ajouté avec succès');
                 setServices((prev) => [...prev, created]);
                 if (newServiceTargetLine !== null && created.id) {
-                    const currentLines = form.getFieldValue('venteServices') || [];
+                    const currentLines: LigneUnifiee[] = form.getFieldValue('lignes') || [];
                     const updatedLines = [...currentLines];
-                    updatedLines[newServiceTargetLine] = { ...updatedLines[newServiceTargetLine], serviceId: created.id };
-                    // Check if this was the last line and add a new empty line
+                    updatedLines[newServiceTargetLine] = { ...updatedLines[newServiceTargetLine], type: 'service', itemId: created.id, status: 'EN_ATTENTE' };
                     const lastLine = updatedLines[updatedLines.length - 1];
-                    if (!!lastLine?.serviceId && (lastLine?.quantite || 0) > 0) {
-                        updatedLines.push({ status: 'EN_ATTENTE', quantite: 1 });
+                    if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
+                        updatedLines.push({ quantite: 1 });
                     }
-                    form.setFieldValue('venteServices', updatedLines);
+                    form.setFieldValue('lignes', updatedLines);
                     recalculateFromLines('auto', { services: [...services, created] });
                 }
             }
@@ -969,15 +988,14 @@ export default function Vente() {
             message.success('Forfait ajouté avec succès');
             setForfaits((prev) => [...prev, created]);
             if (newForfaitTargetLine !== null && created.id) {
-                const currentLines = form.getFieldValue('venteForfaits') || [];
+                const currentLines: LigneUnifiee[] = form.getFieldValue('lignes') || [];
                 const updated = [...currentLines];
-                updated[newForfaitTargetLine] = { ...updated[newForfaitTargetLine], forfaitId: created.id };
-                // Check if this was the last line and add a new empty line
+                updated[newForfaitTargetLine] = { ...updated[newForfaitTargetLine], type: 'forfait', itemId: created.id };
                 const lastLine = updated[updated.length - 1];
-                if (!!lastLine?.forfaitId && (lastLine?.quantite || 0) > 0) {
-                    updated.push({ status: 'EN_ATTENTE', quantite: 1 });
+                if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
+                    updated.push({ quantite: 1 });
                 }
-                form.setFieldValue('venteForfaits', updated);
+                form.setFieldValue('lignes', updated);
                 recalculateFromLines('auto', { forfaits: [...forfaits, created] });
             }
             setNewForfaitModalVisible(false);
@@ -1092,17 +1110,17 @@ export default function Vente() {
                 (bateauMoteurIds.size > 0 && f.moteursAssocies?.some((m) => bateauMoteurIds.has(m.id)))
             );
             if (matchingForfaits.length > 0) {
-                const currentLines = form.getFieldValue('venteForfaits') || [];
-                const existingForfaitIds = new Set(currentLines.filter((l: any) => l?.forfaitId).map((l: any) => l.forfaitId));
+                const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+                const existingForfaitIds = new Set(currentLignes.filter((l) => l.type === 'forfait' && l.itemId).map((l) => l.itemId));
                 const newForfaits = matchingForfaits.filter((f) => !existingForfaitIds.has(f.id));
                 if (newForfaits.length > 0) {
-                    const filledLines = currentLines.filter((l: any) => l?.forfaitId);
-                    const newLines = [
+                    const filledLines = currentLignes.filter((l) => l.type && l.itemId);
+                    const newLines: LigneUnifiee[] = [
                         ...filledLines,
-                        ...newForfaits.map((f) => ({ forfaitId: f.id, quantite: 1, status: 'EN_ATTENTE' })),
-                        { status: 'EN_ATTENTE', quantite: 1 }
+                        ...newForfaits.map((f) => ({ type: 'forfait' as LigneType, itemId: f.id, quantite: 1, status: 'EN_ATTENTE' as PlanningStatus })),
+                        { quantite: 1 }
                     ];
-                    form.setFieldValue('venteForfaits', newLines);
+                    form.setFieldValue('lignes', newLines);
                     recalculateFromLines('auto');
                 }
             }
@@ -1185,54 +1203,62 @@ export default function Vente() {
     };
 
     const snapshotSavedLines = (vente?: VenteEntity | null) => {
-        savedLinesRef.current = {
-            forfaitIds: (vente?.venteForfaits || []).map(vf => vf.forfait?.id).filter(Boolean).sort() as number[],
-            serviceIds: (vente?.venteServices || []).map(vs => vs.service?.id).filter(Boolean).sort() as number[],
-            produitIds: (vente?.produits || []).map(p => p?.id).filter(Boolean).sort() as number[],
-        };
+        const keys: string[] = [];
+        (vente?.venteForfaits || []).forEach(vf => { if (vf.forfait?.id) keys.push(`forfait:${vf.forfait.id}`); });
+        (vente?.venteServices || []).forEach(vs => { if (vs.service?.id) keys.push(`service:${vs.service.id}`); });
+        const produitIds = new Set((vente?.produits || []).map(p => p?.id).filter(Boolean));
+        produitIds.forEach(id => keys.push(`produit:${id}`));
+        savedLinesRef.current = keys.sort();
     };
 
     const populateForm = (vente: VenteEntity) => {
-        const venteForfaitLines = (vente.venteForfaits || []).map(vf => ({
-            forfaitId: vf.forfait?.id,
-            quantite: vf.quantite || 1,
-            technicienIds: (vf.techniciens || []).map(t => t.id),
-            status: vf.status || 'EN_ATTENTE',
-            datePlanification: vf.datePlanification,
-            dateDebut: vf.dateDebut,
-            dateFin: vf.dateFin,
-            dureeReelle: vf.dureeReelle || 0,
-            notes: vf.notes || '',
-            incidentDate: toDateDayjs(vf.incidentDate),
-            incidentDetails: vf.incidentDetails || '',
-            taches: (vf.taches || []).map(t => ({ nom: t.nom || '', description: t.description || '', done: t.done || false })),
-            images: vf.images || [],
-            documents: vf.documents || [],
-        }));
-        const venteServiceLines = (vente.venteServices || []).map(vs => ({
-            serviceId: vs.service?.id,
-            quantite: vs.quantite || 1,
-            technicienIds: (vs.techniciens || []).map(t => t.id),
-            status: vs.status || 'EN_ATTENTE',
-            datePlanification: vs.datePlanification,
-            dateDebut: vs.dateDebut,
-            dateFin: vs.dateFin,
-            dureeReelle: vs.dureeReelle || 0,
-            notes: vs.notes || '',
-            incidentDate: toDateDayjs(vs.incidentDate),
-            incidentDetails: vs.incidentDetails || '',
-            taches: (vs.taches || []).map(t => ({ nom: t.nom || '', description: t.description || '', done: t.done || false })),
-            images: vs.images || [],
-            documents: vs.documents || [],
-        }));
+        const lignes: LigneUnifiee[] = [];
+        (vente.venteForfaits || []).forEach(vf => {
+            lignes.push({
+                type: 'forfait',
+                itemId: vf.forfait?.id,
+                quantite: vf.quantite || 1,
+                technicienIds: (vf.techniciens || []).map(t => t.id),
+                status: vf.status || 'EN_ATTENTE',
+                datePlanification: vf.datePlanification,
+                dateDebut: vf.dateDebut,
+                dateFin: vf.dateFin,
+                dureeReelle: vf.dureeReelle || 0,
+                notes: vf.notes || '',
+                incidentDate: toDateDayjs(vf.incidentDate) as any,
+                incidentDetails: vf.incidentDetails || '',
+                taches: (vf.taches || []).map(t => ({ nom: t.nom || '', description: t.description || '', done: t.done || false })),
+                images: vf.images || [],
+                documents: vf.documents || [],
+            });
+        });
+        (vente.venteServices || []).forEach(vs => {
+            lignes.push({
+                type: 'service',
+                itemId: vs.service?.id,
+                quantite: vs.quantite || 1,
+                technicienIds: (vs.techniciens || []).map(t => t.id),
+                status: vs.status || 'EN_ATTENTE',
+                datePlanification: vs.datePlanification,
+                dateDebut: vs.dateDebut,
+                dateFin: vs.dateFin,
+                dureeReelle: vs.dureeReelle || 0,
+                notes: vs.notes || '',
+                incidentDate: toDateDayjs(vs.incidentDate) as any,
+                incidentDetails: vs.incidentDetails || '',
+                taches: (vs.taches || []).map(t => ({ nom: t.nom || '', description: t.description || '', done: t.done || false })),
+                images: vs.images || [],
+                documents: vs.documents || [],
+            });
+        });
         const produitLinesMap = (vente.produits || []).reduce((acc, item) => {
-            if (!item?.id) {
-                return acc;
-            }
+            if (!item?.id) return acc;
             acc.set(item.id, (acc.get(item.id) || 0) + 1);
             return acc;
         }, new Map<number, number>());
-        const produitLines = Array.from(produitLinesMap.entries()).map(([produitId, quantite]) => ({ produitId, quantite }));
+        Array.from(produitLinesMap.entries()).forEach(([produitId, quantite]) => {
+            lignes.push({ type: 'produit', itemId: produitId, quantite });
+        });
         form.resetFields();
         form.setFieldsValue({
             status: vente.status || 'DEVIS',
@@ -1243,9 +1269,7 @@ export default function Vente() {
             bateauId: vente.bateau?.id,
             moteurId: vente.moteur?.id,
             remorqueId: vente.remorque?.id,
-            venteForfaits: [...venteForfaitLines, { status: 'EN_ATTENTE', quantite: 1 }],
-            venteServices: [...venteServiceLines, { status: 'EN_ATTENTE', quantite: 1 }],
-            produits: [...produitLines, { quantite: 1 }],
+            lignes: [...lignes, { quantite: 1 }],
             date: toDateDayjs(vente.date) || getTodayDayjs(),
             montantHT: vente.montantHT || 0,
             remise: vente.remise || 0,
@@ -1264,24 +1288,21 @@ export default function Vente() {
     };
 
     const getBpaSummaryLines = useCallback(() => {
-        const venteForfaitLines = form.getFieldValue('venteForfaits') || [];
-        const venteServiceLines = form.getFieldValue('venteServices') || [];
-        const produitLines = form.getFieldValue('produits') || [];
+        const allLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
         const lines: Array<{ type: string; nom: string; quantite: number; prixTTC: number }> = [];
-        venteForfaitLines.forEach((line: { forfaitId?: number; quantite?: number }) => {
-            if (!line.forfaitId) return;
-            const f = forfaits.find((item) => item.id === line.forfaitId);
-            if (f) lines.push({ type: 'Forfait', nom: f.nom, quantite: line.quantite || 1, prixTTC: (f.prixTTC || 0) * (line.quantite || 1) });
-        });
-        venteServiceLines.forEach((line: { serviceId?: number; quantite?: number }) => {
-            if (!line.serviceId) return;
-            const s = services.find((item) => item.id === line.serviceId);
-            if (s) lines.push({ type: 'Service', nom: s.nom, quantite: line.quantite || 1, prixTTC: (s.prixTTC || 0) * (line.quantite || 1) });
-        });
-        produitLines.forEach((line: { produitId?: number; quantite?: number }) => {
-            if (!line.produitId) return;
-            const p = produits.find((item) => item.id === line.produitId);
-            if (p) lines.push({ type: 'Produit', nom: p.nom, quantite: line.quantite || 1, prixTTC: (p.prixVenteTTC || 0) * (line.quantite || 1) });
+        allLignes.forEach((line) => {
+            if (!line.type || !line.itemId) return;
+            const quantite = line.quantite || 1;
+            if (line.type === 'forfait') {
+                const f = forfaits.find((item) => item.id === line.itemId);
+                if (f) lines.push({ type: 'Forfait', nom: f.nom, quantite, prixTTC: (f.prixTTC || 0) * quantite });
+            } else if (line.type === 'service') {
+                const s = services.find((item) => item.id === line.itemId);
+                if (s) lines.push({ type: 'Service', nom: s.nom, quantite, prixTTC: (s.prixTTC || 0) * quantite });
+            } else if (line.type === 'produit') {
+                const p = produits.find((item) => item.id === line.itemId);
+                if (p) lines.push({ type: 'Produit', nom: p.nom, quantite, prixTTC: (p.prixVenteTTC || 0) * quantite });
+            }
         });
         return lines;
     }, [form, forfaits, services, produits]);
@@ -1361,17 +1382,12 @@ export default function Vente() {
     };
 
     const handleModalCancel = () => {
-        const venteForfaits = form.getFieldValue('venteForfaits') || [];
-        const venteServices = form.getFieldValue('venteServices') || [];
-        const venteProduits = form.getFieldValue('produits') || [];
-        const currentForfaitIds = venteForfaits.map((l: { forfaitId?: number }) => l.forfaitId).filter(Boolean).sort() as number[];
-        const currentServiceIds = venteServices.map((l: { serviceId?: number }) => l.serviceId).filter(Boolean).sort() as number[];
-        const currentProduitIds = venteProduits.map((l: { produitId?: number }) => l.produitId).filter(Boolean).sort() as number[];
-        const saved = savedLinesRef.current;
-        const linesChanged =
-            JSON.stringify(currentForfaitIds) !== JSON.stringify(saved.forfaitIds) ||
-            JSON.stringify(currentServiceIds) !== JSON.stringify(saved.serviceIds) ||
-            JSON.stringify(currentProduitIds) !== JSON.stringify(saved.produitIds);
+        const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+        const currentKeys = currentLignes
+            .filter((l) => l.type && l.itemId)
+            .map((l) => `${l.type}:${l.itemId}`)
+            .sort();
+        const linesChanged = JSON.stringify(currentKeys) !== JSON.stringify(savedLinesRef.current);
 
         if (linesChanged) {
             Modal.warning({
@@ -1430,26 +1446,28 @@ export default function Vente() {
         setTimeout(() => { suppressDirtyRef.current = false; }, 0);
     };
 
-    const toPayload = (values: VenteFormValues): VenteEntity => ({
-        status: values.status,
-        bonPourAccord: values.bonPourAccord,
-        ordreDeReparation: values.ordreDeReparation,
-        signatureBonPourAccord: values.signatureBonPourAccord,
-        client: clients.find((client) => client.id === values.clientId),
-        bateau: bateaux.find((bateau) => bateau.id === values.bateauId),
-        moteur: moteurs.find((moteur) => moteur.id === values.moteurId),
-        remorque: remorques.find((remorque) => remorque.id === values.remorqueId),
-        venteForfaits: (values.venteForfaits || [])
-            .filter((line) => line.forfaitId)
-            .map((line) => {
-                const selectedForfait = forfaits.find((f) => f.id === line.forfaitId);
-                // Use existing taches if available, otherwise copy from catalogue forfait template
+    const toPayload = (values: VenteFormValues): VenteEntity => {
+        const allLignes = (values.lignes || []).filter((l) => l.type && l.itemId);
+        const forfaitLines = allLignes.filter((l) => l.type === 'forfait');
+        const serviceLines = allLignes.filter((l) => l.type === 'service');
+        const produitLines = allLignes.filter((l) => l.type === 'produit');
+
+        return {
+            status: values.status,
+            bonPourAccord: values.bonPourAccord,
+            ordreDeReparation: values.ordreDeReparation,
+            signatureBonPourAccord: values.signatureBonPourAccord,
+            client: clients.find((client) => client.id === values.clientId),
+            bateau: bateaux.find((bateau) => bateau.id === values.bateauId),
+            moteur: moteurs.find((moteur) => moteur.id === values.moteurId),
+            remorque: remorques.find((remorque) => remorque.id === values.remorqueId),
+            venteForfaits: forfaitLines.map((line) => {
+                const selectedForfait = forfaits.find((f) => f.id === line.itemId);
                 const existingTaches = (line.taches || []).filter((t: { nom?: string }) => t.nom?.trim());
                 const taches = existingTaches.length > 0
                     ? existingTaches.map((t: { nom?: string; description?: string; done?: boolean }) => ({ nom: t.nom, description: t.description, done: t.done || false }))
                     : (selectedForfait?.taches || []).filter((t) => t.nom?.trim()).map((t) => ({ nom: t.nom, description: t.description || '', done: false }));
-                // Preserve existing vente data (dates, etc.) from currentVente if available
-                const existingVf = (currentVente?.venteForfaits || []).find((vf) => vf.forfait?.id === line.forfaitId);
+                const existingVf = (currentVente?.venteForfaits || []).find((vf) => vf.forfait?.id === line.itemId);
                 return {
                     forfait: selectedForfait,
                     quantite: line.quantite || 1,
@@ -1467,17 +1485,14 @@ export default function Vente() {
                     documents: line.documents || existingVf?.documents || [],
                 };
             }),
-        venteServices: (values.venteServices || [])
-            .filter((line) => line.serviceId)
-            .map((line) => {
-                // Preserve existing taches from currentVente
-                const existingVs = (currentVente?.venteServices || []).find((vs) => vs.service?.id === line.serviceId);
+            venteServices: serviceLines.map((line) => {
+                const existingVs = (currentVente?.venteServices || []).find((vs) => vs.service?.id === line.itemId);
                 const existingTaches = (line.taches || []).filter((t: { nom?: string }) => t.nom?.trim());
                 const taches = existingTaches.length > 0
                     ? existingTaches.map((t: { nom?: string; description?: string; done?: boolean }) => ({ nom: t.nom, description: t.description, done: t.done || false }))
                     : (existingVs?.taches || []).map((t) => ({ nom: t.nom, description: t.description || '', done: t.done || false }));
                 return {
-                    service: services.find((s) => s.id === line.serviceId),
+                    service: services.find((s) => s.id === line.itemId),
                     quantite: line.quantite || 1,
                     techniciens: (line.technicienIds || []).map((id: number) => techniciens.find((t) => t.id === id)).filter(Boolean),
                     datePlanification: line.datePlanification || existingVs?.datePlanification,
@@ -1493,27 +1508,26 @@ export default function Vente() {
                     documents: line.documents || existingVs?.documents || [],
                 };
             }),
-        produits: (values.produits || [])
-            .filter((line) => line.produitId)
-            .flatMap((line) => {
-                const item = produits.find((produit) => produit.id === line.produitId);
+            produits: produitLines.flatMap((line) => {
+                const item = produits.find((produit) => produit.id === line.itemId);
                 const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
                 return item ? Array.from({ length: safeQuantity }, () => item) : [];
             }) as ProduitCatalogueEntity[],
-        date: toBackendDateValue(values.date),
-        montantHT: values.montantHT || 0,
-        remise: values.remise || 0,
-        tva: values.tva || 0,
-        montantTVA: values.montantTVA || 0,
-        montantTTC: values.montantTTC || 0,
-        prixVenteTTC: values.prixVenteTTC || 0,
-        modePaiement: values.modePaiement,
-        images: values.images || [],
-        documents: values.documents || [],
-        rappel1Jours: values.rappel1Jours,
-        rappel2Jours: values.rappel2Jours,
-        rappel3Jours: values.rappel3Jours
-    });
+            date: toBackendDateValue(values.date),
+            montantHT: values.montantHT || 0,
+            remise: values.remise || 0,
+            tva: values.tva || 0,
+            montantTVA: values.montantTVA || 0,
+            montantTTC: values.montantTTC || 0,
+            prixVenteTTC: values.prixVenteTTC || 0,
+            modePaiement: values.modePaiement,
+            images: values.images || [],
+            documents: values.documents || [],
+            rappel1Jours: values.rappel1Jours,
+            rappel2Jours: values.rappel2Jours,
+            rappel3Jours: values.rappel3Jours
+        };
+    };
 
     const handleSave = async () => {
         try {
@@ -1563,9 +1577,8 @@ export default function Vente() {
         }
         // Block transition to "Facture complète" (step 3+) if not all tasks are done
         if (step >= 3 && currentStep < 3) {
-            const forfaitLines = (form.getFieldValue('venteForfaits') || []).filter((l: { forfaitId?: number }) => l.forfaitId);
-            const serviceLines = (form.getFieldValue('venteServices') || []).filter((l: { serviceId?: number }) => l.serviceId);
-            const allLines = [...forfaitLines, ...serviceLines];
+            const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+            const allLines = currentLignes.filter((l) => (l.type === 'forfait' || l.type === 'service') && l.itemId);
             const allDone = allLines.length > 0 && allLines.every((l: { status?: PlanningStatus }) =>
                 l.status === 'TERMINEE' || l.status === 'ANNULEE'
             );
@@ -1777,9 +1790,7 @@ export default function Vente() {
         remiseSource: 'amount' | 'percentage' | 'auto' = 'auto',
         overrides?: { forfaits?: ForfaitEntity[]; produits?: ProduitCatalogueEntity[]; services?: ServiceEntity[] }
     ) => {
-        const venteForfaitLines = form.getFieldValue('venteForfaits') || [];
-        const produitLines = form.getFieldValue('produits') || [];
-        const venteServiceLines = form.getFieldValue('venteServices') || [];
+        const allLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
         let remise = form.getFieldValue('remise') || 0;
         let remisePourcentage = form.getFieldValue('remisePourcentage') || 0;
         const tva = form.getFieldValue('tva') || 0;
@@ -1788,23 +1799,20 @@ export default function Vente() {
         const allProduits = overrides?.produits ?? produits;
         const allServices = overrides?.services ?? services;
 
-        const forfaitsTTC = venteForfaitLines.reduce((sum: number, line: { forfaitId?: number; quantite?: number }) => {
-            const prixUnitaire = allForfaits.find((item) => item.id === line.forfaitId)?.prixTTC || 0;
+        let totalTTC = 0;
+        allLignes.forEach((line) => {
+            if (!line.type || !line.itemId) return;
             const quantite = Math.max(1, Math.floor(line.quantite || 1));
-            return sum + (prixUnitaire * quantite);
-        }, 0);
-        const produitsTTC = produitLines.reduce((sum: number, line: { produitId?: number; quantite?: number }) => {
-            const prixUnitaire = allProduits.find((item) => item.id === line.produitId)?.prixVenteTTC || 0;
-            const quantite = Math.max(1, Math.floor(line.quantite || 1));
-            return sum + (prixUnitaire * quantite);
-        }, 0);
-        const servicesTTC = venteServiceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number }) => {
-            const prixUnitaire = allServices.find((item) => item.id === line.serviceId)?.prixTTC || 0;
-            const quantite = Math.max(1, Math.floor(line.quantite || 1));
-            return sum + (prixUnitaire * quantite);
-        }, 0);
+            if (line.type === 'forfait') {
+                totalTTC += (allForfaits.find((f) => f.id === line.itemId)?.prixTTC || 0) * quantite;
+            } else if (line.type === 'service') {
+                totalTTC += (allServices.find((s) => s.id === line.itemId)?.prixTTC || 0) * quantite;
+            } else if (line.type === 'produit') {
+                totalTTC += (allProduits.find((p) => p.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+            }
+        });
 
-        const montantTTC = Math.round(((forfaitsTTC + produitsTTC + servicesTTC) + Number.EPSILON) * 100) / 100;
+        const montantTTC = Math.round((totalTTC + Number.EPSILON) * 100) / 100;
         const montantTVA = Math.round((((montantTTC / (100 + tva)) * tva) + Number.EPSILON) * 100) / 100;
         const montantHT = Math.round(((montantTTC - montantTVA) + Number.EPSILON) * 100) / 100;
 
@@ -1830,41 +1838,15 @@ export default function Vente() {
         if (!suppressDirtyRef.current) {
             setFormDirty(true);
         }
-        if (changedValues.venteForfaits !== undefined) {
-            const currentForfaitLines = allValues.venteForfaits || [];
-            if (currentForfaitLines.length === 0) {
-                form.setFieldValue('venteForfaits', [{ status: 'EN_ATTENTE', quantite: 1 }]);
+        if (changedValues.lignes !== undefined) {
+            const currentLignes = allValues.lignes || [];
+            if (currentLignes.length === 0) {
+                form.setFieldValue('lignes', [{ quantite: 1 }]);
             } else {
-                const lastForfaitLine = currentForfaitLines[currentForfaitLines.length - 1];
-                const isLastLineComplete = !!lastForfaitLine?.forfaitId && (lastForfaitLine?.quantite || 0) > 0;
+                const lastLine = currentLignes[currentLignes.length - 1];
+                const isLastLineComplete = !!lastLine?.type && !!lastLine?.itemId && (lastLine?.quantite || 0) > 0;
                 if (isLastLineComplete) {
-                    form.setFieldValue('venteForfaits', [...currentForfaitLines, { status: 'EN_ATTENTE', quantite: 1 }]);
-                }
-            }
-        }
-
-        if (changedValues.produits !== undefined) {
-            const currentProduitLines = allValues.produits || [];
-            if (currentProduitLines.length === 0) {
-                form.setFieldValue('produits', [{ quantite: 1 }]);
-            } else {
-                const lastProduitLine = currentProduitLines[currentProduitLines.length - 1];
-                const isLastLineComplete = !!lastProduitLine?.produitId && (lastProduitLine?.quantite || 0) > 0;
-                if (isLastLineComplete) {
-                    form.setFieldValue('produits', [...currentProduitLines, { quantite: 1 }]);
-                }
-            }
-        }
-
-        if (changedValues.venteServices !== undefined) {
-            const currentServiceLines = allValues.venteServices || [];
-            if (currentServiceLines.length === 0) {
-                form.setFieldValue('venteServices', [{ status: 'EN_ATTENTE', quantite: 1 }]);
-            } else {
-                const lastServiceLine = currentServiceLines[currentServiceLines.length - 1];
-                const isLastLineComplete = !!lastServiceLine?.serviceId && (lastServiceLine?.quantite || 0) > 0;
-                if (isLastLineComplete) {
-                    form.setFieldValue('venteServices', [...currentServiceLines, { status: 'EN_ATTENTE', quantite: 1 }]);
+                    form.setFieldValue('lignes', [...currentLignes, { quantite: 1 }]);
                 }
             }
         }
@@ -1926,9 +1908,7 @@ export default function Vente() {
         }
 
         if (
-            changedValues.venteForfaits !== undefined ||
-            changedValues.produits !== undefined ||
-            changedValues.venteServices !== undefined ||
+            changedValues.lignes !== undefined ||
             changedValues.tva !== undefined ||
             changedValues.remisePourcentage !== undefined ||
             changedValues.remise !== undefined
@@ -2239,80 +2219,125 @@ export default function Vente() {
                                 key: 'lignes',
                                 label: 'Lignes',
                                 children: (
-                                    <>
-                                        <Form.Item label="Forfaits">
-                                            <Form.List name="venteForfaits">
-                                                {(fields, { remove }) => (
-                                                    <>
-                                                        {fields.map((field) => {
-                                                            const forfaitId = form.getFieldValue(['venteForfaits', field.name, 'forfaitId']);
-                                                            const isEmptyLine = !forfaitId;
-                                                            return (
-                                                            <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'forfaitId']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async () => {}
-                                                                        }
-                                                                    ]}
-                                                                    style={{ width: 280 }}
-                                                                >
-                                                                    <Select
-                                                                        allowClear
-                                                                        showSearch
-                                                                        options={forfaitOptions}
-                                                                        placeholder="Forfait"
-                                                                        filterOption={(input, option) =>
-                                                                            (((option as { searchText?: string } | undefined)?.searchText) || '').includes(input.toLowerCase())
-                                                                        }
-                                                                    />
-                                                                </Form.Item>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'quantite']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async (_, value) => {
-                                                                                const line = form.getFieldValue(['venteForfaits', field.name]);
-                                                                                if (!line?.forfaitId && (value === undefined || value === null)) {
-                                                                                    return;
-                                                                                }
-                                                                                if (!value || value <= 0) {
-                                                                                    throw new Error('Quantite requise');
-                                                                                }
+                                    <Form.List name="lignes">
+                                        {(fields, { remove }) => (
+                                            <>
+                                                {fields.map((field) => {
+                                                    const ligne: LigneUnifiee = form.getFieldValue(['lignes', field.name]) || {};
+                                                    const lineType = ligne.type;
+                                                    const itemId = ligne.itemId;
+                                                    const isEmptyLine = !lineType || !itemId;
+                                                    const isForfaitOrService = lineType === 'forfait' || lineType === 'service';
+
+                                                    const getUnitPrice = () => {
+                                                        if (!lineType || !itemId) return undefined;
+                                                        if (lineType === 'forfait') return forfaits.find((f) => f.id === itemId)?.prixTTC;
+                                                        if (lineType === 'service') return services.find((s) => s.id === itemId)?.prixTTC;
+                                                        if (lineType === 'produit') return produits.find((p) => p.id === itemId)?.prixVenteTTC;
+                                                        return undefined;
+                                                    };
+
+                                                    return (
+                                                    <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
+                                                        <Form.Item
+                                                            {...field}
+                                                            name={[field.name, 'type']}
+                                                            hidden
+                                                        >
+                                                            <Input />
+                                                        </Form.Item>
+                                                        <Form.Item
+                                                            {...field}
+                                                            name={[field.name, 'itemId']}
+                                                            hidden
+                                                        >
+                                                            <InputNumber />
+                                                        </Form.Item>
+                                                        <Form.Item style={{ width: 320 }}>
+                                                            {lineType === 'service' ? (
+                                                                <Input disabled value={services.find((s) => s.id === itemId)?.nom || ''} placeholder="Service" />
+                                                            ) : (
+                                                                <Select
+                                                                    allowClear
+                                                                    showSearch
+                                                                    value={toLigneCompositeValue(lineType, itemId)}
+                                                                    options={ligneUnifieeOptions}
+                                                                    placeholder="Forfait ou Produit"
+                                                                    filterOption={(input, option) =>
+                                                                        ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
+                                                                    }
+                                                                    onChange={(compositeValue: string) => {
+                                                                        const parsed = parseLigneValue(compositeValue);
+                                                                        const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+                                                                        const updated = [...currentLignes];
+                                                                        if (parsed) {
+                                                                            const defaults: Partial<LigneUnifiee> = parsed.type !== 'produit'
+                                                                                ? { status: 'EN_ATTENTE' }
+                                                                                : {};
+                                                                            updated[field.name] = { ...updated[field.name], type: parsed.type, itemId: parsed.id, ...defaults };
+                                                                            const lastLine = updated[updated.length - 1];
+                                                                            if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
+                                                                                updated.push({ quantite: 1 });
                                                                             }
+                                                                        } else {
+                                                                            updated[field.name] = { quantite: updated[field.name]?.quantite || 1 };
                                                                         }
-                                                                    ]}
-                                                                    style={{ width: 80 }}
-                                                                >
-                                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
-                                                                </Form.Item>
-                                                                <Form.Item noStyle shouldUpdate>
-                                                                    {({ getFieldValue }) => {
-                                                                        const fId = getFieldValue(['venteForfaits', field.name, 'forfaitId']);
-                                                                        const pu = forfaits.find((f) => f.id === fId)?.prixTTC;
-                                                                        return (
-                                                                            <Form.Item style={{ width: 120 }}>
-                                                                                <InputNumber addonAfter="EUR" value={pu ?? undefined} style={{ width: '100%' }} disabled placeholder="P.U." />
-                                                                            </Form.Item>
-                                                                        );
+                                                                        form.setFieldValue('lignes', updated);
+                                                                        setFormDirty(true);
+                                                                        recalculateFromLines('auto');
                                                                     }}
-                                                                </Form.Item>
-                                                                <Form.Item noStyle shouldUpdate>
-                                                                    {({ getFieldValue }) => {
-                                                                        const fId = getFieldValue(['venteForfaits', field.name, 'forfaitId']);
-                                                                        const quantite = getFieldValue(['venteForfaits', field.name, 'quantite']) || 0;
-                                                                        const pu = forfaits.find((f) => f.id === fId)?.prixTTC || 0;
-                                                                        const total = Math.round(((pu * quantite) + Number.EPSILON) * 100) / 100;
-                                                                        return (
-                                                                            <Form.Item style={{ width: 120 }}>
-                                                                                <InputNumber addonAfter="EUR" value={total} style={{ width: '100%' }} disabled />
-                                                                            </Form.Item>
-                                                                        );
-                                                                    }}
-                                                                </Form.Item>
+                                                                />
+                                                            )}
+                                                        </Form.Item>
+                                                        {lineType && (
+                                                            <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : 'orange'} style={{ marginRight: 0 }}>
+                                                                {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : 'P'}
+                                                            </Tag>
+                                                        )}
+                                                        <Form.Item
+                                                            {...field}
+                                                            name={[field.name, 'quantite']}
+                                                            rules={[
+                                                                {
+                                                                    validator: async (_, value) => {
+                                                                        const line: LigneUnifiee = form.getFieldValue(['lignes', field.name]);
+                                                                        if (!line?.type && !line?.itemId && (value === undefined || value === null)) {
+                                                                            return;
+                                                                        }
+                                                                        if (!value || value <= 0) {
+                                                                            throw new Error('Quantite requise');
+                                                                        }
+                                                                    }
+                                                                }
+                                                            ]}
+                                                            style={{ width: 80 }}
+                                                        >
+                                                            <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
+                                                        </Form.Item>
+                                                        <Form.Item noStyle shouldUpdate>
+                                                            {() => {
+                                                                const pu = getUnitPrice();
+                                                                return (
+                                                                    <Form.Item style={{ width: 120 }}>
+                                                                        <InputNumber addonAfter="EUR" value={pu ?? undefined} style={{ width: '100%' }} disabled placeholder="P.U." />
+                                                                    </Form.Item>
+                                                                );
+                                                            }}
+                                                        </Form.Item>
+                                                        <Form.Item noStyle shouldUpdate>
+                                                            {() => {
+                                                                const pu = getUnitPrice() || 0;
+                                                                const quantite = form.getFieldValue(['lignes', field.name, 'quantite']) || 0;
+                                                                const total = Math.round(((pu * quantite) + Number.EPSILON) * 100) / 100;
+                                                                return (
+                                                                    <Form.Item style={{ width: 120 }}>
+                                                                        <InputNumber addonAfter="EUR" value={total} style={{ width: '100%' }} disabled />
+                                                                    </Form.Item>
+                                                                );
+                                                            }}
+                                                        </Form.Item>
+                                                        {isForfaitOrService && (
+                                                            <>
                                                                 <Form.Item
                                                                     {...field}
                                                                     name={[field.name, 'status']}
@@ -2323,198 +2348,42 @@ export default function Vente() {
                                                                 <Form.Item
                                                                     {...field}
                                                                     name={[field.name, 'technicienIds']}
-                                                                    style={{ width: 220 }}
+                                                                    style={{ width: 200 }}
                                                                 >
                                                                     <Select mode="multiple" allowClear showSearch options={technicienOptions} placeholder="Techniciens" disabled={!watchedBonPourAccord} />
                                                                 </Form.Item>
-                                                                {isEmptyLine ? (
-                                                                    <Button icon={<PlusOutlined />} title="Créer un forfait" onClick={() => openNewForfaitModal(field.name)} />
-                                                                ) : (
+                                                            </>
+                                                        )}
+                                                        {isEmptyLine ? (
+                                                            <Dropdown
+                                                                menu={{
+                                                                    items: [
+                                                                        { key: 'forfait', label: 'Forfait', onClick: () => openNewForfaitModal(field.name) },
+                                                                        { key: 'service', label: 'Service', onClick: () => openNewServiceModal(field.name) },
+                                                                        { key: 'produit', label: 'Produit', onClick: () => openNewProduitModal(field.name) },
+                                                                    ],
+                                                                }}
+                                                                trigger={['click']}
+                                                            >
+                                                                <Button icon={<PlusOutlined />} title="Créer..." />
+                                                            </Dropdown>
+                                                        ) : (
+                                                            <>
+                                                                {lineType === 'service' && itemId && (
+                                                                    <Button icon={<EditOutlined />} title="Modifier le service" onClick={() => openEditServiceModal(itemId)} />
+                                                                )}
+                                                                {isForfaitOrService && (
                                                                     <Button icon={<CalendarOutlined />} title="Planifier" disabled={!watchedBonPourAccord} onClick={() => { setModalVisible(false); navigate('/planning'); }} />
                                                                 )}
-                                                                <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                            </Space>
-                                                            );
-                                                        })}
-                                                    </>
-                                                )}
-                                            </Form.List>
-                                        </Form.Item>
-
-                                        <Form.Item label="Services">
-                                            <Form.List name="venteServices">
-                                                {(fields, { remove }) => (
-                                                    <>
-                                                        {fields.map((field) => {
-                                                            const serviceId = form.getFieldValue(['venteServices', field.name, 'serviceId']);
-                                                            const isEmptyLine = !serviceId;
-                                                            return (
-                                                            <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'serviceId']}
-                                                                    hidden
-                                                                >
-                                                                    <InputNumber />
-                                                                </Form.Item>
-                                                                <Form.Item
-                                                                    style={{ width: 280 }}
-                                                                >
-                                                                    <Input disabled value={services.find((s) => s.id === serviceId)?.nom || ''} placeholder="Service" />
-                                                                </Form.Item>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'quantite']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async (_, value) => {
-                                                                                const line = form.getFieldValue(['venteServices', field.name]);
-                                                                                if (!line?.serviceId && (value === undefined || value === null)) {
-                                                                                    return;
-                                                                                }
-                                                                                if (!value || value <= 0) {
-                                                                                    throw new Error('Quantite requise');
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    ]}
-                                                                    style={{ width: 80 }}
-                                                                >
-                                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
-                                                                </Form.Item>
-                                                                <Form.Item noStyle shouldUpdate>
-                                                                    {({ getFieldValue }) => {
-                                                                        const sId = getFieldValue(['venteServices', field.name, 'serviceId']);
-                                                                        const pu = services.find((s) => s.id === sId)?.prixTTC;
-                                                                        return (
-                                                                            <Form.Item style={{ width: 120 }}>
-                                                                                <InputNumber addonAfter="EUR" value={pu ?? undefined} style={{ width: '100%' }} disabled placeholder="P.U." />
-                                                                            </Form.Item>
-                                                                        );
-                                                                    }}
-                                                                </Form.Item>
-                                                                <Form.Item noStyle shouldUpdate>
-                                                                    {({ getFieldValue }) => {
-                                                                        const sId = getFieldValue(['venteServices', field.name, 'serviceId']);
-                                                                        const quantite = getFieldValue(['venteServices', field.name, 'quantite']) || 0;
-                                                                        const pu = services.find((s) => s.id === sId)?.prixTTC || 0;
-                                                                        const total = Math.round(((pu * quantite) + Number.EPSILON) * 100) / 100;
-                                                                        return (
-                                                                            <Form.Item style={{ width: 120 }}>
-                                                                                <InputNumber addonAfter="EUR" value={total} style={{ width: '100%' }} disabled />
-                                                                            </Form.Item>
-                                                                        );
-                                                                    }}
-                                                                </Form.Item>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'status']}
-                                                                    style={{ width: 130 }}
-                                                                >
-                                                                    <Select allowClear options={planningStatusOptions} placeholder="Statut" />
-                                                                </Form.Item>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'technicienIds']}
-                                                                    style={{ width: 220 }}
-                                                                >
-                                                                    <Select mode="multiple" allowClear showSearch options={technicienOptions} placeholder="Techniciens" disabled={!watchedBonPourAccord} />
-                                                                </Form.Item>
-                                                                {isEmptyLine ? (
-                                                                    <Button icon={<PlusOutlined />} title="Créer un service" onClick={() => openNewServiceModal(field.name)} />
-                                                                ) : (
-                                                                    <>
-                                                                        <Button icon={<EditOutlined />} title="Modifier le service" onClick={() => openEditServiceModal(serviceId)} />
-                                                                        <Button icon={<CalendarOutlined />} title="Planifier" disabled={!watchedBonPourAccord} onClick={() => { setModalVisible(false); navigate('/planning'); }} />
-                                                                    </>
-                                                                )}
-                                                                <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                            </Space>
-                                                            );
-                                                        })}
-                                                    </>
-                                                )}
-                                            </Form.List>
-                                        </Form.Item>
-
-                                        <Form.Item label="Produits">
-                                            <Form.List name="produits">
-                                                {(fields, { remove }) => (
-                                                    <>
-                                                        {fields.map((field) => {
-                                                            const produitId = form.getFieldValue(['produits', field.name, 'produitId']);
-                                                            const isEmptyLine = !produitId;
-                                                            return (
-                                                            <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'produitId']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async () => {}
-                                                                        }
-                                                                    ]}
-                                                                    style={{ width: 520 }}
-                                                                >
-                                                                    <Select allowClear showSearch options={produitOptions} placeholder="Produit" />
-                                                                </Form.Item>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'quantite']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async (_, value) => {
-                                                                                const line = form.getFieldValue(['produits', field.name]);
-                                                                                if (!line?.produitId && (value === undefined || value === null)) {
-                                                                                    return;
-                                                                                }
-                                                                                if (!value || value <= 0) {
-                                                                                    throw new Error('Quantite requise');
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    ]}
-                                                                    style={{ width: 120 }}
-                                                                >
-                                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
-                                                                </Form.Item>
-                                                                <Form.Item noStyle shouldUpdate>
-                                                                    {({ getFieldValue }) => {
-                                                                        const pid = getFieldValue(['produits', field.name, 'produitId']);
-                                                                        const pu = produits.find((item) => item.id === pid)?.prixVenteTTC;
-                                                                        return (
-                                                                            <Form.Item style={{ width: 150 }}>
-                                                                                <InputNumber addonAfter="EUR" value={pu ?? undefined} style={{ width: '100%' }} disabled placeholder="P.U." />
-                                                                            </Form.Item>
-                                                                        );
-                                                                    }}
-                                                                </Form.Item>
-                                                                <Form.Item noStyle shouldUpdate>
-                                                                    {({ getFieldValue }) => {
-                                                                        const pid = getFieldValue(['produits', field.name, 'produitId']);
-                                                                        const quantite = getFieldValue(['produits', field.name, 'quantite']) || 0;
-                                                                        const prixUnitaireTTC = produits.find((item) => item.id === pid)?.prixVenteTTC || 0;
-                                                                        const prixTTC = Math.round(((prixUnitaireTTC * quantite) + Number.EPSILON) * 100) / 100;
-
-                                                                        return (
-                                                                            <Form.Item style={{ width: 150 }}>
-                                                                                <InputNumber addonAfter="EUR" value={prixTTC} style={{ width: '100%' }} disabled />
-                                                                            </Form.Item>
-                                                                        );
-                                                                    }}
-                                                                </Form.Item>
-                                                                {isEmptyLine && (
-                                                                    <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
-                                                                )}
-                                                                <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                            </Space>
-                                                            );
-                                                        })}
-                                                    </>
-                                                )}
-                                            </Form.List>
-                                        </Form.Item>
-                                    </>
+                                                            </>
+                                                        )}
+                                                        <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
+                                                    </Space>
+                                                    );
+                                                })}
+                                            </>
+                                        )}
+                                    </Form.List>
                                 )
                             },
                             {
@@ -2614,27 +2483,33 @@ export default function Vente() {
                                         </Form.Item>
                                         <Form.Item noStyle shouldUpdate>
                                             {({ getFieldValue }) => {
-                                                const vfLines = (getFieldValue('venteForfaits') || []).filter((l: { forfaitId?: number; images?: string[]; documents?: string[] }) => l.forfaitId && ((l.images && l.images.length > 0) || (l.documents && l.documents.length > 0)));
-                                                const vsLines = (getFieldValue('venteServices') || []).filter((l: { serviceId?: number; images?: string[]; documents?: string[] }) => l.serviceId && ((l.images && l.images.length > 0) || (l.documents && l.documents.length > 0)));
-                                                if (vfLines.length === 0 && vsLines.length === 0) return null;
+                                                const allLignes: LigneUnifiee[] = getFieldValue('lignes') || [];
+                                                const prestationLines = allLignes.filter((l) =>
+                                                    (l.type === 'forfait' || l.type === 'service') && l.itemId &&
+                                                    ((l.images && l.images.length > 0) || (l.documents && l.documents.length > 0))
+                                                );
+                                                if (prestationLines.length === 0) return null;
                                                 return (
                                                     <>
                                                         <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 16, paddingTop: 16 }}>
                                                             <strong>Images & documents des prestations</strong>
                                                         </div>
-                                                        {vfLines.map((line: { forfaitId: number; images?: string[]; documents?: string[] }, idx: number) => {
-                                                            const f = forfaits.find((ff) => ff.id === line.forfaitId);
+                                                        {prestationLines.map((line, idx) => {
+                                                            const nom = line.type === 'forfait'
+                                                                ? forfaits.find((f) => f.id === line.itemId)?.nom
+                                                                : services.find((s) => s.id === line.itemId)?.nom;
+                                                            const typeLabel = line.type === 'forfait' ? 'Forfait' : 'Service';
                                                             return (
-                                                                <div key={`vf-img-${idx}`} style={{ marginTop: 12 }}>
-                                                                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Forfait : {f?.nom || `#${line.forfaitId}`}</div>
+                                                                <div key={`prest-img-${idx}`} style={{ marginTop: 12 }}>
+                                                                    <div style={{ fontWeight: 500, marginBottom: 4 }}>{typeLabel} : {nom || `#${line.itemId}`}</div>
                                                                     {line.images && line.images.length > 0 && (
                                                                         <Form.Item label="Images" style={{ marginBottom: 8 }}>
                                                                             <ImageUpload value={line.images} onChange={(urls) => {
-                                                                                const allLines = getFieldValue('venteForfaits');
-                                                                                const realIdx = allLines.findIndex((l: { forfaitId?: number }) => l.forfaitId === line.forfaitId);
+                                                                                const currentLignes: LigneUnifiee[] = getFieldValue('lignes');
+                                                                                const realIdx = currentLignes.findIndex((l) => l.type === line.type && l.itemId === line.itemId);
                                                                                 if (realIdx >= 0) {
-                                                                                    allLines[realIdx] = { ...allLines[realIdx], images: urls };
-                                                                                    form.setFieldsValue({ venteForfaits: [...allLines] });
+                                                                                    currentLignes[realIdx] = { ...currentLignes[realIdx], images: urls };
+                                                                                    form.setFieldsValue({ lignes: [...currentLignes] });
                                                                                 }
                                                                             }} />
                                                                         </Form.Item>
@@ -2642,43 +2517,11 @@ export default function Vente() {
                                                                     {line.documents && line.documents.length > 0 && (
                                                                         <Form.Item label="Documents" style={{ marginBottom: 8 }}>
                                                                             <DocumentUpload value={line.documents} onChange={(urls) => {
-                                                                                const allLines = getFieldValue('venteForfaits');
-                                                                                const realIdx = allLines.findIndex((l: { forfaitId?: number }) => l.forfaitId === line.forfaitId);
+                                                                                const currentLignes: LigneUnifiee[] = getFieldValue('lignes');
+                                                                                const realIdx = currentLignes.findIndex((l) => l.type === line.type && l.itemId === line.itemId);
                                                                                 if (realIdx >= 0) {
-                                                                                    allLines[realIdx] = { ...allLines[realIdx], documents: urls };
-                                                                                    form.setFieldsValue({ venteForfaits: [...allLines] });
-                                                                                }
-                                                                            }} />
-                                                                        </Form.Item>
-                                                                    )}
-                                                                </div>
-                                                            );
-                                                        })}
-                                                        {vsLines.map((line: { serviceId: number; images?: string[]; documents?: string[] }, idx: number) => {
-                                                            const s = services.find((ss) => ss.id === line.serviceId);
-                                                            return (
-                                                                <div key={`vs-img-${idx}`} style={{ marginTop: 12 }}>
-                                                                    <div style={{ fontWeight: 500, marginBottom: 4 }}>Service : {s?.nom || `#${line.serviceId}`}</div>
-                                                                    {line.images && line.images.length > 0 && (
-                                                                        <Form.Item label="Images" style={{ marginBottom: 8 }}>
-                                                                            <ImageUpload value={line.images} onChange={(urls) => {
-                                                                                const allLines = getFieldValue('venteServices');
-                                                                                const realIdx = allLines.findIndex((l: { serviceId?: number }) => l.serviceId === line.serviceId);
-                                                                                if (realIdx >= 0) {
-                                                                                    allLines[realIdx] = { ...allLines[realIdx], images: urls };
-                                                                                    form.setFieldsValue({ venteServices: [...allLines] });
-                                                                                }
-                                                                            }} />
-                                                                        </Form.Item>
-                                                                    )}
-                                                                    {line.documents && line.documents.length > 0 && (
-                                                                        <Form.Item label="Documents" style={{ marginBottom: 8 }}>
-                                                                            <DocumentUpload value={line.documents} onChange={(urls) => {
-                                                                                const allLines = getFieldValue('venteServices');
-                                                                                const realIdx = allLines.findIndex((l: { serviceId?: number }) => l.serviceId === line.serviceId);
-                                                                                if (realIdx >= 0) {
-                                                                                    allLines[realIdx] = { ...allLines[realIdx], documents: urls };
-                                                                                    form.setFieldsValue({ venteServices: [...allLines] });
+                                                                                    currentLignes[realIdx] = { ...currentLignes[realIdx], documents: urls };
+                                                                                    form.setFieldsValue({ lignes: [...currentLignes] });
                                                                                 }
                                                                             }} />
                                                                         </Form.Item>
