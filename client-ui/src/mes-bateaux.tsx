@@ -15,7 +15,7 @@ interface BateauClientEntity {
     images?: string[];
     modele?: { id: number; nom?: string; marque?: string };
     moteurs?: Array<{ id: number; nom?: string; marque?: string }>;
-    equipements?: Array<{ id: number; nom?: string }>;
+    equipements?: string[];
 }
 
 interface MesBateauxProps {
@@ -103,6 +103,14 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
             render: (_: unknown, record: BateauClientEntity) =>
                 (record.moteurs || []).map((m) => (
                     <Tag key={m.id}>{m.marque ? `${m.marque} ${m.nom || ''}` : m.nom || `#${m.id}`}</Tag>
+                )),
+        },
+        {
+            title: 'Équipements',
+            key: 'equipements',
+            render: (_: unknown, record: BateauClientEntity) =>
+                (record.equipements || []).map((e, i) => (
+                    <Tag key={i}>{e}</Tag>
                 )),
         },
         {

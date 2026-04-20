@@ -43,8 +43,7 @@ public class BateauClientEntity extends PanacheEntity {
     @ManyToMany
     public List<MoteurCatalogueEntity> moteurs = new ArrayList<>();
 
-    @ManyToMany
-    public List<ProduitCatalogueEntity> equipements = new ArrayList<>();
+    public List<String> equipements = new ArrayList<>();
 
     public Timestamp dateCreation;
 

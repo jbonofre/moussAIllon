@@ -8,7 +8,6 @@ import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
-import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -82,20 +81,6 @@ public class BateauClientResource {
             entity.moteurs = moteursEntities;
         }
         
-        // Convert equipements IDs to entities
-        if (entity.equipements != null) {
-            List<ProduitCatalogueEntity> equipementsEntities = new ArrayList<>();
-            for (ProduitCatalogueEntity e : entity.equipements) {
-                if (e != null && e.id != null) {
-                    ProduitCatalogueEntity equipement = ProduitCatalogueEntity.findById(e.id);
-                    if (equipement != null) {
-                        equipementsEntities.add(equipement);
-                    }
-                }
-            }
-            entity.equipements = equipementsEntities;
-        }
-        
         if (entity.dateCreation == null) {
             entity.dateCreation = new Timestamp(System.currentTimeMillis());
         }
@@ -163,21 +148,7 @@ public class BateauClientResource {
             entity.moteurs = new ArrayList<>();
         }
         
-        // Convert equipements IDs to entities
-        if (updated.equipements != null) {
-            List<ProduitCatalogueEntity> equipementsEntities = new ArrayList<>();
-            for (ProduitCatalogueEntity e : updated.equipements) {
-                if (e != null && e.id != null) {
-                    ProduitCatalogueEntity equipement = ProduitCatalogueEntity.findById(e.id);
-                    if (equipement != null) {
-                        equipementsEntities.add(equipement);
-                    }
-                }
-            }
-            entity.equipements = equipementsEntities;
-        } else {
-            entity.equipements = new ArrayList<>();
-        }
+        entity.equipements = updated.equipements != null ? updated.equipements : new ArrayList<>();
 
         return Response.ok(entity).build();
     }
