@@ -41,6 +41,8 @@ interface Moteur {
   cylindree: number;
   regime: string;
   huileRecommandee: string;
+  anneeDebut?: number;
+  anneeFin?: number;
   helicesCompatibles: Helice[];
   stock: number;
   stockAlerte: number;
@@ -73,6 +75,8 @@ const defaultMoteur: Moteur = {
   cylindree: 0,
   regime: '',
   huileRecommandee: '',
+  anneeDebut: new Date().getFullYear(),
+  anneeFin: new Date().getFullYear(),
   helicesCompatibles: [],
   stock: 0,
   stockAlerte: 0,
@@ -480,6 +484,24 @@ const MoteurCatalogue = () => {
               <Form.Item name="description" label="Description">
                 <Input.TextArea rows={3} />
               </Form.Item>
+              <Row gutter={16}>
+                <Col span={12}>
+                  <Form.Item label="Années">
+                    <Row gutter={8}>
+                      <Col span={12}>
+                        <Form.Item name="anneeDebut" noStyle>
+                          <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Début" />
+                        </Form.Item>
+                      </Col>
+                      <Col span={12}>
+                        <Form.Item name="anneeFin" noStyle>
+                          <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Fin" />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  </Form.Item>
+                </Col>
+              </Row>
               <Form.Item name="images" label="Images">
                 <ImageUpload />
               </Form.Item>

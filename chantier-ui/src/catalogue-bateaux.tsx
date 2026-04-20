@@ -18,7 +18,8 @@ interface BateauCatalogueEntity {
     id?: number;
     modele: string;
     marque: string;
-    annee: number;
+    anneeDebut: number;
+    anneeFin: number;
     images: string[];
     type: string;
     longueurExterieure: number;
@@ -41,7 +42,8 @@ interface BateauCatalogueEntity {
 const defaultBateau: BateauCatalogueEntity = {
     modele: '',
     marque: '',
-    annee: 2025,
+    anneeDebut: new Date().getFullYear(),
+    anneeFin: new Date().getFullYear(),
     images: [],
     documents: [],
     type: '',
@@ -402,8 +404,19 @@ const CatalogueBateaux: React.FC = () => {
                                     </Form.Item>
                                 </Col>
                                 <Col span={12}>
-                                    <Form.Item name="annee" label="Année">
-                                        <InputNumber min={1900} max={new Date().getFullYear()} step={1} style={{ width: '100%' }} />
+                                    <Form.Item label="Années">
+                                        <Row gutter={8}>
+                                            <Col span={12}>
+                                                <Form.Item name="anneeDebut" noStyle>
+                                                    <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Début" />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item name="anneeFin" noStyle>
+                                                    <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Fin" />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
                                     </Form.Item>
                                 </Col>
                             </Row>

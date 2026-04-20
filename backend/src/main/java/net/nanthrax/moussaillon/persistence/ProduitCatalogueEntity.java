@@ -28,6 +28,10 @@ public class ProduitCatalogueEntity extends PanacheEntity {
 
     public String description;
 
+    public Integer anneeDebut;
+
+    public Integer anneeFin;
+
     public double evaluation;
 
     public int stock;

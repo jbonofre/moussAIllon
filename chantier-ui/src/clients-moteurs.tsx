@@ -37,6 +37,12 @@ import { useNavigation } from './navigation-context.tsx';
 const { Option } = Select;
 const { Search } = Input;
 
+const formatAnnee = (anneeDebut: number, anneeFin: number) => {
+  if (!anneeDebut) return '';
+  if (!anneeFin || anneeDebut === anneeFin) return `${anneeDebut}`;
+  return `${anneeDebut}-${anneeFin}`;
+};
+
 // Minimal typing for MoteurClient
 interface MoteurClient {
   id?: number;
@@ -321,10 +327,10 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
           ? [
               modele.marque,
               modele.modele,
-              modele.annee && `(${modele.annee})`
+              formatAnnee(modele.anneeDebut, modele.anneeFin) && `(${formatAnnee(modele.anneeDebut, modele.anneeFin)})`
             ].filter(Boolean).join(" ")
           : "",
-      filters: catalogueMoteurs.map((modele) => ({ text: `${modele.marque} ${modele.modele} ${modele.annee ? `(${modele.annee})` : ""}`, value: modele.id })),
+      filters: catalogueMoteurs.map((modele) => { const a = formatAnnee(modele.anneeDebut, modele.anneeFin); return { text: `${modele.marque} ${modele.modele}${a ? ` (${a})` : ''}`, value: modele.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
     },
     {
@@ -431,7 +437,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
                 >
                   {catalogueMoteurs.map((modele) => (
                     <Option key={modele.id} value={modele.id}>
-                      {modele.marque} {modele.modele} {modele.annee ? `(${modele.annee})` : ''}
+                      {modele.marque} {modele.modele} {formatAnnee(modele.anneeDebut, modele.anneeFin) ? `(${formatAnnee(modele.anneeDebut, modele.anneeFin)})` : ''}
                     </Option>
                   ))}
                 </Select>
@@ -495,7 +501,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
         <Form
           layout="vertical"
           form={catalogueForm}
-          initialValues={{ tva: 20 }}
+          initialValues={{ anneeDebut: new Date().getFullYear(), anneeFin: new Date().getFullYear(), tva: 20 }}
           onValuesChange={(changedValues) => {
             const CV_TO_KW_FACTOR = 0.735499;
             const roundPower = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
@@ -558,6 +564,24 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} />
           </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Années">
+                <Row gutter={8}>
+                  <Col span={12}>
+                    <Form.Item name="anneeDebut" noStyle>
+                      <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Début" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="anneeFin" noStyle>
+                      <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Fin" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item name="images" label="Images">
             <ImageUpload />
           </Form.Item>

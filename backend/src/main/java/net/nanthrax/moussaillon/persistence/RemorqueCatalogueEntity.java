@@ -18,6 +18,10 @@ public class RemorqueCatalogueEntity extends PanacheEntity {
 
     public String description;
 
+    public Integer anneeDebut;
+
+    public Integer anneeFin;
+
     public List<String> images = new ArrayList<>();
 
     public List<String> documents = new ArrayList<>();

@@ -36,6 +36,12 @@ import { useNavigation } from './navigation-context.tsx';
 const { Option } = Select;
 const { Search } = Input;
 
+const formatAnnee = (anneeDebut: number, anneeFin: number) => {
+  if (!anneeDebut) return '';
+  if (!anneeFin || anneeDebut === anneeFin) return `${anneeDebut}`;
+  return `${anneeDebut}-${anneeFin}`;
+};
+
 // Typings for RemorqueClientEntity
 interface RemorqueClient {
   id?: number;
@@ -308,9 +314,9 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
     {
       title: "Modèle", dataIndex: "modele", key: "modele",
       render: (modele: any) =>
-        modele ? [modele?.marque, modele?.modele, modele?.annee ? `(${modele.annee})` : ""].filter(Boolean).join(" ") : "",
-      sorter: (a, b) => a.modele?.marque.localeCompare(b.modele?.marque || "") || a.modele?.modele.localeCompare(b.modele?.modele || "") || a.modele?.annee.localeCompare(b.modele?.annee || ""),
-      filters: remorquesCatalogue.map((remorque) => ({ text: `${remorque.marque} ${remorque.modele} ${remorque.annee ? `(${remorque.annee})` : ""}`, value: remorque.id })),
+        modele ? [modele?.marque, modele?.modele, formatAnnee(modele?.anneeDebut, modele?.anneeFin) ? `(${formatAnnee(modele?.anneeDebut, modele?.anneeFin)})` : ""].filter(Boolean).join(" ") : "",
+      sorter: (a, b) => a.modele?.marque.localeCompare(b.modele?.marque || "") || a.modele?.modele.localeCompare(b.modele?.modele || ""),
+      filters: remorquesCatalogue.map((remorque) => { const a = formatAnnee(remorque.anneeDebut, remorque.anneeFin); return { text: `${remorque.marque} ${remorque.modele}${a ? ` (${a})` : ''}`, value: remorque.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
     },
     { title: "Date achat", dataIndex: "dateAchat", key: "dateAchat", sorter: (a, b) => a.dateAchat.localeCompare(b.dateAchat) },
@@ -411,7 +417,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
                 >
                   {remorquesCatalogue.map((remorque) => (
                     <Select.Option key={remorque.id} value={remorque.id}>
-                      {remorque.marque} {remorque.modele} {remorque.annee ? `(${remorque.annee})` : ""}
+                      {remorque.marque} {remorque.modele} {formatAnnee(remorque.anneeDebut, remorque.anneeFin) ? `(${formatAnnee(remorque.anneeDebut, remorque.anneeFin)})` : ""}
                     </Select.Option>
                   ))}
                 </Select>
@@ -469,7 +475,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
         <Form
           layout="vertical"
           form={catalogueForm}
-          initialValues={{ tva: 20 }}
+          initialValues={{ anneeDebut: new Date().getFullYear(), anneeFin: new Date().getFullYear(), tva: 20 }}
           onValuesChange={(changed, all) => {
             const roundAmount = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
             const toNumber = (v: unknown, fb = 0) => { const p = Number(v); return Number.isFinite(p) ? p : fb; };
@@ -501,6 +507,24 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} />
           </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Années">
+                <Row gutter={8}>
+                  <Col span={12}>
+                    <Form.Item name="anneeDebut" noStyle>
+                      <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Début" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="anneeFin" noStyle>
+                      <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Fin" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item name="evaluation" label="Évaluation">
             <Rate allowHalf />
           </Form.Item>

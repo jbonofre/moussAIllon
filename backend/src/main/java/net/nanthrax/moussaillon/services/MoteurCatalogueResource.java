@@ -64,6 +64,8 @@ public class MoteurCatalogueResource {
         entity.marque = moteur.marque;
         entity.type = moteur.type;
         entity.description = moteur.description;
+        entity.anneeDebut = moteur.anneeDebut;
+        entity.anneeFin = moteur.anneeFin;
         entity.evaluation = moteur.evaluation;
         entity.images = moteur.images;
         entity.documents = moteur.documents;

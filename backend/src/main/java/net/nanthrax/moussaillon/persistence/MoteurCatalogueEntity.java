@@ -25,6 +25,10 @@ public class MoteurCatalogueEntity extends PanacheEntity {
 
     public String description;
 
+    public Integer anneeDebut;
+
+    public Integer anneeFin;
+
     public double evaluation;
 
     public List<String> images = new ArrayList<>();

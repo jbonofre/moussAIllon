@@ -106,6 +106,8 @@ public class HeliceCatalogueResource {
         entity.modele = helice.modele;
         entity.marque = helice.marque;
         entity.description = helice.description;
+        entity.anneeDebut = helice.anneeDebut;
+        entity.anneeFin = helice.anneeFin;
         entity.evaluation = helice.evaluation;
         entity.diametre = helice.diametre;
         entity.pas = helice.pas;

@@ -29,7 +29,9 @@ public class BateauCatalogueEntity extends PanacheEntity {
 
     public double evaluation;
 
-    public int annee;
+    public Integer anneeDebut;
+
+    public Integer anneeFin;
 
     public double longueurExterieure;
 
