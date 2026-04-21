@@ -23,7 +23,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^6.0.2"
+    "typescript": "^6.0.3"
   },
   "scripts": {
     "start": "NODE_OPTIONS='--localstorage-file=/tmp/moussaillon-localstorage' react-scripts start",
