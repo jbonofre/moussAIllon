@@ -52,4 +52,7 @@ public class ClientEntity extends PanacheEntity {
 
     public Timestamp dateCreation;
 
+    @jakarta.persistence.Transient
+    public Double soldeDu;
+
 }
