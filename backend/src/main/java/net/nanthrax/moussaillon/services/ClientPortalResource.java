@@ -16,6 +16,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import jakarta.ws.rs.PUT;
 import net.nanthrax.moussaillon.persistence.AnnonceEntity;
+import net.nanthrax.moussaillon.persistence.AvoirEntity;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.MoteurClientEntity;
@@ -195,6 +196,12 @@ public class ClientPortalResource {
         // Force initialization of lazy collections before serialization
         if (entity.produits != null) entity.produits.size();
         return entity;
+    }
+
+    @GET
+    @Path("/clients/{id}/avoirs")
+    public List<AvoirEntity> getClientAvoirs(@PathParam("id") long id) {
+        return AvoirEntity.list("client.id = ?1 AND status != ?2", id, AvoirEntity.Status.ANNULE);
     }
 
     @GET
