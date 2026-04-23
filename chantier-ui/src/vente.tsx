@@ -2011,6 +2011,14 @@ export default function Vente() {
             render: (value: number) => formatEuro(value)
         },
         {
+            title: 'Mode de paiement',
+            dataIndex: 'modePaiement',
+            sorter: (a: VenteEntity, b: VenteEntity) => (a.modePaiement || '').localeCompare(b.modePaiement || ''),
+            filters: modePaiementOptions.map(opt => ({ text: opt.label, value: opt.value })),
+            onFilter: (value: unknown, record: VenteEntity) => record.modePaiement === value,
+            render: (value: ModePaiement) => value ? (modePaiementOptions.find(opt => opt.value === value)?.label || value) : '-'
+        },
+        {
             title: 'Actions',
             key: 'actions',
             render: (_: unknown, record: VenteEntity) => (
