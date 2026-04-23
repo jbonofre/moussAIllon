@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DeploymentUnitOutlined, DisconnectOutlined, DashboardOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DeploymentUnitOutlined, DisconnectOutlined, DashboardOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -27,6 +27,7 @@ import RemorquesClients from './clients-remorques.tsx';
 import Techniciens from './techniciens.tsx';
 import MainOeuvres from './main-oeuvres.tsx';
 import Vente from './vente.tsx';
+import Avoirs from './avoirs.tsx';
 import Planning from './planning.tsx';
 import Comptoir from './comptoir.tsx';
 import Dashboard from './dashboard.tsx';
@@ -91,6 +92,7 @@ function SideMenu(props) {
       { key: 'Vente', label: 'Vente', icon: <DollarOutlined/>, requiredRole: 'vendeur', children: [
         { key: '/comptoir', label: 'Comptoir', icon: <ShopOutlined/> },
         { key: '/prestations', label: 'Prestations', icon: <SolutionOutlined/> },
+        { key: '/avoirs', label: 'Avoirs', icon: <RollbackOutlined/> },
         { key: '/clients', label: 'Clients', icon: <TeamOutlined /> },
       ]},
       { key: 'parc', label: 'Parc', icon: <Icon component={ ParcOutlined } />, requiredRole: 'manager', children: [
@@ -483,6 +485,8 @@ export default function Workspace(props) {
                 return <ProtectedRoute roles={props.roles} requiredRole="vendeur"><Vente /></ProtectedRoute>;
             case '/comptoir':
                 return <ProtectedRoute roles={props.roles} requiredRole="vendeur"><Comptoir /></ProtectedRoute>;
+            case '/avoirs':
+                return <ProtectedRoute roles={props.roles} requiredRole="vendeur"><Avoirs /></ProtectedRoute>;
             case '/forfaits':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Forfaits /></ProtectedRoute>;
             case '/techniciens':

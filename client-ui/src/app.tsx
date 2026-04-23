@@ -8,6 +8,7 @@ import {
     FileTextOutlined,
     UserOutlined,
     LogoutOutlined,
+    RollbackOutlined,
     TagsOutlined,
     ScheduleOutlined,
 } from '@ant-design/icons';
@@ -17,6 +18,7 @@ import MesBateaux from './mes-bateaux.tsx';
 import MesMoteurs from './mes-moteurs.tsx';
 import MesRemorques from './mes-remorques.tsx';
 import MesFactures from './mes-factures.tsx';
+import MesAvoirs from './mes-avoirs.tsx';
 import MesPrestations from './mes-prestations.tsx';
 import MonProfil from './mon-profil.tsx';
 import PetitesAnnonces from './petites-annonces.tsx';
@@ -74,6 +76,7 @@ export default function App() {
         { key: 'moteurs', icon: <ToolOutlined />, label: 'Mes moteurs' },
         { key: 'remorques', icon: <CarOutlined />, label: 'Mes remorques' },
         { key: 'factures', icon: <FileTextOutlined />, label: 'Mes ventes & prestations' },
+        { key: 'avoirs', icon: <RollbackOutlined />, label: 'Mes avoirs' },
         { key: 'prestations', icon: <ScheduleOutlined />, label: 'Interventions' },
         { key: 'annonces', icon: <TagsOutlined />, label: 'Petites annonces' },
         { key: 'profil', icon: <UserOutlined />, label: 'Mon profil' },
@@ -94,6 +97,8 @@ export default function App() {
                 return <MesRemorques clientId={user.id} onCreateAnnonce={handleCreateAnnonceWithImages} />;
             case 'factures':
                 return <MesFactures clientId={user.id} />;
+            case 'avoirs':
+                return <MesAvoirs clientId={user.id} />;
             case 'prestations':
                 return <MesPrestations clientId={user.id} />;
             case 'annonces': {

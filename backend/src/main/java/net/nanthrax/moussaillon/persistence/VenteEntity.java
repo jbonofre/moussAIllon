@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.FetchType;
 
 @Entity
 public class VenteEntity extends PanacheEntity {
@@ -95,6 +96,10 @@ public class VenteEntity extends PanacheEntity {
     }
 
     public ModePaiement modePaiement;
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "vente_paiement_vente_id")
+    public List<VentePaiementEntity> paiements = new ArrayList<>();
 
     public List<String> images = new ArrayList<>();
 

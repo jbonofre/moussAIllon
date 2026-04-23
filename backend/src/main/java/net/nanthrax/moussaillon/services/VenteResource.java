@@ -23,6 +23,7 @@ import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.AvoirEntity;
 import net.nanthrax.moussaillon.persistence.EmailTemplateEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitProduitEntity;
@@ -32,6 +33,7 @@ import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.TaskEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 import net.nanthrax.moussaillon.persistence.VenteForfaitEntity;
+import net.nanthrax.moussaillon.persistence.VentePaiementEntity;
 import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
 
 @Path("/ventes")
@@ -70,7 +72,20 @@ public class VenteResource {
         String typeLabel = isOrdreReparation ? "Ordre de Réparation" : (isDevis ? "Devis" : "Facture");
         String statutLabel = entity.status != null ? entity.status.name() : "-";
         String prixVenteTTC = String.format("%.2f EUR", entity.prixVenteTTC);
-        String modePaiement = entity.modePaiement != null ? entity.modePaiement.name() : "-";
+        String modePaiement;
+        if (entity.paiements != null && !entity.paiements.isEmpty()) {
+            StringBuilder sb = new StringBuilder();
+            for (VentePaiementEntity p : entity.paiements) {
+                if (sb.length() > 0) sb.append(", ");
+                sb.append(p.mode.name()).append(" ").append(String.format("%.2f", p.montant)).append(" EUR");
+                if (p.mode == VentePaiementEntity.Mode.AVOIR && p.avoir != null) {
+                    sb.append(" (avoir #").append(p.avoir.id).append(")");
+                }
+            }
+            modePaiement = sb.toString();
+        } else {
+            modePaiement = entity.modePaiement != null ? entity.modePaiement.name() : "-";
+        }
 
         // Build invoice lines
         StringBuilder lignes = new StringBuilder();
@@ -541,6 +556,99 @@ public class VenteResource {
         entity.rappel3Jours = vente.rappel3Jours;
 
         return entity;
+    }
+
+    public static class AjouterPaiementRequest {
+        public String mode;
+        public double montant;
+        public String notes;
+        public Long avoirId;
+    }
+
+    @POST
+    @Path("{id}/paiements")
+    @Transactional
+    public VentePaiementEntity addPaiement(@PathParam("id") long id, AjouterPaiementRequest request) {
+        VenteEntity entity = VenteEntity.findById(id);
+        if (entity == null) {
+            throw new WebApplicationException("La vente (" + id + ") n'est pas trouvée", 404);
+        }
+        if (entity.status == VenteEntity.Status.FACTURE_PAYEE) {
+            throw new WebApplicationException("Une vente payée ne peut plus être modifiée", 400);
+        }
+        if (entity.status != VenteEntity.Status.FACTURE_PRETE) {
+            throw new WebApplicationException("Les paiements ne peuvent être ajoutés qu'à une facture prête", 400);
+        }
+        if (request.montant <= 0) {
+            throw new WebApplicationException("Le montant doit être supérieur à zéro", 400);
+        }
+
+        VentePaiementEntity.Mode mode;
+        try {
+            mode = VentePaiementEntity.Mode.valueOf(request.mode);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new WebApplicationException("Mode de paiement invalide : " + request.mode, 400);
+        }
+
+        VentePaiementEntity paiement = new VentePaiementEntity();
+        paiement.mode = mode;
+        paiement.montant = request.montant;
+        paiement.date = new Timestamp(System.currentTimeMillis());
+        paiement.notes = request.notes;
+
+        if (mode == VentePaiementEntity.Mode.AVOIR) {
+            if (request.avoirId == null) {
+                throw new WebApplicationException("Un avoir doit être sélectionné pour le mode AVOIR", 400);
+            }
+            AvoirEntity avoir = AvoirEntity.findById(request.avoirId);
+            if (avoir == null) {
+                throw new WebApplicationException("L'avoir (" + request.avoirId + ") n'est pas trouvé", 404);
+            }
+            if (avoir.status != AvoirEntity.Status.EMIS) {
+                throw new WebApplicationException("Seul un avoir émis peut être appliqué", 400);
+            }
+            double restant = Math.round((avoir.montantTTC - avoir.montantUtilise) * 100.0) / 100.0;
+            if (request.montant > restant + 0.005) {
+                throw new WebApplicationException(
+                    "Le montant appliqué (" + String.format("%.2f", request.montant) +
+                    ") dépasse le solde disponible de l'avoir (" + String.format("%.2f", restant) + ")", 400);
+            }
+            avoir.montantUtilise = Math.min(avoir.montantTTC,
+                Math.round((avoir.montantUtilise + request.montant) * 100.0) / 100.0);
+            paiement.avoir = avoir;
+        }
+
+        entity.paiements.add(paiement);
+        return paiement;
+    }
+
+    @DELETE
+    @Path("{id}/paiements/{paiementId}")
+    @Transactional
+    public Response removePaiement(@PathParam("id") long id, @PathParam("paiementId") long paiementId) {
+        VenteEntity entity = VenteEntity.findById(id);
+        if (entity == null) {
+            throw new WebApplicationException("La vente (" + id + ") n'est pas trouvée", 404);
+        }
+        if (entity.status == VenteEntity.Status.FACTURE_PAYEE) {
+            throw new WebApplicationException("Une vente payée ne peut plus être modifiée", 400);
+        }
+
+        VentePaiementEntity toRemove = entity.paiements.stream()
+            .filter(p -> p.id != null && p.id == paiementId)
+            .findFirst()
+            .orElseThrow(() -> new WebApplicationException("Paiement (" + paiementId + ") non trouvé", 404));
+
+        if (toRemove.mode == VentePaiementEntity.Mode.AVOIR && toRemove.avoir != null) {
+            AvoirEntity avoir = AvoirEntity.findById(toRemove.avoir.id);
+            if (avoir != null) {
+                avoir.montantUtilise = Math.max(0,
+                    Math.round((avoir.montantUtilise - toRemove.montant) * 100.0) / 100.0);
+            }
+        }
+
+        entity.paiements.remove(toRemove);
+        return Response.noContent().build();
     }
 
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {
