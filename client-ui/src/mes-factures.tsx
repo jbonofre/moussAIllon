@@ -261,6 +261,10 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
         const paymentHtml = docType === 'facture' && vente.modePaiement
             ? `<p><strong>Mode de paiement :</strong> ${escapeHtml(vente.modePaiement)}</p>` : '';
 
+        const signatureHtml = docType === 'devis' && vente.signatureBonPourAccord
+            ? `<div style="margin-top:24px;"><p><strong>Bon pour accord &mdash; Signature client :</strong></p><img src="${vente.signatureBonPourAccord}" style="max-width:300px;border:1px solid #d9d9d9;border-radius:4px;" /></div>`
+            : '';
+
         const colSpan = showPrices ? 5 : 3;
         const html = `<html><head><title>${escapeHtml(title)}</title>
             <style>
@@ -279,6 +283,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                 <tbody>${tableRows || `<tr><td colspan="${colSpan}">Aucun élément</td></tr>`}</tbody>
             </table>
             ${totalsHtml}
+            ${signatureHtml}
         </body></html>`;
 
         const iframe = document.createElement('iframe');
