@@ -67,6 +67,23 @@ public class EmailTemplateResource {
                 facture.description = "Variables disponibles : {client}, {typeVente}, {reference}, {date}, {statut}, {prixVenteTTC}, {modePaiement}, {lignes}, {societe}";
                 facture.persist();
             }
+            // Ajouter le template AVOIR s'il n'existe pas encore (migration)
+            if (EmailTemplateEntity.findByType(EmailTemplateEntity.Type.AVOIR) == null) {
+                EmailTemplateEntity avoir = new EmailTemplateEntity();
+                avoir.type = EmailTemplateEntity.Type.AVOIR;
+                avoir.sujet = "Votre avoir #{reference} - {societe}";
+                avoir.contenu = "<p>Bonjour {client},</p>"
+                        + "<p>Nous vous adressons votre avoir #{reference}.</p>"
+                        + "<table><tr><td><strong>Date</strong></td><td>{date}</td></tr>"
+                        + "<tr><td><strong>Motif</strong></td><td>{motif}</td></tr>"
+                        + "<tr><td><strong>Facture d'origine</strong></td><td>{venteRef}</td></tr>"
+                        + "<tr><td><strong>Montant TTC</strong></td><td>{montantTTC}</td></tr></table>"
+                        + "<p><strong>Lignes :</strong><br/>{lignes}</p>"
+                        + "<p>N'hésitez pas à nous contacter pour toute question.</p>"
+                        + "<p>Cordialement,<br/>{societe}</p>";
+                avoir.description = "Variables disponibles : {client}, {reference}, {date}, {motif}, {venteRef}, {montantTTC}, {lignes}, {societe}";
+                avoir.persist();
+            }
             return Response.ok().build();
         }
 
@@ -107,6 +124,21 @@ public class EmailTemplateResource {
                 + "<p>Cordialement,<br/>{societe}</p>";
         facture.description = "Variables disponibles : {client}, {typeVente}, {reference}, {date}, {statut}, {prixVenteTTC}, {modePaiement}, {lignes}, {societe}";
         facture.persist();
+
+        EmailTemplateEntity avoir = new EmailTemplateEntity();
+        avoir.type = EmailTemplateEntity.Type.AVOIR;
+        avoir.sujet = "Votre avoir #{reference} - {societe}";
+        avoir.contenu = "<p>Bonjour {client},</p>"
+                + "<p>Nous vous adressons votre avoir #{reference}.</p>"
+                + "<table><tr><td><strong>Date</strong></td><td>{date}</td></tr>"
+                + "<tr><td><strong>Motif</strong></td><td>{motif}</td></tr>"
+                + "<tr><td><strong>Facture d'origine</strong></td><td>{venteRef}</td></tr>"
+                + "<tr><td><strong>Montant TTC</strong></td><td>{montantTTC}</td></tr></table>"
+                + "<p><strong>Lignes :</strong><br/>{lignes}</p>"
+                + "<p>N'hésitez pas à nous contacter pour toute question.</p>"
+                + "<p>Cordialement,<br/>{societe}</p>";
+        avoir.description = "Variables disponibles : {client}, {reference}, {date}, {motif}, {venteRef}, {montantTTC}, {lignes}, {societe}";
+        avoir.persist();
 
         return Response.status(Response.Status.CREATED).build();
     }

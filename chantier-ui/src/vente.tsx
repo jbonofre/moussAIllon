@@ -22,7 +22,7 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, EditOutlined, FileDoneOutlined, FileTextOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, EditOutlined, FileDoneOutlined, FileTextOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -252,6 +252,26 @@ const defaultNewService = {
 
 type VenteStatus = 'DEVIS' | 'FACTURE_EN_ATTENTE' | 'FACTURE_PRETE' | 'FACTURE_PAYEE';
 type ModePaiement = 'CHEQUE' | 'VIREMENT' | 'CARTE' | 'ESPÈCES';
+type ModeReglement = 'CHEQUE' | 'VIREMENT' | 'CARTE' | 'ESPÈCES' | 'AVOIR';
+
+interface VentePaiement {
+    id?: number;
+    mode: ModeReglement;
+    montant: number;
+    date?: string;
+    notes?: string;
+    avoirId?: number;
+    avoirMotif?: string;
+    avoirMontantTTC?: number;
+    avoirMontantUtilise?: number;
+}
+
+interface AvoirDisponible {
+    id: number;
+    motif?: string;
+    montantTTC: number;
+    montantUtilise: number;
+}
 
 interface VenteEntity {
     id?: number;
@@ -280,6 +300,7 @@ interface VenteEntity {
     montantTVA?: number;
     prixVenteTTC?: number;
     modePaiement?: ModePaiement;
+    paiements?: VentePaiement[];
     images?: string[];
     documents?: string[];
     rappel1Jours?: number;
@@ -563,6 +584,21 @@ export default function Vente() {
         }, 300);
         setProduitSearchTimeout(timeout);
     };
+
+    // Paiements multiples
+    const [paiementModalVisible, setPaiementModalVisible] = useState(false);
+    const [paiementMode, setPaiementMode] = useState<ModeReglement>('CHEQUE');
+    const [paiementMontant, setPaiementMontant] = useState<number>(0);
+    const [paiementNotes, setPaiementNotes] = useState('');
+    const [paiementAvoirId, setPaiementAvoirId] = useState<number | null>(null);
+    const [avoirsDisponibles, setAvoirsDisponibles] = useState<AvoirDisponible[]>([]);
+    const [addingPaiement, setAddingPaiement] = useState(false);
+
+    // Génération d'avoir depuis une vente
+    const [genAvoirModalVente, setGenAvoirModalVente] = useState<VenteEntity | null>(null);
+    const [genAvoirMotif, setGenAvoirMotif] = useState('');
+    const [genAvoirNotes, setGenAvoirNotes] = useState('');
+    const [generatingAvoir, setGeneratingAvoir] = useState(false);
 
     const marqueOptions = useMemo(() => {
         const unique = Array.from(new Set(produits.map((p) => p.marque).filter(Boolean))) as string[];
@@ -1655,6 +1691,101 @@ export default function Vente() {
         }
     };
 
+    const refreshCurrentVente = async (id: number) => {
+        try {
+            const res = await api.get<VenteEntity>(`/ventes/${id}`);
+            setCurrentVente(res.data);
+        } catch {
+            message.error('Erreur lors du rechargement de la vente');
+        }
+    };
+
+    const openPaiementModal = async () => {
+        const restant = (currentVente?.prixVenteTTC ?? 0) -
+            (currentVente?.paiements ?? []).reduce((s, p) => s + p.montant, 0);
+        setPaiementMode('CHEQUE');
+        setPaiementMontant(Math.max(0, Math.round(restant * 100) / 100));
+        setPaiementNotes('');
+        setPaiementAvoirId(null);
+        setAvoirsDisponibles([]);
+        setPaiementModalVisible(true);
+    };
+
+    const loadAvoirsDisponibles = async (mode: ModeReglement) => {
+        if (mode !== 'AVOIR' || !currentVente?.client?.id) return;
+        try {
+            const res = await api.get<AvoirDisponible[]>(
+                `/avoirs/search?clientId=${currentVente.client.id}&status=EMIS`
+            );
+            setAvoirsDisponibles((res.data || []).filter(
+                (a) => Math.round((a.montantTTC - a.montantUtilise) * 100) / 100 > 0.005
+            ));
+        } catch {
+            setAvoirsDisponibles([]);
+        }
+    };
+
+    const handleAddPaiement = async () => {
+        if (!currentVente?.id) return;
+        if (paiementMontant <= 0) { message.warning('Le montant doit être supérieur à zéro'); return; }
+        if (paiementMode === 'AVOIR' && !paiementAvoirId) { message.warning('Veuillez sélectionner un avoir'); return; }
+        setAddingPaiement(true);
+        try {
+            await api.post(`/ventes/${currentVente.id}/paiements`, {
+                mode: paiementMode,
+                montant: paiementMontant,
+                notes: paiementNotes || undefined,
+                avoirId: paiementMode === 'AVOIR' ? paiementAvoirId : undefined,
+            });
+            message.success('Paiement ajouté');
+            setPaiementModalVisible(false);
+            await refreshCurrentVente(currentVente.id);
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: string } })?.response?.data || 'Erreur lors de l\'ajout du paiement';
+            message.error(msg);
+        } finally {
+            setAddingPaiement(false);
+        }
+    };
+
+    const handleRemovePaiement = async (paiementId: number) => {
+        if (!currentVente?.id) return;
+        try {
+            await api.delete(`/ventes/${currentVente.id}/paiements/${paiementId}`);
+            message.success('Paiement supprimé');
+            await refreshCurrentVente(currentVente.id);
+        } catch {
+            message.error('Erreur lors de la suppression du paiement');
+        }
+    };
+
+    const handleGenerateAvoir = async () => {
+        if (!genAvoirModalVente?.id) return;
+        if (!genAvoirMotif.trim()) { message.warning('Le motif est requis'); return; }
+        setGeneratingAvoir(true);
+        try {
+            await api.post(`/avoirs/from-vente/${genAvoirModalVente.id}`, {
+                motif: genAvoirMotif.trim(),
+                notes: genAvoirNotes || undefined,
+            });
+            setGenAvoirModalVente(null);
+            setGenAvoirMotif('');
+            setGenAvoirNotes('');
+            Modal.confirm({
+                title: 'Avoir généré',
+                content: 'L\'avoir a été créé en brouillon. Voulez-vous accéder à la gestion des avoirs ?',
+                okText: 'Aller aux avoirs',
+                cancelText: 'Rester ici',
+                onOk: () => navigate('/avoirs'),
+            });
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: string } })?.response?.data || 'Erreur lors de la génération de l\'avoir';
+            message.error(msg);
+        } finally {
+            setGeneratingAvoir(false);
+        }
+    };
+
     const openPrintDocument = (_title: string, contentHtml: string, _width: number = 900) => {
         // Print through a hidden iframe to avoid opening a new tab/window.
         const iframe = document.createElement('iframe');
@@ -1770,8 +1901,22 @@ export default function Vente() {
                 <div class="row"><strong>Prix vente TTC:</strong> ${escapeHtml(formatEuro(vente.prixVenteTTC))}</div>
             </div>` : '';
 
-        const paymentHtml = docType === 'facture' && vente.modePaiement
-            ? `<div class="row"><strong>Mode de paiement:</strong> ${escapeHtml(vente.modePaiement)}</div>` : '';
+        const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+        const paiementsHtml = (() => {
+            if (!showPrices) return '';
+            const ps = vente.paiements ?? [];
+            if (ps.length > 0) {
+                return ps.map(p => {
+                    const label = modeLabels[p.mode] ?? p.mode;
+                    const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
+                    return `<div class="row">${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
+                }).join('');
+            }
+            if (vente.modePaiement) return `<div class="row"><strong>Mode de paiement:</strong> ${escapeHtml(vente.modePaiement)}</div>`;
+            return '';
+        })();
+        const paymentHtml = docType === 'facture' && paiementsHtml
+            ? `<div class="section"><strong>Règlements :</strong>${paiementsHtml}</div>` : '';
 
         const signatureHtml = docType !== 'facture' && vente.signatureBonPourAccord
             ? `<div class="section"><h3>Signature client</h3><img src="${vente.signatureBonPourAccord}" style="max-width:300px;border:1px solid #d9d9d9;border-radius:4px;" /></div>` : '';
@@ -2090,6 +2235,17 @@ export default function Vente() {
                         <Button title="Lien de paiement" icon={<CreditCardOutlined />} disabled={record.status !== 'FACTURE_PRETE'} />
                     </Dropdown>
                     <Button icon={<EditOutlined />} onClick={() => openModal(record)} />
+                    {(record.status === 'FACTURE_PRETE' || record.status === 'FACTURE_PAYEE') && (
+                        <Button
+                            title="Générer un avoir"
+                            icon={<RollbackOutlined />}
+                            onClick={() => {
+                                setGenAvoirMotif('');
+                                setGenAvoirNotes('');
+                                setGenAvoirModalVente(record);
+                            }}
+                        />
+                    )}
                     <Popconfirm
                         title="Supprimer cette vente ?"
                         onConfirm={() => handleDelete(record.id)}
@@ -2194,15 +2350,30 @@ export default function Vente() {
                     >
                         Envoyer par email
                     </Button>,
-                    ...(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE' ? [<Dropdown
-                        key="payment"
-                        menu={{ items: currentVente ? paymentMenuItems(currentVente) : [] }}
-                        placement="topRight"
-                    >
-                        <Button icon={<CreditCardOutlined />}>
-                            Lien de paiement
-                        </Button>
-                    </Dropdown>] : []),
+                    ...(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE' ? [
+                        <Dropdown
+                            key="payment"
+                            menu={{ items: currentVente ? paymentMenuItems(currentVente) : [] }}
+                            placement="topRight"
+                        >
+                            <Button icon={<CreditCardOutlined />}>
+                                Lien de paiement
+                            </Button>
+                        </Dropdown>,
+                        <Button
+                            key="genAvoir"
+                            icon={<RollbackOutlined />}
+                            disabled={!currentVente}
+                            onClick={() => {
+                                if (!currentVente) return;
+                                setGenAvoirMotif('');
+                                setGenAvoirNotes('');
+                                setGenAvoirModalVente(currentVente);
+                            }}
+                        >
+                            Générer un avoir
+                        </Button>,
+                    ] : []),
                     ...(!isReadOnly ? [<div key="step-nav" style={{ flex: 1, textAlign: 'left' }}>
                         <Button
                             icon={<LeftOutlined />}
@@ -2272,13 +2443,7 @@ export default function Vente() {
                                 <DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} />
                             </Form.Item>
                         </Col>
-                        {(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE') && (
-                            <Col span={8}>
-                                <Form.Item name="modePaiement" label="Mode de paiement">
-                                    <Select allowClear options={modePaiementOptions} />
-                                </Form.Item>
-                            </Col>
-                        )}
+                        {/* modePaiement géré via l'onglet Paiements */}
                     </Row>
 
                     <Row gutter={16}>
@@ -2596,6 +2761,96 @@ export default function Vente() {
                                     </>
                                 )
                             },
+                            ...(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE' ? [{
+                                key: 'paiements',
+                                label: (() => {
+                                    const ps = currentVente?.paiements ?? [];
+                                    const total = ps.reduce((s, p) => s + p.montant, 0);
+                                    const restant = (currentVente?.prixVenteTTC ?? 0) - total;
+                                    return `Paiements${ps.length > 0 ? ` (${ps.length})` : ''}${restant > 0.005 ? ` — ${restant.toFixed(2)} € restant` : ' ✓'}`;
+                                })(),
+                                children: (
+                                    <div>
+                                        {isEdit && (
+                                            <>
+                                                {(() => {
+                                                    const ps = currentVente?.paiements ?? [];
+                                                    const totalPaye = ps.reduce((s, p) => s + p.montant, 0);
+                                                    const totalFacture = currentVente?.prixVenteTTC ?? 0;
+                                                    const restant = Math.round((totalFacture - totalPaye) * 100) / 100;
+                                                    const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+                                                    return (
+                                                        <>
+                                                            <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                                                                <Col>
+                                                                    <Space>
+                                                                        <span>Total facture : <strong>{formatEuro(totalFacture)}</strong></span>
+                                                                        <span>Total payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
+                                                                        {restant > 0.005 && <span>Restant : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
+                                                                    </Space>
+                                                                </Col>
+                                                                <Col>
+                                                                    <Button
+                                                                        type="primary"
+                                                                        icon={<PlusCircleOutlined />}
+                                                                        onClick={openPaiementModal}
+                                                                        disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                    >
+                                                                        Ajouter un paiement
+                                                                    </Button>
+                                                                </Col>
+                                                            </Row>
+                                                            <Table
+                                                                rowKey="id"
+                                                                size="small"
+                                                                bordered
+                                                                pagination={false}
+                                                                dataSource={ps}
+                                                                locale={{ emptyText: 'Aucun paiement enregistré' }}
+                                                                columns={[
+                                                                    { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
+                                                                    {
+                                                                        title: 'Avoir',
+                                                                        key: 'avoir',
+                                                                        render: (_: unknown, r: VentePaiement) =>
+                                                                            r.avoirId ? `#${r.avoirId} — ${r.avoirMotif ?? ''}` : '-',
+                                                                    },
+                                                                    { title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const, render: (v: number) => formatEuro(v) },
+                                                                    { title: 'Notes', dataIndex: 'notes', render: (v: string) => v ?? '-' },
+                                                                    {
+                                                                        title: '',
+                                                                        key: 'remove',
+                                                                        width: 50,
+                                                                        render: (_: unknown, r: VentePaiement) => (
+                                                                            <Popconfirm
+                                                                                title="Supprimer ce paiement ?"
+                                                                                onConfirm={() => r.id && handleRemovePaiement(r.id)}
+                                                                                okText="Supprimer"
+                                                                                cancelText="Annuler"
+                                                                                disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                            >
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    danger
+                                                                                    icon={<DeleteOutlined />}
+                                                                                    disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                                />
+                                                                            </Popconfirm>
+                                                                        ),
+                                                                    },
+                                                                ]}
+                                                            />
+                                                        </>
+                                                    );
+                                                })()}
+                                            </>
+                                        )}
+                                        {!isEdit && (
+                                            <div style={{ color: '#8c8c8c' }}>Enregistrez d'abord la facture pour gérer les paiements.</div>
+                                        )}
+                                    </div>
+                                ),
+                            }] : []),
                             {
                                 key: 'images',
                                 label: 'Images & Documents',
@@ -3655,6 +3910,118 @@ export default function Vente() {
                         touchAction: 'none',
                     }}
                 />
+            </Modal>
+
+            {/* Modal génération avoir */}
+            <Modal
+                title="Générer un avoir depuis cette facture"
+                open={!!genAvoirModalVente}
+                onCancel={() => setGenAvoirModalVente(null)}
+                onOk={handleGenerateAvoir}
+                okText="Générer"
+                confirmLoading={generatingAvoir}
+                destroyOnHidden
+                width={480}
+            >
+                <p style={{ marginBottom: 16, color: '#595959' }}>
+                    Un avoir en brouillon sera créé avec les lignes de la facture <strong>#{genAvoirModalVente?.id}</strong>.
+                </p>
+                <Form layout="vertical">
+                    <Form.Item label="Motif" required>
+                        <Input
+                            value={genAvoirMotif}
+                            onChange={(e) => setGenAvoirMotif(e.target.value)}
+                            placeholder="Ex: Retour marchandise, erreur de facturation..."
+                        />
+                    </Form.Item>
+                    <Form.Item label="Notes (optionnel)">
+                        <Input.TextArea
+                            rows={3}
+                            value={genAvoirNotes}
+                            onChange={(e) => setGenAvoirNotes(e.target.value)}
+                            placeholder="Informations complémentaires..."
+                        />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* Modal ajout paiement */}
+            <Modal
+                title="Ajouter un paiement"
+                open={paiementModalVisible}
+                onCancel={() => setPaiementModalVisible(false)}
+                onOk={handleAddPaiement}
+                okText="Valider"
+                confirmLoading={addingPaiement}
+                destroyOnHidden
+                width={480}
+            >
+                <Form layout="vertical">
+                    <Form.Item label="Mode de règlement" required>
+                        <Select
+                            value={paiementMode}
+                            onChange={(v) => {
+                                setPaiementMode(v);
+                                setPaiementAvoirId(null);
+                                loadAvoirsDisponibles(v);
+                            }}
+                            options={[
+                                { value: 'CHEQUE', label: 'Chèque' },
+                                { value: 'VIREMENT', label: 'Virement' },
+                                { value: 'CARTE', label: 'Carte' },
+                                { value: 'ESPÈCES', label: 'Espèces' },
+                                { value: 'AVOIR', label: 'Avoir client' },
+                            ]}
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Item>
+
+                    {paiementMode === 'AVOIR' && (
+                        <Form.Item label="Avoir à appliquer" required>
+                            <Select
+                                placeholder="Sélectionner un avoir"
+                                value={paiementAvoirId ?? undefined}
+                                onChange={(v) => {
+                                    setPaiementAvoirId(v);
+                                    const avoir = avoirsDisponibles.find((a) => a.id === v);
+                                    if (avoir) {
+                                        const restantAvoir = Math.round((avoir.montantTTC - avoir.montantUtilise) * 100) / 100;
+                                        const restantFacture = Math.max(0, Math.round(
+                                            ((currentVente?.prixVenteTTC ?? 0) -
+                                            (currentVente?.paiements ?? []).reduce((s, p) => s + p.montant, 0)) * 100
+                                        ) / 100);
+                                        setPaiementMontant(Math.min(restantAvoir, restantFacture));
+                                    }
+                                }}
+                                options={avoirsDisponibles.map((a) => ({
+                                    value: a.id,
+                                    label: `#${a.id} — ${a.motif ?? '(sans motif)'} — solde ${formatEuro(Math.round((a.montantTTC - a.montantUtilise) * 100) / 100)}`,
+                                }))}
+                                notFoundContent="Aucun avoir disponible pour ce client"
+                                style={{ width: '100%' }}
+                            />
+                        </Form.Item>
+                    )}
+
+                    <Form.Item label="Montant" required>
+                        <InputNumber
+                            min={0.01}
+                            precision={2}
+                            value={paiementMontant}
+                            onChange={(v) => setPaiementMontant(v ?? 0)}
+                            addonAfter="€"
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Item>
+
+                    <Form.Item label="Notes (optionnel)">
+                        <Input
+                            value={paiementNotes}
+                            onChange={(e) => setPaiementNotes(e.target.value)}
+                            placeholder="Ex: chèque n°12345"
+                        />
+                    </Form.Item>
+                </Form>
             </Modal>
         </Card>
     );
