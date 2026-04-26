@@ -522,6 +522,43 @@ export default function Vente() {
     const [bpaPendingCallback, setBpaPendingCallback] = useState<(() => void) | null>(null);
     const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const signatureDrawingRef = useRef(false);
+    const [clientSearchTimeout, setClientSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+    const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+    const mergeById = <T extends { id?: number }>(prev: T[], next: T[]): T[] => {
+        const map = new Map<number, T>();
+        prev.forEach((item) => { if (item?.id !== undefined) map.set(item.id, item); });
+        next.forEach((item) => { if (item?.id !== undefined) map.set(item.id, item); });
+        return Array.from(map.values());
+    };
+
+    const handleClientSearch = (value: string) => {
+        if (clientSearchTimeout) clearTimeout(clientSearchTimeout);
+        if (!value || value.trim() === '') return;
+        const timeout = setTimeout(async () => {
+            try {
+                const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
+                setClients((prev) => mergeById(prev, res.data || []));
+            } catch {
+                // ignore
+            }
+        }, 300);
+        setClientSearchTimeout(timeout);
+    };
+
+    const handleProduitSearch = (value: string) => {
+        if (produitSearchTimeout) clearTimeout(produitSearchTimeout);
+        if (!value || value.trim() === '') return;
+        const timeout = setTimeout(async () => {
+            try {
+                const res = await api.get(`/catalogue/produits/search?q=${encodeURIComponent(value)}`);
+                setProduits((prev) => mergeById(prev, res.data || []));
+            } catch {
+                // ignore
+            }
+        }, 300);
+        setProduitSearchTimeout(timeout);
+    };
 
     const marqueOptions = useMemo(() => {
         const unique = Array.from(new Set(produits.map((p) => p.marque).filter(Boolean))) as string[];
@@ -646,12 +683,10 @@ export default function Vente() {
     const fetchOptions = async () => {
         try {
             const [
-                clientsRes,
                 bateauxRes,
                 moteursRes,
                 remorquesRes,
                 forfaitsRes,
-                produitsRes,
                 servicesRes,
                 mainOeuvresRes,
                 techniciensRes,
@@ -659,12 +694,10 @@ export default function Vente() {
                 catMoteursRes,
                 catRemorquesRes
             ] = await Promise.all([
-                api.get('/clients'),
                 api.get('/bateaux'),
                 api.get('/moteurs'),
                 api.get('/remorques'),
                 api.get('/forfaits'),
-                api.get('/catalogue/produits'),
                 api.get('/services'),
                 api.get('/main-oeuvres'),
                 api.get('/techniciens'),
@@ -672,12 +705,10 @@ export default function Vente() {
                 api.get('/catalogue/moteurs'),
                 api.get('/catalogue/remorques')
             ]);
-            setClients(clientsRes.data || []);
             setBateaux(bateauxRes.data || []);
             setMoteurs(moteursRes.data || []);
             setRemorques(remorquesRes.data || []);
             setForfaits(forfaitsRes.data || []);
-            setProduits(produitsRes.data || []);
             setServices(servicesRes.data || []);
             setMainOeuvres(mainOeuvresRes.data || []);
             setTechniciens(techniciensRes.data || []);
@@ -1212,6 +1243,13 @@ export default function Vente() {
     };
 
     const populateForm = (vente: VenteEntity) => {
+        if (vente.client?.id) {
+            setClients((prev) => mergeById(prev, [vente.client as ClientEntity]));
+        }
+        const venteProduits = (vente.produits || []).filter((p): p is ProduitCatalogueEntity => !!p?.id);
+        if (venteProduits.length > 0) {
+            setProduits((prev) => mergeById(prev, venteProduits));
+        }
         const lignes: LigneUnifiee[] = [];
         (vente.venteForfaits || []).forEach(vf => {
             lignes.push({
@@ -2023,7 +2061,15 @@ export default function Vente() {
                             </Col>
                             <Col span={14}>
                                 <Form.Item name="clientId" label="Client" style={{ marginBottom: 0 }}>
-                                    <Select allowClear showSearch options={clientOptions} placeholder="Tous les clients" />
+                                    <Select
+                                        allowClear
+                                        showSearch
+                                        options={clientOptions}
+                                        filterOption={false}
+                                        onSearch={handleClientSearch}
+                                        notFoundContent={null}
+                                        placeholder="Rechercher un client par prénom ou nom"
+                                    />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -2171,7 +2217,17 @@ export default function Vente() {
                             <Form.Item label="Client" required>
                                 <Space.Compact style={{ width: '100%' }}>
                                     <Form.Item name="clientId" noStyle rules={[{ required: true, message: 'Le client est obligatoire' }]}>
-                                        <Select allowClear showSearch options={clientOptions} style={{ width: '100%' }} onChange={handleClientChange} />
+                                        <Select
+                                            allowClear
+                                            showSearch
+                                            options={clientOptions}
+                                            style={{ width: '100%' }}
+                                            onChange={handleClientChange}
+                                            filterOption={false}
+                                            onSearch={handleClientSearch}
+                                            notFoundContent={null}
+                                            placeholder="Rechercher un client par prénom ou nom"
+                                        />
                                     </Form.Item>
                                     <Button icon={<PlusOutlined />} title="Créer un client" onClick={openNewClientModal} />
                                 </Space.Compact>
@@ -2263,6 +2319,7 @@ export default function Vente() {
                                                                     value={toLigneCompositeValue(lineType, itemId)}
                                                                     options={ligneUnifieeOptions}
                                                                     placeholder="Forfait ou Produit"
+                                                                    onSearch={handleProduitSearch}
                                                                     filterOption={(input, option) =>
                                                                         ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
                                                                     }
@@ -2814,11 +2871,11 @@ export default function Vente() {
                                                                     <Select
                                                                         showSearch
                                                                         allowClear
-                                                                        placeholder="Sélectionner un produit"
+                                                                        placeholder="Rechercher un produit par nom, marque, catégorie ou réf."
                                                                         options={produitOptionsForService}
-                                                                        filterOption={(input, option) =>
-                                                                            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                                        }
+                                                                        filterOption={false}
+                                                                        onSearch={handleProduitSearch}
+                                                                        notFoundContent={null}
                                                                     />
                                                                 </Form.Item>
                                                             </Col>
@@ -2953,7 +3010,15 @@ export default function Vente() {
                                                                         name={[field.name, 'produitId']}
                                                                         style={{ width: 520 }}
                                                                     >
-                                                                        <Select allowClear showSearch options={produitOptions} placeholder="Produit" />
+                                                                        <Select
+                                                                            allowClear
+                                                                            showSearch
+                                                                            options={produitOptions}
+                                                                            filterOption={false}
+                                                                            onSearch={handleProduitSearch}
+                                                                            notFoundContent={null}
+                                                                            placeholder="Rechercher un produit par nom, marque, catégorie ou réf."
+                                                                        />
                                                                     </Form.Item>
                                                                     <Form.Item
                                                                         {...field}
@@ -3261,8 +3326,10 @@ export default function Vente() {
                                 mode="multiple"
                                 showSearch
                                 allowClear
-                                placeholder="Sélectionner les propriétaires"
-                                filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                                placeholder="Rechercher un propriétaire par prénom ou nom"
+                                filterOption={false}
+                                onSearch={handleClientSearch}
+                                notFoundContent={null}
                                 options={clientOptions}
                                 onChange={(values) => newBateauForm.setFieldValue('proprietaires', (values || []).map((id: number) => ({ id })))}
                                 style={{ width: '100%' }}
@@ -3354,8 +3421,10 @@ export default function Vente() {
                             <Select
                                 showSearch
                                 allowClear
-                                placeholder="Sélectionner le propriétaire"
-                                filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                                placeholder="Rechercher un propriétaire par prénom ou nom"
+                                filterOption={false}
+                                onSearch={handleClientSearch}
+                                notFoundContent={null}
                                 options={clientOptions}
                                 onChange={(value) => newMoteurForm.setFieldValue('proprietaire', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
@@ -3427,8 +3496,10 @@ export default function Vente() {
                             <Select
                                 showSearch
                                 allowClear
-                                placeholder="Sélectionner le propriétaire"
-                                filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
+                                placeholder="Rechercher un propriétaire par prénom ou nom"
+                                filterOption={false}
+                                onSearch={handleClientSearch}
+                                notFoundContent={null}
                                 options={clientOptions}
                                 onChange={(value) => newRemorqueForm.setFieldValue('proprietaire', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}

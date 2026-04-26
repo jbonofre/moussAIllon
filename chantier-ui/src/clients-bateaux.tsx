@@ -98,6 +98,10 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [clients, setClients] = useState<any[]>([]);
   const [proprietaireOptions, setProprietaireOptions] = useState<any[]>([]);
   const [proprietaireSearchTimeout, setProprietaireSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [modeleOptions, setModeleOptions] = useState<any[]>([]);
+  const [modeleSearchTimeout, setModeleSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [moteurOptions, setMoteurOptions] = useState<any[]>([]);
+  const [moteurSearchTimeout, setMoteurSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
@@ -214,6 +218,40 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setProprietaireSearchTimeout(timeout);
   };
 
+  const handleModeleSearch = (value: string) => {
+    if (modeleSearchTimeout) clearTimeout(modeleSearchTimeout);
+    if (!value || value.trim() === "") {
+      setModeleOptions([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await api.get(`/catalogue/bateaux/search?q=${encodeURIComponent(value)}`);
+        setModeleOptions(res.data);
+      } catch {
+        setModeleOptions([]);
+      }
+    }, 300);
+    setModeleSearchTimeout(timeout);
+  };
+
+  const handleMoteurSearch = (value: string) => {
+    if (moteurSearchTimeout) clearTimeout(moteurSearchTimeout);
+    if (!value || value.trim() === "") {
+      setMoteurOptions([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await api.get(`/catalogue/moteurs/search?q=${encodeURIComponent(value)}`);
+        setMoteurOptions(res.data);
+      } catch {
+        setMoteurOptions([]);
+      }
+    }, 300);
+    setMoteurSearchTimeout(timeout);
+  };
+
   const handleModalCancel = () => {
     if (formDirty) {
       Modal.confirm({
@@ -235,6 +273,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setEditing(null);
     form.resetFields();
     setFormDirty(false);
+    setModeleOptions([]);
+    setMoteurOptions([]);
     if (clientId) {
       const client = clients.find((c: any) => c.id === clientId);
       setProprietaireOptions(client ? [client] : []);
@@ -249,6 +289,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setEditing(record);
     setFormDirty(false);
     setProprietaireOptions(record.proprietaires || []);
+    setModeleOptions(record.modele ? [record.modele] : []);
+    setMoteurOptions(record.moteurs || []);
     form.setFieldsValue({
       ...record,
       dateMeS: record.dateMeS ? dayjs(record.dateMeS) : null,
@@ -282,6 +324,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       setCatalogueModalVisible(false);
       catalogueForm.resetFields();
       await fetchBateauxCatalogue();
+      setModeleOptions((prev) => [...prev, res.data]);
       form.setFieldsValue({ modeleId: res.data.id });
     } catch (e) {
       if (e && e.response) {
@@ -298,6 +341,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       setMoteurModalVisible(false);
       moteurForm.resetFields();
       await fetchMoteursCatalogue();
+      setMoteurOptions((prev) => [...prev, res.data]);
       // Add the new moteur to the current selection
       const currentMoteurs = form.getFieldValue("moteurs") || [];
       form.setFieldsValue({ moteurs: [...currentMoteurs, res.data.id] });
@@ -540,15 +584,14 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               <Form.Item name="modeleId" noStyle>
                 <Select
                   showSearch
-                  placeholder="Associer à un modèle du catalogue"
-                  optionFilterProp="children"
-                  filterOption={(input, option) =>
-                    `${option?.children ?? ""}`.toLowerCase().includes(input.toLowerCase())
-                  }
+                  placeholder="Rechercher un modèle par marque, modèle ou type"
+                  filterOption={false}
+                  onSearch={handleModeleSearch}
                   allowClear
+                  notFoundContent={null}
                   style={{ width: "100%" }}
                 >
-                  {bateauxCatalogue.map((bateau) => (
+                  {modeleOptions.map((bateau: any) => (
                     <Select.Option key={bateau.id} value={bateau.id}>
                       {bateau.marque} {bateau.modele} {formatAnnee(bateau.anneeDebut, bateau.anneeFin) ? `(${formatAnnee(bateau.anneeDebut, bateau.anneeFin)})` : ''}
                     </Select.Option>
@@ -597,17 +640,16 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="moteurs" noStyle>
                 <Select
-                  mode="tags"
+                  mode="multiple"
                   style={{ width: '100%' }}
-                  placeholder="Sélectionner les moteurs à associer"
-                  optionFilterProp="children"
-                  allowClear
+                  placeholder="Rechercher un moteur par marque, modèle ou type"
+                  filterOption={false}
                   showSearch
-                  filterOption={(input, option) =>
-                    `${option?.children ?? ""}`.toLowerCase().includes(input.toLowerCase())
-                  }
+                  onSearch={handleMoteurSearch}
+                  allowClear
+                  notFoundContent={null}
                 >
-                  {moteursCatalogue && moteursCatalogue.map((moteur: any) => (
+                  {moteurOptions.map((moteur: any) => (
                     <Select.Option key={moteur.id} value={moteur.id}>
                       {moteur.marque} {moteur.modele} {formatAnnee(moteur.anneeDebut, moteur.anneeFin) ? `(${formatAnnee(moteur.anneeDebut, moteur.anneeFin)})` : ''}
                     </Select.Option>

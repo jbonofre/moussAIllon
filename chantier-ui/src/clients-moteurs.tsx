@@ -89,6 +89,10 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const [annonceImageModalVisible, setAnnonceImageModalVisible] = useState(false);
   const [annonceImageMoteur, setAnnonceImageMoteur] = useState<MoteurClient | null>(null);
   const [annonceSelectedImages, setAnnonceSelectedImages] = useState<Set<string>>(new Set());
+  const [modeleOptions, setModeleOptions] = useState<any[]>([]);
+  const [modeleSearchTimeout, setModeleSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [proprietaireOptions, setProprietaireOptions] = useState<any[]>([]);
+  const [proprietaireSearchTimeout, setProprietaireSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const { navigate } = useNavigation();
 
   const openAnnonceImageModal = (moteur: MoteurClient) => {
@@ -183,12 +187,51 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
     }
   };
 
+  const handleModeleSearch = (value: string) => {
+    if (modeleSearchTimeout) clearTimeout(modeleSearchTimeout);
+    if (!value || value.trim() === "") {
+      setModeleOptions([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await api.get(`/catalogue/moteurs/search?q=${encodeURIComponent(value)}`);
+        setModeleOptions(res.data);
+      } catch {
+        setModeleOptions([]);
+      }
+    }, 300);
+    setModeleSearchTimeout(timeout);
+  };
+
+  const handleProprietaireSearch = (value: string) => {
+    if (proprietaireSearchTimeout) clearTimeout(proprietaireSearchTimeout);
+    if (!value || value.trim() === "") {
+      setProprietaireOptions([]);
+      return;
+    }
+    const timeout = setTimeout(async () => {
+      try {
+        const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
+        setProprietaireOptions(res.data);
+      } catch {
+        setProprietaireOptions([]);
+      }
+    }, 300);
+    setProprietaireSearchTimeout(timeout);
+  };
+
   const handleAdd = () => {
     setEditing(null);
     form.resetFields();
     setFormDirty(false);
+    setModeleOptions([]);
     if (clientId) {
+      const client = clients.find((c: any) => c.id === clientId);
+      setProprietaireOptions(client ? [client] : []);
       form.setFieldsValue({ proprietaireId: clientId });
+    } else {
+      setProprietaireOptions([]);
     }
     setModalVisible(true);
   };
@@ -196,6 +239,8 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const handleEdit = (record: MoteurClient) => {
     setEditing(record);
     setFormDirty(false);
+    setModeleOptions(record.modele ? [record.modele] : []);
+    setProprietaireOptions(record.proprietaire ? [record.proprietaire] : []);
     form.setFieldsValue({
       ...record,
       dateMeS: record.dateMeS ? dayjs(record.dateMeS) : null,
@@ -229,6 +274,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       setClientModalVisible(false);
       clientForm.resetFields();
       await fetchClients();
+      setProprietaireOptions((prev) => [...prev, res.data]);
       form.setFieldsValue({ proprietaireId: res.data.id });
     } catch (e: any) {
       if (e && e.response) {
@@ -245,6 +291,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       setCatalogueModalVisible(false);
       catalogueForm.resetFields();
       await fetchCatalogueMoteurs();
+      setModeleOptions((prev) => [...prev, res.data]);
       form.setFieldsValue({ modeleId: res.data.id });
     } catch (e: any) {
       if (e && e.response) {
@@ -427,15 +474,14 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
               <Form.Item name="modeleId" noStyle>
                 <Select
                   showSearch
-                  placeholder="Associer à un modèle du catalogue"
-                  optionFilterProp="children"
-                  filterOption={(input, option) =>
-                    `${option?.children ?? ""}`.toLowerCase().includes(input.toLowerCase())
-                  }
+                  placeholder="Rechercher un modèle par marque, modèle ou type"
+                  filterOption={false}
+                  onSearch={handleModeleSearch}
                   allowClear
+                  notFoundContent={null}
                   style={{ width: "100%" }}
                 >
-                  {catalogueMoteurs.map((modele) => (
+                  {modeleOptions.map((modele: any) => (
                     <Option key={modele.id} value={modele.id}>
                       {modele.marque} {modele.modele} {formatAnnee(modele.anneeDebut, modele.anneeFin) ? `(${formatAnnee(modele.anneeDebut, modele.anneeFin)})` : ''}
                     </Option>
@@ -456,15 +502,14 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
               <Form.Item name="proprietaireId" noStyle>
                 <Select
                   showSearch
-                  placeholder="Sélectionner le client propriétaire"
-                  optionFilterProp="children"
-                  filterOption={(input, option) =>
-                    `${option?.children ?? ""}`.toLowerCase().includes(input.toLowerCase())
-                  }
+                  placeholder="Rechercher un propriétaire par prénom ou nom"
+                  filterOption={false}
+                  onSearch={handleProprietaireSearch}
                   allowClear
+                  notFoundContent={null}
                   style={{ width: "100%" }}
                 >
-                  {clients.map((client: any) => (
+                  {proprietaireOptions.map((client: any) => (
                     <Option key={client.id} value={client.id}>
                       {client.prenom} {client.nom}
                     </Option>
