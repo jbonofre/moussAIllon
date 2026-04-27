@@ -4,7 +4,7 @@
   "homepage": "/technicien",
   "main": "/index.tsx",
   "dependencies": {
-    "@ant-design/icons": "^6.0.0",
+    "@ant-design/icons": "^6.2.2",
     "ajv": "^8.18.0",
     "antd": "^6.3.6",
     "axios": "^1.15.1",
