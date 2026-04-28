@@ -190,22 +190,28 @@ public class VenteResource {
     @Path("/search")
     public List<VenteEntity> search(
             @QueryParam("status") String status,
-            @QueryParam("clientId") Long clientId
+            @QueryParam("clientId") Long clientId,
+            @QueryParam("comptoir") Boolean comptoir
     ) {
         VenteEntity.Status parsedStatus = parseStatus(status);
-        boolean hasStatus = parsedStatus != null;
-        boolean hasClientId = clientId != null;
-
-        if (hasStatus && hasClientId) {
-            return VenteEntity.list("status = ?1 and client.id = ?2", parsedStatus, clientId);
+        StringBuilder query = new StringBuilder();
+        List<Object> params = new ArrayList<>();
+        if (parsedStatus != null) {
+            query.append(query.length() == 0 ? "" : " and ").append("status = ?").append(params.size() + 1);
+            params.add(parsedStatus);
         }
-        if (hasStatus) {
-            return VenteEntity.list("status = ?1", parsedStatus);
+        if (clientId != null) {
+            query.append(query.length() == 0 ? "" : " and ").append("client.id = ?").append(params.size() + 1);
+            params.add(clientId);
         }
-        if (hasClientId) {
-            return VenteEntity.list("client.id = ?1", clientId);
+        if (comptoir != null) {
+            query.append(query.length() == 0 ? "" : " and ").append("comptoir = ?").append(params.size() + 1);
+            params.add(comptoir);
         }
-        return VenteEntity.listAll();
+        if (query.length() == 0) {
+            return VenteEntity.listAll();
+        }
+        return VenteEntity.list(query.toString(), params.toArray());
     }
 
     @POST

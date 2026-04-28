@@ -21,6 +21,7 @@ import {
 } from 'antd';
 import { CreditCardOutlined, DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import axios from 'axios';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
@@ -366,7 +367,7 @@ export default function Comptoir() {
         setLoading(true);
         try {
             const response = await api.get('/ventes/search', {
-                params: { status: 'FACTURE_PAYEE' }
+                params: { comptoir: true }
             });
             setVentes(response.data || []);
         } catch {
@@ -596,14 +597,14 @@ export default function Comptoir() {
                 form.setFieldsValue(values);
             }
             setFormDirty(false);
-            fetchVentes(filters);
+            fetchVentes();
         } catch (error) {
             const formError = error as { errorFields?: unknown[] };
             if (Array.isArray(formError.errorFields) && formError.errorFields.length > 0) {
                 // Les erreurs de validation sont affichees dans le formulaire.
                 return;
             }
-            if (api.isAxiosError(error)) {
+            if (axios.isAxiosError(error)) {
                 message.error(error.response?.data?.message || "Erreur lors de l'enregistrement de la vente comptoir.");
                 return;
             }
@@ -618,7 +619,7 @@ export default function Comptoir() {
         try {
             await api.delete(`/ventes/${id}`);
             message.success('Vente comptoir supprimee avec succes');
-            fetchVentes(filters);
+            fetchVentes();
         } catch {
             message.error('Erreur lors de la suppression de la vente comptoir.');
         }
@@ -639,7 +640,7 @@ export default function Comptoir() {
             setCurrentVente(res.data);
             form.setFieldsValue({ status: res.data.status });
             setFormDirty(false);
-            fetchVentes(filters);
+            fetchVentes();
         } catch {
             message.error('Erreur lors du marquage comme payée');
             form.setFieldsValue({ status: 'FACTURE_PRETE' });
