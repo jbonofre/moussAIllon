@@ -991,6 +991,24 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               </Form.Item>
             </Col>
           </Row>
+          <Row gutter={16}>
+            <Col span={24}>
+              <Form.Item label="Années">
+                <Row gutter={8}>
+                  <Col span={12}>
+                    <Form.Item name="anneeDebut" noStyle>
+                      <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Début" />
+                    </Form.Item>
+                  </Col>
+                  <Col span={12}>
+                    <Form.Item name="anneeFin" noStyle>
+                      <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Fin" />
+                    </Form.Item>
+                  </Col>
+                </Row>
+              </Form.Item>
+            </Col>
+          </Row>
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} />
           </Form.Item>
