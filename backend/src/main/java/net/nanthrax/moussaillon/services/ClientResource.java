@@ -10,6 +10,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
+import net.nanthrax.moussaillon.persistence.VenteEntity;
 
 import java.sql.Timestamp;
 import java.util.List;
@@ -26,7 +27,10 @@ public class ClientResource {
     @GET
     public List<ClientEntity> list() {
         List<ClientEntity> clients = ClientEntity.listAll();
-        clients.forEach(c -> c.motDePasse = null);
+        clients.forEach(c -> {
+            c.motDePasse = null;
+            c.soldeDu = computeSoldeDu(c.id);
+        });
         return clients;
     }
 
@@ -34,11 +38,19 @@ public class ClientResource {
     @Path("/search")
     public List<ClientEntity> search(@QueryParam("q") String q) {
         if (q == null || q.trim().isEmpty()) {
-            return ClientEntity.listAll();
+            List<ClientEntity> clients = ClientEntity.listAll();
+            clients.forEach(c -> {
+                c.motDePasse = null;
+                c.soldeDu = computeSoldeDu(c.id);
+            });
+            return clients;
         }
         String likePattern = "%" + q.toLowerCase() + "%";
         List<ClientEntity> clients = ClientEntity.list("LOWER(nom) LIKE ?1 OR LOWER(prenom) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(email) LIKE ?1 OR LOWER(telephone) LIKE ?1", likePattern);
-        clients.forEach(c -> c.motDePasse = null);
+        clients.forEach(c -> {
+            c.motDePasse = null;
+            c.soldeDu = computeSoldeDu(c.id);
+        });
         return clients;
     }
 
@@ -55,6 +67,7 @@ public class ClientResource {
         client.flush();
         ClientEntity.getEntityManager().detach(client);
         client.motDePasse = null;
+        client.soldeDu = 0.0;
         return client;
     }
 
@@ -66,6 +79,7 @@ public class ClientResource {
             throw new WebApplicationException("Le client (" + id + ") n'est pas trouvé", 404);
         }
         entity.motDePasse = null;
+        entity.soldeDu = computeSoldeDu(id);
         return entity;
     }
 
@@ -113,7 +127,16 @@ public class ClientResource {
         entity.flush();
         ClientEntity.getEntityManager().detach(entity);
         entity.motDePasse = null;
+        entity.soldeDu = computeSoldeDu(id);
         return entity;
+    }
+
+    private double computeSoldeDu(long clientId) {
+        List<VenteEntity> unpaid = VenteEntity.list(
+            "client.id = ?1 and (status = ?2 or status = ?3)",
+            clientId, VenteEntity.Status.FACTURE_EN_ATTENTE, VenteEntity.Status.FACTURE_PRETE
+        );
+        return unpaid.stream().mapToDouble(v -> v.prixVenteTTC).sum();
     }
 
     @POST

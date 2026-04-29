@@ -16,6 +16,7 @@ import {
   Row,
   Col,
   Checkbox,
+  Alert,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -60,6 +61,7 @@ interface Client {
   naf?: string;
   canalAcquisition?: string;
   documents?: string[];
+  soldeDu?: number;
 }
 
 const defaultClient = {
@@ -267,6 +269,16 @@ function Clients() {
       sorter: (a, b) => (a.evaluation || 0) - (b.evaluation || 0),
     },
     {
+      title: "Solde dû",
+      dataIndex: "soldeDu",
+      key: "soldeDu",
+      sorter: (a, b) => (a.soldeDu || 0) - (b.soldeDu || 0),
+      render: (val) => {
+        if (!val || val === 0) return <span style={{ color: "#52c41a" }}>0,00 €</span>;
+        return <span style={{ color: "#ff4d4f", fontWeight: 600 }}>{val.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>;
+      },
+    },
+    {
       title: "Actions",
       key: "actions",
       render: (_, record) => (
@@ -335,6 +347,21 @@ function Clients() {
         destroyOnHidden
         width={1024}
       >
+        {editing && editing.id && editing.soldeDu != null && editing.soldeDu > 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 16 }}
+            message={
+              <span>
+                Solde dû :{" "}
+                <strong style={{ color: "#ff4d4f" }}>
+                  {editing.soldeDu.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                </strong>
+              </span>
+            }
+          />
+        )}
         <Form layout="vertical" form={form} initialValues={defaultClient} onValuesChange={() => setFormDirty(true)}>
           <Form.Item name="id" hidden>
             <Input />
