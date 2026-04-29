@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 
 import { Badge, Button, Card, Col, DatePicker, Empty, Form, Input, Modal, Row, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { CalendarOutlined, EditOutlined, EyeOutlined, LeftOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
 import { Line } from '@ant-design/charts';
+import axios from 'axios';
 import api from './api.ts';
 import dayjs from 'dayjs';
 
@@ -740,7 +741,7 @@ export default function Planning() {
             if (Array.isArray(formError.errorFields) && formError.errorFields.length > 0) {
                 return;
             }
-            if (api.isAxiosError(error)) {
+            if (axios.isAxiosError(error)) {
                 message.error(error.response?.data?.message || "Erreur lors de la mise a jour.");
                 return;
             }

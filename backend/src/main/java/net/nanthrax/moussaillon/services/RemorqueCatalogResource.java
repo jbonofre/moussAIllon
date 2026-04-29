@@ -27,10 +27,19 @@ public class RemorqueCatalogResource {
     @GET
     @Path("/search")
     public List<RemorqueCatalogueEntity> search(
+            @QueryParam("q") String q,
             @QueryParam("modele") String modele,
             @QueryParam("marque") String marque,
             @QueryParam("description") String description
     ) {
+        if (q != null && !q.trim().isEmpty()) {
+            String likePattern = "%" + q.toLowerCase() + "%";
+            return RemorqueCatalogueEntity.list(
+                "lower(modele) like ?1 or lower(marque) like ?1 or lower(description) like ?1",
+                likePattern
+            );
+        }
+
         String query = "";
         boolean first = true;
         if (modele != null && !modele.isEmpty()) {

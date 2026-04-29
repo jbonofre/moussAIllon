@@ -21,6 +21,7 @@ import {
 } from 'antd';
 import { CreditCardOutlined, DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import axios from 'axios';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
@@ -275,6 +276,43 @@ export default function Comptoir() {
     const [newProduitTargetLine, setNewProduitTargetLine] = useState<number | null>(null);
     const [newProduitForm] = Form.useForm();
     const [newProduitFormDirty, setNewProduitFormDirty] = useState(false);
+    const [clientSearchTimeout, setClientSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+    const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+    const mergeById = <T extends { id: number }>(prev: T[], next: T[]): T[] => {
+        const map = new Map<number, T>();
+        prev.forEach((item) => map.set(item.id, item));
+        next.forEach((item) => { if (item?.id) map.set(item.id, item); });
+        return Array.from(map.values());
+    };
+
+    const handleClientSearch = (value: string) => {
+        if (clientSearchTimeout) clearTimeout(clientSearchTimeout);
+        if (!value || value.trim() === '') return;
+        const timeout = setTimeout(async () => {
+            try {
+                const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
+                setClients((prev) => mergeById(prev, res.data || []));
+            } catch {
+                // ignore
+            }
+        }, 300);
+        setClientSearchTimeout(timeout);
+    };
+
+    const handleProduitSearch = (value: string) => {
+        if (produitSearchTimeout) clearTimeout(produitSearchTimeout);
+        if (!value || value.trim() === '') return;
+        const timeout = setTimeout(async () => {
+            try {
+                const res = await api.get(`/catalogue/produits/search?q=${encodeURIComponent(value)}`);
+                setProduits((prev) => mergeById(prev, res.data || []));
+            } catch {
+                // ignore
+            }
+        }, 300);
+        setProduitSearchTimeout(timeout);
+    };
 
     const marqueOptions = useMemo(() => {
         const unique = Array.from(new Set(produits.map((p) => p.marque).filter(Boolean))) as string[];
@@ -329,7 +367,7 @@ export default function Comptoir() {
         setLoading(true);
         try {
             const response = await api.get('/ventes/search', {
-                params: { status: 'FACTURE_PAYEE' }
+                params: { comptoir: true }
             });
             setVentes(response.data || []);
         } catch {
@@ -342,28 +380,22 @@ export default function Comptoir() {
     const fetchOptions = async () => {
         try {
             const [
-                clientsRes,
                 bateauxRes,
                 moteursRes,
                 remorquesRes,
                 forfaitsRes,
-                produitsRes,
                 servicesRes
             ] = await Promise.all([
-                api.get('/clients'),
                 api.get('/bateaux'),
                 api.get('/moteurs'),
                 api.get('/remorques'),
                 api.get('/forfaits'),
-                api.get('/catalogue/produits'),
                 api.get('/services')
             ]);
-            setClients(clientsRes.data || []);
             setBateaux(bateauxRes.data || []);
             setMoteurs(moteursRes.data || []);
             setRemorques(remorquesRes.data || []);
             setForfaits(forfaitsRes.data || []);
-            setProduits(produitsRes.data || []);
             setServices(servicesRes.data || []);
         } catch {
             message.error('Erreur lors du chargement des listes de reference.');
@@ -428,6 +460,13 @@ export default function Comptoir() {
         if (vente) {
             setIsEdit(true);
             setCurrentVente(vente);
+            if (vente.client?.id) {
+                setClients((prev) => mergeById(prev, [vente.client as ClientEntity]));
+            }
+            const venteProduits = (vente.produits || []).filter((p): p is ProduitCatalogueEntity => !!p?.id);
+            if (venteProduits.length > 0) {
+                setProduits((prev) => mergeById(prev, venteProduits));
+            }
             const produitLinesMap = (vente.produits || []).reduce((acc, item) => {
                 if (!item?.id) {
                     return acc;
@@ -558,14 +597,14 @@ export default function Comptoir() {
                 form.setFieldsValue(values);
             }
             setFormDirty(false);
-            fetchVentes(filters);
+            fetchVentes();
         } catch (error) {
             const formError = error as { errorFields?: unknown[] };
             if (Array.isArray(formError.errorFields) && formError.errorFields.length > 0) {
                 // Les erreurs de validation sont affichees dans le formulaire.
                 return;
             }
-            if (api.isAxiosError(error)) {
+            if (axios.isAxiosError(error)) {
                 message.error(error.response?.data?.message || "Erreur lors de l'enregistrement de la vente comptoir.");
                 return;
             }
@@ -580,7 +619,7 @@ export default function Comptoir() {
         try {
             await api.delete(`/ventes/${id}`);
             message.success('Vente comptoir supprimee avec succes');
-            fetchVentes(filters);
+            fetchVentes();
         } catch {
             message.error('Erreur lors de la suppression de la vente comptoir.');
         }
@@ -601,7 +640,7 @@ export default function Comptoir() {
             setCurrentVente(res.data);
             form.setFieldsValue({ status: res.data.status });
             setFormDirty(false);
-            fetchVentes(filters);
+            fetchVentes();
         } catch {
             message.error('Erreur lors du marquage comme payée');
             form.setFieldsValue({ status: 'FACTURE_PRETE' });
@@ -1068,7 +1107,15 @@ export default function Comptoir() {
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="clientId" label="Client">
-                                <Select allowClear showSearch options={clientOptions} />
+                                <Select
+                                    allowClear
+                                    showSearch
+                                    options={clientOptions}
+                                    filterOption={false}
+                                    onSearch={handleClientSearch}
+                                    notFoundContent={null}
+                                    placeholder="Rechercher un client par prénom ou nom"
+                                />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -1103,7 +1150,15 @@ export default function Comptoir() {
                                                         ]}
                                                         style={{ width: 420 }}
                                                     >
-                                                        <Select allowClear showSearch options={produitOptions} placeholder="Produit" />
+                                                        <Select
+                                                            allowClear
+                                                            showSearch
+                                                            options={produitOptions}
+                                                            filterOption={false}
+                                                            onSearch={handleProduitSearch}
+                                                            notFoundContent={null}
+                                                            placeholder="Rechercher un produit par nom, marque, catégorie ou réf."
+                                                        />
                                                     </Form.Item>
                                                     <Form.Item style={{ width: 150 }}>
                                                         <InputNumber
