@@ -1982,20 +1982,29 @@ export default function Vente() {
             return;
         }
 
-        if (
-            changedValues.lignes !== undefined ||
-            changedValues.tva !== undefined ||
-            changedValues.remisePourcentage !== undefined ||
-            changedValues.remise !== undefined
-        ) {
-            if (changedValues.remisePourcentage !== undefined) {
-                recalculateFromLines('percentage');
-                return;
-            }
-            if (changedValues.remise !== undefined) {
-                recalculateFromLines('amount');
-                return;
-            }
+        if (changedValues.remisePourcentage !== undefined) {
+            const montantTTC = allValues.montantTTC || 0;
+            const remisePourcentage = changedValues.remisePourcentage || 0;
+            const remise = Math.round(((montantTTC * remisePourcentage / 100) + Number.EPSILON) * 100) / 100;
+            const prixVenteTTC = Math.round(((montantTTC - remise) + Number.EPSILON) * 100) / 100;
+            form.setFieldValue('remise', remise);
+            form.setFieldValue('prixVenteTTC', prixVenteTTC);
+            return;
+        }
+
+        if (changedValues.remise !== undefined) {
+            const montantTTC = allValues.montantTTC || 0;
+            const remise = changedValues.remise || 0;
+            const remisePourcentage = montantTTC > 0
+                ? Math.round((((remise / montantTTC) * 100) + Number.EPSILON) * 100) / 100
+                : 0;
+            const prixVenteTTC = Math.round(((montantTTC - remise) + Number.EPSILON) * 100) / 100;
+            form.setFieldValue('remisePourcentage', remisePourcentage);
+            form.setFieldValue('prixVenteTTC', prixVenteTTC);
+            return;
+        }
+
+        if (changedValues.lignes !== undefined || changedValues.tva !== undefined) {
             recalculateFromLines('auto');
         }
     };
@@ -2654,6 +2663,19 @@ export default function Vente() {
                             </Form.Item>
                         </Col>
                         <Col span={6}>
+                            <Form.Item name="montantTVA" label="Montant TVA">
+                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
+                            <Form.Item name="montantTTC" label="Montant TTC">
+                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={6} offset={6}>
                             <Form.Item name="remisePourcentage" label="Remise (%)">
                                 <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
@@ -2663,20 +2685,7 @@ export default function Vente() {
                                 <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
                         </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={8}>
-                            <Form.Item name="montantTVA" label="Montant TVA">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="montantTTC" label="Montant TTC">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
+                        <Col span={6}>
                             <Form.Item name="prixVenteTTC" label="Prix vente TTC">
                                 <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
