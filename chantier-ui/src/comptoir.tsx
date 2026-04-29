@@ -974,6 +974,13 @@ export default function Comptoir() {
         {
             title: 'Mode paiement',
             dataIndex: 'modePaiement',
+            filters: modePaiementOptions.map((o) => ({ text: o.label, value: o.value })),
+            onFilter: (value: unknown, record: VenteEntity) => record.modePaiement === value,
+            sorter: (a: VenteEntity, b: VenteEntity) => {
+                const labelA = modePaiementOptions.find((item) => item.value === a.modePaiement)?.label || a.modePaiement || '';
+                const labelB = modePaiementOptions.find((item) => item.value === b.modePaiement)?.label || b.modePaiement || '';
+                return labelA.localeCompare(labelB);
+            },
             render: (value: ModePaiement) => modePaiementOptions.find((item) => item.value === value)?.label || value || '-'
         },
         {
