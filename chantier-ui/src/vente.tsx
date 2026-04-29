@@ -1664,13 +1664,22 @@ export default function Vente() {
         if (step >= 3 && currentStep < 3) {
             const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
             const allLines = currentLignes.filter((l) => (l.type === 'forfait' || l.type === 'service') && l.itemId);
-            const allDone = allLines.length > 0 && allLines.every((l: { status?: PlanningStatus }) =>
-                l.status === 'TERMINEE' || l.status === 'ANNULEE'
-            );
-            const hasTerminee = allLines.some((l: { status?: PlanningStatus }) => l.status === 'TERMINEE');
-            if (!allDone || !hasTerminee) {
-                message.warning('Toutes les prestations doivent être terminées avant de passer en facture complète');
-                return;
+            const totalDureeEstimee = allLines.reduce((sum, l) => {
+                const duree = l.type === 'forfait'
+                    ? forfaits.find((f) => f.id === l.itemId)?.dureeEstimee
+                    : services.find((s) => s.id === l.itemId)?.dureeEstimee;
+                return sum + (duree || 0);
+            }, 0);
+            const skipCheck = allLines.length === 0 || totalDureeEstimee === 0;
+            if (!skipCheck) {
+                const allDone = allLines.every((l: { status?: PlanningStatus }) =>
+                    l.status === 'TERMINEE' || l.status === 'ANNULEE'
+                );
+                const hasTerminee = allLines.some((l: { status?: PlanningStatus }) => l.status === 'TERMINEE');
+                if (!allDone || !hasTerminee) {
+                    message.warning('Toutes les prestations doivent être terminées avant de passer en facture complète');
+                    return;
+                }
             }
         }
         form.setFieldsValue(steps[step]);
