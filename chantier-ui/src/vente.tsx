@@ -285,6 +285,9 @@ interface VenteEntity {
     rappel1Jours?: number;
     rappel2Jours?: number;
     rappel3Jours?: number;
+    rappel1Envoye?: boolean;
+    rappel2Envoye?: boolean;
+    rappel3Envoye?: boolean;
 }
 
 interface RappelHistoriqueEntity {
@@ -2050,6 +2053,17 @@ export default function Vente() {
             title: 'Produits',
             dataIndex: 'produits',
             render: (values: ProduitCatalogueEntity[]) => values?.length || 0
+        },
+        {
+            title: 'Relance',
+            key: 'relance',
+            render: (_: unknown, record: VenteEntity) => {
+                if (record.rappel3Envoye) return <Tag color="red">Relance 3 envoyée</Tag>;
+                if (record.rappel2Envoye) return <Tag color="orange">Relance 2 envoyée</Tag>;
+                if (record.rappel1Envoye) return <Tag color="gold">Relance 1 envoyée</Tag>;
+                if (record.rappel1Jours || record.rappel2Jours || record.rappel3Jours) return <Tag color="blue">En attente</Tag>;
+                return null;
+            }
         },
         {
             title: 'Prix vente TTC',
