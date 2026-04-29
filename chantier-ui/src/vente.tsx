@@ -524,6 +524,7 @@ export default function Vente() {
     const signatureDrawingRef = useRef(false);
     const [clientSearchTimeout, setClientSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
     const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+    const capturedSignatureRef = useRef<string | null>(null);
 
     const mergeById = <T extends { id?: number }>(prev: T[], next: T[]): T[] => {
         const map = new Map<number, T>();
@@ -1397,6 +1398,7 @@ export default function Vente() {
         const canvas = signatureCanvasRef.current;
         const signatureData = canvas ? canvas.toDataURL('image/png') : undefined;
         if (bpaPendingCallback) {
+            capturedSignatureRef.current = signatureData || null;
             form.setFieldsValue({ signatureBonPourAccord: signatureData });
             bpaPendingCallback();
         }
@@ -1571,15 +1573,21 @@ export default function Vente() {
         try {
             const values = await form.validateFields();
             const payload = toPayload(values);
+            const signatureValue = capturedSignatureRef.current ?? form.getFieldValue('signatureBonPourAccord') ?? currentVente?.signatureBonPourAccord;
+            if (signatureValue != null) {
+                payload.signatureBonPourAccord = signatureValue;
+            }
             suppressDirtyRef.current = true;
             if (isEdit && currentVente?.id) {
                 const res = await api.put(`/ventes/${currentVente.id}`, { ...currentVente, ...payload });
+                capturedSignatureRef.current = null;
                 message.success('Vente modifiee avec succes');
                 setCurrentVente(res.data);
                 snapshotSavedLines(res.data);
                 populateForm(res.data);
             } else {
                 const res = await api.post('/ventes', payload);
+                capturedSignatureRef.current = null;
                 message.success('Vente ajoutee avec succes');
                 setIsEdit(true);
                 setCurrentVente(res.data);
@@ -1672,9 +1680,29 @@ export default function Vente() {
         iframeWindow.document.write(contentHtml);
         iframeWindow.document.close();
         iframeWindow.focus();
-        iframeWindow.print();
 
-        setTimeout(cleanup, 1000);
+        const doPrint = () => {
+            iframeWindow.print();
+            setTimeout(cleanup, 1000);
+        };
+
+        const images = Array.from(iframeWindow.document.getElementsByTagName('img'));
+        if (images.length === 0) {
+            doPrint();
+        } else {
+            let pending = images.filter(img => !img.complete).length;
+            if (pending === 0) {
+                doPrint();
+            } else {
+                const onSettle = () => { pending--; if (pending === 0) doPrint(); };
+                images.forEach(img => {
+                    if (!img.complete) {
+                        img.addEventListener('load', onSettle, { once: true });
+                        img.addEventListener('error', onSettle, { once: true });
+                    }
+                });
+            }
+        }
     };
 
     const buildDocumentLines = (vente: VenteEntity) => {
@@ -1774,12 +1802,21 @@ export default function Vente() {
         </html>`;
     };
 
-    const handlePrint = (vente: VenteEntity) => {
-        const docType = getDocumentType(vente);
+    const handlePrint = async (vente: VenteEntity) => {
+        let fullVente = vente;
+        if (vente.id) {
+            try {
+                const res = await api.get<VenteEntity>(`/ventes/${vente.id}`);
+                fullVente = res.data;
+            } catch {
+                // On utilise la vente passée en paramètre en cas d'erreur
+            }
+        }
+        const docType = getDocumentType(fullVente);
         const docTitle = docType === 'devis' ? 'Devis'
             : docType === 'ordre_reparation' ? 'Ordre de Réparation'
             : 'Facture';
-        openPrintDocument(`${docTitle} #${vente.id || '-'}`, buildDocumentHtml(vente));
+        openPrintDocument(`${docTitle} #${fullVente.id || '-'}`, buildDocumentHtml(fullVente));
     };
 
     const handleEmail = async (vente: VenteEntity) => {
@@ -2177,6 +2214,7 @@ export default function Vente() {
                 <Form form={form} layout="vertical" initialValues={defaultVente} onValuesChange={onValuesChange} disabled={isReadOnly}>
                     <Form.Item noStyle name="status"><input type="hidden" /></Form.Item>
                     <Form.Item noStyle name="bonPourAccord"><input type="hidden" /></Form.Item>
+                    <Form.Item noStyle name="signatureBonPourAccord"><input type="hidden" /></Form.Item>
                     <Steps
                         current={venteStepIndex(
                             watchedStatus || 'DEVIS',
