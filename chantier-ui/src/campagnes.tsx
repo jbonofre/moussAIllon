@@ -101,6 +101,7 @@ const formatDate = (value?: string) => {
 export default function Campagnes() {
     const [campagnes, setCampagnes] = useState<Campagne[]>([]);
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<Campagne | null>(null);
     const [detailOpen, setDetailOpen] = useState(false);
@@ -372,18 +373,35 @@ export default function Campagnes() {
         { title: 'Erreur', dataIndex: 'erreur', key: 'erreur', render: (val?: string) => val || '-' },
     ];
 
+    const filteredCampagnes = (() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return campagnes;
+        return campagnes.filter((c) => {
+            const nom = (c.nom ?? '').toLowerCase();
+            const sujet = (c.sujet ?? '').toLowerCase();
+            const canal = (canalLabel[c.canal] ?? c.canal ?? '').toLowerCase();
+            const cible = (cibleLabel[c.cible] ?? c.cible ?? '').toLowerCase();
+            return nom.includes(q) || sujet.includes(q) || canal.includes(q) || cible.includes(q);
+        });
+    })();
+
     return (
-        <Card
-            title="Campagnes marketing"
-            extra={
-                <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate}>
-                    Nouvelle campagne
-                </Button>
-            }
-        >
+        <Card title="Campagnes marketing">
+            <Space style={{ marginBottom: 16 }}>
+                <Input.Search
+                    placeholder="Recherche"
+                    enterButton
+                    allowClear
+                    style={{ width: 600 }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onSearch={(value) => setSearchQuery(value)}
+                />
+                <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
+            </Space>
             <Table
                 rowKey="id"
-                dataSource={campagnes}
+                dataSource={filteredCampagnes}
                 columns={columns}
                 loading={loading}
                 pagination={{ pageSize: 10 }}

@@ -160,6 +160,30 @@ export default function Avoirs() {
 
     const [filterClientId, setFilterClientId] = useState<number | null>(null);
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [clientSearchTimeout, setClientSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+    const mergeClientsById = (prev: ClientRef[], next: ClientRef[]): ClientRef[] => {
+        const map = new Map<number, ClientRef>();
+        prev.forEach((c) => { if (c?.id !== undefined) map.set(c.id, c); });
+        next.forEach((c) => { if (c?.id !== undefined) map.set(c.id, c); });
+        return Array.from(map.values());
+    };
+
+    const handleClientSearch = (value: string) => {
+        if (clientSearchTimeout) clearTimeout(clientSearchTimeout);
+        if (!value || value.trim() === '') return;
+        const timeout = setTimeout(async () => {
+            try {
+                const res = await fetchWithAuth(`./clients/search?q=${encodeURIComponent(value)}`);
+                const data = await res.json();
+                setClients((prev) => mergeClientsById(prev, Array.isArray(data) ? data : []));
+            } catch {
+                // ignore
+            }
+        }, 300);
+        setClientSearchTimeout(timeout);
+    };
 
     // Modal "Appliquer un avoir à une facture"
     const [appliquerModalOpen, setAppliquerModalOpen] = useState(false);
@@ -393,6 +417,23 @@ export default function Avoirs() {
 
     const totauxFormLignes = computeAvoirTotals(formLignes, formLignes[0]?.tva ?? 20);
 
+    const filteredAvoirs = (() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return avoirs;
+        return avoirs.filter((a) => {
+            const clientLabel = a.client ? `${a.client.prenom ?? ''} ${a.client.nom ?? ''}`.toLowerCase() : '';
+            const motif = (a.motif ?? '').toLowerCase();
+            const idStr = a.id !== undefined ? `#${a.id}` : '';
+            const venteStr = a.vente ? `#${a.vente.id}` : '';
+            return (
+                clientLabel.includes(q) ||
+                motif.includes(q) ||
+                idStr.includes(q) ||
+                venteStr.includes(q)
+            );
+        });
+    })();
+
     const columns = [
         {
             title: '#',
@@ -586,14 +627,20 @@ export default function Avoirs() {
     ];
 
     return (
-        <Card
-            title="Gestion des avoirs"
-            extra={
-                <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate}>
-                    Nouvel avoir
-                </Button>
-            }
-        >
+        <Card title="Gestion des avoirs">
+            <Space style={{ marginBottom: 16 }}>
+                <Input.Search
+                    placeholder="Recherche"
+                    enterButton
+                    allowClear
+                    style={{ width: 600 }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onSearch={(value) => setSearchQuery(value)}
+                />
+                <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
+            </Space>
+
             {/* Filtres */}
             <Row gutter={16} style={{ marginBottom: 16 }}>
                 <Col span={8}>
@@ -628,7 +675,7 @@ export default function Avoirs() {
             <Table
                 rowKey="id"
                 loading={loading}
-                dataSource={avoirs}
+                dataSource={filteredAvoirs}
                 columns={columns}
                 pagination={{ pageSize: 15 }}
                 bordered
@@ -651,12 +698,12 @@ export default function Avoirs() {
                             <Form.Item label="Client" required>
                                 <Select
                                     showSearch
-                                    placeholder="Sélectionner un client"
+                                    placeholder="Rechercher un client par prénom ou nom"
                                     value={formClientId ?? undefined}
                                     onChange={handleClientChange}
-                                    filterOption={(input, opt) =>
-                                        (opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                    }
+                                    filterOption={false}
+                                    onSearch={handleClientSearch}
+                                    notFoundContent={null}
                                     options={clients.map((c) => ({
                                         value: c.id,
                                         label: `${c.prenom ?? ''} ${c.nom}`.trim(),

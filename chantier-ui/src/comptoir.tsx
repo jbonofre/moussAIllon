@@ -120,6 +120,26 @@ interface TaskEntity {
 
 type VenteStatus = 'DEVIS' | 'FACTURE_EN_ATTENTE' | 'FACTURE_PRETE' | 'FACTURE_PAYEE';
 type ModePaiement = 'CHEQUE' | 'VIREMENT' | 'CARTE' | 'ESPÈCES';
+type ModeReglement = 'CHEQUE' | 'VIREMENT' | 'CARTE' | 'ESPÈCES' | 'AVOIR';
+
+interface VentePaiement {
+    id?: number;
+    mode: ModeReglement;
+    montant: number;
+    date?: string;
+    notes?: string;
+    avoirId?: number;
+    avoirMotif?: string;
+    avoirMontantTTC?: number;
+    avoirMontantUtilise?: number;
+}
+
+interface AvoirDisponible {
+    id: number;
+    motif?: string;
+    montantTTC: number;
+    montantUtilise: number;
+}
 
 interface VenteEntity {
     id?: number;
@@ -148,6 +168,7 @@ interface VenteEntity {
     montantTVA?: number;
     prixVenteTTC?: number;
     modePaiement?: ModePaiement;
+    paiements?: VentePaiement[];
 }
 
 interface VenteFormValues {
@@ -278,6 +299,13 @@ export default function Comptoir() {
     const [newProduitFormDirty, setNewProduitFormDirty] = useState(false);
     const [clientSearchTimeout, setClientSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
     const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+    const [paiementModalVisible, setPaiementModalVisible] = useState(false);
+    const [paiementMode, setPaiementMode] = useState<ModeReglement>('CARTE');
+    const [paiementMontant, setPaiementMontant] = useState<number>(0);
+    const [paiementNotes, setPaiementNotes] = useState('');
+    const [paiementAvoirId, setPaiementAvoirId] = useState<number | null>(null);
+    const [avoirsDisponibles, setAvoirsDisponibles] = useState<AvoirDisponible[]>([]);
+    const [addingPaiement, setAddingPaiement] = useState(false);
 
     const mergeById = <T extends { id: number }>(prev: T[], next: T[]): T[] => {
         const map = new Map<number, T>();
@@ -406,6 +434,76 @@ export default function Comptoir() {
         fetchVentes();
         fetchOptions();
     }, []);
+
+    const refreshCurrentVente = async (id: number) => {
+        try {
+            const res = await api.get<VenteEntity>(`/ventes/${id}`);
+            setCurrentVente(res.data);
+        } catch {
+            message.error('Erreur lors du rechargement de la vente');
+        }
+    };
+
+    const openPaiementModal = async () => {
+        const restant = (currentVente?.prixVenteTTC ?? 0) -
+            (currentVente?.paiements ?? []).reduce((s, p) => s + p.montant, 0);
+        setPaiementMode('CARTE');
+        setPaiementMontant(Math.max(0, Math.round(restant * 100) / 100));
+        setPaiementNotes('');
+        setPaiementAvoirId(null);
+        setAvoirsDisponibles([]);
+        setPaiementModalVisible(true);
+    };
+
+    const loadAvoirsDisponibles = async (mode: ModeReglement) => {
+        if (mode !== 'AVOIR' || !currentVente?.client?.id) return;
+        try {
+            const res = await api.get<AvoirDisponible[]>(
+                `/avoirs/search?clientId=${currentVente.client.id}&status=EMIS`
+            );
+            setAvoirsDisponibles((res.data || []).filter(
+                (a) => Math.round((a.montantTTC - a.montantUtilise) * 100) / 100 > 0.005
+            ));
+        } catch {
+            setAvoirsDisponibles([]);
+        }
+    };
+
+    const handleAddPaiement = async () => {
+        if (!currentVente?.id) return;
+        if (paiementMontant <= 0) { message.warning('Le montant doit être supérieur à zéro'); return; }
+        if (paiementMode === 'AVOIR' && !paiementAvoirId) { message.warning('Veuillez sélectionner un avoir'); return; }
+        setAddingPaiement(true);
+        try {
+            await api.post(`/ventes/${currentVente.id}/paiements`, {
+                mode: paiementMode,
+                montant: paiementMontant,
+                notes: paiementNotes || undefined,
+                avoirId: paiementMode === 'AVOIR' ? paiementAvoirId : undefined,
+            });
+            message.success('Paiement ajouté');
+            setPaiementModalVisible(false);
+            await refreshCurrentVente(currentVente.id);
+            fetchVentes();
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: string } })?.response?.data || "Erreur lors de l'ajout du paiement";
+            message.error(msg);
+        } finally {
+            setAddingPaiement(false);
+        }
+    };
+
+    const handleRemovePaiement = async (paiementId: number) => {
+        if (!currentVente?.id) return;
+        try {
+            await api.delete(`/ventes/${currentVente.id}/paiements/${paiementId}`);
+            message.success('Paiement supprimé');
+            await refreshCurrentVente(currentVente.id);
+            fetchVentes();
+        } catch {
+            message.error('Erreur lors de la suppression du paiement');
+        }
+    };
 
     const openNewProduitModal = (lineIndex: number) => {
         setNewProduitTargetLine(lineIndex);
@@ -628,8 +726,11 @@ export default function Comptoir() {
     const handleMarkPaid = async () => {
         if (!currentVente?.id) return;
         const values = await form.validateFields();
-        if (!values.modePaiement) {
-            message.warning('Veuillez sélectionner un mode de paiement');
+        const totalPaiements = (currentVente.paiements ?? []).reduce((s, p) => s + p.montant, 0);
+        const prixVenteTTC = currentVente.prixVenteTTC ?? 0;
+        if (totalPaiements < prixVenteTTC - 0.005) {
+            const restant = Math.round((prixVenteTTC - totalPaiements) * 100) / 100;
+            message.warning(`Montant restant à régler : ${formatEuro(restant)}. Ajoutez un paiement avant de marquer comme payée.`);
             return;
         }
         form.setFieldsValue({ status: 'FACTURE_PAYEE' });
@@ -692,6 +793,20 @@ export default function Comptoir() {
         setTimeout(cleanup, 1000);
     };
 
+    const renderPaiementsHtml = (vente: VenteEntity) => {
+        const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+        const ps = vente.paiements ?? [];
+        if (ps.length > 0) {
+            return ps.map((p) => {
+                const label = modeLabels[p.mode] ?? p.mode;
+                const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
+                return `<div class="row">${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
+            }).join('');
+        }
+        if (vente.modePaiement) return `<div class="row"><strong>Mode de paiement:</strong> ${escapeHtml(vente.modePaiement)}</div>`;
+        return '';
+    };
+
     const handlePrintInvoice = (vente: VenteEntity) => {
         const title = `Facture #${vente.id || '-'}`;
         const produitRows = getProduitLines(vente)
@@ -728,7 +843,7 @@ export default function Comptoir() {
                     <h1>${escapeHtml(title)}</h1>
                     <div class="meta">Date: ${escapeHtml(formatDate(vente.date))}</div>
                     <div class="row"><strong>Client:</strong> ${escapeHtml(getClientLabel(vente.client))}</div>
-                    <div class="row"><strong>Mode de paiement:</strong> ${escapeHtml(vente.modePaiement || '-')}</div>
+                    ${renderPaiementsHtml(vente) ? `<div><strong>Règlements :</strong>${renderPaiementsHtml(vente)}</div>` : ''}
                     <div class="row"><strong>Montant HT:</strong> ${escapeHtml(formatEuro(vente.montantHT))}</div>
                     <div class="row"><strong>Montant TVA:</strong> ${escapeHtml(formatEuro(vente.montantTVA))}</div>
                     <div class="row"><strong>Montant TTC:</strong> ${escapeHtml(formatEuro(vente.montantTTC))}</div>
@@ -794,7 +909,14 @@ export default function Comptoir() {
                     ${produitRows || '<div class="line"><span>Aucun produit</span><span>-</span></div>'}
                     <div class="separator"></div>
                     <div class="line"><strong>TOTAL TTC</strong><strong>${escapeHtml(formatEuro(vente.prixVenteTTC))}</strong></div>
-                    <div class="line"><span>Paiement</span><span>${escapeHtml(vente.modePaiement || '-')}</span></div>
+                    ${(vente.paiements ?? []).length > 0
+                        ? (vente.paiements ?? []).map((p) => {
+                            const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+                            const label = modeLabels[p.mode] ?? p.mode;
+                            const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
+                            return `<div class="line"><span>${escapeHtml(label)}${escapeHtml(avoir)}</span><span>${escapeHtml(formatEuro(p.montant))}</span></div>`;
+                        }).join('')
+                        : `<div class="line"><span>Paiement</span><span>${escapeHtml(vente.modePaiement || '-')}</span></div>`}
                     <div class="center" style="margin-top:12px;">Merci de votre visite</div>
                 </body>
                 </html>
@@ -985,15 +1107,16 @@ export default function Comptoir() {
         },
         {
             title: 'Mode paiement',
-            dataIndex: 'modePaiement',
-            filters: modePaiementOptions.map((o) => ({ text: o.label, value: o.value })),
-            onFilter: (value: unknown, record: VenteEntity) => record.modePaiement === value,
-            sorter: (a: VenteEntity, b: VenteEntity) => {
-                const labelA = modePaiementOptions.find((item) => item.value === a.modePaiement)?.label || a.modePaiement || '';
-                const labelB = modePaiementOptions.find((item) => item.value === b.modePaiement)?.label || b.modePaiement || '';
-                return labelA.localeCompare(labelB);
-            },
-            render: (value: ModePaiement) => modePaiementOptions.find((item) => item.value === value)?.label || value || '-'
+            key: 'modePaiement',
+            render: (_: unknown, record: VenteEntity) => {
+                const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+                const ps = record.paiements ?? [];
+                if (ps.length > 0) {
+                    const uniques = Array.from(new Set(ps.map((p) => modeLabels[p.mode] ?? p.mode)));
+                    return uniques.join(', ');
+                }
+                return modePaiementOptions.find((item) => item.value === record.modePaiement)?.label || record.modePaiement || '-';
+            }
         },
         {
             title: 'Prix vente TTC',
@@ -1028,22 +1151,18 @@ export default function Comptoir() {
 
     return (
         <Card title="Comptoir">
-            <Row gutter={16} align="middle">
-                <Col flex="auto">
-                    <Input.Search
-                        placeholder="Rechercher par client, date, mode de paiement..."
-                        allowClear
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        onSearch={(value) => setSearchQuery(value)}
-                    />
-                </Col>
-                <Col>
-                    <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
-                </Col>
-            </Row>
-
-            <div style={{ marginTop: 16 }} />
+            <Space style={{ marginBottom: 16 }}>
+                <Input.Search
+                    placeholder="Recherche"
+                    enterButton
+                    allowClear
+                    style={{ width: 600 }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onSearch={(value) => setSearchQuery(value)}
+                />
+                <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+            </Space>
 
             <Table
                 rowKey="id"
@@ -1114,11 +1233,6 @@ export default function Comptoir() {
                         <Col span={8}>
                             <Form.Item name="date" label="Date">
                                 <DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={8}>
-                            <Form.Item name="modePaiement" label="Mode de paiement">
-                                <Select allowClear options={modePaiementOptions} />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -1271,6 +1385,83 @@ export default function Comptoir() {
                             </Form.Item>
                         </Col>
                     </Row>
+
+                    {isEdit && currentVente?.id && (() => {
+                        const ps = currentVente?.paiements ?? [];
+                        const totalPaye = ps.reduce((s, p) => s + p.montant, 0);
+                        const totalFacture = currentVente?.prixVenteTTC ?? 0;
+                        const restant = Math.round((totalFacture - totalPaye) * 100) / 100;
+                        const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+                        return (
+                            <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 16, paddingTop: 16 }}>
+                                <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                                    <Col>
+                                        <Space>
+                                            <strong>Paiements</strong>
+                                            <span>Total : <strong>{formatEuro(totalFacture)}</strong></span>
+                                            <span>Payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
+                                            {restant > 0.005 && <span>Restant : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
+                                        </Space>
+                                    </Col>
+                                    <Col>
+                                        <Button
+                                            type="primary"
+                                            icon={<PlusCircleOutlined />}
+                                            onClick={openPaiementModal}
+                                            disabled={isReadOnly}
+                                        >
+                                            Ajouter un paiement
+                                        </Button>
+                                    </Col>
+                                </Row>
+                                <Table
+                                    rowKey="id"
+                                    size="small"
+                                    bordered
+                                    pagination={false}
+                                    dataSource={ps}
+                                    locale={{ emptyText: 'Aucun paiement enregistré' }}
+                                    columns={[
+                                        { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
+                                        {
+                                            title: 'Avoir',
+                                            key: 'avoir',
+                                            render: (_: unknown, r: VentePaiement) =>
+                                                r.avoirId ? `#${r.avoirId} — ${r.avoirMotif ?? ''}` : '-',
+                                        },
+                                        { title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const, render: (v: number) => formatEuro(v) },
+                                        { title: 'Notes', dataIndex: 'notes', render: (v: string) => v ?? '-' },
+                                        {
+                                            title: '',
+                                            key: 'remove',
+                                            width: 50,
+                                            render: (_: unknown, r: VentePaiement) => (
+                                                <Popconfirm
+                                                    title="Supprimer ce paiement ?"
+                                                    onConfirm={() => r.id && handleRemovePaiement(r.id)}
+                                                    okText="Supprimer"
+                                                    cancelText="Annuler"
+                                                    disabled={isReadOnly}
+                                                >
+                                                    <Button
+                                                        size="small"
+                                                        danger
+                                                        icon={<DeleteOutlined />}
+                                                        disabled={isReadOnly}
+                                                    />
+                                                </Popconfirm>
+                                            ),
+                                        },
+                                    ]}
+                                />
+                            </div>
+                        );
+                    })()}
+                    {!isEdit && (
+                        <div style={{ borderTop: '1px solid #f0f0f0', marginTop: 16, paddingTop: 16, color: '#8c8c8c' }}>
+                            Enregistrez d'abord la vente pour ajouter un paiement (espèces, carte, avoir client...).
+                        </div>
+                    )}
                 </Form>
 
                 <Modal
@@ -1409,6 +1600,84 @@ export default function Comptoir() {
                                 </Form.Item>
                             </Col>
                         </Row>
+                    </Form>
+                </Modal>
+
+                <Modal
+                    title="Ajouter un paiement"
+                    open={paiementModalVisible}
+                    onCancel={() => setPaiementModalVisible(false)}
+                    onOk={handleAddPaiement}
+                    okText="Valider"
+                    confirmLoading={addingPaiement}
+                    destroyOnHidden
+                    width={480}
+                >
+                    <Form layout="vertical">
+                        <Form.Item label="Mode de règlement" required>
+                            <Select
+                                value={paiementMode}
+                                onChange={(v) => {
+                                    setPaiementMode(v);
+                                    setPaiementAvoirId(null);
+                                    loadAvoirsDisponibles(v);
+                                }}
+                                options={[
+                                    { value: 'CARTE', label: 'Carte' },
+                                    { value: 'ESPÈCES', label: 'Espèces' },
+                                    { value: 'CHEQUE', label: 'Chèque' },
+                                    { value: 'VIREMENT', label: 'Virement' },
+                                    { value: 'AVOIR', label: 'Avoir client' },
+                                ]}
+                                style={{ width: '100%' }}
+                            />
+                        </Form.Item>
+
+                        {paiementMode === 'AVOIR' && (
+                            <Form.Item label="Avoir à appliquer" required>
+                                <Select
+                                    placeholder="Sélectionner un avoir"
+                                    value={paiementAvoirId ?? undefined}
+                                    onChange={(v) => {
+                                        setPaiementAvoirId(v);
+                                        const avoir = avoirsDisponibles.find((a) => a.id === v);
+                                        if (avoir) {
+                                            const restantAvoir = Math.round((avoir.montantTTC - avoir.montantUtilise) * 100) / 100;
+                                            const restantFacture = Math.max(0, Math.round(
+                                                ((currentVente?.prixVenteTTC ?? 0) -
+                                                (currentVente?.paiements ?? []).reduce((s, p) => s + p.montant, 0)) * 100
+                                            ) / 100);
+                                            setPaiementMontant(Math.min(restantAvoir, restantFacture));
+                                        }
+                                    }}
+                                    options={avoirsDisponibles.map((a) => ({
+                                        value: a.id,
+                                        label: `#${a.id} — ${a.motif ?? '(sans motif)'} — solde ${formatEuro(Math.round((a.montantTTC - a.montantUtilise) * 100) / 100)}`,
+                                    }))}
+                                    notFoundContent="Aucun avoir disponible pour ce client"
+                                    style={{ width: '100%' }}
+                                />
+                            </Form.Item>
+                        )}
+
+                        <Form.Item label="Montant" required>
+                            <InputNumber
+                                min={0.01}
+                                precision={2}
+                                value={paiementMontant}
+                                onChange={(v) => setPaiementMontant(v ?? 0)}
+                                addonAfter="€"
+                                style={{ width: '100%' }}
+                            />
+                        </Form.Item>
+
+                        <Form.Item label="Notes (optionnel)">
+                            <Input
+                                value={paiementNotes}
+                                onChange={(e) => setPaiementNotes(e.target.value)}
+                                placeholder="Ex: chèque n°12345"
+                            />
+                        </Form.Item>
                     </Form>
                 </Modal>
             </Modal>
