@@ -19,6 +19,16 @@ interface VenteServiceEntry {
     quantite?: number;
 }
 
+interface VentePaiement {
+    id?: number;
+    mode: string;
+    montant: number;
+    date?: string;
+    notes?: string;
+    avoirId?: number;
+    avoirMotif?: string;
+}
+
 interface VenteEntity {
     id: number;
     status: string;
@@ -32,6 +42,7 @@ interface VenteEntity {
     remise?: number;
     prixVenteTTC?: number;
     modePaiement?: string;
+    paiements?: VentePaiement[];
     venteForfaits?: VenteForfaitEntry[];
     venteServices?: VenteServiceEntry[];
     produits?: ProduitRef[];
@@ -258,8 +269,21 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                 <p style="font-size:16px;"><strong>Total à payer : ${escapeHtml(formatEuro(vente.prixVenteTTC))}</strong></p>
             </div>` : '';
 
-        const paymentHtml = docType === 'facture' && vente.modePaiement
-            ? `<p><strong>Mode de paiement :</strong> ${escapeHtml(vente.modePaiement)}</p>` : '';
+        const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+        const paymentHtml = (() => {
+            if (docType !== 'facture') return '';
+            const ps = vente.paiements ?? [];
+            if (ps.length > 0) {
+                const rows = ps.map(p => {
+                    const label = modeLabels[p.mode] ?? p.mode;
+                    const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
+                    return `<p>${escapeHtml(label)}${escapeHtml(avoir)} : <strong>${escapeHtml(formatEuro(p.montant))}</strong></p>`;
+                }).join('');
+                return `<p><strong>Règlements :</strong></p>${rows}`;
+            }
+            if (vente.modePaiement) return `<p><strong>Mode de paiement :</strong> ${escapeHtml(vente.modePaiement)}</p>`;
+            return '';
+        })();
 
         const signatureHtml = docType === 'devis' && vente.signatureBonPourAccord
             ? `<div style="margin-top:24px;"><p><strong>Bon pour accord &mdash; Signature client :</strong></p><img src="${vente.signatureBonPourAccord}" style="max-width:300px;border:1px solid #d9d9d9;border-radius:4px;" /></div>`
@@ -424,9 +448,23 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                         <p><strong>Statut :</strong> <Tag color={detailVente.status === 'DEVIS' && detailVente.bonPourAccord ? 'cyan' : statusColor[detailVente.status]}>
                             {detailVente.status === 'DEVIS' && detailVente.bonPourAccord ? 'Bon pour accord' : statusLabel[detailVente.status] || detailVente.status}
                         </Tag></p>
-                        {detailDocType === 'facture' && detailVente.modePaiement && (
-                            <p><strong>Mode de paiement :</strong> {detailVente.modePaiement}</p>
-                        )}
+                        {detailDocType === 'facture' && (() => {
+                            const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+                            const ps = detailVente.paiements ?? [];
+                            if (ps.length > 0) return (
+                                <div style={{ marginBottom: 8 }}>
+                                    <strong>Règlements :</strong>
+                                    {ps.map((p, i) => (
+                                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginTop: 4 }}>
+                                            <span>{modeLabels[p.mode] ?? p.mode}{p.avoirId ? ` (avoir #${p.avoirId})` : ''}</span>
+                                            <span><strong>{formatEuro(p.montant)}</strong></span>
+                                        </div>
+                                    ))}
+                                </div>
+                            );
+                            if (detailVente.modePaiement) return <p><strong>Mode de paiement :</strong> {detailVente.modePaiement}</p>;
+                            return null;
+                        })()}
 
                         <Divider />
 

@@ -73,6 +73,7 @@ export default function Annonces() {
     const [clients, setClients] = useState<ClientEntity[]>([]);
     const [bateaux, setBateaux] = useState<BateauClientEntity[]>([]);
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
     const [detailOpen, setDetailOpen] = useState(false);
     const [detailAnnonce, setDetailAnnonce] = useState<Annonce | null>(null);
@@ -321,18 +322,34 @@ export default function Annonces() {
         },
     ];
 
+    const filteredAnnonces = (() => {
+        const q = searchQuery.trim().toLowerCase();
+        if (!q) return annonces;
+        return annonces.filter((a) => {
+            const titre = (a.titre ?? '').toLowerCase();
+            const description = (a.description ?? '').toLowerCase();
+            const clientLabel = a.client ? `${a.client.prenom ?? ''} ${a.client.nom ?? ''}`.toLowerCase() : '';
+            return titre.includes(q) || description.includes(q) || clientLabel.includes(q);
+        });
+    })();
+
     return (
-        <Card
-            title="Petites annonces - Bateaux a vendre"
-            extra={
-                <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate}>
-                    Nouvelle annonce
-                </Button>
-            }
-        >
+        <Card title="Petites annonces - Bateaux a vendre">
+            <Space style={{ marginBottom: 16 }}>
+                <Input.Search
+                    placeholder="Recherche"
+                    enterButton
+                    allowClear
+                    style={{ width: 600 }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onSearch={(value) => setSearchQuery(value)}
+                />
+                <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
+            </Space>
             <Table
                 rowKey="id"
-                dataSource={annonces}
+                dataSource={filteredAnnonces}
                 columns={columns}
                 loading={loading}
                 pagination={{ pageSize: 10 }}
