@@ -40,7 +40,7 @@ public class ImageResource {
             String storedName = UUID.randomUUID() + extension;
             java.nio.file.Path target = UPLOAD_DIR.resolve(storedName);
             Files.copy(file.uploadedFile(), target, StandardCopyOption.REPLACE_EXISTING);
-            urls.add("/images/" + storedName);
+            urls.add("/api/images/" + storedName);
         }
         return Response.ok(urls).build();
     }
