@@ -755,16 +755,19 @@ export default function Planning() {
         {
             title: 'Bateau',
             key: 'bateau',
+            sorter: (a: PlanningItemRow, b: PlanningItemRow) => (a.item.bateauNom || '').localeCompare(b.item.bateauNom || ''),
             render: (_: unknown, record: PlanningItemRow) => record.item.bateauNom || '-'
         },
         {
             title: 'Client',
             dataIndex: 'client',
+            sorter: (a: PlanningItemRow, b: PlanningItemRow) => getClientLabel(a.vente.client).localeCompare(getClientLabel(b.vente.client)),
             render: (_: unknown, record: PlanningItemRow) => getClientLabel(record.vente.client)
         },
         {
             title: 'Type',
             key: 'itemType',
+            sorter: (a: PlanningItemRow, b: PlanningItemRow) => (a.item.type || '').localeCompare(b.item.type || ''),
             render: (_: unknown, record: PlanningItemRow) => (
                 <Tag color={record.item.type === 'forfait' ? 'purple' : 'geekblue'}>
                     {record.item.type === 'forfait' ? 'Forfait' : 'Service'}
@@ -774,6 +777,7 @@ export default function Planning() {
         {
             title: 'Statut',
             dataIndex: 'itemStatus',
+            sorter: (a: PlanningItemRow, b: PlanningItemRow) => (a.item.status || '').localeCompare(b.item.status || ''),
             render: (_: unknown, record: PlanningItemRow) => {
                 const status = record.item.status || 'EN_ATTENTE';
                 const label = statusOptions.find((item) => item.value === status)?.label || status;
@@ -783,21 +787,25 @@ export default function Planning() {
         {
             title: 'Nom',
             key: 'itemName',
+            sorter: (a: PlanningItemRow, b: PlanningItemRow) => (a.item.nom || '').localeCompare(b.item.nom || ''),
             render: (_: unknown, record: PlanningItemRow) => record.item.nom || '(Sans nom)'
         },
         {
             title: 'Debut',
             key: 'dateDebut',
+            sorter: (a: PlanningItemRow, b: PlanningItemRow) => (a.item.dateDebut || '').localeCompare(b.item.dateDebut || ''),
             render: (_: unknown, record: PlanningItemRow) => record.item.dateDebut ? dayjs(record.item.dateDebut).format('DD/MM/YYYY HH:mm') : '-'
         },
         {
             title: 'Fin',
             key: 'dateFin',
+            sorter: (a: PlanningItemRow, b: PlanningItemRow) => (a.item.dateFin || '').localeCompare(b.item.dateFin || ''),
             render: (_: unknown, record: PlanningItemRow) => record.item.dateFin ? dayjs(record.item.dateFin).format('DD/MM/YYYY HH:mm') : '-'
         },
         {
             title: 'Durée',
             key: 'duree',
+            sorter: (a: PlanningItemRow, b: PlanningItemRow) => (a.item.dureeReelle || 0) - (b.item.dureeReelle || 0),
             render: (_: unknown, record: PlanningItemRow) => {
                 const estimee = record.item.dureeEstimee;
                 const reelle = record.item.dureeReelle;
@@ -1267,6 +1275,11 @@ export default function Planning() {
                                     {
                                         title: 'Techniciens',
                                         key: 'techniciens',
+                                        sorter: (a: PlanningItemRow, b: PlanningItemRow) => {
+                                            const aNom = (a.item.techniciens || [])[0]?.nom || '';
+                                            const bNom = (b.item.techniciens || [])[0]?.nom || '';
+                                            return aNom.localeCompare(bNom);
+                                        },
                                         render: (_: unknown, record: PlanningItemRow) => {
                                             const ts = record.item.techniciens || [];
                                             return ts.length > 0

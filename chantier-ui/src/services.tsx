@@ -460,16 +460,19 @@ export default function Services() {
         {
             title: 'Description',
             dataIndex: 'description',
+            sorter: (a: ServiceEntity, b: ServiceEntity) => (a.description || '').localeCompare(b.description || ''),
             render: (value: string) => value || '-'
         },
         {
             title: "Main d'Oeuvres",
             dataIndex: 'mainOeuvres',
+            sorter: (a: ServiceEntity, b: ServiceEntity) => (a.mainOeuvres?.length || 0) - (b.mainOeuvres?.length || 0),
             render: (values: ServiceMainOeuvreEntity[]) => values?.length || 0
         },
         {
             title: 'Produits',
             dataIndex: 'produits',
+            sorter: (a: ServiceEntity, b: ServiceEntity) => (a.produits?.length || 0) - (b.produits?.length || 0),
             render: (values: ServiceProduitEntity[]) => values?.length || 0
         },
         {
@@ -531,6 +534,13 @@ export default function Services() {
                         loading={loading}
                         pagination={{ pageSize: 10 }}
                         bordered
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                openModal(record);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
                     />
                 </Col>
             </Row>

@@ -434,16 +434,25 @@ export default function Avoirs() {
         });
     })();
 
+    const clientFilters = Array.from(
+        new Map(avoirs.filter((a) => a.client).map((a) => [a.client!.id, a.client!])).values()
+    ).map((c) => ({ text: `${c.prenom ?? ''} ${c.nom}`.trim(), value: c.id }));
+
     const columns = [
         {
             title: '#',
             dataIndex: 'id',
             width: 60,
+            sorter: (a: AvoirEntity, b: AvoirEntity) => (a.id || 0) - (b.id || 0),
             render: (v: number) => `#${v}`,
         },
         {
             title: 'Client',
             key: 'client',
+            sorter: (a: AvoirEntity, b: AvoirEntity) => (a.client?.nom || '').localeCompare(b.client?.nom || ''),
+            filters: clientFilters,
+            filterSearch: true,
+            onFilter: (value: unknown, r: AvoirEntity) => r.client?.id === value,
             render: (_: unknown, r: AvoirEntity) =>
                 r.client ? `${r.client.prenom ?? ''} ${r.client.nom}`.trim() : '-',
         },
@@ -451,17 +460,22 @@ export default function Avoirs() {
             title: 'Facture liée',
             key: 'vente',
             width: 110,
+            sorter: (a: AvoirEntity, b: AvoirEntity) => (a.vente?.id || 0) - (b.vente?.id || 0),
             render: (_: unknown, r: AvoirEntity) => r.vente ? `#${r.vente.id}` : '-',
         },
         {
             title: 'Motif',
             dataIndex: 'motif',
             ellipsis: true,
+            sorter: (a: AvoirEntity, b: AvoirEntity) => (a.motif || '').localeCompare(b.motif || ''),
         },
         {
             title: 'Statut',
             dataIndex: 'status',
             width: 120,
+            sorter: (a: AvoirEntity, b: AvoirEntity) => (a.status || '').localeCompare(b.status || ''),
+            filters: Object.entries(STATUS_LABEL).map(([k, v]) => ({ text: v, value: k })),
+            onFilter: (value: unknown, r: AvoirEntity) => r.status === value,
             render: (v: string) => <Tag color={STATUS_COLOR[v] ?? 'default'}>{STATUS_LABEL[v] ?? v}</Tag>,
         },
         {
@@ -469,6 +483,7 @@ export default function Avoirs() {
             dataIndex: 'montantTTC',
             width: 130,
             align: 'right' as const,
+            sorter: (a: AvoirEntity, b: AvoirEntity) => (a.montantTTC || 0) - (b.montantTTC || 0),
             render: (v: number) => formatEuro(v),
         },
         {
@@ -476,6 +491,7 @@ export default function Avoirs() {
             key: 'solde',
             width: 130,
             align: 'right' as const,
+            sorter: (a: AvoirEntity, b: AvoirEntity) => ((a.montantTTC ?? 0) - (a.montantUtilise ?? 0)) - ((b.montantTTC ?? 0) - (b.montantUtilise ?? 0)),
             render: (_: unknown, r: AvoirEntity) => {
                 const restant = Math.round(((r.montantTTC ?? 0) - (r.montantUtilise ?? 0)) * 100) / 100;
                 const color = restant <= 0.005 ? '#8c8c8c' : restant < (r.montantTTC ?? 0) ? '#faad14' : undefined;
@@ -486,6 +502,7 @@ export default function Avoirs() {
             title: 'Date émission',
             dataIndex: 'dateEmission',
             width: 120,
+            sorter: (a: AvoirEntity, b: AvoirEntity) => (a.dateEmission || '').localeCompare(b.dateEmission || ''),
             render: (v: string) => formatDate(v),
         },
         {
@@ -679,6 +696,13 @@ export default function Avoirs() {
                 columns={columns}
                 pagination={{ pageSize: 15 }}
                 bordered
+                onRow={(record) => ({
+                    onClick: (e) => {
+                        if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                        openEdit(record);
+                    },
+                    style: { cursor: 'pointer' },
+                })}
             />
 
             {/* Modal création / édition */}

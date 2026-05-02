@@ -1093,21 +1093,48 @@ export default function Comptoir() {
         {
             title: 'Date',
             dataIndex: 'date',
+            sorter: (a: VenteEntity, b: VenteEntity) => (a.date || '').localeCompare(b.date || ''),
             render: (value: string) => value || '-'
         },
         {
             title: 'Statut',
             dataIndex: 'status',
+            sorter: (a: VenteEntity, b: VenteEntity) => (a.status || '').localeCompare(b.status || ''),
+            filters: [
+                { text: statusLabel.DEVIS, value: 'DEVIS' },
+                { text: statusLabel.FACTURE_EN_ATTENTE, value: 'FACTURE_EN_ATTENTE' },
+                { text: statusLabel.FACTURE_PRETE, value: 'FACTURE_PRETE' },
+                { text: statusLabel.FACTURE_PAYEE, value: 'FACTURE_PAYEE' },
+            ],
+            onFilter: (value: unknown, record: VenteEntity) => record.status === value,
             render: (value: VenteStatus) => <Tag color={statusColor[value] || 'default'}>{statusLabel[value] || value}</Tag>
         },
         {
             title: 'Client',
             dataIndex: 'client',
+            sorter: (a: VenteEntity, b: VenteEntity) => getClientLabel(a.client).localeCompare(getClientLabel(b.client)),
+            filters: Array.from(new Map(ventes.filter((v) => v.client).map((v) => [v.client!.id, getClientLabel(v.client)])).entries())
+                .map(([, label]) => ({ text: label, value: label }))
+                .sort((a, b) => a.text.localeCompare(b.text, 'fr')),
+            onFilter: (value: unknown, record: VenteEntity) => getClientLabel(record.client) === value,
             render: (value: ClientEntity) => getClientLabel(value)
         },
         {
             title: 'Mode paiement',
             key: 'modePaiement',
+            sorter: (a: VenteEntity, b: VenteEntity) => (a.modePaiement || '').localeCompare(b.modePaiement || ''),
+            filters: [
+                { text: 'Chèque', value: 'CHEQUE' },
+                { text: 'Virement', value: 'VIREMENT' },
+                { text: 'Carte', value: 'CARTE' },
+                { text: 'Espèces', value: 'ESPÈCES' },
+                { text: 'Avoir', value: 'AVOIR' },
+            ],
+            onFilter: (value: unknown, record: VenteEntity) => {
+                const ps = record.paiements ?? [];
+                if (ps.length > 0) return ps.some((p) => p.mode === value);
+                return record.modePaiement === value;
+            },
             render: (_: unknown, record: VenteEntity) => {
                 const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
                 const ps = record.paiements ?? [];
@@ -1171,6 +1198,13 @@ export default function Comptoir() {
                 loading={loading}
                 pagination={{ pageSize: 10 }}
                 bordered
+                onRow={(record) => ({
+                    onClick: (e) => {
+                        if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                        openModal(record);
+                    },
+                    style: { cursor: 'pointer' },
+                })}
             />
 
             <Modal
@@ -1422,15 +1456,16 @@ export default function Comptoir() {
                                     dataSource={ps}
                                     locale={{ emptyText: 'Aucun paiement enregistré' }}
                                     columns={[
-                                        { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
+                                        { title: 'Mode', dataIndex: 'mode', width: 110, sorter: (a: VentePaiement, b: VentePaiement) => (a.mode || '').localeCompare(b.mode || ''), render: (v: string) => modeLabels[v] ?? v },
                                         {
                                             title: 'Avoir',
                                             key: 'avoir',
+                                            sorter: (a: VentePaiement, b: VentePaiement) => (a.avoirId || 0) - (b.avoirId || 0),
                                             render: (_: unknown, r: VentePaiement) =>
                                                 r.avoirId ? `#${r.avoirId} — ${r.avoirMotif ?? ''}` : '-',
                                         },
-                                        { title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const, render: (v: number) => formatEuro(v) },
-                                        { title: 'Notes', dataIndex: 'notes', render: (v: string) => v ?? '-' },
+                                        { title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const, sorter: (a: VentePaiement, b: VentePaiement) => (a.montant || 0) - (b.montant || 0), render: (v: number) => formatEuro(v) },
+                                        { title: 'Notes', dataIndex: 'notes', sorter: (a: VentePaiement, b: VentePaiement) => (a.notes || '').localeCompare(b.notes || ''), render: (v: string) => v ?? '-' },
                                         {
                                             title: '',
                                             key: 'remove',

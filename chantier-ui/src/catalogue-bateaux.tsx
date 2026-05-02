@@ -248,6 +248,8 @@ const CatalogueBateaux: React.FC = () => {
             title: 'Marque',
             dataIndex: 'marque',
             sorter: (a,b) => a.marque.localeCompare(b.marque),
+            filters: marqueOptions.map(m => ({ text: m.value, value: m.value })),
+            onFilter: (value, record) => record.marque === value,
         },
         {
             title: 'Modèle',
@@ -272,6 +274,7 @@ const CatalogueBateaux: React.FC = () => {
         {
             title: 'Evaluation',
             dataIndex: 'evaluation',
+            sorter: (a, b) => (a.evaluation || 0) - (b.evaluation || 0),
             render: (_,record) => ( <Rate defaultValue={record.evaluation} disabled={true} /> )
         },
         {
@@ -363,6 +366,13 @@ const CatalogueBateaux: React.FC = () => {
                         loading={loading}
                         pagination={{ pageSize: 10 }}
                         bordered
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                openModal(record);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
                     />
                     <Modal
                         title={isEdit ? 'Modifier un bateau' : 'Ajouter un bateau'}

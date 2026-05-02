@@ -310,6 +310,8 @@ const MoteurCatalogue = () => {
       title: 'Marque',
       dataIndex: 'marque',
       sorter: (a, b) => a.marque.localeCompare(b.marque),
+      filters: Array.from(new Set(moteurs.map((m) => m.marque).filter(Boolean))).map((marque) => ({ text: marque, value: marque })),
+      onFilter: (value, record) => record.marque === value,
     },
     {
       title: 'Modèle',
@@ -431,6 +433,13 @@ const MoteurCatalogue = () => {
             loading={loading}
             pagination={{ pageSize: 10 }}
             bordered
+            onRow={(record) => ({
+              onClick: (e) => {
+                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                openModal(record);
+              },
+              style: { cursor: 'pointer' },
+            })}
           />
           <Modal
             open={modalVisible}

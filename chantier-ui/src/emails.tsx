@@ -91,12 +91,14 @@ export default function Emails() {
             dataIndex: 'type',
             key: 'type',
             width: 120,
+            sorter: (a, b) => (a.type || '').localeCompare(b.type || ''),
             render: (type) => <Tag color={TYPE_COLORS[type]}>{TYPE_LABELS[type] || type}</Tag>
         },
         {
             title: 'Sujet',
             dataIndex: 'sujet',
-            key: 'sujet'
+            key: 'sujet',
+            sorter: (a, b) => (a.sujet || '').localeCompare(b.sujet || ''),
         },
         {
             title: 'Variables disponibles',
@@ -133,6 +135,13 @@ export default function Emails() {
                         columns={columns}
                         rowKey="id"
                         pagination={false}
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                handleEdit(record);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
                     />
                 </Space>
             </Card>

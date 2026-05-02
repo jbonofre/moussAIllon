@@ -256,34 +256,54 @@ export default function Annonces() {
     };
 
     const columns = [
-        { title: 'Titre', dataIndex: 'titre', key: 'titre' },
+        { title: 'Titre', dataIndex: 'titre', key: 'titre', sorter: (a: Annonce, b: Annonce) => (a.titre || '').localeCompare(b.titre || '') },
         {
             title: 'Client',
             key: 'client',
             render: (_: unknown, record: Annonce) => clientLabel(record.client),
+            sorter: (a: Annonce, b: Annonce) => clientLabel(a.client).localeCompare(clientLabel(b.client)),
+            filters: Array.from(
+                new Map(
+                    annonces
+                        .filter(a => a.client)
+                        .map(a => [a.client!.id, { text: clientLabel(a.client), value: a.client!.id }])
+                ).values()
+            ),
+            onFilter: (value: unknown, record: Annonce) => record.client?.id === value,
         },
         {
             title: 'Bateau',
             key: 'bateau',
             render: (_: unknown, record: Annonce) => bateauLabel(record.bateau),
+            sorter: (a: Annonce, b: Annonce) => bateauLabel(a.bateau).localeCompare(bateauLabel(b.bateau)),
         },
         {
             title: 'Prix',
             dataIndex: 'prix',
             key: 'prix',
+            sorter: (a: Annonce, b: Annonce) => (a.prix || 0) - (b.prix || 0),
             render: (val: number) => formatEuro(val),
         },
-        { title: 'Contact', dataIndex: 'contact', key: 'contact' },
-        { title: 'Telephone', dataIndex: 'telephone', key: 'telephone' },
+        { title: 'Contact', dataIndex: 'contact', key: 'contact', sorter: (a: Annonce, b: Annonce) => (a.contact || '').localeCompare(b.contact || '') },
+        { title: 'Telephone', dataIndex: 'telephone', key: 'telephone', sorter: (a: Annonce, b: Annonce) => (a.telephone || '').localeCompare(b.telephone || '') },
         {
             title: 'Date',
             dataIndex: 'dateCreation',
             key: 'dateCreation',
+            sorter: (a: Annonce, b: Annonce) => (a.dateCreation || '').localeCompare(b.dateCreation || ''),
             render: (val: string) => formatDate(val),
         },
         {
             title: 'Diffusion',
             key: 'publications',
+            filters: [
+                ...plateformes.map(pf => ({ text: pf.label, value: pf.key })),
+                { text: 'Non diffusée', value: '__none__' },
+            ],
+            onFilter: (value: unknown, record: Annonce) => {
+                if (value === '__none__') return (record.publications || []).length === 0;
+                return (record.publications || []).includes(value as string);
+            },
             render: (_: unknown, record: Annonce) => {
                 const pubs = record.publications || [];
                 if (pubs.length === 0) return <Tag>Non diffusee</Tag>;
@@ -301,6 +321,13 @@ export default function Annonces() {
             title: 'Statut',
             dataIndex: 'status',
             key: 'status',
+            sorter: (a: Annonce, b: Annonce) => (a.status || '').localeCompare(b.status || ''),
+            filters: [
+                { text: 'Active', value: 'ACTIVE' },
+                { text: 'Vendu', value: 'VENDU' },
+                { text: 'Expiree', value: 'EXPIRE' },
+            ],
+            onFilter: (value: unknown, record: Annonce) => record.status === value,
             render: (val: string) => <Tag color={statusColor[val]}>{statusLabel[val] || val}</Tag>,
         },
         {
@@ -354,6 +381,13 @@ export default function Annonces() {
                 loading={loading}
                 pagination={{ pageSize: 10 }}
                 bordered
+                onRow={(record) => ({
+                    onClick: (e) => {
+                        if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                        openEdit(record);
+                    },
+                    style: { cursor: 'pointer' },
+                })}
             />
 
             {/* Create / Edit modal */}

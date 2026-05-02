@@ -244,6 +244,7 @@ export default function Utilisateurs() {
                           </span>
                       ))
                     : null,
+            sorter: (a, b) => (Array.isArray(a.roles) ? a.roles.join(',') : '').localeCompare(Array.isArray(b.roles) ? b.roles.join(',') : ''),
             filters: USER_ROLES,
             onFilter: (value, record) => record.roles.includes(value),
         },
@@ -309,6 +310,14 @@ export default function Utilisateurs() {
                         dataSource={users}
                         columns={columns}
                         pagination={{ pageSize: 8, showSizeChanger: false }}
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                setEditUser(record);
+                                setModalOpen(true);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
                     />
                 )}
                 </Col>

@@ -436,11 +436,13 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     { title: "Immatriculation", dataIndex: "immatriculation", key: "immatriculation", sorter: (a, b) => a.immatriculation.localeCompare(b.immatriculation) },
     { title: "Propriétaires", dataIndex: "proprietaires", key: "proprietaires",
       render: (proprietaires: any[]) => (proprietaires && proprietaires.length ? proprietaires.map(p => (p.prenom + " " + p.nom)).join(", ") : ""),
+      sorter: (a, b) => (a.proprietaires?.[0]?.nom || '').localeCompare(b.proprietaires?.[0]?.nom || ''),
       filters: clients.map((client: any) => ({ text: `${client.prenom} ${client.nom}`, value: client.id })),
       onFilter: (value, record) => record.proprietaires?.some((p: any) => p.id === value),
     },
     { title: "Modèle", dataIndex: "modele", key: "modele",
       render: (modele: any) => { if (!modele) return ""; const a = formatAnnee(modele.anneeDebut, modele.anneeFin); return `${modele.marque} ${modele.modele}${a ? ` (${a})` : ''}`; },
+      sorter: (a, b) => (a.modele?.marque || '').localeCompare(b.modele?.marque || '') || (a.modele?.modele || '').localeCompare(b.modele?.modele || ''),
       filters: bateauxCatalogue.map((bateau) => { const a = formatAnnee(bateau.anneeDebut, bateau.anneeFin); return { text: `${bateau.marque} ${bateau.modele}${a ? ` (${a})` : ''}`, value: bateau.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
     },
@@ -481,6 +483,13 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           dataSource={bateaux}
           bordered
           pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: (e) => {
+              if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+              handleEdit(record);
+            },
+            style: { cursor: 'pointer' },
+          })}
         />
       </Spin>
       <Modal
