@@ -172,6 +172,8 @@ const CatalogueProduits: React.FC = () => {
         {
             title: 'Marque',
             dataIndex: 'marque',
+            filters: marqueOptions.map(o => ({ text: o.value, value: o.value })),
+            onFilter: (value, record) => record.marque === value,
             sorter: (a: ProduitCatalogueEntity, b: ProduitCatalogueEntity) => (a.marque || '').localeCompare(b.marque || ''),
         },
         {
@@ -294,6 +296,13 @@ const CatalogueProduits: React.FC = () => {
                             loading={loading}
                             pagination={{ pageSize: 10 }}
                             bordered
+                            onRow={(record) => ({
+                                onClick: (e) => {
+                                    if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                    openModal(record);
+                                },
+                                style: { cursor: 'pointer' },
+                            })}
                         />
                         <Modal
                             title={isEdit ? 'Modifier un produit' : 'Ajouter un produit'}

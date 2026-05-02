@@ -240,6 +240,7 @@ function Clients() {
       title: "Type",
       dataIndex: "type",
       key: "type",
+      sorter: (a, b) => (a.type || '').localeCompare(b.type || ''),
       filters: [
         { text: "Particulier", value: "PARTICULIER" },
         { text: "Professionnel", value: "PROFESSIONNEL" },
@@ -248,11 +249,12 @@ function Clients() {
       onFilter: (value, record) => record.type === value,
       render: (type) => (type === "PROFESSIONNEL" ? "Professionnel" : "Particulier"),
     },
-    { title: "Email", dataIndex: "email", key: "email" },
+    { title: "Email", dataIndex: "email", key: "email", sorter: (a, b) => (a.email || '').localeCompare(b.email || '') },
     {
       title: "Canal d'acquisition",
       dataIndex: "canalAcquisition",
       key: "canalAcquisition",
+      sorter: (a, b) => (a.canalAcquisition || '').localeCompare(b.canalAcquisition || ''),
       filters: canalAcquisitionOptions.map((opt) => ({ text: opt.label, value: opt.value })),
       onFilter: (value, record) => record.canalAcquisition === value,
       render: (val) => {
@@ -260,7 +262,7 @@ function Clients() {
         return opt ? <Space>{opt.icon} {opt.label}</Space> : null;
       },
     },
-    { title: "Téléphone", dataIndex: "telephone", key: "telephone" },
+    { title: "Téléphone", dataIndex: "telephone", key: "telephone", sorter: (a, b) => (a.telephone || '').localeCompare(b.telephone || '') },
     {
       title: "Évaluation",
       dataIndex: "evaluation",
@@ -334,6 +336,13 @@ function Clients() {
           dataSource={clients}
           bordered
           pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: (e) => {
+              if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+              handleEdit(record);
+            },
+            style: { cursor: 'pointer' },
+          })}
         />
       </Spin>
 

@@ -505,6 +505,8 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           key: "fournisseur",
           render: (_: any, record: CommandeFournisseur) => record.fournisseur?.nom || "-",
           sorter: (a: any, b: any) => (a.fournisseur?.nom || "").localeCompare(b.fournisseur?.nom || ""),
+          filters: Array.from(new Map(commandes.filter((c) => c.fournisseur?.id).map((c) => [c.fournisseur.id, c.fournisseur.nom])).entries()).map(([id, nom]) => ({ text: nom, value: id })),
+          onFilter: (value: any, record: CommandeFournisseur) => record.fournisseur?.id === value,
         }]
       : []),
     {
@@ -521,12 +523,14 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
       render: (val: CommandeFournisseurStatus) => (
         <Tag color={statusColors[val]}>{statusLabels[val] || val}</Tag>
       ),
+      sorter: (a: any, b: any) => (a.status || '').localeCompare(b.status || ''),
       filters: Object.keys(statusLabels).map((k) => ({ text: statusLabels[k as CommandeFournisseurStatus], value: k })),
       onFilter: (value: any, record: any) => record.status === value,
     },
     {
       title: "Nb lignes",
       key: "nbLignes",
+      sorter: (a: any, b: any) => (a.lignes?.length || 0) - (b.lignes?.length || 0),
       render: (_: any, record: CommandeFournisseur) => record.lignes?.length || 0,
     },
     {
@@ -575,6 +579,13 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
             loading={loading}
             bordered
             pagination={{ pageSize: 10 }}
+            onRow={(record) => ({
+              onClick: (e) => {
+                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                handleEdit(record);
+              },
+              style: { cursor: 'pointer' },
+            })}
           />
         </Col>
       </Row>

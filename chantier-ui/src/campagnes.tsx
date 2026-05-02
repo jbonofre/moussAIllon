@@ -278,17 +278,23 @@ export default function Campagnes() {
     };
 
     const columns = [
-        { title: 'Nom', dataIndex: 'nom', key: 'nom' },
+        { title: 'Nom', dataIndex: 'nom', key: 'nom', sorter: (a: Campagne, b: Campagne) => (a.nom || '').localeCompare(b.nom || '') },
         {
             title: 'Canal',
             dataIndex: 'canal',
             key: 'canal',
+            sorter: (a: Campagne, b: Campagne) => (a.canal || '').localeCompare(b.canal || ''),
+            filters: canalOptions.map((o) => ({ text: o.label, value: o.value })),
+            onFilter: (value: unknown, record: Campagne) => record.canal === value,
             render: (val: string) => <Tag color={val === 'EMAIL' ? 'blue' : 'purple'}>{canalLabel[val] || val}</Tag>,
         },
         {
             title: 'Cible',
             dataIndex: 'cible',
             key: 'cible',
+            sorter: (a: Campagne, b: Campagne) => (a.cible || '').localeCompare(b.cible || ''),
+            filters: cibleOptions.map((o) => ({ text: o.label, value: o.value })),
+            onFilter: (value: unknown, record: Campagne) => record.cible === value,
             render: (val: string, record: Campagne) => {
                 const label = cibleLabel[val] || val;
                 return record.cibleFiltre ? `${label} : ${record.cibleFiltre}` : label;
@@ -298,18 +304,23 @@ export default function Campagnes() {
             title: 'Statut',
             dataIndex: 'statut',
             key: 'statut',
+            sorter: (a: Campagne, b: Campagne) => (a.statut || '').localeCompare(b.statut || ''),
+            filters: Object.entries(statutLabel).map(([value, text]) => ({ text, value })),
+            onFilter: (value: unknown, record: Campagne) => record.statut === value,
             render: (val: string) => <Tag color={statutColor[val]}>{statutLabel[val] || val}</Tag>,
         },
         {
             title: 'Destinataires',
             dataIndex: 'nombreDestinataires',
             key: 'nombreDestinataires',
+            sorter: (a: Campagne, b: Campagne) => (a.nombreDestinataires || 0) - (b.nombreDestinataires || 0),
             render: (val: number, record: Campagne) => record.statut === 'ENVOYEE' ? val : '-',
         },
         {
             title: 'Date envoi',
             dataIndex: 'dateEnvoi',
             key: 'dateEnvoi',
+            sorter: (a: Campagne, b: Campagne) => (a.dateEnvoi || a.dateProgrammee || '').localeCompare(b.dateEnvoi || b.dateProgrammee || ''),
             render: (val: string, record: Campagne) => {
                 if (record.statut === 'PROGRAMMEE' && record.dateProgrammee) {
                     return <>Programmé pour le {formatDate(record.dateProgrammee)}</>;
@@ -406,6 +417,13 @@ export default function Campagnes() {
                 loading={loading}
                 pagination={{ pageSize: 10 }}
                 bordered
+                onRow={(record) => ({
+                    onClick: (e) => {
+                        if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                        openEdit(record);
+                    },
+                    style: { cursor: 'pointer' },
+                })}
             />
 
             <Modal

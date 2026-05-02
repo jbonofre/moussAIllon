@@ -366,10 +366,6 @@ interface VenteFormValues {
     rappel3Jours?: number;
 }
 
-interface SearchFilters {
-    status?: VenteStatus;
-    clientId?: number;
-}
 
 const statusOptions: Array<{ value: VenteStatus; label: string }> = [
     { value: 'DEVIS', label: 'Devis/Ordre de Réparation' },
@@ -504,6 +500,7 @@ export default function Vente() {
     const [catalogueMoteurs, setCatalogueMoteurs] = useState<Array<{ id: number; marque?: string; modele?: string }>>([]);
     const [catalogueRemorques, setCatalogueRemorques] = useState<Array<{ id: number; marque?: string; modele?: string }>>([]);
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     const [formDirty, setFormDirty] = useState(false);
     const suppressDirtyRef = React.useRef(false);
@@ -511,8 +508,6 @@ export default function Vente() {
     const [isEdit, setIsEdit] = useState(false);
     const [currentVente, setCurrentVente] = useState<VenteEntity | null>(null);
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
-    const [filters, setFilters] = useState<SearchFilters>({});
-    const [searchForm] = Form.useForm<SearchFilters>();
     const [form] = Form.useForm<VenteFormValues>();
     const watchedStatus = Form.useWatch('status', form) as VenteStatus | undefined;
     const watchedBonPourAccord = Form.useWatch('bonPourAccord', form) as boolean | undefined;
@@ -610,6 +605,17 @@ export default function Vente() {
         [clients]
     );
 
+    const filteredVentes = useMemo(() => {
+        if (!searchQuery.trim()) return ventes;
+        const q = searchQuery.toLowerCase();
+        return ventes.filter((v) => {
+            const clientLabel = getClientLabel(v.client).toLowerCase();
+            const date = (v.date || '').toLowerCase();
+            const paiement = (modePaiementOptions.find((o) => o.value === v.modePaiement)?.label || v.modePaiement || '').toLowerCase();
+            return clientLabel.includes(q) || date.includes(q) || paiement.includes(q);
+        });
+    }, [ventes, searchQuery]);
+
     const bateauOptions = useMemo(
         () => bateaux.map((bateau) => ({ value: bateau.id, label: bateau.name || bateau.immatriculation || `Bateau #${bateau.id}` })),
         [bateaux]
@@ -699,19 +705,10 @@ export default function Vente() {
         [techniciens]
     );
 
-    const fetchVentes = async (nextFilters?: SearchFilters) => {
+    const fetchVentes = async () => {
         setLoading(true);
         try {
-            const activeFilters = nextFilters || {};
-            const hasStatus = !!activeFilters.status;
-            const hasClient = activeFilters.clientId !== undefined;
-            const endpoint = hasStatus || hasClient ? '/ventes/search' : '/ventes';
-            const response = await api.get(endpoint, {
-                params: {
-                    ...(hasStatus ? { status: activeFilters.status } : {}),
-                    ...(hasClient ? { clientId: activeFilters.clientId } : {})
-                }
-            });
+            const response = await api.get('/ventes');
             setVentes(response.data || []);
         } catch {
             message.error('Erreur lors du chargement des ventes.');
@@ -1635,7 +1632,7 @@ export default function Vente() {
             }
             setFormDirty(false);
             setTimeout(() => { suppressDirtyRef.current = false; }, 0);
-            fetchVentes(filters);
+            fetchVentes();
         } catch {
             // Les erreurs de validation sont affichees par le formulaire.
         }
@@ -1694,7 +1691,7 @@ export default function Vente() {
         try {
             await api.delete(`/ventes/${id}`);
             message.success('Vente supprimee avec succes');
-            fetchVentes(filters);
+            fetchVentes();
         } catch {
             message.error('Erreur lors de la suppression de la vente.');
         }
@@ -2170,16 +2167,32 @@ export default function Vente() {
         {
             title: 'Date',
             dataIndex: 'date',
+            sorter: (a: VenteEntity, b: VenteEntity) => (a.date || '').localeCompare(b.date || ''),
             render: (value: string) => formatDate(value)
         },
         {
             title: 'Origine',
             dataIndex: 'comptoir',
+            sorter: (a: VenteEntity, b: VenteEntity) => (a.comptoir === b.comptoir ? 0 : a.comptoir ? 1 : -1),
+            filters: [
+                { text: 'Comptoir', value: true },
+                { text: 'Prestation', value: false }
+            ],
+            onFilter: (value: unknown, record: VenteEntity) => !!record.comptoir === value,
             render: (value: boolean) => <Tag color={value ? 'purple' : 'geekblue'}>{value ? 'Comptoir' : 'Prestation'}</Tag>
         },
         {
             title: 'Statut',
             dataIndex: 'status',
+            sorter: (a: VenteEntity, b: VenteEntity) => (a.status || '').localeCompare(b.status || ''),
+            filters: [
+                ...statusOptions.map(opt => ({ text: opt.label, value: opt.value })),
+                { text: 'Bon pour accord', value: 'BPA' }
+            ],
+            onFilter: (value: unknown, record: VenteEntity) => {
+                if (value === 'BPA') return record.status === 'DEVIS' && !!record.bonPourAccord;
+                return record.status === value;
+            },
             render: (value: VenteStatus, record: VenteEntity) => {
                 const label = value === 'DEVIS' && record.bonPourAccord
                     ? 'Bon pour accord'
@@ -2191,26 +2204,36 @@ export default function Vente() {
         {
             title: 'Client',
             dataIndex: 'client',
+            sorter: (a: VenteEntity, b: VenteEntity) => getClientLabel(a.client).localeCompare(getClientLabel(b.client)),
+            filterSearch: true,
+            filters: Array.from(
+                new Map(
+                    ventes
+                        .filter(v => v.client?.id !== undefined)
+                        .map(v => [v.client!.id, { text: getClientLabel(v.client), value: v.client!.id! }])
+                ).values()
+            ).sort((a, b) => (a.text as string).localeCompare(b.text as string)),
+            onFilter: (value: unknown, record: VenteEntity) => record.client?.id === value,
             render: (value: ClientEntity) => getClientLabel(value)
-        },
-        {
-            title: 'Forfaits',
-            dataIndex: 'venteForfaits',
-            render: (values: VenteForfaitEntity[]) => values?.length || 0
-        },
-        {
-            title: 'Services',
-            dataIndex: 'venteServices',
-            render: (values: VenteServiceEntity[]) => values?.length || 0
-        },
-        {
-            title: 'Produits',
-            dataIndex: 'produits',
-            render: (values: ProduitCatalogueEntity[]) => values?.length || 0
         },
         {
             title: 'Relance',
             key: 'relance',
+            filters: [
+                { text: 'Relance 3 envoyée', value: 'rappel3' },
+                { text: 'Relance 2 envoyée', value: 'rappel2' },
+                { text: 'Relance 1 envoyée', value: 'rappel1' },
+                { text: 'En attente', value: 'enAttente' },
+                { text: 'Aucune relance', value: 'aucune' }
+            ],
+            onFilter: (value: unknown, record: VenteEntity) => {
+                if (value === 'rappel3') return !!record.rappel3Envoye;
+                if (value === 'rappel2') return !!record.rappel2Envoye && !record.rappel3Envoye;
+                if (value === 'rappel1') return !!record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye;
+                if (value === 'enAttente') return !record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye && !!(record.rappel1Jours || record.rappel2Jours || record.rappel3Jours);
+                if (value === 'aucune') return !record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye && !(record.rappel1Jours || record.rappel2Jours || record.rappel3Jours);
+                return false;
+            },
             render: (_: unknown, record: VenteEntity) => {
                 if (record.rappel3Envoye) return <Tag color="red">Relance 3 envoyée</Tag>;
                 if (record.rappel2Envoye) return <Tag color="orange">Relance 2 envoyée</Tag>;
@@ -2271,69 +2294,35 @@ export default function Vente() {
 
     return (
         <Card title="Prestations">
-            <Form
-                form={searchForm}
-                layout="vertical"
-                initialValues={{ status: undefined, clientId: undefined }}
-                onFinish={(values) => {
-                    const nextFilters: SearchFilters = {
-                        status: values.status,
-                        clientId: values.clientId
-                    };
-                    setFilters(nextFilters);
-                    fetchVentes(nextFilters);
-                }}
-            >
-                <Row gutter={16} align="bottom">
-                    <Col flex="auto">
-                        <Row gutter={16}>
-                            <Col span={10}>
-                                <Form.Item name="status" label="Statut" style={{ marginBottom: 0 }}>
-                                    <Select allowClear options={statusOptions} placeholder="Tous les statuts" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={14}>
-                                <Form.Item name="clientId" label="Client" style={{ marginBottom: 0 }}>
-                                    <Select
-                                        allowClear
-                                        showSearch
-                                        options={clientOptions}
-                                        filterOption={false}
-                                        onSearch={handleClientSearch}
-                                        notFoundContent={null}
-                                        placeholder="Rechercher un client par prénom ou nom"
-                                    />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-                    </Col>
-                    <Col flex="none" style={{ marginBottom: 0 }}>
-                        <Space>
-                            <Button type="primary" htmlType="submit">Rechercher</Button>
-                            <Button
-                                onClick={() => {
-                                    searchForm.resetFields();
-                                    setFilters({});
-                                    fetchVentes();
-                                }}
-                            >
-                                Reinitialiser
-                            </Button>
-                            <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
-                        </Space>
-                    </Col>
-                </Row>
-            </Form>
+            <Space style={{ marginBottom: 16 }}>
+                <Input.Search
+                    placeholder="Recherche"
+                    enterButton
+                    allowClear
+                    style={{ width: 600 }}
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onSearch={(value) => setSearchQuery(value)}
+                />
+                <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+            </Space>
 
             <Row gutter={[16, 16]} style={{ marginTop: 8 }}>
                 <Col span={24}>
                     <Table
                         rowKey="id"
-                        dataSource={ventes}
+                        dataSource={filteredVentes}
                         columns={columns}
                         loading={loading}
                         pagination={{ pageSize: 10 }}
                         bordered
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                openModal(record);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
                     />
                 </Col>
             </Row>

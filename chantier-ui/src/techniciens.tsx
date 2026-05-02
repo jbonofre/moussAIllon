@@ -230,11 +230,13 @@ const Techniciens: React.FC = () => {
             title: 'Téléphone',
             dataIndex: 'telephone',
             key: 'telephone',
+            sorter: (a: TechnicienEntity, b: TechnicienEntity) => (a.telephone || '').localeCompare(b.telephone || ''),
         },
         {
             title: 'Couleur',
             dataIndex: 'couleur',
             key: 'couleur',
+            sorter: (a: TechnicienEntity, b: TechnicienEntity) => (a.couleur || '').localeCompare(b.couleur || ''),
             render: (couleur?: string) => {
                 const color = couleur || defaultTechnicien.couleur;
                 return (
@@ -307,6 +309,13 @@ const Techniciens: React.FC = () => {
                             loading={loading}
                             pagination={{ pageSize: 10 }}
                             bordered
+                            onRow={(record) => ({
+                                onClick: (e) => {
+                                    if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                    openModal(record);
+                                },
+                                style: { cursor: 'pointer' },
+                            })}
                         />
                         <Modal
                             title={isEdit ? 'Modifier un technicien' : 'Ajouter un technicien'}

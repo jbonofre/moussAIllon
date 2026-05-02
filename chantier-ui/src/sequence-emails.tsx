@@ -168,17 +168,20 @@ function SequenceTable({ cible, variables }: { cible: string; variables: string 
             dataIndex: 'delaiJours',
             key: 'delaiJours',
             width: 120,
+            sorter: (a: Etape, b: Etape) => a.delaiJours - b.delaiJours,
             render: (val: number) => val === 0 ? <Tag color="green">Immédiat</Tag> : <Tag color="blue">J+{val}</Tag>
         },
         {
             title: 'Sujet',
             dataIndex: 'sujet',
-            key: 'sujet'
+            key: 'sujet',
+            sorter: (a: Etape, b: Etape) => (a.sujet || '').localeCompare(b.sujet || ''),
         },
         {
             title: 'Description',
             dataIndex: 'description',
             key: 'description',
+            sorter: (a: Etape, b: Etape) => (a.description || '').localeCompare(b.description || ''),
             render: (desc: string) => <span style={{ fontSize: '0.85em', opacity: 0.7 }}>{desc}</span>
         },
         {
@@ -186,6 +189,7 @@ function SequenceTable({ cible, variables }: { cible: string; variables: string 
             dataIndex: 'actif',
             key: 'actif',
             width: 80,
+            sorter: (a: Etape, b: Etape) => (a.actif === b.actif ? 0 : a.actif ? -1 : 1),
             render: (actif: boolean, record: Etape) => (
                 <Switch checked={actif} onChange={() => handleToggleActif(record)} size="small" />
             )
@@ -223,6 +227,13 @@ function SequenceTable({ cible, variables }: { cible: string; variables: string 
                         columns={columns}
                         rowKey="id"
                         pagination={false}
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                handleEdit(record);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
                     />
                 </Spin>
             </Space>

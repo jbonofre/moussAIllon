@@ -638,26 +638,19 @@ export default function Forfaits() {
         {
             title: 'Moteurs',
             dataIndex: 'moteursAssocies',
+            sorter: (a: ForfaitEntity, b: ForfaitEntity) => (a.moteursAssocies?.length || 0) - (b.moteursAssocies?.length || 0),
             render: (values: MoteurCatalogueEntity[]) => values?.length || 0
         },
         {
             title: 'Bateaux',
             dataIndex: 'bateauxAssocies',
+            sorter: (a: ForfaitEntity, b: ForfaitEntity) => (a.bateauxAssocies?.length || 0) - (b.bateauxAssocies?.length || 0),
             render: (values: BateauCatalogueEntity[]) => values?.length || 0
-        },
-        {
-            title: 'Produits',
-            dataIndex: 'produits',
-            render: (values: ForfaitProduitEntity[]) => values?.length || 0
-        },
-        {
-            title: "Main d'Oeuvres",
-            dataIndex: 'mainOeuvres',
-            render: (values: ForfaitMainOeuvreEntity[]) => values?.length || 0
         },
         {
             title: 'Fréquence',
             key: 'frequence',
+            sorter: (a: ForfaitEntity, b: ForfaitEntity) => (a.heuresFonctionnement || 0) - (b.heuresFonctionnement || 0) || (a.joursFrequence || 0) - (b.joursFrequence || 0),
             render: (_: unknown, record: ForfaitEntity) =>
                 `${record.heuresFonctionnement || 0}h / ${record.joursFrequence || 0} jours`
         },
@@ -721,6 +714,13 @@ export default function Forfaits() {
                         loading={loading}
                         pagination={{ pageSize: 10 }}
                         bordered
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                openModal(record);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
                     />
                 </Col>
             </Row>

@@ -101,32 +101,38 @@ const warningColumns = [
         title: 'Vente',
         dataIndex: 'venteId',
         key: 'venteId',
+        sorter: (a: PlanningWarning, b: PlanningWarning) => (a.venteId || 0) - (b.venteId || 0),
         render: (v: number) => `#${v}`,
     },
     {
         title: 'Nom',
         dataIndex: 'nom',
         key: 'nom',
+        sorter: (a: PlanningWarning, b: PlanningWarning) => (a.nom || '').localeCompare(b.nom || ''),
     },
     {
         title: 'Type',
         dataIndex: 'type',
         key: 'type',
+        sorter: (a: PlanningWarning, b: PlanningWarning) => (a.type || '').localeCompare(b.type || ''),
         render: (v: string) => <Tag color={v === 'forfait' ? 'purple' : 'geekblue'}>{v === 'forfait' ? 'Forfait' : 'Service'}</Tag>,
     },
     {
         title: 'Technicien',
         dataIndex: 'technicien',
         key: 'technicien',
+        sorter: (a: PlanningWarning, b: PlanningWarning) => (a.technicien || '').localeCompare(b.technicien || ''),
     },
     {
         title: 'Date planification',
         dataIndex: 'datePlanification',
         key: 'datePlanification',
+        sorter: (a: PlanningWarning, b: PlanningWarning) => (a.datePlanification || '').localeCompare(b.datePlanification || ''),
     },
     {
         title: 'Durée',
         key: 'duree',
+        sorter: (a: PlanningWarning, b: PlanningWarning) => (a.dureeReelle || 0) - (b.dureeReelle || 0),
         render: (_: unknown, record: PlanningWarning) => {
             const overrun = record.warning === 'overrun';
             return (
@@ -141,6 +147,7 @@ const warningColumns = [
         title: 'Alerte',
         dataIndex: 'warning',
         key: 'warning',
+        sorter: (a: PlanningWarning, b: PlanningWarning) => (a.warning || '').localeCompare(b.warning || ''),
         render: (v: string) => v === 'late'
             ? <Tag color="volcano"><WarningOutlined /> En retard</Tag>
             : <Tag color="orange"><WarningOutlined /> Dépassement durée</Tag>,
@@ -161,27 +168,32 @@ const interventionColumns = [
     {
         title: 'Client',
         dataIndex: 'client',
-        key: 'client'
+        key: 'client',
+        sorter: (a: InterventionRow, b: InterventionRow) => (a.client || '').localeCompare(b.client || ''),
     },
     {
         title: 'Unite',
         dataIndex: 'unite',
-        key: 'unite'
+        key: 'unite',
+        sorter: (a: InterventionRow, b: InterventionRow) => (a.unite || '').localeCompare(b.unite || ''),
     },
     {
         title: 'Type',
         dataIndex: 'type',
-        key: 'type'
+        key: 'type',
+        sorter: (a: InterventionRow, b: InterventionRow) => (a.type || '').localeCompare(b.type || ''),
     },
     {
         title: 'Technicien',
         dataIndex: 'technicien',
-        key: 'technicien'
+        key: 'technicien',
+        sorter: (a: InterventionRow, b: InterventionRow) => (a.technicien || '').localeCompare(b.technicien || ''),
     },
     {
         title: 'Statut',
         dataIndex: 'statut',
         key: 'statut',
+        sorter: (a: InterventionRow, b: InterventionRow) => (a.statut || '').localeCompare(b.statut || ''),
         render: (value: InterventionRow['statut']) => {
             const color = value === 'Terminee' ? 'green' : value === 'En cours' ? 'blue' : 'orange';
             return <Tag color={color}>{value}</Tag>;

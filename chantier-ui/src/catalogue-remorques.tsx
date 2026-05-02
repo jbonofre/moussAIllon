@@ -257,18 +257,27 @@ const RemorqueCatalogue: React.FC = () => {
   };
 
   const columns = [
-    { title: "Marque", dataIndex: "marque", key: "marque" },
-    { title: "Modèle", dataIndex: "modele", key: "modele" },
+    {
+      title: "Marque",
+      dataIndex: "marque",
+      key: "marque",
+      sorter: (a: any, b: any) => (a.marque || '').localeCompare(b.marque || ''),
+      filters: [...new Set(remorques.map((r: any) => r.marque).filter(Boolean))].map((m) => ({ text: m, value: m })),
+      onFilter: (value: any, record: any) => record.marque === value,
+      filterSearch: true,
+    },
+    { title: "Modèle", dataIndex: "modele", key: "modele", sorter: (a: any, b: any) => (a.modele || '').localeCompare(b.modele || '') },
     {
       title: "Évaluation",
       dataIndex: "evaluation",
       key: "evaluation",
+      sorter: (a: any, b: any) => (a.evaluation || 0) - (b.evaluation || 0),
       render: (rate: number) => <Rate allowHalf disabled value={rate} />,
       width: 130,
     },
-    { title: "Longueur", dataIndex: "longueur", key: "longueur" },
-    { title: "Stock", dataIndex: "stock", key: "stock" },
-    { title: "Prix TTC", dataIndex: "prixVenteTTC", key: "prixVenteTTC" },
+    { title: "Longueur", dataIndex: "longueur", key: "longueur", sorter: (a: any, b: any) => (a.longueur || 0) - (b.longueur || 0) },
+    { title: "Stock", dataIndex: "stock", key: "stock", sorter: (a: any, b: any) => (a.stock || 0) - (b.stock || 0) },
+    { title: "Prix TTC", dataIndex: "prixVenteTTC", key: "prixVenteTTC", sorter: (a: any, b: any) => (a.prixVenteTTC || 0) - (b.prixVenteTTC || 0) },
     {
       title: "Actions",
       key: "actions",
@@ -324,6 +333,13 @@ const RemorqueCatalogue: React.FC = () => {
             loading={loading}
             pagination={{ pageSize: 10 }}
             bordered
+            onRow={(record) => ({
+              onClick: (e) => {
+                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                openModal(record);
+              },
+              style: { cursor: 'pointer' },
+            })}
           />
         </Col>
       </Row>

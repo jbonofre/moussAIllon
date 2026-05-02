@@ -298,6 +298,8 @@ const HeliceCatalogueView: React.FC = () => {
     const columns = [
         { title: 'Marque', dataIndex: 'marque', key: 'marque',
             sorter: (a, b) => a.marque.localeCompare(b.marque),
+            filters: [...new Set(helices.map(h => h.marque))].map(marque => ({ text: marque, value: marque })),
+            onFilter: (value, record) => record.marque === value,
         },
         { title: 'Modèle', dataIndex: 'modele', key: 'modele',
             render: (_, record) => (
@@ -389,7 +391,19 @@ const HeliceCatalogueView: React.FC = () => {
             </Row>
             <Row gutter={[16, 16]}>
                 <Col span={24}>
-                    <Table rowKey="id" columns={columns} dataSource={helices} loading={loading} />
+                    <Table
+                        rowKey="id"
+                        columns={columns}
+                        dataSource={helices}
+                        loading={loading}
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                openEditModal(record);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
+                    />
                     <Modal
                         open={modalOpen}
                         title={modalMode === 'edit' ? 'Modifier une Hélice' : 'Nouvelle Hélice'}

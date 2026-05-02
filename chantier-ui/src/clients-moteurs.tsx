@@ -362,6 +362,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       dataIndex: "proprietaire",
       key: "proprietaire",
       render: (proprietaire: any) => proprietaire ? `${proprietaire.prenom ?? ""} ${proprietaire.nom ?? ""}` : "",
+      sorter: (a, b) => (a.proprietaire?.nom || '').localeCompare(b.proprietaire?.nom || ''),
       filters: clients.map((client: any) => ({ text: `${client.prenom} ${client.nom}`, value: client.id })),
       onFilter: (value, record) => record.proprietaire?.id === value,
     },
@@ -377,6 +378,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
               formatAnnee(modele.anneeDebut, modele.anneeFin) && `(${formatAnnee(modele.anneeDebut, modele.anneeFin)})`
             ].filter(Boolean).join(" ")
           : "",
+      sorter: (a, b) => (a.modele?.marque || '').localeCompare(b.modele?.marque || '') || (a.modele?.modele || '').localeCompare(b.modele?.modele || ''),
       filters: catalogueMoteurs.map((modele) => { const a = formatAnnee(modele.anneeDebut, modele.anneeFin); return { text: `${modele.marque} ${modele.modele}${a ? ` (${a})` : ''}`, value: modele.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
     },
@@ -429,6 +431,13 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
           dataSource={moteurs}
           bordered
           pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: (e) => {
+              if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+              handleEdit(record);
+            },
+            style: { cursor: 'pointer' },
+          })}
         />
       </Spin>
       <Modal

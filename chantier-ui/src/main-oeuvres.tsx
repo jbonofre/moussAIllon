@@ -169,6 +169,7 @@ export default function MainOeuvres() {
         {
             title: 'Description',
             dataIndex: 'description',
+            sorter: (a: MainOeuvreEntity, b: MainOeuvreEntity) => (a.description || '').localeCompare(b.description || ''),
             render: (value: string) => value || '-'
         },
         {
@@ -230,6 +231,13 @@ export default function MainOeuvres() {
                         loading={loading}
                         pagination={{ pageSize: 10 }}
                         bordered
+                        onRow={(record) => ({
+                            onClick: (e) => {
+                                if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+                                openModal(record);
+                            },
+                            style: { cursor: 'pointer' },
+                        })}
                     />
                 </Col>
             </Row>
