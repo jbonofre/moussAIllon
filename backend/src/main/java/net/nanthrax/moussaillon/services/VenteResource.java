@@ -52,6 +52,42 @@ public class VenteResource {
     @Inject
     RappelScheduler rappelScheduler;
 
+    @Inject
+    FacturXService facturXService;
+
+    @GET
+    @Path("{id}/facturx")
+    @Produces("application/pdf")
+    @Transactional
+    public Response telechargerFacturX(@PathParam("id") long id) {
+        VenteEntity vente = VenteEntity.findById(id);
+        if (vente == null) {
+            throw new WebApplicationException("La vente (" + id + ") n'est pas trouvée", 404);
+        }
+        if (vente.status != VenteEntity.Status.FACTURE_PRETE && vente.status != VenteEntity.Status.FACTURE_PAYEE) {
+            throw new WebApplicationException(
+                Response.status(Response.Status.BAD_REQUEST)
+                    .entity(java.util.Map.of("error", "La facturation électronique n'est disponible que pour les factures prêtes ou payées"))
+                    .build());
+        }
+
+        SocieteEntity societe = SocieteEntity.findById(1L);
+
+        try {
+            byte[] pdfFacturX = facturXService.generer(vente, societe);
+            String filename = (vente.numeroFacture != null ? vente.numeroFacture : "facture-" + id) + ".pdf";
+            return Response.ok(pdfFacturX)
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .header("Content-Type", "application/pdf")
+                .build();
+        } catch (Exception e) {
+            throw new WebApplicationException(
+                Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(java.util.Map.of("error", "Erreur lors de la génération Factur-X : " + e.getMessage()))
+                    .build());
+        }
+    }
+
     @POST
     @Path("{id}/email")
     @Transactional

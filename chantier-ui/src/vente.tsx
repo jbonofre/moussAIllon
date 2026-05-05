@@ -22,7 +22,7 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, EditOutlined, FileDoneOutlined, FileTextOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, FileDoneOutlined, FileTextOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -2188,6 +2188,23 @@ export default function Vente() {
         openPrintDocument(`${docTitle} ${docRef}`, buildDocumentHtml(fullVente, societe));
     };
 
+    const handleDownloadFacturX = async (vente: VenteEntity) => {
+        if (!vente.id) return;
+        try {
+            const response = await axios.get(`/ventes/${vente.id}/facturx`, { responseType: 'blob' });
+            const url = URL.createObjectURL(response.data);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = vente.numeroFacture ? `${vente.numeroFacture}.pdf` : `facture-${vente.id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch {
+            message.error('Erreur lors de la génération du Factur-X.');
+        }
+    };
+
     const handleEmail = async (vente: VenteEntity) => {
         if (!vente.id) {
             message.warning('La vente doit être enregistrée avant d\'envoyer un email.');
@@ -2485,6 +2502,9 @@ export default function Vente() {
             render: (_: unknown, record: VenteEntity) => (
                 <Space>
                     <Button title="Imprimer" icon={<PrinterOutlined />} onClick={() => handlePrint(record)} />
+                    {(record.status === 'FACTURE_PRETE' || record.status === 'FACTURE_PAYEE') && (
+                        <Button title="Télécharger Factur-X (PDF/A-3 + XML)" icon={<DownloadOutlined />} onClick={() => handleDownloadFacturX(record)} />
+                    )}
                     <Button title="Envoyer par email" icon={<MailOutlined />} onClick={() => handleEmail(record)} />
                     <Dropdown menu={{ items: paymentMenuItems(record) }} placement="bottomRight" disabled={record.status !== 'FACTURE_PRETE'}>
                         <Button title="Lien de paiement" icon={<CreditCardOutlined />} disabled={record.status !== 'FACTURE_PRETE'} />
@@ -2563,6 +2583,16 @@ export default function Vente() {
                     >
                         Imprimer
                     </Button>,
+                    ...(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE' ? [
+                        <Button
+                            key="facturx"
+                            icon={<DownloadOutlined />}
+                            disabled={!currentVente}
+                            onClick={() => currentVente && handleDownloadFacturX(currentVente)}
+                        >
+                            Factur-X
+                        </Button>
+                    ] : []),
                     <Button
                         key="email"
                         icon={<MailOutlined />}
