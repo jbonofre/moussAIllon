@@ -58,6 +58,18 @@ public class VenteEntity extends PanacheEntity {
     @ManyToMany
     public List<ProduitCatalogueEntity> produits;
 
+    @ManyToMany
+    public List<BateauCatalogueEntity> bateauxCatalogue = new ArrayList<>();
+
+    @ManyToMany
+    public List<MoteurCatalogueEntity> moteursCatalogue = new ArrayList<>();
+
+    @ManyToMany
+    public List<HeliceCatalogueEntity> helicesCatalogue = new ArrayList<>();
+
+    @ManyToMany
+    public List<RemorqueCatalogueEntity> remorquesCatalogue = new ArrayList<>();
+
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp date;
 

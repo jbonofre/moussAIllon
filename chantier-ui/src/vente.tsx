@@ -180,6 +180,34 @@ interface ProduitCatalogueEntity {
     prixVenteTTC?: number;
 }
 
+interface CatalogueBateauEntity {
+    id: number;
+    modele: string;
+    marque: string;
+    prixVenteTTC?: number;
+}
+
+interface CatalogueMoteurEntity {
+    id: number;
+    modele: string;
+    marque: string;
+    prixVenteTTC?: number;
+}
+
+interface CatalogueHeliceEntity {
+    id: number;
+    modele: string;
+    marque: string;
+    prixVenteTTC?: number;
+}
+
+interface CatalogueRemorqueEntity {
+    id: number;
+    modele: string;
+    marque: string;
+    prixVenteTTC?: number;
+}
+
 
 const defaultNewProduit = {
     nom: '',
@@ -287,6 +315,10 @@ interface VenteEntity {
     venteForfaits?: VenteForfaitEntity[];
     venteServices?: VenteServiceEntity[];
     produits?: ProduitCatalogueEntity[];
+    bateauxCatalogue?: CatalogueBateauEntity[];
+    moteursCatalogue?: CatalogueMoteurEntity[];
+    helicesCatalogue?: CatalogueHeliceEntity[];
+    remorquesCatalogue?: CatalogueRemorqueEntity[];
     date?: string;
     dateDevis?: string;
     dateBonPourAccord?: string;
@@ -320,7 +352,7 @@ interface RappelHistoriqueEntity {
     dateEnvoi?: string;
 }
 
-type LigneType = 'forfait' | 'service' | 'produit';
+type LigneType = 'forfait' | 'service' | 'produit' | 'bateau' | 'moteur' | 'helice' | 'remorque';
 
 interface LigneUnifiee {
     type?: LigneType;
@@ -496,9 +528,10 @@ export default function Vente() {
     const [services, setServices] = useState<ServiceEntity[]>([]);
     const [mainOeuvres, setMainOeuvres] = useState<MainOeuvreEntity[]>([]);
     const [techniciens, setTechniciens] = useState<TechnicienEntity[]>([]);
-    const [catalogueBateaux, setCatalogueBateaux] = useState<Array<{ id: number; marque?: string; modele?: string }>>([]);
-    const [catalogueMoteurs, setCatalogueMoteurs] = useState<Array<{ id: number; marque?: string; modele?: string }>>([]);
-    const [catalogueRemorques, setCatalogueRemorques] = useState<Array<{ id: number; marque?: string; modele?: string }>>([]);
+    const [catalogueBateaux, setCatalogueBateaux] = useState<CatalogueBateauEntity[]>([]);
+    const [catalogueMoteurs, setCatalogueMoteurs] = useState<CatalogueMoteurEntity[]>([]);
+    const [catalogueHelices, setCatalogueHelices] = useState<CatalogueHeliceEntity[]>([]);
+    const [catalogueRemorques, setCatalogueRemorques] = useState<CatalogueRemorqueEntity[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
@@ -569,10 +602,21 @@ export default function Vente() {
     const handleProduitSearch = (value: string) => {
         if (produitSearchTimeout) clearTimeout(produitSearchTimeout);
         if (!value || value.trim() === '') return;
+        const q = encodeURIComponent(value);
         const timeout = setTimeout(async () => {
             try {
-                const res = await api.get(`/catalogue/produits/search?q=${encodeURIComponent(value)}`);
-                setProduits((prev) => mergeById(prev, res.data || []));
+                const [produitsRes, bateauxRes, moteursRes, helicesRes, remorquesRes] = await Promise.allSettled([
+                    api.get(`/catalogue/produits/search?q=${q}`),
+                    api.get(`/catalogue/bateaux/search?q=${q}`),
+                    api.get(`/catalogue/moteurs/search?q=${q}`),
+                    api.get(`/catalogue/helices/search?q=${q}`),
+                    api.get(`/catalogue/remorques/search?q=${q}`),
+                ]);
+                if (produitsRes.status === 'fulfilled') setProduits((prev) => mergeById(prev, produitsRes.value.data || []));
+                if (bateauxRes.status === 'fulfilled') setCatalogueBateaux((prev) => mergeById(prev, bateauxRes.value.data || []));
+                if (moteursRes.status === 'fulfilled') setCatalogueMoteurs((prev) => mergeById(prev, moteursRes.value.data || []));
+                if (helicesRes.status === 'fulfilled') setCatalogueHelices((prev) => mergeById(prev, helicesRes.value.data || []));
+                if (remorquesRes.status === 'fulfilled') setCatalogueRemorques((prev) => mergeById(prev, remorquesRes.value.data || []));
             } catch {
                 // ignore
             }
@@ -669,8 +713,40 @@ export default function Vente() {
                     searchText: `${p.nom} ${p.marque || ''}`.toLowerCase(),
                 })),
             },
+            {
+                label: 'Bateaux',
+                options: catalogueBateaux.map((b) => ({
+                    value: `bateau:${b.id}`,
+                    label: `${b.marque} ${b.modele}`,
+                    searchText: `${b.marque} ${b.modele}`.toLowerCase(),
+                })),
+            },
+            {
+                label: 'Moteurs',
+                options: catalogueMoteurs.map((m) => ({
+                    value: `moteur:${m.id}`,
+                    label: `${m.marque} ${m.modele}`,
+                    searchText: `${m.marque} ${m.modele}`.toLowerCase(),
+                })),
+            },
+            {
+                label: 'Hélices',
+                options: catalogueHelices.map((h) => ({
+                    value: `helice:${h.id}`,
+                    label: `${h.marque} ${h.modele}`,
+                    searchText: `${h.marque} ${h.modele}`.toLowerCase(),
+                })),
+            },
+            {
+                label: 'Remorques',
+                options: catalogueRemorques.map((r) => ({
+                    value: `remorque:${r.id}`,
+                    label: `${r.marque} ${r.modele}`,
+                    searchText: `${r.marque} ${r.modele}`.toLowerCase(),
+                })),
+            },
         ],
-        [forfaits, produits]
+        [forfaits, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]
     );
 
     const parseLigneValue = (compositeValue?: string): { type: LigneType; id: number } | null => {
@@ -729,6 +805,7 @@ export default function Vente() {
                 techniciensRes,
                 catBateauxRes,
                 catMoteursRes,
+                catHelicesRes,
                 catRemorquesRes
             ] = await Promise.all([
                 api.get('/bateaux'),
@@ -740,6 +817,7 @@ export default function Vente() {
                 api.get('/techniciens'),
                 api.get('/catalogue/bateaux'),
                 api.get('/catalogue/moteurs'),
+                api.get('/catalogue/helices'),
                 api.get('/catalogue/remorques')
             ]);
             setBateaux(bateauxRes.data || []);
@@ -751,6 +829,7 @@ export default function Vente() {
             setTechniciens(techniciensRes.data || []);
             setCatalogueBateaux(catBateauxRes.data || []);
             setCatalogueMoteurs(catMoteursRes.data || []);
+            setCatalogueHelices(catHelicesRes.data || []);
             setCatalogueRemorques(catRemorquesRes.data || []);
         } catch {
             message.error('Erreur lors du chargement des listes de reference.');
@@ -1274,8 +1353,14 @@ export default function Vente() {
         const keys: string[] = [];
         (vente?.venteForfaits || []).forEach(vf => { if (vf.forfait?.id) keys.push(`forfait:${vf.forfait.id}`); });
         (vente?.venteServices || []).forEach(vs => { if (vs.service?.id) keys.push(`service:${vs.service.id}`); });
-        const produitIds = new Set((vente?.produits || []).map(p => p?.id).filter(Boolean));
-        produitIds.forEach(id => keys.push(`produit:${id}`));
+        const addIds = (items: Array<{ id?: number }>, prefix: string) => {
+            new Set(items.map(i => i?.id).filter(Boolean) as number[]).forEach(id => keys.push(`${prefix}:${id}`));
+        };
+        addIds(vente?.produits || [], 'produit');
+        addIds(vente?.bateauxCatalogue || [], 'bateau');
+        addIds(vente?.moteursCatalogue || [], 'moteur');
+        addIds(vente?.helicesCatalogue || [], 'helice');
+        addIds(vente?.remorquesCatalogue || [], 'remorque');
         savedLinesRef.current = keys.sort();
     };
 
@@ -1284,9 +1369,15 @@ export default function Vente() {
             setClients((prev) => mergeById(prev, [vente.client as ClientEntity]));
         }
         const venteProduits = (vente.produits || []).filter((p): p is ProduitCatalogueEntity => !!p?.id);
-        if (venteProduits.length > 0) {
-            setProduits((prev) => mergeById(prev, venteProduits));
-        }
+        if (venteProduits.length > 0) setProduits((prev) => mergeById(prev, venteProduits));
+        const venteBateaux = (vente.bateauxCatalogue || []).filter((b): b is CatalogueBateauEntity => !!b?.id);
+        if (venteBateaux.length > 0) setCatalogueBateaux((prev) => mergeById(prev, venteBateaux));
+        const venteMoteurs = (vente.moteursCatalogue || []).filter((m): m is CatalogueMoteurEntity => !!m?.id);
+        if (venteMoteurs.length > 0) setCatalogueMoteurs((prev) => mergeById(prev, venteMoteurs));
+        const venteHelices = (vente.helicesCatalogue || []).filter((h): h is CatalogueHeliceEntity => !!h?.id);
+        if (venteHelices.length > 0) setCatalogueHelices((prev) => mergeById(prev, venteHelices));
+        const venteRemorques = (vente.remorquesCatalogue || []).filter((r): r is CatalogueRemorqueEntity => !!r?.id);
+        if (venteRemorques.length > 0) setCatalogueRemorques((prev) => mergeById(prev, venteRemorques));
         const lignes: LigneUnifiee[] = [];
         (vente.venteForfaits || []).forEach(vf => {
             lignes.push({
@@ -1326,14 +1417,16 @@ export default function Vente() {
                 documents: vs.documents || [],
             });
         });
-        const produitLinesMap = (vente.produits || []).reduce((acc, item) => {
-            if (!item?.id) return acc;
-            acc.set(item.id, (acc.get(item.id) || 0) + 1);
-            return acc;
-        }, new Map<number, number>());
-        Array.from(produitLinesMap.entries()).forEach(([produitId, quantite]) => {
-            lignes.push({ type: 'produit', itemId: produitId, quantite });
-        });
+        const buildLignesFromItems = (items: Array<{ id: number }>, type: LigneType) => {
+            const map = new Map<number, number>();
+            items.forEach((item) => { if (item?.id) map.set(item.id, (map.get(item.id) || 0) + 1); });
+            map.forEach((quantite, itemId) => lignes.push({ type, itemId, quantite }));
+        };
+        buildLignesFromItems(vente.produits || [], 'produit');
+        buildLignesFromItems(vente.bateauxCatalogue || [], 'bateau');
+        buildLignesFromItems(vente.moteursCatalogue || [], 'moteur');
+        buildLignesFromItems(vente.helicesCatalogue || [], 'helice');
+        buildLignesFromItems(vente.remorquesCatalogue || [], 'remorque');
         form.resetFields();
         form.setFieldsValue({
             status: vente.status || 'DEVIS',
@@ -1377,10 +1470,22 @@ export default function Vente() {
             } else if (line.type === 'produit') {
                 const p = produits.find((item) => item.id === line.itemId);
                 if (p) lines.push({ type: 'Produit', nom: p.nom, quantite, prixTTC: (p.prixVenteTTC || 0) * quantite });
+            } else if (line.type === 'bateau') {
+                const b = catalogueBateaux.find((item) => item.id === line.itemId);
+                if (b) lines.push({ type: 'Bateau', nom: `${b.marque} ${b.modele}`, quantite, prixTTC: (b.prixVenteTTC || 0) * quantite });
+            } else if (line.type === 'moteur') {
+                const m = catalogueMoteurs.find((item) => item.id === line.itemId);
+                if (m) lines.push({ type: 'Moteur', nom: `${m.marque} ${m.modele}`, quantite, prixTTC: (m.prixVenteTTC || 0) * quantite });
+            } else if (line.type === 'helice') {
+                const h = catalogueHelices.find((item) => item.id === line.itemId);
+                if (h) lines.push({ type: 'Hélice', nom: `${h.marque} ${h.modele}`, quantite, prixTTC: (h.prixVenteTTC || 0) * quantite });
+            } else if (line.type === 'remorque') {
+                const r = catalogueRemorques.find((item) => item.id === line.itemId);
+                if (r) lines.push({ type: 'Remorque', nom: `${r.marque} ${r.modele}`, quantite, prixTTC: (r.prixVenteTTC || 0) * quantite });
             }
         });
         return lines;
-    }, [form, forfaits, services, produits]);
+    }, [form, forfaits, services, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
 
     const initSignatureCanvas = useCallback(() => {
         setTimeout(() => {
@@ -1527,6 +1632,10 @@ export default function Vente() {
         const forfaitLines = allLignes.filter((l) => l.type === 'forfait');
         const serviceLines = allLignes.filter((l) => l.type === 'service');
         const produitLines = allLignes.filter((l) => l.type === 'produit');
+        const bateauLines = allLignes.filter((l) => l.type === 'bateau');
+        const moteurLines = allLignes.filter((l) => l.type === 'moteur');
+        const heliceLines = allLignes.filter((l) => l.type === 'helice');
+        const remorqueLines = allLignes.filter((l) => l.type === 'remorque');
 
         return {
             status: values.status,
@@ -1589,6 +1698,26 @@ export default function Vente() {
                 const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
                 return item ? Array.from({ length: safeQuantity }, () => item) : [];
             }) as ProduitCatalogueEntity[],
+            bateauxCatalogue: bateauLines.flatMap((line) => {
+                const item = catalogueBateaux.find((b) => b.id === line.itemId);
+                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
+                return item ? Array.from({ length: safeQuantity }, () => item) : [];
+            }) as CatalogueBateauEntity[],
+            moteursCatalogue: moteurLines.flatMap((line) => {
+                const item = catalogueMoteurs.find((m) => m.id === line.itemId);
+                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
+                return item ? Array.from({ length: safeQuantity }, () => item) : [];
+            }) as CatalogueMoteurEntity[],
+            helicesCatalogue: heliceLines.flatMap((line) => {
+                const item = catalogueHelices.find((h) => h.id === line.itemId);
+                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
+                return item ? Array.from({ length: safeQuantity }, () => item) : [];
+            }) as CatalogueHeliceEntity[],
+            remorquesCatalogue: remorqueLines.flatMap((line) => {
+                const item = catalogueRemorques.find((r) => r.id === line.itemId);
+                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
+                return item ? Array.from({ length: safeQuantity }, () => item) : [];
+            }) as CatalogueRemorqueEntity[],
             date: toBackendDateValue(values.date),
             montantHT: values.montantHT || 0,
             remise: values.remise || 0,
@@ -1865,7 +1994,23 @@ export default function Vente() {
             type: 'Service', label: vs.service?.nom || '', quantite: vs.quantite || 1,
             totalPrixTTC: (vs.service?.prixTTC || 0) * (vs.quantite || 1)
         }));
-        return [...forfaitLines, ...produitLines, ...serviceLines];
+        const buildCatalogueLines = (items: Array<{ id: number; marque: string; modele: string; prixVenteTTC?: number }>, typeLabel: string) =>
+            Array.from(
+                (items || []).reduce((acc, item) => {
+                    const label = `${item.marque} ${item.modele}`;
+                    const key = `id-${item.id}`;
+                    const current = acc.get(key) || { type: typeLabel, label, quantite: 0, totalPrixTTC: 0 };
+                    current.quantite += 1;
+                    current.totalPrixTTC += item.prixVenteTTC || 0;
+                    acc.set(key, current);
+                    return acc;
+                }, new Map<string, { type: string; label: string; quantite: number; totalPrixTTC: number }>()).values()
+            );
+        const bateauLines = buildCatalogueLines(vente.bateauxCatalogue || [], 'Bateau');
+        const moteurCatLines = buildCatalogueLines(vente.moteursCatalogue || [], 'Moteur');
+        const heliceLines = buildCatalogueLines(vente.helicesCatalogue || [], 'Hélice');
+        const remorqueCatLines = buildCatalogueLines(vente.remorquesCatalogue || [], 'Remorque');
+        return [...forfaitLines, ...produitLines, ...bateauLines, ...moteurCatLines, ...heliceLines, ...remorqueCatLines, ...serviceLines];
     };
 
     const getDocumentType = (vente: VenteEntity): 'devis' | 'ordre_reparation' | 'facture' => {
@@ -2038,6 +2183,14 @@ export default function Vente() {
                 totalTTC += (allServices.find((s) => s.id === line.itemId)?.prixTTC || 0) * quantite;
             } else if (line.type === 'produit') {
                 totalTTC += (allProduits.find((p) => p.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+            } else if (line.type === 'bateau') {
+                totalTTC += (catalogueBateaux.find((b) => b.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+            } else if (line.type === 'moteur') {
+                totalTTC += (catalogueMoteurs.find((m) => m.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+            } else if (line.type === 'helice') {
+                totalTTC += (catalogueHelices.find((h) => h.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+            } else if (line.type === 'remorque') {
+                totalTTC += (catalogueRemorques.find((r) => r.id === line.itemId)?.prixVenteTTC || 0) * quantite;
             }
         });
 
@@ -2522,6 +2675,10 @@ export default function Vente() {
                                                         if (lineType === 'forfait') return forfaits.find((f) => f.id === itemId)?.prixTTC;
                                                         if (lineType === 'service') return services.find((s) => s.id === itemId)?.prixTTC;
                                                         if (lineType === 'produit') return produits.find((p) => p.id === itemId)?.prixVenteTTC;
+                                                        if (lineType === 'bateau') return catalogueBateaux.find((b) => b.id === itemId)?.prixVenteTTC;
+                                                        if (lineType === 'moteur') return catalogueMoteurs.find((m) => m.id === itemId)?.prixVenteTTC;
+                                                        if (lineType === 'helice') return catalogueHelices.find((h) => h.id === itemId)?.prixVenteTTC;
+                                                        if (lineType === 'remorque') return catalogueRemorques.find((r) => r.id === itemId)?.prixVenteTTC;
                                                         return undefined;
                                                     };
 
@@ -2550,7 +2707,7 @@ export default function Vente() {
                                                                     showSearch
                                                                     value={toLigneCompositeValue(lineType, itemId)}
                                                                     options={ligneUnifieeOptions}
-                                                                    placeholder="Forfait ou Produit"
+                                                                    placeholder="Forfait, produit, bateau, moteur..."
                                                                     onSearch={handleProduitSearch}
                                                                     filterOption={(input, option) =>
                                                                         ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
@@ -2579,8 +2736,8 @@ export default function Vente() {
                                                             )}
                                                         </Form.Item>
                                                         {lineType && (
-                                                            <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : 'orange'} style={{ marginRight: 0 }}>
-                                                                {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : 'P'}
+                                                            <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
+                                                                {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
                                                             </Tag>
                                                         )}
                                                         <Form.Item

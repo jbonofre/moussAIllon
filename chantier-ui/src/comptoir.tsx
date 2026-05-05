@@ -84,6 +84,34 @@ interface ProduitCatalogueEntity {
     prixVenteTTC?: number;
 }
 
+interface CatalogueBateauEntity {
+    id: number;
+    modele: string;
+    marque: string;
+    prixVenteTTC?: number;
+}
+
+interface CatalogueMoteurEntity {
+    id: number;
+    modele: string;
+    marque: string;
+    prixVenteTTC?: number;
+}
+
+interface CatalogueHeliceEntity {
+    id: number;
+    modele: string;
+    marque: string;
+    prixVenteTTC?: number;
+}
+
+interface CatalogueRemorqueEntity {
+    id: number;
+    modele: string;
+    marque: string;
+    prixVenteTTC?: number;
+}
+
 
 const defaultNewProduit = {
     nom: '',
@@ -153,6 +181,10 @@ interface VenteEntity {
     remorque?: RemorqueClientEntity;
     forfaits?: ForfaitEntity[];
     produits?: ProduitCatalogueEntity[];
+    bateauxCatalogue?: CatalogueBateauEntity[];
+    moteursCatalogue?: CatalogueMoteurEntity[];
+    helicesCatalogue?: CatalogueHeliceEntity[];
+    remorquesCatalogue?: CatalogueRemorqueEntity[];
     services?: ServiceEntity[];
     taches?: TaskEntity[];
     date?: string;
@@ -180,7 +212,7 @@ interface VenteFormValues {
     moteurId?: number;
     remorqueId?: number;
     forfaits: Array<{ forfaitId?: number; quantite: number }>;
-    produits: Array<{ produitId?: number; quantite?: number }>;
+    produits: Array<{ produitRef?: string; quantite?: number }>;
     services: Array<{ serviceId?: number; quantite: number }>;
     date?: string;
     montantHT: number;
@@ -283,6 +315,10 @@ export default function Comptoir() {
     const [remorques, setRemorques] = useState<RemorqueClientEntity[]>([]);
     const [forfaits, setForfaits] = useState<ForfaitEntity[]>([]);
     const [produits, setProduits] = useState<ProduitCatalogueEntity[]>([]);
+    const [catalogueBateaux, setCatalogueBateaux] = useState<CatalogueBateauEntity[]>([]);
+    const [catalogueMoteurs, setCatalogueMoteurs] = useState<CatalogueMoteurEntity[]>([]);
+    const [catalogueHelices, setCatalogueHelices] = useState<CatalogueHeliceEntity[]>([]);
+    const [catalogueRemorques, setCatalogueRemorques] = useState<CatalogueRemorqueEntity[]>([]);
     const [services, setServices] = useState<ServiceEntity[]>([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -328,13 +364,24 @@ export default function Comptoir() {
         setClientSearchTimeout(timeout);
     };
 
-    const handleProduitSearch = (value: string) => {
+    const handleCatalogueSearch = (value: string) => {
         if (produitSearchTimeout) clearTimeout(produitSearchTimeout);
         if (!value || value.trim() === '') return;
+        const q = encodeURIComponent(value);
         const timeout = setTimeout(async () => {
             try {
-                const res = await api.get(`/catalogue/produits/search?q=${encodeURIComponent(value)}`);
-                setProduits((prev) => mergeById(prev, res.data || []));
+                const [produitsRes, bateauxRes, moteursRes, helicesRes, remorquesRes] = await Promise.allSettled([
+                    api.get(`/catalogue/produits/search?q=${q}`),
+                    api.get(`/catalogue/bateaux/search?q=${q}`),
+                    api.get(`/catalogue/moteurs/search?q=${q}`),
+                    api.get(`/catalogue/helices/search?q=${q}`),
+                    api.get(`/catalogue/remorques/search?q=${q}`),
+                ]);
+                if (produitsRes.status === 'fulfilled') setProduits((prev) => mergeById(prev, produitsRes.value.data || []));
+                if (bateauxRes.status === 'fulfilled') setCatalogueBateaux((prev) => mergeById(prev, bateauxRes.value.data || []));
+                if (moteursRes.status === 'fulfilled') setCatalogueMoteurs((prev) => mergeById(prev, moteursRes.value.data || []));
+                if (helicesRes.status === 'fulfilled') setCatalogueHelices((prev) => mergeById(prev, helicesRes.value.data || []));
+                if (remorquesRes.status === 'fulfilled') setCatalogueRemorques((prev) => mergeById(prev, remorquesRes.value.data || []));
             } catch {
                 // ignore
             }
@@ -371,10 +418,56 @@ export default function Comptoir() {
             })),
         [forfaits]
     );
-    const produitOptions = useMemo(
-        () => produits.map((produit) => ({ value: produit.id, label: `${produit.nom}${produit.marque ? ` (${produit.marque})` : ''}` })),
-        [produits]
-    );
+    const catalogueOptions = useMemo(() => [
+        {
+            label: 'Produits',
+            options: produits.map((p) => ({
+                value: `produit:${p.id}`,
+                label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}`,
+            })),
+        },
+        {
+            label: 'Bateaux',
+            options: catalogueBateaux.map((b) => ({
+                value: `bateau:${b.id}`,
+                label: `${b.marque} ${b.modele}`,
+            })),
+        },
+        {
+            label: 'Moteurs',
+            options: catalogueMoteurs.map((m) => ({
+                value: `moteur:${m.id}`,
+                label: `${m.marque} ${m.modele}`,
+            })),
+        },
+        {
+            label: 'Hélices',
+            options: catalogueHelices.map((h) => ({
+                value: `helice:${h.id}`,
+                label: `${h.marque} ${h.modele}`,
+            })),
+        },
+        {
+            label: 'Remorques',
+            options: catalogueRemorques.map((r) => ({
+                value: `remorque:${r.id}`,
+                label: `${r.marque} ${r.modele}`,
+            })),
+        },
+    ], [produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
+
+    const getCatalogueItemPrice = (ref?: string): number => {
+        if (!ref) return 0;
+        const [type, idStr] = ref.split(':');
+        const id = parseInt(idStr, 10);
+        if (isNaN(id)) return 0;
+        if (type === 'produit') return produits.find((p) => p.id === id)?.prixVenteTTC || 0;
+        if (type === 'bateau') return catalogueBateaux.find((b) => b.id === id)?.prixVenteTTC || 0;
+        if (type === 'moteur') return catalogueMoteurs.find((m) => m.id === id)?.prixVenteTTC || 0;
+        if (type === 'helice') return catalogueHelices.find((h) => h.id === id)?.prixVenteTTC || 0;
+        if (type === 'remorque') return catalogueRemorques.find((r) => r.id === id)?.prixVenteTTC || 0;
+        return 0;
+    };
     const serviceOptions = useMemo(
         () => services.map((service) => ({ value: service.id, label: service.nom })),
         [services]
@@ -524,7 +617,7 @@ export default function Comptoir() {
             if (newProduitTargetLine !== null && created.id) {
                 const currentLines = form.getFieldValue('produits') || [];
                 const updated = [...currentLines];
-                updated[newProduitTargetLine] = { ...updated[newProduitTargetLine], produitId: created.id };
+                updated[newProduitTargetLine] = { ...updated[newProduitTargetLine], produitRef: `produit:${created.id}` };
                 form.setFieldValue('produits', updated);
                 recalculateFromLines('auto');
             }
@@ -562,17 +655,28 @@ export default function Comptoir() {
                 setClients((prev) => mergeById(prev, [vente.client as ClientEntity]));
             }
             const venteProduits = (vente.produits || []).filter((p): p is ProduitCatalogueEntity => !!p?.id);
-            if (venteProduits.length > 0) {
-                setProduits((prev) => mergeById(prev, venteProduits));
-            }
-            const produitLinesMap = (vente.produits || []).reduce((acc, item) => {
-                if (!item?.id) {
-                    return acc;
-                }
-                acc.set(item.id, (acc.get(item.id) || 0) + 1);
-                return acc;
-            }, new Map<number, number>());
-            const produitLines = Array.from(produitLinesMap.entries()).map(([produitId, quantite]) => ({ produitId, quantite }));
+            if (venteProduits.length > 0) setProduits((prev) => mergeById(prev, venteProduits));
+            const venteBateaux = (vente.bateauxCatalogue || []).filter((b): b is CatalogueBateauEntity => !!b?.id);
+            if (venteBateaux.length > 0) setCatalogueBateaux((prev) => mergeById(prev, venteBateaux));
+            const venteMoteurs = (vente.moteursCatalogue || []).filter((m): m is CatalogueMoteurEntity => !!m?.id);
+            if (venteMoteurs.length > 0) setCatalogueMoteurs((prev) => mergeById(prev, venteMoteurs));
+            const venteHelices = (vente.helicesCatalogue || []).filter((h): h is CatalogueHeliceEntity => !!h?.id);
+            if (venteHelices.length > 0) setCatalogueHelices((prev) => mergeById(prev, venteHelices));
+            const venteRemorques = (vente.remorquesCatalogue || []).filter((r): r is CatalogueRemorqueEntity => !!r?.id);
+            if (venteRemorques.length > 0) setCatalogueRemorques((prev) => mergeById(prev, venteRemorques));
+
+            const buildRefLines = <T extends { id: number }>(items: T[], prefix: string): Array<{ produitRef: string; quantite: number }> => {
+                const map = new Map<number, number>();
+                items.forEach((item) => { if (item?.id) map.set(item.id, (map.get(item.id) || 0) + 1); });
+                return Array.from(map.entries()).map(([id, quantite]) => ({ produitRef: `${prefix}:${id}`, quantite }));
+            };
+            const produitLines = [
+                ...buildRefLines(vente.produits || [], 'produit'),
+                ...buildRefLines(vente.bateauxCatalogue || [], 'bateau'),
+                ...buildRefLines(vente.moteursCatalogue || [], 'moteur'),
+                ...buildRefLines(vente.helicesCatalogue || [], 'helice'),
+                ...buildRefLines(vente.remorquesCatalogue || [], 'remorque'),
+            ];
             form.setFieldsValue({
                 status: vente.status || 'DEVIS',
                 bonPourAccord: vente.bonPourAccord || false,
@@ -657,11 +761,40 @@ export default function Comptoir() {
                 return item ? expandByQuantity([item], line.quantite) : [];
             }) as ForfaitEntity[],
         produits: (values.produits || [])
-            .filter((line) => line.produitId)
+            .filter((line) => line.produitRef?.startsWith('produit:'))
             .flatMap((line) => {
-                const item = produits.find((produit) => produit.id === line.produitId);
+                const id = parseInt((line.produitRef || '').split(':')[1], 10);
+                const item = produits.find((p) => p.id === id);
                 return item ? expandByQuantity([item], line.quantite || 1) : [];
             }) as ProduitCatalogueEntity[],
+        bateauxCatalogue: (values.produits || [])
+            .filter((line) => line.produitRef?.startsWith('bateau:'))
+            .flatMap((line) => {
+                const id = parseInt((line.produitRef || '').split(':')[1], 10);
+                const item = catalogueBateaux.find((b) => b.id === id);
+                return item ? expandByQuantity([item], line.quantite || 1) : [];
+            }) as CatalogueBateauEntity[],
+        moteursCatalogue: (values.produits || [])
+            .filter((line) => line.produitRef?.startsWith('moteur:'))
+            .flatMap((line) => {
+                const id = parseInt((line.produitRef || '').split(':')[1], 10);
+                const item = catalogueMoteurs.find((m) => m.id === id);
+                return item ? expandByQuantity([item], line.quantite || 1) : [];
+            }) as CatalogueMoteurEntity[],
+        helicesCatalogue: (values.produits || [])
+            .filter((line) => line.produitRef?.startsWith('helice:'))
+            .flatMap((line) => {
+                const id = parseInt((line.produitRef || '').split(':')[1], 10);
+                const item = catalogueHelices.find((h) => h.id === id);
+                return item ? expandByQuantity([item], line.quantite || 1) : [];
+            }) as CatalogueHeliceEntity[],
+        remorquesCatalogue: (values.produits || [])
+            .filter((line) => line.produitRef?.startsWith('remorque:'))
+            .flatMap((line) => {
+                const id = parseInt((line.produitRef || '').split(':')[1], 10);
+                const item = catalogueRemorques.find((r) => r.id === id);
+                return item ? expandByQuantity([item], line.quantite || 1) : [];
+            }) as CatalogueRemorqueEntity[],
         services: (values.services || [])
             .filter((line) => line.serviceId)
             .flatMap((line) => {
@@ -749,15 +882,22 @@ export default function Comptoir() {
     };
 
     const getProduitLines = (vente: VenteEntity) => {
-        const quantites = (vente.produits || []).reduce((acc, produit) => {
-            const key = `${produit.id}`;
-            const current = acc.get(key) || { ...produit, quantite: 0 };
-            current.quantite += 1;
-            acc.set(key, current);
-            return acc;
-        }, new Map<string, (ProduitCatalogueEntity & { quantite: number })>());
-
-        return Array.from(quantites.values());
+        type LineItem = { id: number; nom: string; marque?: string; prixVenteTTC?: number; quantite: number };
+        const lines = new Map<string, LineItem>();
+        const addItems = (items: Array<{ id: number; prixVenteTTC?: number } & Record<string, unknown>>, getNom: (item: unknown) => string, prefix: string) => {
+            (items || []).forEach((item) => {
+                const key = `${prefix}:${item.id}`;
+                const current = lines.get(key) || { id: item.id, nom: getNom(item), marque: (item as { marque?: string }).marque, prixVenteTTC: item.prixVenteTTC, quantite: 0 };
+                current.quantite += 1;
+                lines.set(key, current);
+            });
+        };
+        addItems(vente.produits || [], (p) => (p as ProduitCatalogueEntity).nom, 'produit');
+        addItems(vente.bateauxCatalogue || [], (b) => `${(b as CatalogueBateauEntity).marque} ${(b as CatalogueBateauEntity).modele}`, 'bateau');
+        addItems(vente.moteursCatalogue || [], (m) => `${(m as CatalogueMoteurEntity).marque} ${(m as CatalogueMoteurEntity).modele}`, 'moteur');
+        addItems(vente.helicesCatalogue || [], (h) => `${(h as CatalogueHeliceEntity).marque} ${(h as CatalogueHeliceEntity).modele}`, 'helice');
+        addItems(vente.remorquesCatalogue || [], (r) => `${(r as CatalogueRemorqueEntity).marque} ${(r as CatalogueRemorqueEntity).modele}`, 'remorque');
+        return Array.from(lines.values());
     };
 
     const openPrintDocument = (_title: string, contentHtml: string, _width: number = 900) => {
@@ -810,14 +950,14 @@ export default function Comptoir() {
     const handlePrintInvoice = (vente: VenteEntity) => {
         const title = `Facture #${vente.id || '-'}`;
         const produitRows = getProduitLines(vente)
-            .map((produit) => {
-                const pu = produit.prixVenteTTC || 0;
-                const total = pu * produit.quantite;
+            .map((item) => {
+                const pu = item.prixVenteTTC || 0;
+                const total = pu * item.quantite;
                 return `
                 <tr>
-                    <td>${escapeHtml(`${produit.nom}${produit.marque ? ` (${produit.marque})` : ''}`)}</td>
+                    <td>${escapeHtml(item.nom)}</td>
                     <td style="text-align:right;">${escapeHtml(formatEuro(pu))}</td>
-                    <td style="text-align:right;">${produit.quantite}</td>
+                    <td style="text-align:right;">${item.quantite}</td>
                     <td style="text-align:right;">${escapeHtml(formatEuro(total))}</td>
                 </tr>`;
             })
@@ -871,13 +1011,13 @@ export default function Comptoir() {
     const handlePrintReceipt = (vente: VenteEntity) => {
         const title = `Ticket #${vente.id || '-'}`;
         const produitRows = getProduitLines(vente)
-            .map((produit) => {
-                const pu = produit.prixVenteTTC || 0;
-                const total = pu * produit.quantite;
+            .map((item) => {
+                const pu = item.prixVenteTTC || 0;
+                const total = pu * item.quantite;
                 return `
                 <div class="line">
-                    <span>${escapeHtml(`${produit.nom}${produit.marque ? ` (${produit.marque})` : ''}`)}</span>
-                    <span>x${produit.quantite}</span>
+                    <span>${escapeHtml(item.nom)}</span>
+                    <span>x${item.quantite}</span>
                 </div>
                 <div class="line sub">
                     <span>${escapeHtml(formatEuro(pu))} /u</span>
@@ -955,8 +1095,8 @@ export default function Comptoir() {
             const prixUnitaire = forfaits.find((item) => item.id === line.forfaitId)?.prixTTC || 0;
             return sum + (prixUnitaire * Math.max(1, Math.floor(line.quantite || 1)));
         }, 0);
-        const produitsTTC = produitLines.reduce((sum: number, line: { produitId?: number; quantite?: number }) => {
-            const prixUnitaire = produits.find((item) => item.id === line.produitId)?.prixVenteTTC || 0;
+        const produitsTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number }) => {
+            const prixUnitaire = getCatalogueItemPrice(line.produitRef);
             return sum + (prixUnitaire * Math.max(1, Math.floor(line.quantite || 1)));
         }, 0);
         const servicesTTC = serviceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number }) => {
@@ -994,7 +1134,7 @@ export default function Comptoir() {
                 return;
             }
             const lastProduitLine = currentProduitLines[currentProduitLines.length - 1];
-            const isLastLineComplete = !!lastProduitLine?.produitId && (lastProduitLine?.quantite || 0) > 0;
+            const isLastLineComplete = !!lastProduitLine?.produitRef && (lastProduitLine?.quantite || 0) > 0;
             if (isLastLineComplete) {
                 form.setFieldValue('produits', [...currentProduitLines, {}]);
                 return;
@@ -1294,23 +1434,23 @@ export default function Comptoir() {
                                     {fields.map((field) => (
                                         <Form.Item key={field.key} shouldUpdate noStyle>
                                             {() => {
-                                                const produitId = form.getFieldValue(['produits', field.name, 'produitId']);
-                                                const prixUnitaire = produits.find((p) => p.id === produitId)?.prixVenteTTC;
+                                                const produitRef = form.getFieldValue(['produits', field.name, 'produitRef']);
+                                                const prixUnitaire = getCatalogueItemPrice(produitRef) || undefined;
                                                 const quantite = form.getFieldValue(['produits', field.name, 'quantite']);
                                                 const totalLigne = (prixUnitaire && quantite) ? Math.round(prixUnitaire * quantite * 100) / 100 : undefined;
-                                                const isEmptyLine = !produitId;
+                                                const isEmptyLine = !produitRef;
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
                                                     <Form.Item
                                                         {...field}
-                                                        name={[field.name, 'produitId']}
+                                                        name={[field.name, 'produitRef']}
                                                         rules={[
                                                             {
                                                                 validator: async (_, value) => {
                                                                     const line = form.getFieldValue(['produits', field.name]);
                                                                     const quantite = Number(line?.quantite || 0);
                                                                     if (!value && quantite > 0) {
-                                                                        throw new Error('Produit requis');
+                                                                        throw new Error('Article requis');
                                                                     }
                                                                 }
                                                             }
@@ -1320,11 +1460,11 @@ export default function Comptoir() {
                                                         <Select
                                                             allowClear
                                                             showSearch
-                                                            options={produitOptions}
+                                                            options={catalogueOptions}
                                                             filterOption={false}
-                                                            onSearch={handleProduitSearch}
+                                                            onSearch={handleCatalogueSearch}
                                                             notFoundContent={null}
-                                                            placeholder="Rechercher un produit par nom, marque, catégorie ou réf."
+                                                            placeholder="Rechercher produit, bateau, moteur, hélice ou remorque"
                                                         />
                                                     </Form.Item>
                                                     <Form.Item style={{ width: 150 }}>
@@ -1343,7 +1483,7 @@ export default function Comptoir() {
                                                             {
                                                                 validator: async (_, value) => {
                                                                     const line = form.getFieldValue(['produits', field.name]);
-                                                                    if (!line?.produitId && (value === undefined || value === null)) {
+                                                                    if (!line?.produitRef && (value === undefined || value === null)) {
                                                                         return;
                                                                     }
                                                                     if (!value || value <= 0) {

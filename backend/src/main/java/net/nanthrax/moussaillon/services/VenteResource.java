@@ -24,10 +24,14 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.AvoirEntity;
+import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.EmailTemplateEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitProduitEntity;
+import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ServiceEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.TaskEntity;
@@ -131,6 +135,82 @@ public class VenteResource {
                     double total = vs.service != null ? vs.service.prixTTC * vs.quantite : 0;
                     lignes.append(" = ").append(String.format("%.2f EUR", total));
                 }
+                lignes.append("\n");
+            }
+        }
+        if (entity.bateauxCatalogue != null && !entity.bateauxCatalogue.isEmpty()) {
+            Map<Long, int[]> count = new HashMap<>();
+            Map<Long, BateauCatalogueEntity> map = new HashMap<>();
+            for (BateauCatalogueEntity b : entity.bateauxCatalogue) {
+                if (b.id != null) {
+                    count.computeIfAbsent(b.id, k -> new int[]{0, 0});
+                    count.get(b.id)[0]++;
+                    count.get(b.id)[1] += (int) (b.prixVenteTTC * 100);
+                    map.putIfAbsent(b.id, b);
+                }
+            }
+            for (Map.Entry<Long, int[]> entry : count.entrySet()) {
+                BateauCatalogueEntity b = map.get(entry.getKey());
+                String nom = b.marque + " " + b.modele;
+                lignes.append("- Bateau : ").append(nom).append(" x").append(entry.getValue()[0]);
+                if (showPrices) lignes.append(" = ").append(String.format("%.2f EUR", entry.getValue()[1] / 100.0));
+                lignes.append("\n");
+            }
+        }
+        if (entity.moteursCatalogue != null && !entity.moteursCatalogue.isEmpty()) {
+            Map<Long, int[]> count = new HashMap<>();
+            Map<Long, MoteurCatalogueEntity> map = new HashMap<>();
+            for (MoteurCatalogueEntity m : entity.moteursCatalogue) {
+                if (m.id != null) {
+                    count.computeIfAbsent(m.id, k -> new int[]{0, 0});
+                    count.get(m.id)[0]++;
+                    count.get(m.id)[1] += (int) (m.prixVenteTTC * 100);
+                    map.putIfAbsent(m.id, m);
+                }
+            }
+            for (Map.Entry<Long, int[]> entry : count.entrySet()) {
+                MoteurCatalogueEntity m = map.get(entry.getKey());
+                String nom = m.marque + " " + m.modele;
+                lignes.append("- Moteur : ").append(nom).append(" x").append(entry.getValue()[0]);
+                if (showPrices) lignes.append(" = ").append(String.format("%.2f EUR", entry.getValue()[1] / 100.0));
+                lignes.append("\n");
+            }
+        }
+        if (entity.helicesCatalogue != null && !entity.helicesCatalogue.isEmpty()) {
+            Map<Long, int[]> count = new HashMap<>();
+            Map<Long, HeliceCatalogueEntity> map = new HashMap<>();
+            for (HeliceCatalogueEntity h : entity.helicesCatalogue) {
+                if (h.id != null) {
+                    count.computeIfAbsent(h.id, k -> new int[]{0, 0});
+                    count.get(h.id)[0]++;
+                    count.get(h.id)[1] += (int) (h.prixVenteTTC * 100);
+                    map.putIfAbsent(h.id, h);
+                }
+            }
+            for (Map.Entry<Long, int[]> entry : count.entrySet()) {
+                HeliceCatalogueEntity h = map.get(entry.getKey());
+                String nom = h.marque + " " + h.modele;
+                lignes.append("- Hélice : ").append(nom).append(" x").append(entry.getValue()[0]);
+                if (showPrices) lignes.append(" = ").append(String.format("%.2f EUR", entry.getValue()[1] / 100.0));
+                lignes.append("\n");
+            }
+        }
+        if (entity.remorquesCatalogue != null && !entity.remorquesCatalogue.isEmpty()) {
+            Map<Long, int[]> count = new HashMap<>();
+            Map<Long, RemorqueCatalogueEntity> map = new HashMap<>();
+            for (RemorqueCatalogueEntity r : entity.remorquesCatalogue) {
+                if (r.id != null) {
+                    count.computeIfAbsent(r.id, k -> new int[]{0, 0});
+                    count.get(r.id)[0]++;
+                    count.get(r.id)[1] += (int) (r.prixVenteTTC * 100);
+                    map.putIfAbsent(r.id, r);
+                }
+            }
+            for (Map.Entry<Long, int[]> entry : count.entrySet()) {
+                RemorqueCatalogueEntity r = map.get(entry.getKey());
+                String nom = r.marque + " " + r.modele;
+                lignes.append("- Remorque : ").append(nom).append(" x").append(entry.getValue()[0]);
+                if (showPrices) lignes.append(" = ").append(String.format("%.2f EUR", entry.getValue()[1] / 100.0));
                 lignes.append("\n");
             }
         }
@@ -456,6 +536,30 @@ public class VenteResource {
             }
         }
 
+        // Update bateauxCatalogue
+        entity.bateauxCatalogue.clear();
+        if (vente.bateauxCatalogue != null) {
+            entity.bateauxCatalogue.addAll(vente.bateauxCatalogue);
+        }
+
+        // Update moteursCatalogue
+        entity.moteursCatalogue.clear();
+        if (vente.moteursCatalogue != null) {
+            entity.moteursCatalogue.addAll(vente.moteursCatalogue);
+        }
+
+        // Update helicesCatalogue
+        entity.helicesCatalogue.clear();
+        if (vente.helicesCatalogue != null) {
+            entity.helicesCatalogue.addAll(vente.helicesCatalogue);
+        }
+
+        // Update remorquesCatalogue
+        entity.remorquesCatalogue.clear();
+        if (vente.remorquesCatalogue != null) {
+            entity.remorquesCatalogue.addAll(vente.remorquesCatalogue);
+        }
+
         // Send incident notification email for any INCIDENT items
         if (entity.client != null && entity.client.email != null && !entity.client.email.isBlank()) {
             for (VenteForfaitEntity vf : entity.venteForfaits) {
@@ -706,6 +810,30 @@ public class VenteResource {
                 ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(produit.id);
                 if (p != null) {
                     p.stock = Math.max(0, p.stock - 1);
+                }
+            }
+        }
+        if (vente.bateauxCatalogue != null) {
+            for (BateauCatalogueEntity bateau : vente.bateauxCatalogue) {
+                BateauCatalogueEntity b = BateauCatalogueEntity.findById(bateau.id);
+                if (b != null) {
+                    b.stock = Math.max(0, b.stock - 1);
+                }
+            }
+        }
+        if (vente.moteursCatalogue != null) {
+            for (MoteurCatalogueEntity moteur : vente.moteursCatalogue) {
+                MoteurCatalogueEntity m = MoteurCatalogueEntity.findById(moteur.id);
+                if (m != null) {
+                    m.stock = Math.max(0, m.stock - 1);
+                }
+            }
+        }
+        if (vente.remorquesCatalogue != null) {
+            for (RemorqueCatalogueEntity remorque : vente.remorquesCatalogue) {
+                RemorqueCatalogueEntity r = RemorqueCatalogueEntity.findById(remorque.id);
+                if (r != null) {
+                    r.stock = Math.max(0, r.stock - 1);
                 }
             }
         }
