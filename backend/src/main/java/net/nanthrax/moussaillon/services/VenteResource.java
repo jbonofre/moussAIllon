@@ -52,6 +52,42 @@ public class VenteResource {
     @Inject
     RappelScheduler rappelScheduler;
 
+    @Inject
+    FacturXService facturXService;
+
+    @GET
+    @Path("{id}/facturx")
+    @Produces("application/pdf")
+    @Transactional
+    public Response telechargerFacturX(@PathParam("id") long id) {
+        VenteEntity vente = VenteEntity.findById(id);
+        if (vente == null) {
+            throw new WebApplicationException("La vente (" + id + ") n'est pas trouvée", 404);
+        }
+        if (vente.status != VenteEntity.Status.FACTURE_PRETE && vente.status != VenteEntity.Status.FACTURE_PAYEE) {
+            throw new WebApplicationException(
+                Response.status(Response.Status.BAD_REQUEST)
+                    .entity(java.util.Map.of("error", "La facturation électronique n'est disponible que pour les factures prêtes ou payées"))
+                    .build());
+        }
+
+        SocieteEntity societe = SocieteEntity.findById(1L);
+
+        try {
+            byte[] pdfFacturX = facturXService.generer(vente, societe);
+            String filename = (vente.numeroFacture != null ? vente.numeroFacture : "facture-" + id) + ".pdf";
+            return Response.ok(pdfFacturX)
+                .header("Content-Disposition", "attachment; filename=\"" + filename + "\"")
+                .header("Content-Type", "application/pdf")
+                .build();
+        } catch (Exception e) {
+            throw new WebApplicationException(
+                Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                    .entity(java.util.Map.of("error", "Erreur lors de la génération Factur-X : " + e.getMessage()))
+                    .build());
+        }
+    }
+
     @POST
     @Path("{id}/email")
     @Transactional
@@ -644,6 +680,10 @@ public class VenteResource {
         entity.images = vente.images != null ? vente.images : new java.util.ArrayList<>();
         entity.documents = vente.documents != null ? vente.documents : new java.util.ArrayList<>();
         entity.date = vente.date;
+        entity.dateEcheance = vente.dateEcheance;
+        entity.conditionsPaiement = vente.conditionsPaiement;
+        entity.penalitesRetard = vente.penalitesRetard;
+        entity.indemniteForfaitaire = vente.indemniteForfaitaire;
         entity.remise = vente.remise;
         entity.montantTTC = vente.montantTTC;
         entity.tva = vente.tva;
@@ -664,6 +704,11 @@ public class VenteResource {
         entity.rappel1Jours = vente.rappel1Jours;
         entity.rappel2Jours = vente.rappel2Jours;
         entity.rappel3Jours = vente.rappel3Jours;
+
+        if (entity.status == VenteEntity.Status.FACTURE_PRETE && entity.numeroFacture == null) {
+            int year = java.time.LocalDate.now().getYear();
+            entity.numeroFacture = String.format("FACT-%d-%05d", year, entity.id);
+        }
 
         return entity;
     }

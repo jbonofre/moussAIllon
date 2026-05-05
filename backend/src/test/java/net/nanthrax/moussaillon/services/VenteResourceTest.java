@@ -253,4 +253,140 @@ public class VenteResourceTest {
             .then()
             .statusCode(400);
     }
+
+    // --- Numérotation et champs légaux ---
+
+    @Test
+    void testGenererNumeroFactureAutomatique() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":150.0}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":150.0}")
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("status", is("FACTURE_PRETE"))
+            .body("numeroFacture", notNullValue())
+            .body("numeroFacture", startsWith("FACT-"));
+    }
+
+    @Test
+    void testNumeroFactureImmuable() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":150.0}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        String numero = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":150.0}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200).extract().path("numeroFacture");
+
+        // Deuxième mise à jour : le numéro ne doit pas changer
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":200.0}")
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("numeroFacture", is(numero));
+    }
+
+    @Test
+    void testModifierVenteAvecChampsPaiementLegaux() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,"
+                + "\"dateEcheance\":\"2026-12-31\","
+                + "\"conditionsPaiement\":\"30 jours nets\","
+                + "\"penalitesRetard\":\"3 fois le taux légal\","
+                + "\"indemniteForfaitaire\":45.0}")
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("conditionsPaiement", is("30 jours nets"))
+            .body("penalitesRetard", is("3 fois le taux légal"))
+            .body("indemniteForfaitaire", is(45.0f))
+            .body("dateEcheance", notNullValue());
+    }
+
+    @Test
+    void testIndemniteForfaitaireDefaut() {
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0}")
+            .when().post("/ventes")
+            .then()
+            .statusCode(201)
+            .body("indemniteForfaitaire", is(40.0f));
+    }
+
+    // --- Endpoint Factur-X ---
+
+    @Test
+    void testTelechargerFacturXVentePayee() {
+        given()
+            .when().get("/ventes/100/facturx")
+            .then()
+            .statusCode(200)
+            .contentType("application/pdf")
+            .header("Content-Disposition", containsString("attachment"));
+    }
+
+    @Test
+    void testTelechargerFacturXVentePrete() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":120.0}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":120.0}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200);
+
+        given()
+            .when().get("/ventes/" + id + "/facturx")
+            .then()
+            .statusCode(200)
+            .contentType("application/pdf")
+            .header("Content-Disposition", containsString("attachment"));
+    }
+
+    @Test
+    void testTelechargerFacturXVenteNonTrouvee() {
+        given()
+            .when().get("/ventes/9999/facturx")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void testTelechargerFacturXStatutInvalide() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .when().get("/ventes/" + id + "/facturx")
+            .then()
+            .statusCode(400);
+    }
 }

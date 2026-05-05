@@ -88,6 +88,18 @@ public class VenteEntity extends PanacheEntity {
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateFacturePayee;
 
+    public String numeroFacture;
+
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateEcheance;
+
+    public String conditionsPaiement;
+
+    public String penalitesRetard;
+
+    @jakarta.persistence.Column(columnDefinition = "double default 40.0")
+    public double indemniteForfaitaire = 40.0;
+
     public double montantHT;
 
     public double remise;
