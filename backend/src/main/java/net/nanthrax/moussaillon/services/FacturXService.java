@@ -22,7 +22,7 @@ import org.mustangproject.Invoice;
 import org.mustangproject.Item;
 import org.mustangproject.Product;
 import org.mustangproject.TradeParty;
-import org.mustangproject.ZUGFeRD.ZUGFeRDExporterFromA1;
+import org.mustangproject.ZUGFeRD.ZUGFeRDExporterFromA3;
 
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
@@ -45,9 +45,9 @@ public class FacturXService {
 
         Invoice invoice = construireInvoice(vente, societe);
 
-        ZUGFeRDExporterFromA1 exporter = new ZUGFeRDExporterFromA1()
+        ZUGFeRDExporterFromA3 exporter = new ZUGFeRDExporterFromA3()
             .setZUGFeRDVersion(2)
-            .setProfile("EN 16931")
+            .setProfile("EN16931")
             .load(new ByteArrayInputStream(pdfBytes));
         exporter.setTransaction(invoice);
 
