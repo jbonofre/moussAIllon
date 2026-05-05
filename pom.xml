@@ -22,7 +22,7 @@
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
-        <quarkus.version>3.35.0</quarkus.version>
+        <quarkus.version>3.35.2</quarkus.version>
         <surefire.version>3.5.5</surefire.version>
         <wiremock.version>3.13.2</wiremock.version>
     </properties>
