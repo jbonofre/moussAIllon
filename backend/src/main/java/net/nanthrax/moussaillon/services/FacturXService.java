@@ -288,7 +288,7 @@ public class FacturXService {
                 BateauCatalogueEntity b = map.get(e.getKey());
                 double tva = b.tva > 0 ? b.tva : tvaGlobale;
                 double prixHT = b.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(b.marque + " " + b.modele, e.getValue()[0], prixHT, b.prixVenteTTC, tva));
+                lignes.add(new LignePdf(safe(b.marque, "") + " " + safe(b.modele, "Bateau"), e.getValue()[0], prixHT, b.prixVenteTTC, tva));
             }
         }
 
@@ -304,7 +304,7 @@ public class FacturXService {
                 MoteurCatalogueEntity m = map.get(e.getKey());
                 double tva = m.tva > 0 ? m.tva : tvaGlobale;
                 double prixHT = m.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(m.marque + " " + m.modele, e.getValue()[0], prixHT, m.prixVenteTTC, tva));
+                lignes.add(new LignePdf(safe(m.marque, "") + " " + safe(m.modele, "Moteur"), e.getValue()[0], prixHT, m.prixVenteTTC, tva));
             }
         }
 
@@ -320,7 +320,7 @@ public class FacturXService {
                 HeliceCatalogueEntity h = map.get(e.getKey());
                 double tva = h.tva > 0 ? h.tva : tvaGlobale;
                 double prixHT = h.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(h.marque + " " + h.modele, e.getValue()[0], prixHT, h.prixVenteTTC, tva));
+                lignes.add(new LignePdf(safe(h.marque, "") + " " + safe(h.modele, "Hélice"), e.getValue()[0], prixHT, h.prixVenteTTC, tva));
             }
         }
 
@@ -336,7 +336,7 @@ public class FacturXService {
                 RemorqueCatalogueEntity r = map.get(e.getKey());
                 double tva = r.tva > 0 ? r.tva : tvaGlobale;
                 double prixHT = r.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(r.marque + " " + r.modele, e.getValue()[0], prixHT, r.prixVenteTTC, tva));
+                lignes.add(new LignePdf(safe(r.marque, "") + " " + safe(r.modele, "Remorque"), e.getValue()[0], prixHT, r.prixVenteTTC, tva));
             }
         }
 
@@ -376,12 +376,12 @@ public class FacturXService {
         cs.stroke();
     }
 
-    // PDFBox Type1/Helvetica ne supporte que Latin-1 (ISO-8859-1)
+    // PDFBox Type1/Helvetica utilise WinAnsiEncoding : Latin-1 + signe Euro (U+20AC → 0x80)
     private String sanitize(String text) {
         if (text == null) return "";
         StringBuilder sb = new StringBuilder();
         for (char c : text.toCharArray()) {
-            if (c <= 0xFF) {
+            if (c <= 0xFF || c == '€') {
                 sb.append(c);
             } else {
                 sb.append('?');

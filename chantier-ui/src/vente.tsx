@@ -2191,7 +2191,7 @@ export default function Vente() {
     const handleDownloadFacturX = async (vente: VenteEntity) => {
         if (!vente.id) return;
         try {
-            const response = await axios.get(`/ventes/${vente.id}/facturx`, { responseType: 'blob' });
+            const response = await api.get(`/ventes/${vente.id}/facturx`, { responseType: 'blob' });
             const url = URL.createObjectURL(response.data);
             const a = document.createElement('a');
             a.href = url;
@@ -2200,8 +2200,21 @@ export default function Vente() {
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
-        } catch {
-            message.error('Erreur lors de la génération du Factur-X.');
+        } catch (err) {
+            let detail = '';
+            if (err && typeof err === 'object' && 'response' in err) {
+                const axiosErr = err as { response: { data: Blob }; message: string };
+                try {
+                    const text = await axiosErr.response.data.text();
+                    const parsed = JSON.parse(text);
+                    detail = parsed?.error ?? text;
+                } catch {
+                    detail = axiosErr.message;
+                }
+            } else if (err instanceof Error) {
+                detail = err.message;
+            }
+            message.error('Erreur lors de la génération du Factur-X.' + (detail ? ' ' + detail : ''));
         }
     };
 
