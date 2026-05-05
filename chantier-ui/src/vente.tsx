@@ -301,6 +301,20 @@ interface AvoirDisponible {
     montantUtilise: number;
 }
 
+interface SocieteData {
+    nom?: string;
+    siren?: string;
+    siret?: string;
+    rcs?: string;
+    forme?: string;
+    capital?: number;
+    numerotva?: string;
+    adresse?: string;
+    telephone?: string;
+    email?: string;
+    bancaire?: string;
+}
+
 interface VenteEntity {
     id?: number;
     status: VenteStatus;
@@ -325,6 +339,11 @@ interface VenteEntity {
     dateFactureEnAttente?: string;
     dateFacturePrete?: string;
     dateFacturePayee?: string;
+    numeroFacture?: string;
+    dateEcheance?: string;
+    conditionsPaiement?: string;
+    penalitesRetard?: string;
+    indemniteForfaitaire?: number;
     montantHT?: number;
     remise?: number;
     montantTTC?: number;
@@ -396,6 +415,10 @@ interface VenteFormValues {
     rappel1Jours?: number;
     rappel2Jours?: number;
     rappel3Jours?: number;
+    dateEcheance?: string;
+    conditionsPaiement?: string;
+    penalitesRetard?: string;
+    indemniteForfaitaire?: number;
 }
 
 
@@ -489,7 +512,8 @@ const defaultVente: VenteFormValues = {
     montantTTC: 0,
     prixVenteTTC: 0,
     images: [],
-    documents: []
+    documents: [],
+    indemniteForfaitaire: 40,
 };
 
 const formatEuro = (value?: number) => `${(value || 0).toFixed(2)} EUR`;
@@ -1451,7 +1475,11 @@ export default function Vente() {
             documents: vente.documents || [],
             rappel1Jours: vente.rappel1Jours,
             rappel2Jours: vente.rappel2Jours,
-            rappel3Jours: vente.rappel3Jours
+            rappel3Jours: vente.rappel3Jours,
+            dateEcheance: toDateDayjs(vente.dateEcheance) as any,
+            conditionsPaiement: vente.conditionsPaiement,
+            penalitesRetard: vente.penalitesRetard,
+            indemniteForfaitaire: vente.indemniteForfaitaire ?? 40,
         });
     };
 
@@ -1719,6 +1747,10 @@ export default function Vente() {
                 return item ? Array.from({ length: safeQuantity }, () => item) : [];
             }) as CatalogueRemorqueEntity[],
             date: toBackendDateValue(values.date),
+            dateEcheance: toBackendDateValue(values.dateEcheance),
+            conditionsPaiement: values.conditionsPaiement,
+            penalitesRetard: values.penalitesRetard,
+            indemniteForfaitaire: values.indemniteForfaitaire,
             montantHT: values.montantHT || 0,
             remise: values.remise || 0,
             tva: values.tva || 0,
@@ -2020,7 +2052,7 @@ export default function Vente() {
         return 'facture';
     };
 
-    const buildDocumentHtml = (vente: VenteEntity) => {
+    const buildDocumentHtml = (vente: VenteEntity, societe?: SocieteData) => {
         const docType = getDocumentType(vente);
         const showPrices = docType !== 'ordre_reparation';
         const lines = buildDocumentLines(vente);
@@ -2028,7 +2060,21 @@ export default function Vente() {
         const docTitle = docType === 'devis' ? 'Devis'
             : docType === 'ordre_reparation' ? 'Ordre de Réparation'
             : 'Facture';
-        const title = `${docTitle} #${vente.id || '-'}`;
+        const title = vente.numeroFacture
+            ? `${docTitle} n° ${vente.numeroFacture}`
+            : `${docTitle} #${vente.id || '-'}`;
+
+        const societeHtml = societe ? `
+            <div class="societe-header">
+                ${societe.nom ? `<div class="societe-nom">${escapeHtml(societe.nom)}</div>` : ''}
+                ${(societe.forme || societe.capital != null) ? `<div>${[societe.forme, societe.capital != null ? `Capital ${societe.capital} €` : ''].filter(Boolean).map(escapeHtml).join(' — ')}</div>` : ''}
+                ${(societe.siren || societe.siret) ? `<div>SIREN : ${escapeHtml(societe.siren || '-')}${societe.siret ? ` — SIRET : ${escapeHtml(societe.siret)}` : ''}</div>` : ''}
+                ${societe.rcs ? `<div>RCS : ${escapeHtml(societe.rcs)}</div>` : ''}
+                ${societe.numerotva ? `<div>N° TVA intracommunautaire : ${escapeHtml(societe.numerotva)}</div>` : ''}
+                ${societe.adresse ? `<div style="white-space:pre-line">${escapeHtml(societe.adresse)}</div>` : ''}
+                ${societe.telephone ? `<div>Tél : ${escapeHtml(societe.telephone)}</div>` : ''}
+                ${societe.email ? `<div>Email : ${escapeHtml(societe.email)}</div>` : ''}
+            </div>` : '';
 
         const priceColumn = showPrices ? '<th>Prix total TTC</th>' : '';
         const tableHtml = lines.length > 0
@@ -2047,9 +2093,11 @@ export default function Vente() {
 
         const totalsHtml = showPrices ? `
             <div class="section">
-                <div class="row"><strong>Montant TTC:</strong> ${escapeHtml(formatEuro(vente.montantTTC))}</div>
-                ${(vente.remise || 0) > 0 ? `<div class="row"><strong>Remise:</strong> ${escapeHtml(formatEuro(vente.remise))}</div>` : ''}
-                <div class="row"><strong>Prix vente TTC:</strong> ${escapeHtml(formatEuro(vente.prixVenteTTC))}</div>
+                ${vente.montantHT != null ? `<div class="row"><strong>Montant HT :</strong> ${escapeHtml(formatEuro(vente.montantHT))}</div>` : ''}
+                ${vente.tva != null ? `<div class="row"><strong>TVA (${vente.tva} %) :</strong> ${escapeHtml(formatEuro(vente.montantTVA))}</div>` : ''}
+                <div class="row"><strong>Montant TTC :</strong> ${escapeHtml(formatEuro(vente.montantTTC))}</div>
+                ${(vente.remise || 0) > 0 ? `<div class="row"><strong>Remise :</strong> ${escapeHtml(formatEuro(vente.remise))}</div>` : ''}
+                <div class="row"><strong>Prix vente TTC :</strong> ${escapeHtml(formatEuro(vente.prixVenteTTC))}</div>
             </div>` : '';
 
         const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
@@ -2063,11 +2111,20 @@ export default function Vente() {
                     return `<div class="row">${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
                 }).join('');
             }
-            if (vente.modePaiement) return `<div class="row"><strong>Mode de paiement:</strong> ${escapeHtml(vente.modePaiement)}</div>`;
+            if (vente.modePaiement) return `<div class="row"><strong>Mode de paiement :</strong> ${escapeHtml(vente.modePaiement)}</div>`;
             return '';
         })();
         const paymentHtml = docType === 'facture' && paiementsHtml
             ? `<div class="section"><strong>Règlements :</strong>${paiementsHtml}</div>` : '';
+
+        const conditionsLegalesHtml = docType === 'facture' ? `
+            <div class="section legal">
+                ${vente.dateEcheance ? `<div class="row"><strong>Date d'échéance :</strong> ${escapeHtml(formatDate(vente.dateEcheance))}</div>` : ''}
+                ${vente.conditionsPaiement ? `<div class="row"><strong>Conditions de paiement :</strong> ${escapeHtml(vente.conditionsPaiement)}</div>` : ''}
+                ${vente.penalitesRetard ? `<div class="row"><strong>Pénalités de retard :</strong> ${escapeHtml(vente.penalitesRetard)}</div>` : ''}
+                <div class="row"><strong>Indemnité forfaitaire de recouvrement :</strong> ${escapeHtml(formatEuro(vente.indemniteForfaitaire ?? 40))}</div>
+                ${societe?.bancaire ? `<div class="row"><strong>Coordonnées bancaires :</strong> <span style="white-space:pre-line">${escapeHtml(societe.bancaire)}</span></div>` : ''}
+            </div>` : '';
 
         const signatureHtml = docType !== 'facture' && vente.signatureBonPourAccord
             ? `<div class="section"><h3>Signature client</h3><img src="${vente.signatureBonPourAccord}" style="max-width:300px;border:1px solid #d9d9d9;border-radius:4px;" /></div>` : '';
@@ -2084,18 +2141,23 @@ export default function Vente() {
                     .invoice-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
                     .invoice-table th, .invoice-table td { border: 1px solid #d9d9d9; padding: 6px 8px; }
                     .invoice-table th { background: #fafafa; text-align: left; }
+                    .societe-header { border-bottom: 2px solid #1f1f1f; padding-bottom: 12px; margin-bottom: 20px; font-size: 13px; }
+                    .societe-nom { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
+                    .legal { font-size: 12px; border-top: 1px solid #d9d9d9; padding-top: 12px; color: #595959; }
                 </style>
             </head>
             <body>
+                ${societeHtml}
                 <h1>${escapeHtml(title)}</h1>
-                <div class="meta">Date: ${escapeHtml(formatDate(vente.date))}</div>
-                <div class="row"><strong>Client:</strong> ${escapeHtml(getClientLabel(vente.client))}</div>
+                <div class="meta">Date : ${escapeHtml(formatDate(vente.date))}</div>
+                <div class="row"><strong>Client :</strong> ${escapeHtml(getClientLabel(vente.client))}</div>
                 ${paymentHtml}
                 <div class="section">
                     <h3>Détails</h3>
                     ${tableHtml}
                 </div>
                 ${totalsHtml}
+                ${conditionsLegalesHtml}
                 ${signatureHtml}
             </body>
         </html>`;
@@ -2111,11 +2173,19 @@ export default function Vente() {
                 // On utilise la vente passée en paramètre en cas d'erreur
             }
         }
+        let societe: SocieteData | undefined;
+        try {
+            const societeRes = await api.get<SocieteData>('/societe');
+            societe = societeRes.data;
+        } catch {
+            // document sans entête société en cas d'erreur
+        }
         const docType = getDocumentType(fullVente);
         const docTitle = docType === 'devis' ? 'Devis'
             : docType === 'ordre_reparation' ? 'Ordre de Réparation'
             : 'Facture';
-        openPrintDocument(`${docTitle} #${fullVente.id || '-'}`, buildDocumentHtml(fullVente));
+        const docRef = fullVente.numeroFacture ? `n° ${fullVente.numeroFacture}` : `#${fullVente.id || '-'}`;
+        openPrintDocument(`${docTitle} ${docRef}`, buildDocumentHtml(fullVente, societe));
     };
 
     const handleEmail = async (vente: VenteEntity) => {
@@ -3112,6 +3182,32 @@ export default function Vente() {
                         <Col span={6}>
                             <Form.Item name="prixVenteTTC" label="Prix vente TTC">
                                 <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={6}>
+                            <Form.Item name="dateEcheance" label="Date d'échéance">
+                                <DatePicker style={{ width: '100%' }} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={18}>
+                            <Form.Item name="conditionsPaiement" label="Conditions de paiement">
+                                <Input placeholder="ex : 30 jours nets, comptant…" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="penalitesRetard" label="Pénalités de retard">
+                                <Input placeholder="ex : 1,5 fois le taux d'intérêt légal en vigueur" />
+                            </Form.Item>
+                        </Col>
+                        <Col span={6}>
+                            <Form.Item name="indemniteForfaitaire" label="Indemnité forfaitaire (€)">
+                                <InputNumber addonAfter="EUR" min={0} step={1} style={{ width: '100%' }} />
                             </Form.Item>
                         </Col>
                     </Row>

@@ -644,6 +644,10 @@ public class VenteResource {
         entity.images = vente.images != null ? vente.images : new java.util.ArrayList<>();
         entity.documents = vente.documents != null ? vente.documents : new java.util.ArrayList<>();
         entity.date = vente.date;
+        entity.dateEcheance = vente.dateEcheance;
+        entity.conditionsPaiement = vente.conditionsPaiement;
+        entity.penalitesRetard = vente.penalitesRetard;
+        entity.indemniteForfaitaire = vente.indemniteForfaitaire;
         entity.remise = vente.remise;
         entity.montantTTC = vente.montantTTC;
         entity.tva = vente.tva;
@@ -664,6 +668,11 @@ public class VenteResource {
         entity.rappel1Jours = vente.rappel1Jours;
         entity.rappel2Jours = vente.rappel2Jours;
         entity.rappel3Jours = vente.rappel3Jours;
+
+        if (entity.status == VenteEntity.Status.FACTURE_PRETE && entity.numeroFacture == null) {
+            int year = java.time.LocalDate.now().getYear();
+            entity.numeroFacture = String.format("FACT-%d-%05d", year, entity.id);
+        }
 
         return entity;
     }
