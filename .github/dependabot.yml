@@ -17,18 +17,39 @@ updates:
     directory: "/chantier-ui"
     schedule:
       interval: "weekly"
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
 
   # npm - client-ui
   - package-ecosystem: "npm"
     directory: "/client-ui"
     schedule:
       interval: "weekly"
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
 
   # npm - technicien-ui
   - package-ecosystem: "npm"
     directory: "/technicien-ui"
     schedule:
       interval: "weekly"
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
 
   # Docker - backend
   - package-ecosystem: "docker"
