@@ -424,6 +424,7 @@ export default function Comptoir() {
             options: produits.map((p) => ({
                 value: `produit:${p.id}`,
                 label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}`,
+                searchText: `${p.nom} ${p.marque || ''} ${p.ref || ''} ${(p.refs || []).join(' ')}`.toLowerCase(),
             })),
         },
         {
@@ -431,6 +432,7 @@ export default function Comptoir() {
             options: catalogueBateaux.map((b) => ({
                 value: `bateau:${b.id}`,
                 label: `${b.marque} ${b.modele}`,
+                searchText: `${b.marque} ${b.modele}`.toLowerCase(),
             })),
         },
         {
@@ -438,6 +440,7 @@ export default function Comptoir() {
             options: catalogueMoteurs.map((m) => ({
                 value: `moteur:${m.id}`,
                 label: `${m.marque} ${m.modele}`,
+                searchText: `${m.marque} ${m.modele}`.toLowerCase(),
             })),
         },
         {
@@ -445,6 +448,7 @@ export default function Comptoir() {
             options: catalogueHelices.map((h) => ({
                 value: `helice:${h.id}`,
                 label: `${h.marque} ${h.modele}`,
+                searchText: `${h.marque} ${h.modele}`.toLowerCase(),
             })),
         },
         {
@@ -452,6 +456,7 @@ export default function Comptoir() {
             options: catalogueRemorques.map((r) => ({
                 value: `remorque:${r.id}`,
                 label: `${r.marque} ${r.modele}`,
+                searchText: `${r.marque} ${r.modele}`.toLowerCase(),
             })),
         },
     ], [produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
@@ -505,19 +510,34 @@ export default function Comptoir() {
                 moteursRes,
                 remorquesRes,
                 forfaitsRes,
-                servicesRes
+                servicesRes,
+                catProduitsRes,
+                catBateauxRes,
+                catMoteursRes,
+                catHelicesRes,
+                catRemorquesRes
             ] = await Promise.all([
                 api.get('/bateaux'),
                 api.get('/moteurs'),
                 api.get('/remorques'),
                 api.get('/forfaits'),
-                api.get('/services')
+                api.get('/services'),
+                api.get('/catalogue/produits'),
+                api.get('/catalogue/bateaux'),
+                api.get('/catalogue/moteurs'),
+                api.get('/catalogue/helices'),
+                api.get('/catalogue/remorques')
             ]);
             setBateaux(bateauxRes.data || []);
             setMoteurs(moteursRes.data || []);
             setRemorques(remorquesRes.data || []);
             setForfaits(forfaitsRes.data || []);
             setServices(servicesRes.data || []);
+            setProduits(catProduitsRes.data || []);
+            setCatalogueBateaux(catBateauxRes.data || []);
+            setCatalogueMoteurs(catMoteursRes.data || []);
+            setCatalogueHelices(catHelicesRes.data || []);
+            setCatalogueRemorques(catRemorquesRes.data || []);
         } catch {
             message.error('Erreur lors du chargement des listes de reference.');
         }
@@ -1461,7 +1481,9 @@ export default function Comptoir() {
                                                             allowClear
                                                             showSearch
                                                             options={catalogueOptions}
-                                                            filterOption={false}
+                                                            filterOption={(input, option) =>
+                                                                ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
+                                                            }
                                                             onSearch={handleCatalogueSearch}
                                                             notFoundContent={null}
                                                             placeholder="Rechercher produit, bateau, moteur, hélice ou remorque"
