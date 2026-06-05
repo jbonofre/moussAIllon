@@ -827,6 +827,7 @@ export default function Vente() {
                 servicesRes,
                 mainOeuvresRes,
                 techniciensRes,
+                catProduitsRes,
                 catBateauxRes,
                 catMoteursRes,
                 catHelicesRes,
@@ -839,6 +840,7 @@ export default function Vente() {
                 api.get('/services'),
                 api.get('/main-oeuvres'),
                 api.get('/techniciens'),
+                api.get('/catalogue/produits'),
                 api.get('/catalogue/bateaux'),
                 api.get('/catalogue/moteurs'),
                 api.get('/catalogue/helices'),
@@ -851,6 +853,7 @@ export default function Vente() {
             setServices(servicesRes.data || []);
             setMainOeuvres(mainOeuvresRes.data || []);
             setTechniciens(techniciensRes.data || []);
+            setProduits(catProduitsRes.data || []);
             setCatalogueBateaux(catBateauxRes.data || []);
             setCatalogueMoteurs(catMoteursRes.data || []);
             setCatalogueHelices(catHelicesRes.data || []);
@@ -3491,7 +3494,7 @@ export default function Vente() {
                                                                         allowClear
                                                                         placeholder="Rechercher un produit par nom, marque, catégorie ou réf."
                                                                         options={produitOptionsForService}
-                                                                        filterOption={false}
+                                                                        filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
                                                                         onSearch={handleProduitSearch}
                                                                         notFoundContent={null}
                                                                     />
@@ -3632,7 +3635,7 @@ export default function Vente() {
                                                                             allowClear
                                                                             showSearch
                                                                             options={produitOptions}
-                                                                            filterOption={false}
+                                                                            filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
                                                                             onSearch={handleProduitSearch}
                                                                             notFoundContent={null}
                                                                             placeholder="Rechercher un produit par nom, marque, catégorie ou réf."
