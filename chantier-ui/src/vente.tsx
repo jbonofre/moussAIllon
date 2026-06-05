@@ -82,6 +82,8 @@ interface VenteForfaitEntity {
     id?: number;
     forfait?: ForfaitEntity;
     quantite?: number;
+    remise?: number;
+    remisePourcentage?: number;
     techniciens?: TechnicienEntity[];
     datePlanification?: string;
     dateDebut?: string;
@@ -101,6 +103,8 @@ interface VenteServiceEntity {
     id?: number;
     service?: ServiceEntity;
     quantite?: number;
+    remise?: number;
+    remisePourcentage?: number;
     techniciens?: TechnicienEntity[];
     datePlanification?: string;
     dateDebut?: string;
@@ -315,6 +319,46 @@ interface SocieteData {
     bancaire?: string;
 }
 
+interface VenteProduitLigne {
+    id?: number;
+    produit?: ProduitCatalogueEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+interface VenteBateauCatalogueLigne {
+    id?: number;
+    bateau?: CatalogueBateauEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+interface VenteMoteurCatalogueLigne {
+    id?: number;
+    moteur?: CatalogueMoteurEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+interface VenteHeliceCatalogueLigne {
+    id?: number;
+    helice?: CatalogueHeliceEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+interface VenteRemorqueCatalogueLigne {
+    id?: number;
+    remorque?: CatalogueRemorqueEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
 interface VenteEntity {
     id?: number;
     status: VenteStatus;
@@ -328,11 +372,11 @@ interface VenteEntity {
     remorque?: RemorqueClientEntity;
     venteForfaits?: VenteForfaitEntity[];
     venteServices?: VenteServiceEntity[];
-    produits?: ProduitCatalogueEntity[];
-    bateauxCatalogue?: CatalogueBateauEntity[];
-    moteursCatalogue?: CatalogueMoteurEntity[];
-    helicesCatalogue?: CatalogueHeliceEntity[];
-    remorquesCatalogue?: CatalogueRemorqueEntity[];
+    venteProduits?: VenteProduitLigne[];
+    venteBateauxCatalogue?: VenteBateauCatalogueLigne[];
+    venteMoteursCatalogue?: VenteMoteurCatalogueLigne[];
+    venteHelicesCatalogue?: VenteHeliceCatalogueLigne[];
+    venteRemorquesCatalogue?: VenteRemorqueCatalogueLigne[];
     date?: string;
     dateDevis?: string;
     dateBonPourAccord?: string;
@@ -377,6 +421,8 @@ interface LigneUnifiee {
     type?: LigneType;
     itemId?: number;
     quantite?: number;
+    remise?: number;
+    remisePourcentage?: number;
     technicienIds?: number[];
     status?: PlanningStatus;
     datePlanification?: string;
@@ -1380,14 +1426,11 @@ export default function Vente() {
         const keys: string[] = [];
         (vente?.venteForfaits || []).forEach(vf => { if (vf.forfait?.id) keys.push(`forfait:${vf.forfait.id}`); });
         (vente?.venteServices || []).forEach(vs => { if (vs.service?.id) keys.push(`service:${vs.service.id}`); });
-        const addIds = (items: Array<{ id?: number }>, prefix: string) => {
-            new Set(items.map(i => i?.id).filter(Boolean) as number[]).forEach(id => keys.push(`${prefix}:${id}`));
-        };
-        addIds(vente?.produits || [], 'produit');
-        addIds(vente?.bateauxCatalogue || [], 'bateau');
-        addIds(vente?.moteursCatalogue || [], 'moteur');
-        addIds(vente?.helicesCatalogue || [], 'helice');
-        addIds(vente?.remorquesCatalogue || [], 'remorque');
+        (vente?.venteProduits || []).forEach(vp => { if (vp.produit?.id) keys.push(`produit:${vp.produit.id}`); });
+        (vente?.venteBateauxCatalogue || []).forEach(vb => { if (vb.bateau?.id) keys.push(`bateau:${vb.bateau.id}`); });
+        (vente?.venteMoteursCatalogue || []).forEach(vm => { if (vm.moteur?.id) keys.push(`moteur:${vm.moteur.id}`); });
+        (vente?.venteHelicesCatalogue || []).forEach(vh => { if (vh.helice?.id) keys.push(`helice:${vh.helice.id}`); });
+        (vente?.venteRemorquesCatalogue || []).forEach(vr => { if (vr.remorque?.id) keys.push(`remorque:${vr.remorque.id}`); });
         savedLinesRef.current = keys.sort();
     };
 
@@ -1395,22 +1438,24 @@ export default function Vente() {
         if (vente.client?.id) {
             setClients((prev) => mergeById(prev, [vente.client as ClientEntity]));
         }
-        const venteProduits = (vente.produits || []).filter((p): p is ProduitCatalogueEntity => !!p?.id);
-        if (venteProduits.length > 0) setProduits((prev) => mergeById(prev, venteProduits));
-        const venteBateaux = (vente.bateauxCatalogue || []).filter((b): b is CatalogueBateauEntity => !!b?.id);
-        if (venteBateaux.length > 0) setCatalogueBateaux((prev) => mergeById(prev, venteBateaux));
-        const venteMoteurs = (vente.moteursCatalogue || []).filter((m): m is CatalogueMoteurEntity => !!m?.id);
-        if (venteMoteurs.length > 0) setCatalogueMoteurs((prev) => mergeById(prev, venteMoteurs));
-        const venteHelices = (vente.helicesCatalogue || []).filter((h): h is CatalogueHeliceEntity => !!h?.id);
-        if (venteHelices.length > 0) setCatalogueHelices((prev) => mergeById(prev, venteHelices));
-        const venteRemorques = (vente.remorquesCatalogue || []).filter((r): r is CatalogueRemorqueEntity => !!r?.id);
-        if (venteRemorques.length > 0) setCatalogueRemorques((prev) => mergeById(prev, venteRemorques));
+        const produitsCat = (vente.venteProduits || []).map((l) => l.produit).filter((p): p is ProduitCatalogueEntity => !!p?.id);
+        if (produitsCat.length > 0) setProduits((prev) => mergeById(prev, produitsCat));
+        const bateauxCat = (vente.venteBateauxCatalogue || []).map((l) => l.bateau).filter((b): b is CatalogueBateauEntity => !!b?.id);
+        if (bateauxCat.length > 0) setCatalogueBateaux((prev) => mergeById(prev, bateauxCat));
+        const moteursCat = (vente.venteMoteursCatalogue || []).map((l) => l.moteur).filter((m): m is CatalogueMoteurEntity => !!m?.id);
+        if (moteursCat.length > 0) setCatalogueMoteurs((prev) => mergeById(prev, moteursCat));
+        const helicesCat = (vente.venteHelicesCatalogue || []).map((l) => l.helice).filter((h): h is CatalogueHeliceEntity => !!h?.id);
+        if (helicesCat.length > 0) setCatalogueHelices((prev) => mergeById(prev, helicesCat));
+        const remorquesCat = (vente.venteRemorquesCatalogue || []).map((l) => l.remorque).filter((r): r is CatalogueRemorqueEntity => !!r?.id);
+        if (remorquesCat.length > 0) setCatalogueRemorques((prev) => mergeById(prev, remorquesCat));
         const lignes: LigneUnifiee[] = [];
         (vente.venteForfaits || []).forEach(vf => {
             lignes.push({
                 type: 'forfait',
                 itemId: vf.forfait?.id,
                 quantite: vf.quantite || 1,
+                remise: vf.remise || 0,
+                remisePourcentage: vf.remisePourcentage || 0,
                 technicienIds: (vf.techniciens || []).map(t => t.id),
                 status: vf.status || 'EN_ATTENTE',
                 datePlanification: vf.datePlanification,
@@ -1430,6 +1475,8 @@ export default function Vente() {
                 type: 'service',
                 itemId: vs.service?.id,
                 quantite: vs.quantite || 1,
+                remise: vs.remise || 0,
+                remisePourcentage: vs.remisePourcentage || 0,
                 technicienIds: (vs.techniciens || []).map(t => t.id),
                 status: vs.status || 'EN_ATTENTE',
                 datePlanification: vs.datePlanification,
@@ -1444,16 +1491,21 @@ export default function Vente() {
                 documents: vs.documents || [],
             });
         });
-        const buildLignesFromItems = (items: Array<{ id: number }>, type: LigneType) => {
-            const map = new Map<number, number>();
-            items.forEach((item) => { if (item?.id) map.set(item.id, (map.get(item.id) || 0) + 1); });
-            map.forEach((quantite, itemId) => lignes.push({ type, itemId, quantite }));
-        };
-        buildLignesFromItems(vente.produits || [], 'produit');
-        buildLignesFromItems(vente.bateauxCatalogue || [], 'bateau');
-        buildLignesFromItems(vente.moteursCatalogue || [], 'moteur');
-        buildLignesFromItems(vente.helicesCatalogue || [], 'helice');
-        buildLignesFromItems(vente.remorquesCatalogue || [], 'remorque');
+        (vente.venteProduits || []).forEach((l) => {
+            if (l.produit?.id) lignes.push({ type: 'produit', itemId: l.produit.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
+        });
+        (vente.venteBateauxCatalogue || []).forEach((l) => {
+            if (l.bateau?.id) lignes.push({ type: 'bateau', itemId: l.bateau.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
+        });
+        (vente.venteMoteursCatalogue || []).forEach((l) => {
+            if (l.moteur?.id) lignes.push({ type: 'moteur', itemId: l.moteur.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
+        });
+        (vente.venteHelicesCatalogue || []).forEach((l) => {
+            if (l.helice?.id) lignes.push({ type: 'helice', itemId: l.helice.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
+        });
+        (vente.venteRemorquesCatalogue || []).forEach((l) => {
+            if (l.remorque?.id) lignes.push({ type: 'remorque', itemId: l.remorque.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
+        });
         form.resetFields();
         form.setFieldsValue({
             status: vente.status || 'DEVIS',
@@ -1687,6 +1739,8 @@ export default function Vente() {
                 return {
                     forfait: selectedForfait,
                     quantite: line.quantite || 1,
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
                     techniciens: (line.technicienIds || []).map((id: number) => techniciens.find((t) => t.id === id)).filter(Boolean),
                     datePlanification: line.datePlanification || existingVf?.datePlanification,
                     dateDebut: line.dateDebut || existingVf?.dateDebut,
@@ -1710,6 +1764,8 @@ export default function Vente() {
                 return {
                     service: services.find((s) => s.id === line.itemId),
                     quantite: line.quantite || 1,
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
                     techniciens: (line.technicienIds || []).map((id: number) => techniciens.find((t) => t.id === id)).filter(Boolean),
                     datePlanification: line.datePlanification || existingVs?.datePlanification,
                     dateDebut: line.dateDebut || existingVs?.dateDebut,
@@ -1724,31 +1780,51 @@ export default function Vente() {
                     documents: line.documents || existingVs?.documents || [],
                 };
             }),
-            produits: produitLines.flatMap((line) => {
-                const item = produits.find((produit) => produit.id === line.itemId);
-                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
-                return item ? Array.from({ length: safeQuantity }, () => item) : [];
-            }) as ProduitCatalogueEntity[],
-            bateauxCatalogue: bateauLines.flatMap((line) => {
-                const item = catalogueBateaux.find((b) => b.id === line.itemId);
-                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
-                return item ? Array.from({ length: safeQuantity }, () => item) : [];
-            }) as CatalogueBateauEntity[],
-            moteursCatalogue: moteurLines.flatMap((line) => {
-                const item = catalogueMoteurs.find((m) => m.id === line.itemId);
-                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
-                return item ? Array.from({ length: safeQuantity }, () => item) : [];
-            }) as CatalogueMoteurEntity[],
-            helicesCatalogue: heliceLines.flatMap((line) => {
-                const item = catalogueHelices.find((h) => h.id === line.itemId);
-                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
-                return item ? Array.from({ length: safeQuantity }, () => item) : [];
-            }) as CatalogueHeliceEntity[],
-            remorquesCatalogue: remorqueLines.flatMap((line) => {
-                const item = catalogueRemorques.find((r) => r.id === line.itemId);
-                const safeQuantity = Math.max(1, Math.floor(line.quantite || 1));
-                return item ? Array.from({ length: safeQuantity }, () => item) : [];
-            }) as CatalogueRemorqueEntity[],
+            venteProduits: produitLines.flatMap<VenteProduitLigne>((line) => {
+                const produit = produits.find((p) => p.id === line.itemId);
+                return produit ? [{
+                    produit,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
+            venteBateauxCatalogue: bateauLines.flatMap<VenteBateauCatalogueLigne>((line) => {
+                const bateau = catalogueBateaux.find((b) => b.id === line.itemId);
+                return bateau ? [{
+                    bateau,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
+            venteMoteursCatalogue: moteurLines.flatMap<VenteMoteurCatalogueLigne>((line) => {
+                const moteur = catalogueMoteurs.find((m) => m.id === line.itemId);
+                return moteur ? [{
+                    moteur,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
+            venteHelicesCatalogue: heliceLines.flatMap<VenteHeliceCatalogueLigne>((line) => {
+                const helice = catalogueHelices.find((h) => h.id === line.itemId);
+                return helice ? [{
+                    helice,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
+            venteRemorquesCatalogue: remorqueLines.flatMap<VenteRemorqueCatalogueLigne>((line) => {
+                const remorque = catalogueRemorques.find((r) => r.id === line.itemId);
+                return remorque ? [{
+                    remorque,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
             date: toBackendDateValue(values.date),
             dateEcheance: toBackendDateValue(values.dateEcheance),
             conditionsPaiement: values.conditionsPaiement,
@@ -2010,41 +2086,46 @@ export default function Vente() {
     };
 
     const buildDocumentLines = (vente: VenteEntity) => {
-        const forfaitLines = (vente.venteForfaits || []).map(vf => ({
-            type: 'Forfait', label: vf.forfait?.nom || '', quantite: vf.quantite || 1,
-            totalPrixTTC: (vf.forfait?.prixTTC || 0) * (vf.quantite || 1)
-        }));
-        const produitLines = Array.from(
-            (vente.produits || []).reduce((acc, item) => {
-                const label = `${item.nom}${item.marque ? ` (${item.marque})` : ''}`;
-                const key = item.id ? `id-${item.id}` : `label-${label}`;
-                const current = acc.get(key) || { type: 'Produit', label, quantite: 0, totalPrixTTC: 0 };
-                current.quantite += 1;
-                current.totalPrixTTC += item.prixVenteTTC || 0;
-                acc.set(key, current);
-                return acc;
-            }, new Map<string, { type: string; label: string; quantite: number; totalPrixTTC: number }>()).values()
-        );
-        const serviceLines = (vente.venteServices || []).map(vs => ({
-            type: 'Service', label: vs.service?.nom || '', quantite: vs.quantite || 1,
-            totalPrixTTC: (vs.service?.prixTTC || 0) * (vs.quantite || 1)
-        }));
-        const buildCatalogueLines = (items: Array<{ id: number; marque: string; modele: string; prixVenteTTC?: number }>, typeLabel: string) =>
-            Array.from(
-                (items || []).reduce((acc, item) => {
-                    const label = `${item.marque} ${item.modele}`;
-                    const key = `id-${item.id}`;
-                    const current = acc.get(key) || { type: typeLabel, label, quantite: 0, totalPrixTTC: 0 };
-                    current.quantite += 1;
-                    current.totalPrixTTC += item.prixVenteTTC || 0;
-                    acc.set(key, current);
-                    return acc;
-                }, new Map<string, { type: string; label: string; quantite: number; totalPrixTTC: number }>()).values()
-            );
-        const bateauLines = buildCatalogueLines(vente.bateauxCatalogue || [], 'Bateau');
-        const moteurCatLines = buildCatalogueLines(vente.moteursCatalogue || [], 'Moteur');
-        const heliceLines = buildCatalogueLines(vente.helicesCatalogue || [], 'Hélice');
-        const remorqueCatLines = buildCatalogueLines(vente.remorquesCatalogue || [], 'Remorque');
+        const lineFromForfait = (vf: VenteForfaitEntity) => {
+            const brut = (vf.forfait?.prixTTC || 0) * (vf.quantite || 1);
+            return {
+                type: 'Forfait', label: vf.forfait?.nom || '', quantite: vf.quantite || 1,
+                remise: vf.remise || 0,
+                totalPrixTTC: Math.max(0, brut - (vf.remise || 0)),
+            };
+        };
+        const lineFromService = (vs: VenteServiceEntity) => {
+            const brut = (vs.service?.prixTTC || 0) * (vs.quantite || 1);
+            return {
+                type: 'Service', label: vs.service?.nom || '', quantite: vs.quantite || 1,
+                remise: vs.remise || 0,
+                totalPrixTTC: Math.max(0, brut - (vs.remise || 0)),
+            };
+        };
+        const lineFromProduit = (vp: VenteProduitLigne) => {
+            const label = vp.produit ? `${vp.produit.nom}${vp.produit.marque ? ` (${vp.produit.marque})` : ''}` : '';
+            const brut = (vp.produit?.prixVenteTTC || 0) * (vp.quantite || 1);
+            return {
+                type: 'Produit', label, quantite: vp.quantite || 1,
+                remise: vp.remise || 0,
+                totalPrixTTC: Math.max(0, brut - (vp.remise || 0)),
+            };
+        };
+        const lineFromCatalogue = (item: { marque?: string; modele?: string; prixVenteTTC?: number } | undefined, typeLabel: string, qty: number, remise: number) => {
+            const brut = (item?.prixVenteTTC || 0) * (qty || 1);
+            return {
+                type: typeLabel, label: item ? `${item.marque || ''} ${item.modele || ''}`.trim() : '', quantite: qty || 1,
+                remise: remise || 0,
+                totalPrixTTC: Math.max(0, brut - (remise || 0)),
+            };
+        };
+        const forfaitLines = (vente.venteForfaits || []).map(lineFromForfait);
+        const produitLines = (vente.venteProduits || []).map(lineFromProduit);
+        const serviceLines = (vente.venteServices || []).map(lineFromService);
+        const bateauLines = (vente.venteBateauxCatalogue || []).map((vb) => lineFromCatalogue(vb.bateau, 'Bateau', vb.quantite, vb.remise || 0));
+        const moteurCatLines = (vente.venteMoteursCatalogue || []).map((vm) => lineFromCatalogue(vm.moteur, 'Moteur', vm.quantite, vm.remise || 0));
+        const heliceLines = (vente.venteHelicesCatalogue || []).map((vh) => lineFromCatalogue(vh.helice, 'Hélice', vh.quantite, vh.remise || 0));
+        const remorqueCatLines = (vente.venteRemorquesCatalogue || []).map((vr) => lineFromCatalogue(vr.remorque, 'Remorque', vr.quantite, vr.remise || 0));
         return [...forfaitLines, ...produitLines, ...bateauLines, ...moteurCatLines, ...heliceLines, ...remorqueCatLines, ...serviceLines];
     };
 
@@ -2079,15 +2160,17 @@ export default function Vente() {
                 ${societe.email ? `<div>Email : ${escapeHtml(societe.email)}</div>` : ''}
             </div>` : '';
 
+        const remiseColumn = showPrices ? '<th>Remise</th>' : '';
         const priceColumn = showPrices ? '<th>Prix total TTC</th>' : '';
         const tableHtml = lines.length > 0
             ? `<table class="invoice-table">
-                <thead><tr><th>Type</th><th>Désignation</th><th>Qté</th>${priceColumn}</tr></thead>
+                <thead><tr><th>Type</th><th>Désignation</th><th>Qté</th>${remiseColumn}${priceColumn}</tr></thead>
                 <tbody>${lines.map((line) => `
                     <tr>
                         <td>${escapeHtml(line.type)}</td>
                         <td>${escapeHtml(line.label)}</td>
                         <td>${line.quantite}</td>
+                        ${showPrices ? `<td>${line.remise > 0 ? escapeHtml(formatEuro(line.remise)) : '-'}</td>` : ''}
                         ${showPrices ? `<td>${escapeHtml(formatEuro(line.totalPrixTTC))}</td>` : ''}
                     </tr>`).join('')}
                 </tbody>
@@ -2280,21 +2363,23 @@ export default function Vente() {
         allLignes.forEach((line) => {
             if (!line.type || !line.itemId) return;
             const quantite = Math.max(1, Math.floor(line.quantite || 1));
+            let brut = 0;
             if (line.type === 'forfait') {
-                totalTTC += (allForfaits.find((f) => f.id === line.itemId)?.prixTTC || 0) * quantite;
+                brut = (allForfaits.find((f) => f.id === line.itemId)?.prixTTC || 0) * quantite;
             } else if (line.type === 'service') {
-                totalTTC += (allServices.find((s) => s.id === line.itemId)?.prixTTC || 0) * quantite;
+                brut = (allServices.find((s) => s.id === line.itemId)?.prixTTC || 0) * quantite;
             } else if (line.type === 'produit') {
-                totalTTC += (allProduits.find((p) => p.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                brut = (allProduits.find((p) => p.id === line.itemId)?.prixVenteTTC || 0) * quantite;
             } else if (line.type === 'bateau') {
-                totalTTC += (catalogueBateaux.find((b) => b.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                brut = (catalogueBateaux.find((b) => b.id === line.itemId)?.prixVenteTTC || 0) * quantite;
             } else if (line.type === 'moteur') {
-                totalTTC += (catalogueMoteurs.find((m) => m.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                brut = (catalogueMoteurs.find((m) => m.id === line.itemId)?.prixVenteTTC || 0) * quantite;
             } else if (line.type === 'helice') {
-                totalTTC += (catalogueHelices.find((h) => h.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                brut = (catalogueHelices.find((h) => h.id === line.itemId)?.prixVenteTTC || 0) * quantite;
             } else if (line.type === 'remorque') {
-                totalTTC += (catalogueRemorques.find((r) => r.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                brut = (catalogueRemorques.find((r) => r.id === line.itemId)?.prixVenteTTC || 0) * quantite;
             }
+            totalTTC += Math.max(0, brut - (line.remise || 0));
         });
 
         const montantTTC = Math.round((totalTTC + Number.EPSILON) * 100) / 100;
@@ -2319,11 +2404,44 @@ export default function Vente() {
         form.setFieldValue('prixVenteTTC', prixVenteTTC);
     };
 
+    const syncLineRemise = (changedLignes: Array<Partial<LigneUnifiee> | undefined>) => {
+        const currentLines: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+        changedLignes.forEach((changed, index) => {
+            if (!changed) return;
+            const line = currentLines[index];
+            if (!line || !line.type || !line.itemId) return;
+            let pu = 0;
+            if (line.type === 'forfait') pu = forfaits.find((f) => f.id === line.itemId)?.prixTTC || 0;
+            else if (line.type === 'service') pu = services.find((s) => s.id === line.itemId)?.prixTTC || 0;
+            else if (line.type === 'produit') pu = produits.find((p) => p.id === line.itemId)?.prixVenteTTC || 0;
+            else if (line.type === 'bateau') pu = catalogueBateaux.find((b) => b.id === line.itemId)?.prixVenteTTC || 0;
+            else if (line.type === 'moteur') pu = catalogueMoteurs.find((m) => m.id === line.itemId)?.prixVenteTTC || 0;
+            else if (line.type === 'helice') pu = catalogueHelices.find((h) => h.id === line.itemId)?.prixVenteTTC || 0;
+            else if (line.type === 'remorque') pu = catalogueRemorques.find((r) => r.id === line.itemId)?.prixVenteTTC || 0;
+            const quantite = Math.max(1, Math.floor(line.quantite || 1));
+            const brut = Math.round(pu * quantite * 100) / 100;
+            if (changed.remisePourcentage !== undefined) {
+                const remise = Math.round(((brut * (changed.remisePourcentage || 0)) / 100 + Number.EPSILON) * 100) / 100;
+                form.setFieldValue(['lignes', index, 'remise'], remise);
+            } else if (changed.remise !== undefined) {
+                const remisePourcentage = brut > 0
+                    ? Math.round((((changed.remise || 0) / brut) * 100 + Number.EPSILON) * 100) / 100
+                    : 0;
+                form.setFieldValue(['lignes', index, 'remisePourcentage'], remisePourcentage);
+            }
+        });
+    };
+
     const onValuesChange = (changedValues: Partial<VenteFormValues>, allValues: VenteFormValues) => {
         if (!suppressDirtyRef.current) {
             setFormDirty(true);
         }
         if (changedValues.lignes !== undefined) {
+            const changedLignesArr = changedValues.lignes as Array<Partial<LigneUnifiee> | undefined>;
+            const lineRemiseChanged = changedLignesArr.some((l) => l && (l.remise !== undefined || l.remisePourcentage !== undefined));
+            if (lineRemiseChanged) {
+                syncLineRemise(changedLignesArr);
+            }
             const currentLignes = allValues.lignes || [];
             if (currentLignes.length === 0) {
                 form.setFieldValue('lignes', [{ quantite: 1 }]);
@@ -2333,6 +2451,9 @@ export default function Vente() {
                 if (isLastLineComplete) {
                     form.setFieldValue('lignes', [...currentLignes, { quantite: 1 }]);
                 }
+            }
+            if (lineRemiseChanged) {
+                recalculateFromLines('auto');
             }
         }
 
@@ -2880,19 +3001,35 @@ export default function Vente() {
                                                             {() => {
                                                                 const pu = getUnitPrice();
                                                                 return (
-                                                                    <Form.Item style={{ width: 120 }}>
+                                                                    <Form.Item style={{ width: 100 }}>
                                                                         <InputNumber addonAfter="EUR" value={pu ?? undefined} style={{ width: '100%' }} disabled placeholder="P.U." />
                                                                     </Form.Item>
                                                                 );
                                                             }}
                                                         </Form.Item>
+                                                        <Form.Item
+                                                            {...field}
+                                                            name={[field.name, 'remisePourcentage']}
+                                                            style={{ width: 100 }}
+                                                        >
+                                                            <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
+                                                        </Form.Item>
+                                                        <Form.Item
+                                                            {...field}
+                                                            name={[field.name, 'remise']}
+                                                            style={{ width: 110 }}
+                                                        >
+                                                            <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
+                                                        </Form.Item>
                                                         <Form.Item noStyle shouldUpdate>
                                                             {() => {
                                                                 const pu = getUnitPrice() || 0;
                                                                 const quantite = form.getFieldValue(['lignes', field.name, 'quantite']) || 0;
-                                                                const total = Math.round(((pu * quantite) + Number.EPSILON) * 100) / 100;
+                                                                const remise = form.getFieldValue(['lignes', field.name, 'remise']) || 0;
+                                                                const brut = pu * quantite;
+                                                                const total = Math.max(0, Math.round(((brut - remise) + Number.EPSILON) * 100) / 100);
                                                                 return (
-                                                                    <Form.Item style={{ width: 120 }}>
+                                                                    <Form.Item style={{ width: 110 }}>
                                                                         <InputNumber addonAfter="EUR" value={total} style={{ width: '100%' }} disabled />
                                                                     </Form.Item>
                                                                 );

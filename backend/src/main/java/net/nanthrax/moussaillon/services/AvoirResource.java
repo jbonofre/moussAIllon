@@ -24,10 +24,10 @@ import net.nanthrax.moussaillon.persistence.AvoirEntity;
 import net.nanthrax.moussaillon.persistence.AvoirLigneEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.EmailTemplateEntity;
-import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 import net.nanthrax.moussaillon.persistence.VenteForfaitEntity;
+import net.nanthrax.moussaillon.persistence.VenteProduitEntity;
 import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
 
 @Path("/avoirs")
@@ -148,8 +148,11 @@ public class AvoirResource {
                 ligne.quantite = Math.max(1, vf.quantite);
                 ligne.prixUnitaireHT = vf.forfait.prixHT;
                 ligne.tva = vf.forfait.tva > 0 ? vf.forfait.tva : tvaTaux;
-                ligne.montantTVA = round2(ligne.prixUnitaireHT * ligne.quantite * (ligne.tva / 100.0));
-                ligne.totalTTC = round2(vf.forfait.prixTTC * ligne.quantite);
+                double brutTTC = vf.forfait.prixTTC * ligne.quantite;
+                double netTTC = Math.max(0, brutTTC - vf.remise);
+                double ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
+                ligne.montantTVA = round2(ligne.prixUnitaireHT * ligne.quantite * (ligne.tva / 100.0) * ratio);
+                ligne.totalTTC = round2(netTTC);
                 avoir.lignes.add(ligne);
             }
         }
@@ -163,35 +166,31 @@ public class AvoirResource {
                 ligne.quantite = Math.max(1, vs.quantite);
                 ligne.prixUnitaireHT = vs.service.prixHT;
                 ligne.tva = vs.service.tva > 0 ? vs.service.tva : tvaTaux;
-                ligne.montantTVA = round2(ligne.prixUnitaireHT * ligne.quantite * (ligne.tva / 100.0));
-                ligne.totalTTC = round2(vs.service.prixTTC * ligne.quantite);
+                double brutTTC = vs.service.prixTTC * ligne.quantite;
+                double netTTC = Math.max(0, brutTTC - vs.remise);
+                double ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
+                ligne.montantTVA = round2(ligne.prixUnitaireHT * ligne.quantite * (ligne.tva / 100.0) * ratio);
+                ligne.totalTTC = round2(netTTC);
                 avoir.lignes.add(ligne);
             }
         }
 
-        // Lignes depuis les produits (regroupés par id)
-        if (vente.produits != null && !vente.produits.isEmpty()) {
-            java.util.Map<Long, int[]> counts = new java.util.LinkedHashMap<>();
-            java.util.Map<Long, ProduitCatalogueEntity> byId = new java.util.LinkedHashMap<>();
-            for (ProduitCatalogueEntity p : vente.produits) {
-                if (p == null || p.id == null) continue;
-                counts.computeIfAbsent(p.id, k -> new int[]{0});
-                counts.get(p.id)[0]++;
-                byId.putIfAbsent(p.id, p);
-            }
-            for (java.util.Map.Entry<Long, int[]> entry : counts.entrySet()) {
-                ProduitCatalogueEntity p = byId.get(entry.getKey());
-                if (p == null) continue;
-                int qty = entry.getValue()[0];
+        // Lignes depuis les produits
+        if (vente.venteProduits != null) {
+            for (VenteProduitEntity vp : vente.venteProduits) {
+                if (vp.produit == null) continue;
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
-                String nom = p.nom != null ? p.nom : "Produit";
-                if (p.marque != null && !p.marque.isBlank()) nom += " (" + p.marque + ")";
+                String nom = vp.produit.nom != null ? vp.produit.nom : "Produit";
+                if (vp.produit.marque != null && !vp.produit.marque.isBlank()) nom += " (" + vp.produit.marque + ")";
                 ligne.designation = nom;
-                ligne.quantite = qty;
-                ligne.prixUnitaireHT = p.prixVenteHT;
-                ligne.tva = p.tva > 0 ? p.tva : tvaTaux;
-                ligne.montantTVA = round2(ligne.prixUnitaireHT * qty * (ligne.tva / 100.0));
-                ligne.totalTTC = round2(p.prixVenteTTC * qty);
+                ligne.quantite = Math.max(1, vp.quantite);
+                ligne.prixUnitaireHT = vp.produit.prixVenteHT;
+                ligne.tva = vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
+                double brutTTC = vp.produit.prixVenteTTC * ligne.quantite;
+                double netTTC = Math.max(0, brutTTC - vp.remise);
+                double ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
+                ligne.montantTVA = round2(ligne.prixUnitaireHT * ligne.quantite * (ligne.tva / 100.0) * ratio);
+                ligne.totalTTC = round2(netTTC);
                 avoir.lignes.add(ligne);
             }
         }

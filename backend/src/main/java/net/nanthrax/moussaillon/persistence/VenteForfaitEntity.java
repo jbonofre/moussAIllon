@@ -23,6 +23,12 @@ public class VenteForfaitEntity extends PanacheEntity {
 
     public int quantite;
 
+    @jakarta.persistence.Column(columnDefinition = "double default 0")
+    public double remise;
+
+    @jakarta.persistence.Column(columnDefinition = "double default 0")
+    public double remisePourcentage;
+
     @ManyToMany(fetch = FetchType.EAGER)
     public List<TechnicienEntity> techniciens = new ArrayList<>();
 

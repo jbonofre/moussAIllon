@@ -194,7 +194,7 @@ public class ClientPortalResource {
             entity.signatureBonPourAccord = body.get("signature");
         }
         // Force initialization of lazy collections before serialization
-        if (entity.produits != null) entity.produits.size();
+        if (entity.venteProduits != null) entity.venteProduits.size();
         return entity;
     }
 

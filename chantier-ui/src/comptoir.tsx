@@ -169,6 +169,46 @@ interface AvoirDisponible {
     montantUtilise: number;
 }
 
+interface VenteProduitLigne {
+    id?: number;
+    produit?: ProduitCatalogueEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+interface VenteBateauCatalogueLigne {
+    id?: number;
+    bateau?: CatalogueBateauEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+interface VenteMoteurCatalogueLigne {
+    id?: number;
+    moteur?: CatalogueMoteurEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+interface VenteHeliceCatalogueLigne {
+    id?: number;
+    helice?: CatalogueHeliceEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+interface VenteRemorqueCatalogueLigne {
+    id?: number;
+    remorque?: CatalogueRemorqueEntity;
+    quantite: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
 interface VenteEntity {
     id?: number;
     status: VenteStatus;
@@ -180,11 +220,11 @@ interface VenteEntity {
     moteur?: MoteurClientEntity;
     remorque?: RemorqueClientEntity;
     forfaits?: ForfaitEntity[];
-    produits?: ProduitCatalogueEntity[];
-    bateauxCatalogue?: CatalogueBateauEntity[];
-    moteursCatalogue?: CatalogueMoteurEntity[];
-    helicesCatalogue?: CatalogueHeliceEntity[];
-    remorquesCatalogue?: CatalogueRemorqueEntity[];
+    venteProduits?: VenteProduitLigne[];
+    venteBateauxCatalogue?: VenteBateauCatalogueLigne[];
+    venteMoteursCatalogue?: VenteMoteurCatalogueLigne[];
+    venteHelicesCatalogue?: VenteHeliceCatalogueLigne[];
+    venteRemorquesCatalogue?: VenteRemorqueCatalogueLigne[];
     services?: ServiceEntity[];
     taches?: TaskEntity[];
     date?: string;
@@ -211,9 +251,9 @@ interface VenteFormValues {
     bateauId?: number;
     moteurId?: number;
     remorqueId?: number;
-    forfaits: Array<{ forfaitId?: number; quantite: number }>;
-    produits: Array<{ produitRef?: string; quantite?: number }>;
-    services: Array<{ serviceId?: number; quantite: number }>;
+    forfaits: Array<{ forfaitId?: number; quantite: number; remise?: number; remisePourcentage?: number }>;
+    produits: Array<{ produitRef?: string; quantite?: number; remise?: number; remisePourcentage?: number }>;
+    services: Array<{ serviceId?: number; quantite: number; remise?: number; remisePourcentage?: number }>;
     date?: string;
     montantHT: number;
     remise: number;
@@ -674,28 +714,43 @@ export default function Comptoir() {
             if (vente.client?.id) {
                 setClients((prev) => mergeById(prev, [vente.client as ClientEntity]));
             }
-            const venteProduits = (vente.produits || []).filter((p): p is ProduitCatalogueEntity => !!p?.id);
-            if (venteProduits.length > 0) setProduits((prev) => mergeById(prev, venteProduits));
-            const venteBateaux = (vente.bateauxCatalogue || []).filter((b): b is CatalogueBateauEntity => !!b?.id);
-            if (venteBateaux.length > 0) setCatalogueBateaux((prev) => mergeById(prev, venteBateaux));
-            const venteMoteurs = (vente.moteursCatalogue || []).filter((m): m is CatalogueMoteurEntity => !!m?.id);
-            if (venteMoteurs.length > 0) setCatalogueMoteurs((prev) => mergeById(prev, venteMoteurs));
-            const venteHelices = (vente.helicesCatalogue || []).filter((h): h is CatalogueHeliceEntity => !!h?.id);
-            if (venteHelices.length > 0) setCatalogueHelices((prev) => mergeById(prev, venteHelices));
-            const venteRemorques = (vente.remorquesCatalogue || []).filter((r): r is CatalogueRemorqueEntity => !!r?.id);
-            if (venteRemorques.length > 0) setCatalogueRemorques((prev) => mergeById(prev, venteRemorques));
+            const produitsCatalogue = (vente.venteProduits || [])
+                .map((l) => l.produit)
+                .filter((p): p is ProduitCatalogueEntity => !!p?.id);
+            if (produitsCatalogue.length > 0) setProduits((prev) => mergeById(prev, produitsCatalogue));
+            const bateauxCat = (vente.venteBateauxCatalogue || [])
+                .map((l) => l.bateau)
+                .filter((b): b is CatalogueBateauEntity => !!b?.id);
+            if (bateauxCat.length > 0) setCatalogueBateaux((prev) => mergeById(prev, bateauxCat));
+            const moteursCat = (vente.venteMoteursCatalogue || [])
+                .map((l) => l.moteur)
+                .filter((m): m is CatalogueMoteurEntity => !!m?.id);
+            if (moteursCat.length > 0) setCatalogueMoteurs((prev) => mergeById(prev, moteursCat));
+            const helicesCat = (vente.venteHelicesCatalogue || [])
+                .map((l) => l.helice)
+                .filter((h): h is CatalogueHeliceEntity => !!h?.id);
+            if (helicesCat.length > 0) setCatalogueHelices((prev) => mergeById(prev, helicesCat));
+            const remorquesCat = (vente.venteRemorquesCatalogue || [])
+                .map((l) => l.remorque)
+                .filter((r): r is CatalogueRemorqueEntity => !!r?.id);
+            if (remorquesCat.length > 0) setCatalogueRemorques((prev) => mergeById(prev, remorquesCat));
 
-            const buildRefLines = <T extends { id: number }>(items: T[], prefix: string): Array<{ produitRef: string; quantite: number }> => {
-                const map = new Map<number, number>();
-                items.forEach((item) => { if (item?.id) map.set(item.id, (map.get(item.id) || 0) + 1); });
-                return Array.from(map.entries()).map(([id, quantite]) => ({ produitRef: `${prefix}:${id}`, quantite }));
-            };
             const produitLines = [
-                ...buildRefLines(vente.produits || [], 'produit'),
-                ...buildRefLines(vente.bateauxCatalogue || [], 'bateau'),
-                ...buildRefLines(vente.moteursCatalogue || [], 'moteur'),
-                ...buildRefLines(vente.helicesCatalogue || [], 'helice'),
-                ...buildRefLines(vente.remorquesCatalogue || [], 'remorque'),
+                ...(vente.venteProduits || [])
+                    .filter((l) => l.produit?.id)
+                    .map((l) => ({ produitRef: `produit:${l.produit!.id}`, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 })),
+                ...(vente.venteBateauxCatalogue || [])
+                    .filter((l) => l.bateau?.id)
+                    .map((l) => ({ produitRef: `bateau:${l.bateau!.id}`, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 })),
+                ...(vente.venteMoteursCatalogue || [])
+                    .filter((l) => l.moteur?.id)
+                    .map((l) => ({ produitRef: `moteur:${l.moteur!.id}`, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 })),
+                ...(vente.venteHelicesCatalogue || [])
+                    .filter((l) => l.helice?.id)
+                    .map((l) => ({ produitRef: `helice:${l.helice!.id}`, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 })),
+                ...(vente.venteRemorquesCatalogue || [])
+                    .filter((l) => l.remorque?.id)
+                    .map((l) => ({ produitRef: `remorque:${l.remorque!.id}`, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 })),
             ];
             form.setFieldsValue({
                 status: vente.status || 'DEVIS',
@@ -762,9 +817,6 @@ export default function Comptoir() {
         }
     };
 
-    const expandByQuantity = <T,>(items: T[], quantite: number): T[] =>
-        Array.from({ length: Math.max(1, Math.floor(quantite || 1)) }, () => items).flat();
-
     const toPayload = (values: VenteFormValues): VenteEntity => ({
         status: values.status,
         bonPourAccord: values.bonPourAccord,
@@ -778,48 +830,73 @@ export default function Comptoir() {
             .filter((line) => line.forfaitId)
             .flatMap((line) => {
                 const item = forfaits.find((forfait) => forfait.id === line.forfaitId);
-                return item ? expandByQuantity([item], line.quantite) : [];
+                return item ? [item] : [];
             }) as ForfaitEntity[],
-        produits: (values.produits || [])
+        venteProduits: (values.produits || [])
             .filter((line) => line.produitRef?.startsWith('produit:'))
-            .flatMap((line) => {
+            .flatMap<VenteProduitLigne>((line) => {
                 const id = parseInt((line.produitRef || '').split(':')[1], 10);
-                const item = produits.find((p) => p.id === id);
-                return item ? expandByQuantity([item], line.quantite || 1) : [];
-            }) as ProduitCatalogueEntity[],
-        bateauxCatalogue: (values.produits || [])
+                const produit = produits.find((p) => p.id === id);
+                return produit ? [{
+                    produit,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
+        venteBateauxCatalogue: (values.produits || [])
             .filter((line) => line.produitRef?.startsWith('bateau:'))
-            .flatMap((line) => {
+            .flatMap<VenteBateauCatalogueLigne>((line) => {
                 const id = parseInt((line.produitRef || '').split(':')[1], 10);
-                const item = catalogueBateaux.find((b) => b.id === id);
-                return item ? expandByQuantity([item], line.quantite || 1) : [];
-            }) as CatalogueBateauEntity[],
-        moteursCatalogue: (values.produits || [])
+                const bateau = catalogueBateaux.find((b) => b.id === id);
+                return bateau ? [{
+                    bateau,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
+        venteMoteursCatalogue: (values.produits || [])
             .filter((line) => line.produitRef?.startsWith('moteur:'))
-            .flatMap((line) => {
+            .flatMap<VenteMoteurCatalogueLigne>((line) => {
                 const id = parseInt((line.produitRef || '').split(':')[1], 10);
-                const item = catalogueMoteurs.find((m) => m.id === id);
-                return item ? expandByQuantity([item], line.quantite || 1) : [];
-            }) as CatalogueMoteurEntity[],
-        helicesCatalogue: (values.produits || [])
+                const moteur = catalogueMoteurs.find((m) => m.id === id);
+                return moteur ? [{
+                    moteur,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
+        venteHelicesCatalogue: (values.produits || [])
             .filter((line) => line.produitRef?.startsWith('helice:'))
-            .flatMap((line) => {
+            .flatMap<VenteHeliceCatalogueLigne>((line) => {
                 const id = parseInt((line.produitRef || '').split(':')[1], 10);
-                const item = catalogueHelices.find((h) => h.id === id);
-                return item ? expandByQuantity([item], line.quantite || 1) : [];
-            }) as CatalogueHeliceEntity[],
-        remorquesCatalogue: (values.produits || [])
+                const helice = catalogueHelices.find((h) => h.id === id);
+                return helice ? [{
+                    helice,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
+        venteRemorquesCatalogue: (values.produits || [])
             .filter((line) => line.produitRef?.startsWith('remorque:'))
-            .flatMap((line) => {
+            .flatMap<VenteRemorqueCatalogueLigne>((line) => {
                 const id = parseInt((line.produitRef || '').split(':')[1], 10);
-                const item = catalogueRemorques.find((r) => r.id === id);
-                return item ? expandByQuantity([item], line.quantite || 1) : [];
-            }) as CatalogueRemorqueEntity[],
+                const remorque = catalogueRemorques.find((r) => r.id === id);
+                return remorque ? [{
+                    remorque,
+                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    remise: line.remise || 0,
+                    remisePourcentage: line.remisePourcentage || 0,
+                }] : [];
+            }),
         services: (values.services || [])
             .filter((line) => line.serviceId)
             .flatMap((line) => {
                 const item = services.find((service) => service.id === line.serviceId);
-                return item ? expandByQuantity([item], line.quantite) : [];
+                return item ? [item] : [];
             }) as ServiceEntity[],
         date: toBackendDateValue(values.date),
         montantHT: values.montantHT || 0,
@@ -902,22 +979,29 @@ export default function Comptoir() {
     };
 
     const getProduitLines = (vente: VenteEntity) => {
-        type LineItem = { id: number; nom: string; marque?: string; prixVenteTTC?: number; quantite: number };
-        const lines = new Map<string, LineItem>();
-        const addItems = (items: Array<{ id: number; prixVenteTTC?: number } & Record<string, unknown>>, getNom: (item: unknown) => string, prefix: string) => {
-            (items || []).forEach((item) => {
-                const key = `${prefix}:${item.id}`;
-                const current = lines.get(key) || { id: item.id, nom: getNom(item), marque: (item as { marque?: string }).marque, prixVenteTTC: item.prixVenteTTC, quantite: 0 };
-                current.quantite += 1;
-                lines.set(key, current);
-            });
-        };
-        addItems(vente.produits || [], (p) => (p as ProduitCatalogueEntity).nom, 'produit');
-        addItems(vente.bateauxCatalogue || [], (b) => `${(b as CatalogueBateauEntity).marque} ${(b as CatalogueBateauEntity).modele}`, 'bateau');
-        addItems(vente.moteursCatalogue || [], (m) => `${(m as CatalogueMoteurEntity).marque} ${(m as CatalogueMoteurEntity).modele}`, 'moteur');
-        addItems(vente.helicesCatalogue || [], (h) => `${(h as CatalogueHeliceEntity).marque} ${(h as CatalogueHeliceEntity).modele}`, 'helice');
-        addItems(vente.remorquesCatalogue || [], (r) => `${(r as CatalogueRemorqueEntity).marque} ${(r as CatalogueRemorqueEntity).modele}`, 'remorque');
-        return Array.from(lines.values());
+        type LineItem = { id: number; nom: string; marque?: string; prixVenteTTC?: number; quantite: number; remise: number };
+        const lines: LineItem[] = [];
+        (vente.venteProduits || []).forEach((l) => {
+            if (!l.produit?.id) return;
+            lines.push({ id: l.produit.id, nom: l.produit.nom, marque: l.produit.marque, prixVenteTTC: l.produit.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+        });
+        (vente.venteBateauxCatalogue || []).forEach((l) => {
+            if (!l.bateau?.id) return;
+            lines.push({ id: l.bateau.id, nom: `${l.bateau.marque} ${l.bateau.modele}`, marque: l.bateau.marque, prixVenteTTC: l.bateau.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+        });
+        (vente.venteMoteursCatalogue || []).forEach((l) => {
+            if (!l.moteur?.id) return;
+            lines.push({ id: l.moteur.id, nom: `${l.moteur.marque} ${l.moteur.modele}`, marque: l.moteur.marque, prixVenteTTC: l.moteur.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+        });
+        (vente.venteHelicesCatalogue || []).forEach((l) => {
+            if (!l.helice?.id) return;
+            lines.push({ id: l.helice.id, nom: `${l.helice.marque} ${l.helice.modele}`, marque: l.helice.marque, prixVenteTTC: l.helice.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+        });
+        (vente.venteRemorquesCatalogue || []).forEach((l) => {
+            if (!l.remorque?.id) return;
+            lines.push({ id: l.remorque.id, nom: `${l.remorque.marque} ${l.remorque.modele}`, marque: l.remorque.marque, prixVenteTTC: l.remorque.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+        });
+        return lines;
     };
 
     const openPrintDocument = (_title: string, contentHtml: string, _width: number = 900) => {
@@ -972,12 +1056,14 @@ export default function Comptoir() {
         const produitRows = getProduitLines(vente)
             .map((item) => {
                 const pu = item.prixVenteTTC || 0;
-                const total = pu * item.quantite;
+                const brut = pu * item.quantite;
+                const total = Math.max(0, brut - item.remise);
                 return `
                 <tr>
                     <td>${escapeHtml(item.nom)}</td>
                     <td style="text-align:right;">${escapeHtml(formatEuro(pu))}</td>
                     <td style="text-align:right;">${item.quantite}</td>
+                    <td style="text-align:right;">${escapeHtml(formatEuro(item.remise))}</td>
                     <td style="text-align:right;">${escapeHtml(formatEuro(total))}</td>
                 </tr>`;
             })
@@ -1015,11 +1101,12 @@ export default function Comptoir() {
                                 <th>Produit</th>
                                 <th style="text-align:right;">P.U. TTC</th>
                                 <th style="text-align:right;">Qté</th>
+                                <th style="text-align:right;">Remise</th>
                                 <th style="text-align:right;">Total TTC</th>
                             </tr>
                         </thead>
                         <tbody>
-                            ${produitRows || '<tr><td colspan="4">Aucun produit</td></tr>'}
+                            ${produitRows || '<tr><td colspan="5">Aucun produit</td></tr>'}
                         </tbody>
                     </table>
                 </body>
@@ -1033,7 +1120,11 @@ export default function Comptoir() {
         const produitRows = getProduitLines(vente)
             .map((item) => {
                 const pu = item.prixVenteTTC || 0;
-                const total = pu * item.quantite;
+                const brut = pu * item.quantite;
+                const total = Math.max(0, brut - item.remise);
+                const remiseLine = item.remise > 0
+                    ? `<div class="line sub"><span>Remise</span><span>-${escapeHtml(formatEuro(item.remise))}</span></div>`
+                    : '';
                 return `
                 <div class="line">
                     <span>${escapeHtml(item.nom)}</span>
@@ -1042,7 +1133,7 @@ export default function Comptoir() {
                 <div class="line sub">
                     <span>${escapeHtml(formatEuro(pu))} /u</span>
                     <span>${escapeHtml(formatEuro(total))}</span>
-                </div>`;
+                </div>${remiseLine}`;
             })
             .join('');
 
@@ -1111,17 +1202,21 @@ export default function Comptoir() {
         let remisePourcentage = form.getFieldValue('remisePourcentage') || 0;
         const tva = form.getFieldValue('tva') || 0;
 
-        const forfaitsTTC = forfaitLines.reduce((sum: number, line: { forfaitId?: number; quantite?: number }) => {
+        const sumLine = (prixUnitaire: number, quantite: number, remiseLigne: number) => {
+            const brut = prixUnitaire * Math.max(1, Math.floor(quantite || 1));
+            return Math.max(0, brut - (remiseLigne || 0));
+        };
+        const forfaitsTTC = forfaitLines.reduce((sum: number, line: { forfaitId?: number; quantite?: number; remise?: number }) => {
             const prixUnitaire = forfaits.find((item) => item.id === line.forfaitId)?.prixTTC || 0;
-            return sum + (prixUnitaire * Math.max(1, Math.floor(line.quantite || 1)));
+            return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
-        const produitsTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number }) => {
+        const produitsTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number; remise?: number }) => {
             const prixUnitaire = getCatalogueItemPrice(line.produitRef);
-            return sum + (prixUnitaire * Math.max(1, Math.floor(line.quantite || 1)));
+            return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
-        const servicesTTC = serviceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number }) => {
+        const servicesTTC = serviceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number; remise?: number }) => {
             const prixUnitaire = services.find((item) => item.id === line.serviceId)?.prixTTC || 0;
-            return sum + (prixUnitaire * Math.max(1, Math.floor(line.quantite || 1)));
+            return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
 
         const montantTTC = Math.round(((forfaitsTTC + produitsTTC + servicesTTC) + Number.EPSILON) * 100) / 100;
@@ -1146,8 +1241,36 @@ export default function Comptoir() {
         form.setFieldValue('prixVenteTTC', prixVenteTTC);
     };
 
+    const syncLineRemise = (changedProduitLines: Array<Partial<{ produitRef: string; quantite: number; remise: number; remisePourcentage: number }> | undefined>) => {
+        const currentLines = form.getFieldValue('produits') || [];
+        changedProduitLines.forEach((changed, index) => {
+            if (!changed) return;
+            const line = currentLines[index];
+            if (!line) return;
+            const prixUnitaire = getCatalogueItemPrice(line.produitRef);
+            const quantite = Math.max(1, Math.floor(line.quantite || 1));
+            const brut = Math.round(prixUnitaire * quantite * 100) / 100;
+            if (changed.remisePourcentage !== undefined) {
+                const remise = Math.round(((brut * (changed.remisePourcentage || 0)) / 100 + Number.EPSILON) * 100) / 100;
+                form.setFieldValue(['produits', index, 'remise'], remise);
+            } else if (changed.remise !== undefined) {
+                const remisePourcentage = brut > 0
+                    ? Math.round((((changed.remise || 0) / brut) * 100 + Number.EPSILON) * 100) / 100
+                    : 0;
+                form.setFieldValue(['produits', index, 'remisePourcentage'], remisePourcentage);
+            }
+        });
+    };
+
     const onValuesChange = (changedValues: Partial<VenteFormValues>, allValues: VenteFormValues) => {
         if (changedValues.produits !== undefined) {
+            // Sync line-level remise EUR <-> % when changed
+            const lineRemiseChanged = (changedValues.produits as Array<Partial<{ remise: number; remisePourcentage: number }> | undefined>)
+                .some((p) => p && (p.remise !== undefined || p.remisePourcentage !== undefined));
+            if (lineRemiseChanged) {
+                syncLineRemise(changedValues.produits as Array<Partial<{ produitRef: string; quantite: number; remise: number; remisePourcentage: number }> | undefined>);
+            }
+
             const currentProduitLines = allValues.produits || [];
             if (currentProduitLines.length === 0) {
                 form.setFieldValue('produits', [{}]);
@@ -1457,7 +1580,11 @@ export default function Comptoir() {
                                                 const produitRef = form.getFieldValue(['produits', field.name, 'produitRef']);
                                                 const prixUnitaire = getCatalogueItemPrice(produitRef) || undefined;
                                                 const quantite = form.getFieldValue(['produits', field.name, 'quantite']);
-                                                const totalLigne = (prixUnitaire && quantite) ? Math.round(prixUnitaire * quantite * 100) / 100 : undefined;
+                                                const remiseLigne = form.getFieldValue(['produits', field.name, 'remise']) || 0;
+                                                const brutLigne = (prixUnitaire && quantite) ? Math.round(prixUnitaire * quantite * 100) / 100 : undefined;
+                                                const totalLigne = brutLigne !== undefined
+                                                    ? Math.max(0, Math.round((brutLigne - remiseLigne) * 100) / 100)
+                                                    : undefined;
                                                 const isEmptyLine = !produitRef;
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
@@ -1475,7 +1602,7 @@ export default function Comptoir() {
                                                                 }
                                                             }
                                                         ]}
-                                                        style={{ width: 420 }}
+                                                        style={{ width: 320 }}
                                                     >
                                                         <Select
                                                             allowClear
@@ -1489,7 +1616,7 @@ export default function Comptoir() {
                                                             placeholder="Rechercher produit, bateau, moteur, hélice ou remorque"
                                                         />
                                                     </Form.Item>
-                                                    <Form.Item style={{ width: 150 }}>
+                                                    <Form.Item style={{ width: 110 }}>
                                                         <InputNumber
                                                             addonAfter="EUR"
                                                             value={prixUnitaire ?? undefined}
@@ -1514,11 +1641,25 @@ export default function Comptoir() {
                                                                 }
                                                             }
                                                         ]}
-                                                        style={{ width: 150 }}
+                                                        style={{ width: 90 }}
                                                     >
                                                         <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
                                                     </Form.Item>
-                                                    <Form.Item style={{ width: 150 }}>
+                                                    <Form.Item
+                                                        {...field}
+                                                        name={[field.name, 'remisePourcentage']}
+                                                        style={{ width: 110 }}
+                                                    >
+                                                        <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
+                                                    </Form.Item>
+                                                    <Form.Item
+                                                        {...field}
+                                                        name={[field.name, 'remise']}
+                                                        style={{ width: 130 }}
+                                                    >
+                                                        <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
+                                                    </Form.Item>
+                                                    <Form.Item style={{ width: 130 }}>
                                                         <InputNumber
                                                             addonAfter="EUR"
                                                             value={totalLigne}

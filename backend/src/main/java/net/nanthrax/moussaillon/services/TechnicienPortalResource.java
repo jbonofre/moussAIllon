@@ -526,11 +526,12 @@ public class TechnicienPortalResource {
     }
 
     private void decrementStock(VenteEntity vente) {
-        if (vente.produits != null) {
-            for (ProduitCatalogueEntity produit : vente.produits) {
-                ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(produit.id);
+        if (vente.venteProduits != null) {
+            for (net.nanthrax.moussaillon.persistence.VenteProduitEntity vp : vente.venteProduits) {
+                if (vp.produit == null || vp.produit.id == null) continue;
+                ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(vp.produit.id);
                 if (p != null) {
-                    p.stock = Math.max(0, p.stock - 1);
+                    p.stock = Math.max(0, p.stock - Math.max(1, vp.quantite));
                 }
             }
         }
