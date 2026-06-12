@@ -141,4 +141,7 @@ public class VenteEntity extends PanacheEntity {
     public boolean rappel2Envoye;
     public boolean rappel3Envoye;
 
+    @jakarta.persistence.Column(columnDefinition = "TEXT")
+    public String note;
+
 }

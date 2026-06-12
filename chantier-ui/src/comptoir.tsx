@@ -201,6 +201,7 @@ interface VenteEntity {
     prixVenteTTC?: number;
     modePaiement?: ModePaiement;
     paiements?: VentePaiement[];
+    note?: string;
 }
 
 interface VenteFormValues {
@@ -223,6 +224,7 @@ interface VenteFormValues {
     montantTTC: number;
     prixVenteTTC: number;
     modePaiement?: ModePaiement;
+    note?: string;
 }
 
 const modePaiementOptions: Array<{ value: ModePaiement; label: string }> = [
@@ -716,7 +718,8 @@ export default function Comptoir() {
                 montantTVA: vente.montantTVA || 0,
                 montantTTC: vente.montantTTC || 0,
                 prixVenteTTC: vente.prixVenteTTC || 0,
-                modePaiement: vente.modePaiement
+                modePaiement: vente.modePaiement,
+                note: vente.note
             });
         } else {
             setIsEdit(false);
@@ -828,7 +831,8 @@ export default function Comptoir() {
         montantTVA: values.montantTVA || 0,
         montantTTC: values.montantTTC || 0,
         prixVenteTTC: values.prixVenteTTC || 0,
-        modePaiement: values.modePaiement
+        modePaiement: values.modePaiement,
+        note: values.note
     });
 
     const handleSave = async () => {
@@ -1022,6 +1026,7 @@ export default function Comptoir() {
                             ${produitRows || '<tr><td colspan="4">Aucun produit</td></tr>'}
                         </tbody>
                     </table>
+                    ${vente.note ? `<div style="margin-top:16px;"><strong>Note:</strong><div style="white-space:pre-wrap;margin-top:4px;">${escapeHtml(vente.note)}</div></div>` : ''}
                 </body>
                 </html>
             `
@@ -1077,6 +1082,7 @@ export default function Comptoir() {
                             return `<div class="line"><span>${escapeHtml(label)}${escapeHtml(avoir)}</span><span>${escapeHtml(formatEuro(p.montant))}</span></div>`;
                         }).join('')
                         : `<div class="line"><span>Paiement</span><span>${escapeHtml(vente.modePaiement || '-')}</span></div>`}
+                    ${vente.note ? `<div class="separator"></div><div style="white-space:pre-wrap;"><strong>Note:</strong><br/>${escapeHtml(vente.note)}</div>` : ''}
                     <div class="center" style="margin-top:12px;">Merci de votre visite</div>
                 </body>
                 </html>
@@ -1578,6 +1584,14 @@ export default function Comptoir() {
                         <Col span={6}>
                             <Form.Item name="prixVenteTTC" label="Prix vente TTC">
                                 <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={24}>
+                            <Form.Item name="note" label="Note">
+                                <Input.TextArea rows={3} allowClear placeholder="Note libre (visible sur le devis et la facture)" />
                             </Form.Item>
                         </Col>
                     </Row>

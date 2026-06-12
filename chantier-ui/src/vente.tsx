@@ -360,6 +360,7 @@ interface VenteEntity {
     rappel1Envoye?: boolean;
     rappel2Envoye?: boolean;
     rappel3Envoye?: boolean;
+    note?: string;
 }
 
 interface RappelHistoriqueEntity {
@@ -419,6 +420,7 @@ interface VenteFormValues {
     conditionsPaiement?: string;
     penalitesRetard?: string;
     indemniteForfaitaire?: number;
+    note?: string;
 }
 
 
@@ -1483,6 +1485,7 @@ export default function Vente() {
             conditionsPaiement: vente.conditionsPaiement,
             penalitesRetard: vente.penalitesRetard,
             indemniteForfaitaire: vente.indemniteForfaitaire ?? 40,
+            note: vente.note,
         });
     };
 
@@ -1765,7 +1768,8 @@ export default function Vente() {
             documents: values.documents || [],
             rappel1Jours: values.rappel1Jours,
             rappel2Jours: values.rappel2Jours,
-            rappel3Jours: values.rappel3Jours
+            rappel3Jours: values.rappel3Jours,
+            note: values.note
         };
     };
 
@@ -2132,6 +2136,9 @@ export default function Vente() {
         const signatureHtml = docType !== 'facture' && vente.signatureBonPourAccord
             ? `<div class="section"><h3>Signature client</h3><img src="${vente.signatureBonPourAccord}" style="max-width:300px;border:1px solid #d9d9d9;border-radius:4px;" /></div>` : '';
 
+        const noteHtml = vente.note
+            ? `<div class="section"><h3>Note</h3><div class="row" style="white-space:pre-wrap;">${escapeHtml(vente.note)}</div></div>` : '';
+
         return `<html>
             <head>
                 <title>${escapeHtml(title)}</title>
@@ -2160,6 +2167,7 @@ export default function Vente() {
                     ${tableHtml}
                 </div>
                 ${totalsHtml}
+                ${noteHtml}
                 ${conditionsLegalesHtml}
                 ${signatureHtml}
             </body>
@@ -3254,6 +3262,14 @@ export default function Vente() {
                         <Col span={6}>
                             <Form.Item name="indemniteForfaitaire" label="Indemnité forfaitaire (€)">
                                 <InputNumber addonAfter="EUR" min={0} step={1} style={{ width: '100%' }} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={24}>
+                            <Form.Item name="note" label="Note">
+                                <Input.TextArea rows={3} allowClear placeholder="Note libre (visible sur le devis et la facture)" />
                             </Form.Item>
                         </Col>
                     </Row>
