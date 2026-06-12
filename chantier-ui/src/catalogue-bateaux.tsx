@@ -257,7 +257,7 @@ const CatalogueBateaux: React.FC = () => {
             render: (_,record) => (
                 <Space>
                     {record.images && record.images[0] && (
-                        <Image width={50} src={record.images[0]} />
+                        <Image width={32} height={32} style={{ objectFit: 'cover' }} src={record.images[0]} />
                     )}
                     {record.modele}
                 </Space>
