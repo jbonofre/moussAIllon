@@ -1,5 +1,7 @@
 # moussAIllon
 
+Ceci est un test
+
 **Plateforme de gestion de chantier naval augmentee par l'IA.**
 
 MoussAIllon centralise l'ensemble des metiers d'un chantier naval dans une seule application : gestion commerciale, parc nautique, stock, planification des interventions, relation client et integration de fournisseurs.
