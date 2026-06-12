@@ -613,7 +613,18 @@ export default function Vente() {
 
     const handleClientSearch = (value: string) => {
         if (clientSearchTimeout) clearTimeout(clientSearchTimeout);
-        if (!value || value.trim() === '') return;
+        if (!value || value.trim() === '') {
+            const timeout = setTimeout(async () => {
+                try {
+                    const res = await api.get('/clients');
+                    setClients(res.data || []);
+                } catch {
+                    // ignore
+                }
+            }, 300);
+            setClientSearchTimeout(timeout);
+            return;
+        }
         const timeout = setTimeout(async () => {
             try {
                 const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
@@ -822,6 +833,7 @@ export default function Vente() {
     const fetchOptions = async () => {
         try {
             const [
+                clientsRes,
                 bateauxRes,
                 moteursRes,
                 remorquesRes,
@@ -835,6 +847,7 @@ export default function Vente() {
                 catHelicesRes,
                 catRemorquesRes
             ] = await Promise.all([
+                api.get('/clients'),
                 api.get('/bateaux'),
                 api.get('/moteurs'),
                 api.get('/remorques'),
@@ -848,6 +861,7 @@ export default function Vente() {
                 api.get('/catalogue/helices'),
                 api.get('/catalogue/remorques')
             ]);
+            setClients(clientsRes.data || []);
             setBateaux(bateauxRes.data || []);
             setMoteurs(moteursRes.data || []);
             setRemorques(remorquesRes.data || []);
