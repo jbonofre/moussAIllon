@@ -119,6 +119,7 @@ public class ClientResource {
         entity.siret = client.siret;
         entity.tva = client.tva;
         entity.naf = client.naf;
+        entity.canalAcquisition = client.canalAcquisition;
         entity.documents = client.documents != null ? client.documents : new java.util.ArrayList<>();
         if (client.motDePasse != null && !client.motDePasse.isBlank()) {
             entity.motDePasse = PasswordUtil.hash(client.motDePasse);
