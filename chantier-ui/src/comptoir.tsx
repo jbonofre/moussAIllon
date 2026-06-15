@@ -335,7 +335,6 @@ export default function Comptoir() {
     const [newProduitTargetLine, setNewProduitTargetLine] = useState<number | null>(null);
     const [newProduitForm] = Form.useForm();
     const [newProduitFormDirty, setNewProduitFormDirty] = useState(false);
-    const [clientSearchTimeout, setClientSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
     const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
     const [paiementModalVisible, setPaiementModalVisible] = useState(false);
     const [paiementMode, setPaiementMode] = useState<ModeReglement>('CARTE');
@@ -350,20 +349,6 @@ export default function Comptoir() {
         prev.forEach((item) => map.set(item.id, item));
         next.forEach((item) => { if (item?.id) map.set(item.id, item); });
         return Array.from(map.values());
-    };
-
-    const handleClientSearch = (value: string) => {
-        if (clientSearchTimeout) clearTimeout(clientSearchTimeout);
-        if (!value || value.trim() === '') return;
-        const timeout = setTimeout(async () => {
-            try {
-                const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
-                setClients((prev) => mergeById(prev, res.data || []));
-            } catch {
-                // ignore
-            }
-        }, 300);
-        setClientSearchTimeout(timeout);
     };
 
     const handleCatalogueSearch = (value: string) => {
@@ -508,6 +493,7 @@ export default function Comptoir() {
     const fetchOptions = async () => {
         try {
             const [
+                clientsRes,
                 bateauxRes,
                 moteursRes,
                 remorquesRes,
@@ -519,6 +505,7 @@ export default function Comptoir() {
                 catHelicesRes,
                 catRemorquesRes
             ] = await Promise.all([
+                api.get('/clients'),
                 api.get('/bateaux'),
                 api.get('/moteurs'),
                 api.get('/remorques'),
@@ -530,6 +517,7 @@ export default function Comptoir() {
                 api.get('/catalogue/helices'),
                 api.get('/catalogue/remorques')
             ]);
+            setClients(clientsRes.data || []);
             setBateaux(bateauxRes.data || []);
             setMoteurs(moteursRes.data || []);
             setRemorques(remorquesRes.data || []);
@@ -1444,9 +1432,9 @@ export default function Comptoir() {
                                     allowClear
                                     showSearch
                                     options={clientOptions}
-                                    filterOption={false}
-                                    onSearch={handleClientSearch}
-                                    notFoundContent={null}
+                                    filterOption={(input, option) =>
+                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                    }
                                     placeholder="Rechercher un client par prénom ou nom"
                                 />
                             </Form.Item>
