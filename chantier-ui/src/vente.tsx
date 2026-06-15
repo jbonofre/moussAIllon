@@ -874,10 +874,15 @@ export default function Vente() {
         if (pageState?.clientId) {
             const clientId = pageState.clientId;
             navigate('/prestations');
-            openModal().then(() => {
+            (async () => {
+                try {
+                    const res = await api.get(`/clients/${clientId}`);
+                    setClients(prev => mergeById(prev, [res.data]));
+                } catch { /* ignore */ }
+                await openModal();
                 form.setFieldValue('clientId', clientId);
                 handleClientChange(clientId);
-            });
+            })();
         }
     }, [pageState]);
 
