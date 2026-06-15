@@ -389,4 +389,29 @@ public class VenteResourceTest {
             .then()
             .statusCode(400);
     }
+
+    @Test
+    void testDecrementStockComptoir() {
+        int stockAvant = given()
+            .when().get("/catalogue/produits/100")
+            .then().statusCode(200).extract().path("stock");
+
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"produits\":[{\"id\":100}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"produits\":[{\"id\":100}]}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200);
+
+        int stockApres = given()
+            .when().get("/catalogue/produits/100")
+            .then().statusCode(200).extract().path("stock");
+
+        org.junit.jupiter.api.Assertions.assertEquals(stockAvant - 1, stockApres);
+    }
 }

@@ -710,6 +710,12 @@ public class VenteResource {
             }
         }
 
+        // Fallback: decrement stock at FACTURE_PRETE for sales without EN_COURS phase (e.g. comptoir)
+        if (!entity.stockDecremented && entity.status == VenteEntity.Status.FACTURE_PRETE) {
+            decrementStock(entity);
+            entity.stockDecremented = true;
+        }
+
         entity.images = vente.images != null ? vente.images : new java.util.ArrayList<>();
         entity.documents = vente.documents != null ? vente.documents : new java.util.ArrayList<>();
         entity.date = vente.date;
