@@ -74,7 +74,7 @@
         <dependency>
             <groupId>org.mustangproject</groupId>
             <artifactId>library</artifactId>
-            <version>2.23.1</version>
+            <version>2.24.0</version>
         </dependency>
         <!-- PDFBox 3.0.2 : requis par Mustang pour l'embarquement XML Factur-X et la génération PDF -->
         <dependency>
