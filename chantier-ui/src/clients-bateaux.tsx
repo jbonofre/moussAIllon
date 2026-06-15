@@ -96,8 +96,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [moteursCatalogue, setMoteursCatalogue] = useState<any[]>([]);
   const [produitsCatalogue, setProduitsCatalogue] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
-  const [proprietaireOptions, setProprietaireOptions] = useState<any[]>([]);
-  const [proprietaireSearchTimeout, setProprietaireSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+
   const [modeleOptions, setModeleOptions] = useState<any[]>([]);
   const [modeleSearchTimeout, setModeleSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [moteurOptions, setMoteurOptions] = useState<any[]>([]);
@@ -201,23 +200,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setClients(res.data);
   };
 
-  const handleProprietaireSearch = (value: string) => {
-    if (proprietaireSearchTimeout) clearTimeout(proprietaireSearchTimeout);
-    if (!value || value.trim() === "") {
-      setProprietaireOptions([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
-        setProprietaireOptions(res.data);
-      } catch {
-        setProprietaireOptions([]);
-      }
-    }, 300);
-    setProprietaireSearchTimeout(timeout);
-  };
-
   const handleModeleSearch = (value: string) => {
     if (modeleSearchTimeout) clearTimeout(modeleSearchTimeout);
     if (!value || value.trim() === "") {
@@ -276,11 +258,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setModeleOptions([]);
     setMoteurOptions([]);
     if (clientId) {
-      const client = clients.find((c: any) => c.id === clientId);
-      setProprietaireOptions(client ? [client] : []);
       form.setFieldsValue({ proprietaires: [clientId] });
-    } else {
-      setProprietaireOptions([]);
     }
     setModalVisible(true);
   };
@@ -288,7 +266,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const handleEdit = (record: BateauClient) => {
     setEditing(record);
     setFormDirty(false);
-    setProprietaireOptions(record.proprietaires || []);
     setModeleOptions(record.modele ? [record.modele] : []);
     setMoteurOptions(record.moteurs || []);
     form.setFieldsValue({
@@ -360,7 +337,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       setClientModalVisible(false);
       clientForm.resetFields();
       await fetchClients();
-      setProprietaireOptions((prev) => [...prev, res.data]);
       const currentProprietaires = form.getFieldValue("proprietaires") || [];
       form.setFieldsValue({ proprietaires: [...currentProprietaires, res.data.id] });
     } catch (e) {
@@ -623,18 +599,13 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                   mode="multiple"
                   style={{ width: '100%' }}
                   placeholder="Rechercher un propriétaire par prénom ou nom"
-                  filterOption={false}
                   showSearch
-                  onSearch={handleProprietaireSearch}
                   allowClear
-                  notFoundContent={null}
-                >
-                  {proprietaireOptions.map((client: any) => (
-                    <Select.Option key={client.id} value={client.id}>
-                      {client.prenom} {client.nom}
-                    </Select.Option>
-                  ))}
-                </Select>
+                  filterOption={(input, option) =>
+                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                  }
+                  options={clients.map((c: any) => ({ value: c.id, label: `${c.prenom || ''} ${c.nom || ''}`.trim() }))}
+                />
               </Form.Item>
               <Button
                 icon={<PlusCircleOutlined />}
