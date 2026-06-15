@@ -600,7 +600,6 @@ export default function Vente() {
     const [bpaPendingCallback, setBpaPendingCallback] = useState<(() => void) | null>(null);
     const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const signatureDrawingRef = useRef(false);
-    const [clientSearchTimeout, setClientSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
     const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
     const capturedSignatureRef = useRef<string | null>(null);
 
@@ -609,20 +608,6 @@ export default function Vente() {
         prev.forEach((item) => { if (item?.id !== undefined) map.set(item.id, item); });
         next.forEach((item) => { if (item?.id !== undefined) map.set(item.id, item); });
         return Array.from(map.values());
-    };
-
-    const handleClientSearch = (value: string) => {
-        if (clientSearchTimeout) clearTimeout(clientSearchTimeout);
-        if (!value || value.trim() === '') return;
-        const timeout = setTimeout(async () => {
-            try {
-                const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
-                setClients((prev) => mergeById(prev, res.data || []));
-            } catch {
-                // ignore
-            }
-        }, 300);
-        setClientSearchTimeout(timeout);
     };
 
     const handleProduitSearch = (value: string) => {
@@ -822,6 +807,7 @@ export default function Vente() {
     const fetchOptions = async () => {
         try {
             const [
+                clientsRes,
                 bateauxRes,
                 moteursRes,
                 remorquesRes,
@@ -835,6 +821,7 @@ export default function Vente() {
                 catHelicesRes,
                 catRemorquesRes
             ] = await Promise.all([
+                api.get('/clients'),
                 api.get('/bateaux'),
                 api.get('/moteurs'),
                 api.get('/remorques'),
@@ -848,6 +835,7 @@ export default function Vente() {
                 api.get('/catalogue/helices'),
                 api.get('/catalogue/remorques')
             ]);
+            setClients(clientsRes.data || []);
             setBateaux(bateauxRes.data || []);
             setMoteurs(moteursRes.data || []);
             setRemorques(remorquesRes.data || []);
@@ -2732,9 +2720,9 @@ export default function Vente() {
                                             options={clientOptions}
                                             style={{ width: '100%' }}
                                             onChange={handleClientChange}
-                                            filterOption={false}
-                                            onSearch={handleClientSearch}
-                                            notFoundContent={null}
+                                            filterOption={(input, option) =>
+                                                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                            }
                                             placeholder="Rechercher un client par prénom ou nom"
                                         />
                                     </Form.Item>
@@ -3964,9 +3952,9 @@ export default function Vente() {
                                 showSearch
                                 allowClear
                                 placeholder="Rechercher un propriétaire par prénom ou nom"
-                                filterOption={false}
-                                onSearch={handleClientSearch}
-                                notFoundContent={null}
+                                filterOption={(input, option) =>
+                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                }
                                 options={clientOptions}
                                 onChange={(values) => newBateauForm.setFieldValue('proprietaires', (values || []).map((id: number) => ({ id })))}
                                 style={{ width: '100%' }}
@@ -4059,9 +4047,9 @@ export default function Vente() {
                                 showSearch
                                 allowClear
                                 placeholder="Rechercher un propriétaire par prénom ou nom"
-                                filterOption={false}
-                                onSearch={handleClientSearch}
-                                notFoundContent={null}
+                                filterOption={(input, option) =>
+                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                }
                                 options={clientOptions}
                                 onChange={(value) => newMoteurForm.setFieldValue('proprietaire', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
@@ -4134,9 +4122,9 @@ export default function Vente() {
                                 showSearch
                                 allowClear
                                 placeholder="Rechercher un propriétaire par prénom ou nom"
-                                filterOption={false}
-                                onSearch={handleClientSearch}
-                                notFoundContent={null}
+                                filterOption={(input, option) =>
+                                    (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                }
                                 options={clientOptions}
                                 onChange={(value) => newRemorqueForm.setFieldValue('proprietaire', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
