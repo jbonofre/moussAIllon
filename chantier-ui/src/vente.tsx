@@ -543,7 +543,7 @@ const getClientLabel = (client?: ClientEntity) => {
 
 export default function Vente() {
     const PRODUIT_CATEGORIES = useReferenceValeurs('CATEGORIE_PRODUIT');
-    const { navigate } = useNavigation();
+    const { navigate, pageState } = useNavigation();
     const [ventes, setVentes] = useState<VenteEntity[]>([]);
     const [clients, setClients] = useState<ClientEntity[]>([]);
     const [bateaux, setBateaux] = useState<BateauClientEntity[]>([]);
@@ -857,6 +857,22 @@ export default function Vente() {
         fetchVentes();
         fetchOptions();
     }, []);
+
+    useEffect(() => {
+        if (pageState?.clientId) {
+            const clientId = pageState.clientId;
+            navigate('/prestations');
+            (async () => {
+                try {
+                    const res = await api.get(`/clients/${clientId}`);
+                    setClients(prev => mergeById(prev, [res.data]));
+                } catch { /* ignore */ }
+                await openModal();
+                form.setFieldValue('clientId', clientId);
+                handleClientChange(clientId);
+            })();
+        }
+    }, [pageState]);
 
     const makeInnerModalCancel = (dirty: boolean, setDirty: (v: boolean) => void, setVisible: (v: boolean) => void) => () => {
         if (dirty) {

@@ -32,12 +32,14 @@ import {
   ShopOutlined,
   GlobalOutlined,
   PhoneOutlined,
+  ToolOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
 import BateauxClients from "./clients-bateaux.tsx";
 import ClientsMoteurs from "./clients-moteurs.tsx";
 import RemorquesClients from "./clients-remorques.tsx";
 import DocumentUpload from "./DocumentUpload.tsx";
+import { useNavigation } from "./navigation-context.tsx";
 
 const { Option } = Select;
 const { Search } = Input;
@@ -101,6 +103,7 @@ const canalAcquisitionOptions = [
 ];
 
 function Clients() {
+  const { navigate } = useNavigation();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -553,6 +556,17 @@ function Clients() {
         </Form>
         {editing && editing.id && (
           <>
+            <Divider />
+            <Button
+              type="primary"
+              icon={<ToolOutlined />}
+              onClick={() => {
+                setModalVisible(false);
+                navigate('/prestations', { clientId: editing.id });
+              }}
+            >
+              Créer une prestation
+            </Button>
             <Divider />
             {/* Affiche la liste des bateaux pour ce client */}
             <BateauxClients clientId={editing.id} />
