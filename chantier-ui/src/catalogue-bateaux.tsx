@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, AutoComplete, Input, InputNumber, Select, Space, Popconfirm, message } from 'antd';
-import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, AutoComplete, Input, InputNumber, Select, Space, Popconfirm, message, Divider } from 'antd';
+import { PlusCircleOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import FournisseurBateaux from './fournisseur-bateaux.tsx';
@@ -13,6 +13,16 @@ const { Option } = Select;
 const { Search } = Input;
 const { TextArea } = Input;
 
+
+interface BateauOption {
+    id?: number;
+    nom: string;
+    description?: string;
+    prixHT: number;
+    tva: number;
+    montantTVA: number;
+    prixTTC: number;
+}
 
 interface BateauCatalogueEntity {
     id?: number;
@@ -37,6 +47,7 @@ interface BateauCatalogueEntity {
     reservoirCarburant: number;
     nombrePassagersMax: number;
     categorieCe: string;
+    options?: BateauOption[];
 }
 
 const defaultBateau: BateauCatalogueEntity = {
@@ -74,7 +85,8 @@ const defaultBateau: BateauCatalogueEntity = {
     stockAlerte: 0,
     emplacement: '',
     evaluation: 0,
-    description: ''
+    description: '',
+    options: [],
 };
 
 const CatalogueBateaux: React.FC = () => {
@@ -325,6 +337,20 @@ const CatalogueBateaux: React.FC = () => {
             form.setFieldValue('montantTVA', montantTVA);
             const prixVenteHT = Math.round(((prixVenteTTC - montantTVA) + Number.EPSILON) * 100) / 100;
             form.setFieldValue('prixVenteHT', prixVenteHT);
+        }
+        if (changedValues.options) {
+            const options = form.getFieldValue('options') || [];
+            const updatedOptions = options.map((opt: BateauOption) => {
+                if (opt && (opt.prixHT !== undefined || opt.tva !== undefined)) {
+                    const prixHT = opt.prixHT || 0;
+                    const tva = opt.tva || 0;
+                    const montantTVA = Math.round(((prixHT * (tva / 100)) + Number.EPSILON) * 100) / 100;
+                    const prixTTC = Math.round(((prixHT + montantTVA) + Number.EPSILON) * 100) / 100;
+                    return { ...opt, montantTVA, prixTTC };
+                }
+                return opt;
+            });
+            form.setFieldValue('options', updatedOptions);
         }
     };
 
@@ -598,6 +624,57 @@ const CatalogueBateaux: React.FC = () => {
                                     </Form.Item>
                                 </Col>
                             </Row>
+                        {/* Options disponibles */}
+                            <Divider orientation="left">Options disponibles</Divider>
+                            <Form.List name="options">
+                                {(fields, { add, remove }) => (
+                                    <>
+                                        {fields.map(({ key, name, ...restField }) => (
+                                            <Card key={key} size="small" style={{ marginBottom: 8 }} extra={
+                                                <Button danger icon={<MinusCircleOutlined />} size="small" onClick={() => remove(name)} />
+                                            }>
+                                                <Row gutter={8}>
+                                                    <Col span={12}>
+                                                        <Form.Item {...restField} name={[name, 'nom']} label="Nom" rules={[{ required: true, message: 'Nom requis' }]}>
+                                                            <Input />
+                                                        </Form.Item>
+                                                    </Col>
+                                                    <Col span={12}>
+                                                        <Form.Item {...restField} name={[name, 'description']} label="Description">
+                                                            <Input />
+                                                        </Form.Item>
+                                                    </Col>
+                                                </Row>
+                                                <Row gutter={8}>
+                                                    <Col span={6}>
+                                                        <Form.Item {...restField} name={[name, 'prixHT']} label="Prix HT">
+                                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
+                                                        </Form.Item>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Form.Item {...restField} name={[name, 'tva']} label="TVA">
+                                                            <InputNumber min={0} step={0.1} style={{ width: '100%' }} addonAfter="%" />
+                                                        </Form.Item>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Form.Item {...restField} name={[name, 'montantTVA']} label="Montant TVA">
+                                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
+                                                        </Form.Item>
+                                                    </Col>
+                                                    <Col span={6}>
+                                                        <Form.Item {...restField} name={[name, 'prixTTC']} label="Prix TTC">
+                                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
+                                                        </Form.Item>
+                                                    </Col>
+                                                </Row>
+                                            </Card>
+                                        ))}
+                                        <Button type="dashed" onClick={() => add({ prixHT: 0, tva: 20, montantTVA: 0, prixTTC: 0 })} block icon={<PlusCircleOutlined />}>
+                                            Ajouter une option
+                                        </Button>
+                                    </>
+                                )}
+                            </Form.List>
                         {/* Forfaits associés */}
                             <Form.Item label="Forfaits associés" style={{ marginBottom: 0 }}>
                                 <Space.Compact style={{ width: "100%" }}>

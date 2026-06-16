@@ -2,6 +2,7 @@ package net.nanthrax.moussaillon.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 
@@ -44,6 +45,9 @@ public class BateauClientEntity extends PanacheEntity {
     public List<MoteurCatalogueEntity> moteurs = new ArrayList<>();
 
     public List<String> equipements = new ArrayList<>();
+
+    @ManyToMany(fetch = FetchType.EAGER)
+    public List<BateauOptionEntity> options = new ArrayList<>();
 
     public Timestamp dateCreation;
 

@@ -93,6 +93,10 @@ public class BateauCatalogueResource {
         entity.montantTVA = updatedBateauCatalogue.montantTVA;
         entity.prixVenteTTC = updatedBateauCatalogue.prixVenteTTC;
         entity.fournisseurs = updatedBateauCatalogue.fournisseurs;
+        entity.options.clear();
+        if (updatedBateauCatalogue.options != null) {
+            entity.options.addAll(updatedBateauCatalogue.options);
+        }
         return Response.ok(entity).build();
     }
 

@@ -6,6 +6,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
+import net.nanthrax.moussaillon.persistence.BateauOptionEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 
@@ -80,7 +81,20 @@ public class BateauClientResource {
             }
             entity.moteurs = moteursEntities;
         }
-        
+
+        if (entity.options != null) {
+            List<BateauOptionEntity> optionsEntities = new ArrayList<>();
+            for (BateauOptionEntity o : entity.options) {
+                if (o != null && o.id != null) {
+                    BateauOptionEntity option = BateauOptionEntity.findById(o.id);
+                    if (option != null) {
+                        optionsEntities.add(option);
+                    }
+                }
+            }
+            entity.options = optionsEntities;
+        }
+
         if (entity.dateCreation == null) {
             entity.dateCreation = new Timestamp(System.currentTimeMillis());
         }
@@ -149,6 +163,21 @@ public class BateauClientResource {
         }
         
         entity.equipements = updated.equipements != null ? updated.equipements : new ArrayList<>();
+
+        if (updated.options != null) {
+            List<BateauOptionEntity> optionsEntities = new ArrayList<>();
+            for (BateauOptionEntity o : updated.options) {
+                if (o != null && o.id != null) {
+                    BateauOptionEntity option = BateauOptionEntity.findById(o.id);
+                    if (option != null) {
+                        optionsEntities.add(option);
+                    }
+                }
+            }
+            entity.options = optionsEntities;
+        } else {
+            entity.options = new ArrayList<>();
+        }
 
         return Response.ok(entity).build();
     }
