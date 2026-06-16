@@ -6,7 +6,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.2.5",
     "ajv": "^8.20.0",
-    "antd": "^6.4.3",
+    "antd": "^6.4.4",
     "axios": "^1.18.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -45,7 +45,8 @@
     "moduleNameMapper": {
       "^@rc-component/picker/locale/(.*)$": "@rc-component/picker/lib/locale/$1",
       "^@rc-component/picker/generate/(.*)$": "@rc-component/picker/lib/generate/$1",
-      "^@rc-component/picker/interface$": "@rc-component/picker/lib/interface"
+      "^@rc-component/picker/interface$": "@rc-component/picker/lib/interface",
+      "^@rc-component/pagination/locale/(.*)$": "@rc-component/pagination/lib/locale/$1"
     }
   }
 }
