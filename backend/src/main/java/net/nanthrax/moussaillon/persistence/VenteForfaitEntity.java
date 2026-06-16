@@ -14,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import java.util.ArrayList;
 
 @Entity
 public class VenteForfaitEntity extends PanacheEntity {
@@ -70,5 +71,9 @@ public class VenteForfaitEntity extends PanacheEntity {
     public List<String> images = new ArrayList<>();
 
     public List<String> documents = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "vente_forfait_extra_id")
+    public List<VentePrestationProduitEntity> produitsExtra = new ArrayList<>();
 
 }
