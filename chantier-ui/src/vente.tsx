@@ -2810,6 +2810,10 @@ export default function Vente() {
                                                         return undefined;
                                                     };
 
+                                                    const emplacement = lineType === 'produit' && itemId
+                                                        ? produits.find((p) => p.id === itemId)?.emplacement
+                                                        : undefined;
+
                                                     return (
                                                     <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
                                                         <Form.Item
@@ -2867,6 +2871,11 @@ export default function Vente() {
                                                             <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
                                                                 {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
                                                             </Tag>
+                                                        )}
+                                                        {lineType === 'produit' && itemId && (
+                                                            <Form.Item style={{ width: 110 }}>
+                                                                <Input disabled value={emplacement || ''} placeholder="Emplacement" />
+                                                            </Form.Item>
                                                         )}
                                                         <Form.Item
                                                             {...field}
