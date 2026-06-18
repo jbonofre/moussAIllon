@@ -2872,9 +2872,9 @@ export default function Vente() {
                                                                 {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
                                                             </Tag>
                                                         )}
-                                                        {lineType === 'produit' && itemId && (
-                                                            <Form.Item style={{ width: 110 }}>
-                                                                <Input disabled value={emplacement || ''} placeholder="Emplacement" />
+                                                        {lineType === 'produit' && itemId && emplacement && (
+                                                            <Form.Item style={{ width: 200 }}>
+                                                                <Input disabled value={emplacement} title={emplacement} placeholder="Emplacement" />
                                                             </Form.Item>
                                                         )}
                                                         <Form.Item
