@@ -3056,6 +3056,18 @@ export default function Vente() {
                                                                 );
                                                             }}
                                                         </Form.Item>
+                                                        {lineType === 'produit' && (
+                                                            <Form.Item noStyle shouldUpdate>
+                                                                {() => {
+                                                                    const produit = produits.find((p) => p.id === itemId);
+                                                                    if (!produit) return null;
+                                                                    const stock = produit.stock ?? 0;
+                                                                    const quantite = form.getFieldValue(['lignes', field.name, 'quantite']) || 0;
+                                                                    const color = stock === 0 ? 'red' : stock < quantite ? 'orange' : 'green';
+                                                                    return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
+                                                                }}
+                                                            </Form.Item>
+                                                        )}
                                                         {isForfaitOrService && (
                                                             <>
                                                                 <Form.Item
