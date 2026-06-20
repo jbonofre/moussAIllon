@@ -1592,6 +1592,8 @@ export default function Comptoir() {
                                                     ? Math.max(0, Math.round((brutLigne - remiseLigne) * 100) / 100)
                                                     : undefined;
                                                 const isEmptyLine = !produitRef;
+                                                const [refType, refIdStr] = (produitRef || '').split(':');
+                                                const produitCatalogue = refType === 'produit' ? produits.find((p) => p.id === parseInt(refIdStr, 10)) : undefined;
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
                                                     <Form.Item
@@ -1665,6 +1667,11 @@ export default function Comptoir() {
                                                     >
                                                         <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
                                                     </Form.Item>
+                                                    {produitCatalogue && (() => {
+                                                        const stock = produitCatalogue.stock ?? 0;
+                                                        const color = stock === 0 ? 'red' : stock < (quantite || 0) ? 'orange' : 'green';
+                                                        return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
+                                                    })()}
                                                     <Form.Item style={{ width: 130 }}>
                                                         <InputNumber
                                                             addonAfter="EUR"
