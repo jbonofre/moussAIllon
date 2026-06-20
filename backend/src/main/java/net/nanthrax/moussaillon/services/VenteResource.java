@@ -710,8 +710,10 @@ public class VenteResource {
             }
         }
 
-        // Fallback: decrement stock at FACTURE_PRETE for sales without EN_COURS phase (e.g. comptoir)
-        if (!entity.stockDecremented && entity.status == VenteEntity.Status.FACTURE_PRETE) {
+        // Fallback: decrement stock once the sale reaches FACTURE_PRETE or FACTURE_PAYEE,
+        // for sales without EN_COURS phase (e.g. comptoir, which can skip FACTURE_PRETE entirely)
+        if (!entity.stockDecremented
+                && (entity.status == VenteEntity.Status.FACTURE_PRETE || entity.status == VenteEntity.Status.FACTURE_PAYEE)) {
             decrementStock(entity);
             entity.stockDecremented = true;
         }
