@@ -4,6 +4,7 @@ import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/ic
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import FournisseurProduits from './fournisseur-produits.tsx';
+import ProduitHistorique from './produit-historique.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 
@@ -464,7 +465,10 @@ const CatalogueProduits: React.FC = () => {
                                 </Row>
                             </Form>
                             {isEdit && currentProduit && currentProduit.id && (
-                            <FournisseurProduits produitId={currentProduit?.id} />  
+                            <>
+                                <FournisseurProduits produitId={currentProduit?.id} />
+                                <ProduitHistorique produitId={currentProduit?.id} />
+                            </>
                             )}
                         </Modal>
                     </Col>

@@ -2,7 +2,9 @@ package net.nanthrax.moussaillon.services;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
@@ -29,6 +31,7 @@ import net.nanthrax.moussaillon.persistence.ForfaitProduitEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ServiceEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
@@ -899,13 +902,37 @@ public class VenteResource {
     }
 
     private void decrementStock(VenteEntity vente) {
+        Map<Long, Integer> produitQuantites = new HashMap<>();
         if (vente.venteProduits != null) {
             for (VenteProduitEntity vp : vente.venteProduits) {
                 if (vp.produit == null || vp.produit.id == null) continue;
-                ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(vp.produit.id);
-                if (p != null) {
-                    p.stock = Math.max(0, p.stock - Math.max(1, vp.quantite));
+                produitQuantites.merge(vp.produit.id, Math.max(1, vp.quantite), Integer::sum);
+            }
+        }
+        for (VenteForfaitEntity vf : vente.venteForfaits) {
+            if (vf.forfait != null) {
+                ForfaitEntity f = ForfaitEntity.findById(vf.forfait.id);
+                if (f != null && f.produits != null) {
+                    for (ForfaitProduitEntity fp : f.produits) {
+                        if (fp.produit != null) {
+                            produitQuantites.merge(fp.produit.id, fp.quantite * vf.quantite, Integer::sum);
+                        }
+                    }
                 }
+            }
+        }
+        for (Map.Entry<Long, Integer> entry : produitQuantites.entrySet()) {
+            ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(entry.getKey());
+            if (p != null) {
+                p.stock = Math.max(0, p.stock - entry.getValue());
+                ProduitMouvementEntity mouvement = new ProduitMouvementEntity();
+                mouvement.produit = p;
+                mouvement.type = ProduitMouvementEntity.Type.VENTE;
+                mouvement.quantite = entry.getValue();
+                mouvement.stockApres = p.stock;
+                mouvement.vente = vente;
+                mouvement.date = new Timestamp(System.currentTimeMillis());
+                mouvement.persist();
             }
         }
         if (vente.venteBateauxCatalogue != null) {
@@ -932,21 +959,6 @@ public class VenteResource {
                 RemorqueCatalogueEntity r = RemorqueCatalogueEntity.findById(vr.remorque.id);
                 if (r != null) {
                     r.stock = Math.max(0, r.stock - Math.max(1, vr.quantite));
-                }
-            }
-        }
-        for (VenteForfaitEntity vf : vente.venteForfaits) {
-            if (vf.forfait != null) {
-                ForfaitEntity f = ForfaitEntity.findById(vf.forfait.id);
-                if (f != null && f.produits != null) {
-                    for (ForfaitProduitEntity fp : f.produits) {
-                        if (fp.produit != null) {
-                            ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(fp.produit.id);
-                            if (p != null) {
-                                p.stock = Math.max(0, p.stock - fp.quantite * vf.quantite);
-                            }
-                        }
-                    }
                 }
             }
         }
