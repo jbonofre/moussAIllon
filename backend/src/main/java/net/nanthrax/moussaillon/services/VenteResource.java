@@ -558,13 +558,21 @@ public class VenteResource {
 
         // Update venteProduits (new line entity with quantite + remise per line)
         entity.venteProduits.clear();
-        if (vente.venteProduits != null) {
+        if (vente.venteProduits != null && !vente.venteProduits.isEmpty()) {
             for (VenteProduitEntity incoming : vente.venteProduits) {
                 VenteProduitEntity cloned = new VenteProduitEntity();
                 cloned.produit = incoming.produit;
                 cloned.quantite = incoming.quantite;
                 cloned.remise = incoming.remise;
                 cloned.remisePourcentage = incoming.remisePourcentage;
+                entity.venteProduits.add(cloned);
+            }
+        } else if (vente.produits != null) {
+            // Legacy @ManyToMany list (no quantite/remise) sent instead of venteProduits
+            for (ProduitCatalogueEntity incoming : vente.produits) {
+                VenteProduitEntity cloned = new VenteProduitEntity();
+                cloned.produit = incoming;
+                cloned.quantite = 1;
                 entity.venteProduits.add(cloned);
             }
         }
