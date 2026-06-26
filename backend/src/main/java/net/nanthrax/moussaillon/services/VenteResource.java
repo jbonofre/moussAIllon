@@ -558,13 +558,21 @@ public class VenteResource {
 
         // Update venteProduits (new line entity with quantite + remise per line)
         entity.venteProduits.clear();
-        if (vente.venteProduits != null) {
+        if (vente.venteProduits != null && !vente.venteProduits.isEmpty()) {
             for (VenteProduitEntity incoming : vente.venteProduits) {
                 VenteProduitEntity cloned = new VenteProduitEntity();
                 cloned.produit = incoming.produit;
                 cloned.quantite = incoming.quantite;
                 cloned.remise = incoming.remise;
                 cloned.remisePourcentage = incoming.remisePourcentage;
+                entity.venteProduits.add(cloned);
+            }
+        } else if (vente.produits != null) {
+            // Legacy @ManyToMany list (no quantite/remise) sent instead of venteProduits
+            for (ProduitCatalogueEntity incoming : vente.produits) {
+                VenteProduitEntity cloned = new VenteProduitEntity();
+                cloned.produit = incoming;
+                cloned.quantite = 1;
                 entity.venteProduits.add(cloned);
             }
         }
@@ -708,6 +716,14 @@ public class VenteResource {
                     entity.dateFacturePrete = new Timestamp(System.currentTimeMillis());
                 }
             }
+        }
+
+        // Fallback: decrement stock once the sale reaches FACTURE_PRETE or FACTURE_PAYEE,
+        // for sales without EN_COURS phase (e.g. comptoir, which can skip FACTURE_PRETE entirely)
+        if (!entity.stockDecremented
+                && (entity.status == VenteEntity.Status.FACTURE_PRETE || entity.status == VenteEntity.Status.FACTURE_PAYEE)) {
+            decrementStock(entity);
+            entity.stockDecremented = true;
         }
 
         entity.images = vente.images != null ? vente.images : new java.util.ArrayList<>();
