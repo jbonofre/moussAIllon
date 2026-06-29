@@ -70,7 +70,7 @@ export default function Login({ setUser }: LoginProps) {
                     animation: 'fadeInUp 0.5s ease-out',
                 }}>
                     <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                        <Image src="./logo.png" preview={false} width={80} style={{ marginBottom: 16 }} />
+                        <Image src="/logo.png" preview={false} width={80} style={{ marginBottom: 16 }} />
                         <Title level={3} style={{ margin: 0, fontWeight: 700 }}>
                             Espace Client
                         </Title>
