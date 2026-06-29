@@ -89,6 +89,7 @@ interface CatalogueBateauEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueMoteurEntity {
@@ -96,6 +97,7 @@ interface CatalogueMoteurEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueHeliceEntity {
@@ -103,6 +105,7 @@ interface CatalogueHeliceEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueRemorqueEntity {
@@ -110,6 +113,7 @@ interface CatalogueRemorqueEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 
@@ -1593,7 +1597,12 @@ export default function Comptoir() {
                                                     : undefined;
                                                 const isEmptyLine = !produitRef;
                                                 const [refType, refIdStr] = (produitRef || '').split(':');
-                                                const produitCatalogue = refType === 'produit' ? produits.find((p) => p.id === parseInt(refIdStr, 10)) : undefined;
+                                                const refId = parseInt(refIdStr, 10);
+                                                const produitCatalogue = refType === 'produit' ? produits.find((p) => p.id === refId) : undefined;
+                                                const bateauCatalogue = refType === 'bateau' ? catalogueBateaux.find((b) => b.id === refId) : undefined;
+                                                const moteurCatalogue = refType === 'moteur' ? catalogueMoteurs.find((m) => m.id === refId) : undefined;
+                                                const heliceCatalogue = refType === 'helice' ? catalogueHelices.find((h) => h.id === refId) : undefined;
+                                                const remorqueCatalogue = refType === 'remorque' ? catalogueRemorques.find((r) => r.id === refId) : undefined;
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
                                                     <Form.Item
@@ -1667,9 +1676,24 @@ export default function Comptoir() {
                                                     >
                                                         <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
                                                     </Form.Item>
-                                                    {produitCatalogue && (() => {
-                                                        const stock = produitCatalogue.stock ?? 0;
-                                                        const color = stock === 0 ? 'red' : stock < (quantite || 0) ? 'orange' : 'green';
+                                                    {(() => {
+                                                        const qty = quantite || 0;
+                                                        let stock: number | undefined;
+                                                        let stockMini = 0;
+                                                        if (produitCatalogue) {
+                                                            stock = produitCatalogue.stock ?? 0;
+                                                            stockMini = produitCatalogue.stockMini ?? 0;
+                                                        } else if (bateauCatalogue) {
+                                                            stock = bateauCatalogue.stock ?? 0;
+                                                        } else if (moteurCatalogue) {
+                                                            stock = moteurCatalogue.stock ?? 0;
+                                                        } else if (heliceCatalogue) {
+                                                            stock = heliceCatalogue.stock ?? 0;
+                                                        } else if (remorqueCatalogue) {
+                                                            stock = remorqueCatalogue.stock ?? 0;
+                                                        }
+                                                        if (stock === undefined) return null;
+                                                        const color = stock === 0 ? 'red' : (stock < qty || stock < stockMini) ? 'orange' : 'green';
                                                         return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
                                                     })()}
                                                     <Form.Item style={{ width: 130 }}>
