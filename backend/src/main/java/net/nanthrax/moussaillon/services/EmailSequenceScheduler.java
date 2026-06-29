@@ -5,8 +5,6 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.Mailer;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -24,7 +22,7 @@ import net.nanthrax.moussaillon.persistence.SocieteEntity;
 public class EmailSequenceScheduler {
 
     @Inject
-    Mailer mailer;
+    MailService mailService;
 
     @Scheduled(cron = "0 5 8 * * ?")
     @Transactional
@@ -133,7 +131,7 @@ public class EmailSequenceScheduler {
     }
 
     private void envoyerEtape(Cible cible, long cibleId, String email, EmailSequenceEtapeEntity etape, String subject, String body) {
-        mailer.send(Mail.withHtml(email, subject, body));
+        mailService.sendHtml(email, subject, body);
 
         EmailSequenceHistoriqueEntity historique = new EmailSequenceHistoriqueEntity();
         historique.cible = cible;

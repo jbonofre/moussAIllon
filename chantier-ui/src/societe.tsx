@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import { useState, useEffect } from 'react';
-import { Card, Row, Col, Space, Button, Form, Input, InputNumber, Spin, message } from 'antd';
-import { PauseCircleOutlined, DeploymentUnitOutlined, SaveOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Space, Button, Form, Input, InputNumber, Switch, Spin, message, Divider } from 'antd';
+import { PauseCircleOutlined, DeploymentUnitOutlined, SaveOutlined, MailOutlined } from '@ant-design/icons';
 import { demo } from './workspace.tsx';
 import ImageUpload from './ImageUpload.tsx';
 
@@ -106,6 +106,27 @@ export default function Societe(props) {
                     <Form.Item name="images" label="Images">
                         <ImageUpload />
                     </Form.Item>
+
+                    <Divider orientation="left"><MailOutlined /> Configuration SMTP</Divider>
+                    <Form.Item name="smtpHost" label="Serveur SMTP">
+                        <Input allowClear placeholder="smtp.exemple.com" />
+                    </Form.Item>
+                    <Form.Item name="smtpPort" label="Port SMTP">
+                        <InputNumber min={1} max={65535} placeholder="587" style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="smtpFrom" label="Adresse expéditeur">
+                        <Input allowClear placeholder="noreply@exemple.com" />
+                    </Form.Item>
+                    <Form.Item name="smtpUser" label="Utilisateur SMTP">
+                        <Input allowClear />
+                    </Form.Item>
+                    <Form.Item name="smtpPassword" label="Mot de passe SMTP">
+                        <Input.Password allowClear />
+                    </Form.Item>
+                    <Form.Item name="smtpSsl" label="SSL" valuePropName="checked">
+                        <Switch />
+                    </Form.Item>
+
                     <Form.Item label={null}>
                         <Space>
                             <Button onClick={() => societeForm.submit()} type="primary" icon={<SaveOutlined/>}>Enregistrer</Button>

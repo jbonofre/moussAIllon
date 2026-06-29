@@ -3,8 +3,6 @@ package net.nanthrax.moussaillon.services;
 import java.sql.Timestamp;
 import java.util.List;
 
-import io.quarkus.mailer.Mail;
-import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -37,7 +35,7 @@ import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
 public class AvoirResource {
 
     @Inject
-    Mailer mailer;
+    MailService mailService;
 
     @GET
     public List<AvoirEntity> list() {
@@ -396,7 +394,7 @@ public class AvoirResource {
                     + "<p>Cordialement,<br/>" + societeNom + "</p>";
         }
 
-        mailer.send(Mail.withHtml(entity.client.email, subject, body));
+        mailService.sendHtml(entity.client.email, subject, body);
         return Response.ok().build();
     }
 
