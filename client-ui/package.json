@@ -42,6 +42,9 @@
     ]
   },
   "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(axios|@ant-design/colors|@ant-design/fast-color)/)"
+    ],
     "moduleNameMapper": {
       "^@rc-component/picker/locale/(.*)$": "@rc-component/picker/lib/locale/$1",
       "^@rc-component/picker/generate/(.*)$": "@rc-component/picker/lib/generate/$1",
