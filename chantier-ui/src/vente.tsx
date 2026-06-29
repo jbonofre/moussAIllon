@@ -187,6 +187,7 @@ interface CatalogueBateauEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueMoteurEntity {
@@ -194,6 +195,7 @@ interface CatalogueMoteurEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueHeliceEntity {
@@ -201,6 +203,7 @@ interface CatalogueHeliceEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueRemorqueEntity {
@@ -208,6 +211,7 @@ interface CatalogueRemorqueEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 
@@ -3174,18 +3178,39 @@ export default function Vente() {
                                                                 );
                                                             }}
                                                         </Form.Item>
-                                                        {lineType === 'produit' && (
-                                                            <Form.Item noStyle shouldUpdate>
-                                                                {() => {
+                                                        <Form.Item noStyle shouldUpdate>
+                                                            {() => {
+                                                                const quantite = form.getFieldValue(['lignes', field.name, 'quantite']) || 0;
+                                                                let stock: number | undefined;
+                                                                let stockMini = 0;
+                                                                if (lineType === 'produit') {
                                                                     const produit = produits.find((p) => p.id === itemId);
                                                                     if (!produit) return null;
-                                                                    const stock = produit.stock ?? 0;
-                                                                    const quantite = form.getFieldValue(['lignes', field.name, 'quantite']) || 0;
-                                                                    const color = stock === 0 ? 'red' : stock < quantite ? 'orange' : 'green';
-                                                                    return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
-                                                                }}
-                                                            </Form.Item>
-                                                        )}
+                                                                    stock = produit.stock ?? 0;
+                                                                    stockMini = produit.stockMini ?? 0;
+                                                                } else if (lineType === 'bateau') {
+                                                                    const item = catalogueBateaux.find((b) => b.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'moteur') {
+                                                                    const item = catalogueMoteurs.find((m) => m.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'helice') {
+                                                                    const item = catalogueHelices.find((h) => h.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'remorque') {
+                                                                    const item = catalogueRemorques.find((r) => r.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else {
+                                                                    return null;
+                                                                }
+                                                                const color = stock === 0 ? 'red' : (stock < quantite || stock < stockMini) ? 'orange' : 'green';
+                                                                return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
+                                                            }}
+                                                        </Form.Item>
                                                         {isForfaitOrService && (
                                                             <>
                                                                 <Form.Item
