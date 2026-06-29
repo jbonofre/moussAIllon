@@ -2329,7 +2329,7 @@ export default function Vente() {
             return;
         }
         try {
-            await axios.post(`/ventes/${vente.id}/email`);
+            await api.post(`/ventes/${vente.id}/email`);
             message.success('L\'email a été envoyé à ' + email);
         } catch {
             message.error('Erreur lors de l\'envoi de l\'email.');
