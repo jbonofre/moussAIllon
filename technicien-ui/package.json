@@ -42,7 +42,7 @@
   },
   "jest": {
     "transformIgnorePatterns": [
-      "node_modules/(?!axios)"
+      "node_modules/(?!(axios|@ant-design|@rc-component)/)"
     ],
     "moduleNameMapper": {
       "^@rc-component/picker/locale/(.*)$": "@rc-component/picker/lib/locale/$1",
