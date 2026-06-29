@@ -6,7 +6,7 @@
   "dependencies": {
     "@ant-design/icons": "^6.2.5",
     "ajv": "^8.20.0",
-    "antd": "^6.4.5",
+    "antd": "^6.5.0",
     "axios": "^1.18.1",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
@@ -42,7 +42,7 @@
   },
   "jest": {
     "transformIgnorePatterns": [
-      "node_modules/(?!axios)"
+      "node_modules/(?!(axios|@ant-design|@rc-component)/)"
     ],
     "moduleNameMapper": {
       "^@rc-component/picker/locale/(.*)$": "@rc-component/picker/lib/locale/$1",
