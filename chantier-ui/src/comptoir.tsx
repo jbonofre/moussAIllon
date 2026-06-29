@@ -1814,7 +1814,9 @@ export default function Comptoir() {
                                                             stock = remorqueCatalogue.stock ?? 0;
                                                         }
                                                         if (stock === undefined) return null;
-                                                        const color = stock === 0 ? 'red' : (stock < qty || stock < stockMini) ? 'orange' : 'green';
+                                                        // Une vente comptoir décrémente le stock : on alerte si le stock
+                                                        // restant après la vente (stock - quantité) passe sous le seuil d'alerte.
+                                                        const color = stock === 0 ? 'red' : (stock < qty || (stock - qty) < stockMini) ? 'orange' : 'green';
                                                         return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
                                                     })()}
                                                     <Form.Item style={{ width: 130 }}>
