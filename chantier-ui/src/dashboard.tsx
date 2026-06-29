@@ -1,6 +1,6 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useEffect, useState } from 'react';
-import { ArrowDownOutlined, ArrowUpOutlined, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined, ClockCircleOutlined, WarningOutlined, AimOutlined } from '@ant-design/icons';
 import { Badge, Button, Card, Col, Empty, List, Progress, Row, Space, Spin, Statistic, Table, Tag, Typography } from 'antd';
 import { Column, Pie } from '@ant-design/charts';
 import dayjs from 'dayjs';
@@ -32,6 +32,9 @@ type DashboardData = {
     heuresAtelierPct: number;
     ventesComptoirPct: number;
     contratsMaintenancePct: number;
+    bateauxDansLeChantier: number;
+    bateauxEntreesSemaine: number;
+    bateauxEnAttenteIntervention: number;
 };
 
 type PlanningWarning = {
@@ -331,6 +334,37 @@ export default function Dashboard() {
                             value={data.alertesStock}
                             valueStyle={{ color: '#d48806', fontWeight: 700 }}
                             prefix={<WarningOutlined />}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
+            <Row gutter={[16, 16]}>
+                <Col xs={24} sm={8}>
+                    <Card style={{ borderTop: '3px solid #722ed1' }}>
+                        <Statistic
+                            title="Bateaux dans le chantier"
+                            value={data.bateauxDansLeChantier}
+                            valueStyle={{ color: '#722ed1', fontWeight: 700 }}
+                            prefix={<AimOutlined />}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={8}>
+                    <Card style={{ borderTop: '3px solid #13c2c2' }}>
+                        <Statistic
+                            title="Entrées cette semaine"
+                            value={data.bateauxEntreesSemaine}
+                            valueStyle={{ color: '#08979c', fontWeight: 700 }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={8}>
+                    <Card style={{ borderTop: '3px solid #fa8c16' }}>
+                        <Statistic
+                            title="En attente d'intervention"
+                            value={data.bateauxEnAttenteIntervention}
+                            valueStyle={{ color: '#d46b08', fontWeight: 700 }}
                         />
                     </Card>
                 </Col>

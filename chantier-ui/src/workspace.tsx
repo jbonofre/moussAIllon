@@ -417,7 +417,7 @@ function ProtectedRoute({ roles, requiredRole, children }) {
 
 export default function Workspace(props) {
     const [ theme, setTheme ] = useState<UserTheme>('LIGHT');
-    const [ currentPage, setCurrentPage ] = useState('/');
+    const [ currentPage, setCurrentPage ] = useState('/dashboard');
     const [ pageState, setPageState ] = useState<any>(null);
 
     const navigate = useCallback((page: string, state?: any) => {
