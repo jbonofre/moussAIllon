@@ -41,12 +41,6 @@ public class SocieteResource {
         entity.telephone = societe.telephone;
         entity.email = societe.email;
         entity.bancaire = societe.bancaire;
-        entity.smtpHost = societe.smtpHost;
-        entity.smtpPort = societe.smtpPort;
-        entity.smtpUser = societe.smtpUser;
-        entity.smtpPassword = societe.smtpPassword;
-        entity.smtpFrom = societe.smtpFrom;
-        entity.smtpSsl = societe.smtpSsl;
         entity.images = societe.images;
 
         return entity;

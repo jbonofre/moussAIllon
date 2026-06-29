@@ -6,6 +6,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -36,7 +38,7 @@ import net.nanthrax.moussaillon.persistence.RemorqueClientEntity;
 public class CampagneResource {
 
     @Inject
-    MailService mailService;
+    Mailer mailer;
 
     @GET
     public List<CampagneEntity> getAll() {
@@ -183,7 +185,7 @@ public class CampagneResource {
             int envoyes = 0;
             for (Destinataire dest : destinataires) {
                 try {
-                    mailService.sendHtml(dest.email, entity.sujet, entity.contenu);
+                    mailer.send(Mail.withHtml(dest.email, entity.sujet, entity.contenu));
                     envoyes++;
                 } catch (Exception e) {
                     erreur = e.getMessage();

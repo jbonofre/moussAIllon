@@ -37,18 +37,6 @@ public class SocieteEntity extends PanacheEntity {
 
     public String bancaire;
 
-    public String smtpHost;
-
-    public Integer smtpPort;
-
-    public String smtpUser;
-
-    public String smtpPassword;
-
-    public String smtpFrom;
-
-    public boolean smtpSsl;
-
     public List<String> images = new ArrayList<>();
 
 }

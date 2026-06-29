@@ -6,6 +6,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -51,7 +53,7 @@ import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
 public class VenteResource {
 
     @Inject
-    MailService mailService;
+    Mailer mailer;
 
     @Inject
     RappelScheduler rappelScheduler;
@@ -286,7 +288,7 @@ public class VenteResource {
             body = bodyBuilder.toString();
         }
 
-        mailService.sendHtml(entity.client.email, subject, body);
+        mailer.send(Mail.withHtml(entity.client.email, subject, body));
         return Response.ok().build();
     }
 
@@ -896,7 +898,7 @@ public class VenteResource {
                     + "Cordialement,\n" + societeNom;
         }
 
-        mailService.sendHtml(vente.client.email, subject, body);
+        mailer.send(Mail.withHtml(vente.client.email, subject, body));
     }
 
     private void decrementStock(VenteEntity vente) {

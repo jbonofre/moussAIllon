@@ -1,5 +1,7 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -18,7 +20,7 @@ import java.util.List;
 public class TechnicienResource {
 
     @Inject
-    MailService mailService;
+    Mailer mailer;
 
     @GET
     public List<TechnicienEntity> list() {
@@ -127,7 +129,7 @@ public class TechnicienResource {
                 + "Cordialement,\n"
                 + societeNom;
 
-        mailService.sendText(technicien.email, subject, body);
+        mailer.send(Mail.withText(technicien.email, subject, body));
 
         return Response.ok().build();
     }

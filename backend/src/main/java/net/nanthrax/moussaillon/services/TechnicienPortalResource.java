@@ -4,6 +4,8 @@ import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
 
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -35,7 +37,7 @@ import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
 public class TechnicienPortalResource {
 
     @Inject
-    MailService mailService;
+    Mailer mailer;
 
     @Inject
     TokenService tokenService;
@@ -520,7 +522,7 @@ public class TechnicienPortalResource {
         body += "Notre equipe met tout en oeuvre pour resoudre la situation dans les meilleurs delais.\n\n"
                 + "Cordialement,\n" + societeNom;
 
-        mailService.sendText(vente.client.email, subject, body);
+        mailer.send(Mail.withText(vente.client.email, subject, body));
     }
 
     private void decrementStock(VenteEntity vente) {

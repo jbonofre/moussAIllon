@@ -5,6 +5,8 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
+import io.quarkus.mailer.Mail;
+import io.quarkus.mailer.Mailer;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -18,7 +20,7 @@ import net.nanthrax.moussaillon.persistence.VenteEntity;
 public class RappelScheduler {
 
     @Inject
-    MailService mailService;
+    Mailer mailer;
 
     @Scheduled(cron = "0 0 8 * * ?")
     @Transactional
@@ -86,7 +88,7 @@ public class RappelScheduler {
                     + "Cordialement,\n" + societeNom;
         }
 
-        mailService.sendHtml(vente.client.email, subject, body);
+        mailer.send(Mail.withHtml(vente.client.email, subject, body));
 
         RappelHistoriqueEntity historique = new RappelHistoriqueEntity();
         historique.vente = vente;
