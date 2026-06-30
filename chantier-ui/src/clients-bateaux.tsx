@@ -63,6 +63,7 @@ interface BateauClient {
   moteurs?: any[];
   remorque?: any;
   equipements?: any[];
+  options?: { id?: number; nom: string }[];
 }
 
 const defaultBateau: BateauClient = {
@@ -82,6 +83,7 @@ const defaultBateau: BateauClient = {
   moteurs: [],
   remorque: null,
   equipements: [],
+  options: [],
 };
 
 interface BateauxClientsProps {
@@ -117,6 +119,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [annonceImageModalVisible, setAnnonceImageModalVisible] = useState(false);
   const [annonceImageBateau, setAnnonceImageBateau] = useState<BateauClient | null>(null);
   const [annonceSelectedImages, setAnnonceSelectedImages] = useState<Set<string>>(new Set());
+  const [availableOptions, setAvailableOptions] = useState<any[]>([]);
   const { navigate } = useNavigation();
 
   const openAnnonceImageModal = (bateau: BateauClient) => {
@@ -291,6 +294,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setProprietaireOptions(record.proprietaires || []);
     setModeleOptions(record.modele ? [record.modele] : []);
     setMoteurOptions(record.moteurs || []);
+    setAvailableOptions(record.modele?.options || []);
     form.setFieldsValue({
       ...record,
       dateMeS: record.dateMeS ? dayjs(record.dateMeS) : null,
@@ -299,6 +303,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       modeleId: record.modele?.id || undefined,
       proprietaires: record.proprietaires?.map((p: any) => p.id || p) || [],
       moteurs: record.moteurs?.map((m: any) => m.id || m) || [],
+      options: record.options?.map((o: any) => o.id || o) || [],
     });
     setModalVisible(true);
   };
@@ -375,18 +380,21 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       const values = await form.validateFields();
       setLoading(true);
       // Transform modeleId to modele object and proprietaires/moteurs IDs to objects
-      const { modeleId, proprietaires, moteurs, dateMeS, dateAchat, dateFinDeGuarantie, ...restValues } = values;
+      const { modeleId, proprietaires, moteurs, options, dateMeS, dateAchat, dateFinDeGuarantie, ...restValues } = values;
       const payload = {
         ...restValues,
         dateMeS: dateMeS ? dateMeS.format("YYYY-MM-DD") : null,
         dateAchat: dateAchat ? dateAchat.format("YYYY-MM-DD") : null,
         dateFinDeGuarantie: dateFinDeGuarantie ? dateFinDeGuarantie.format("YYYY-MM-DD") : null,
         modele: modeleId ? { id: modeleId } : null,
-        proprietaires: proprietaires && Array.isArray(proprietaires) 
+        proprietaires: proprietaires && Array.isArray(proprietaires)
           ? proprietaires.map((id: number) => ({ id }))
           : [],
-        moteurs: moteurs && Array.isArray(moteurs) 
+        moteurs: moteurs && Array.isArray(moteurs)
           ? moteurs.map((id: number) => ({ id }))
+          : [],
+        options: options && Array.isArray(options)
+          ? options.map((id: number) => ({ id }))
           : [],
       };
       if (editing && editing.id) {
@@ -524,6 +532,11 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
             setFormDirty(true);
             if (changedValues.localisationGps) {
               form.setFieldsValue({ localisation: changedValues.localisationGps });
+            }
+            if (Object.prototype.hasOwnProperty.call(changedValues, 'modeleId')) {
+              const modele = bateauxCatalogue.find((b: any) => b.id === changedValues.modeleId);
+              setAvailableOptions(modele?.options || []);
+              form.setFieldsValue({ options: [] });
             }
           }}>
           <Row gutter={16}>
@@ -681,6 +694,16 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               placeholder="Saisir les équipements (sondeur, GPS, VHF, ...)"
               tokenSeparators={[',']}
               allowClear
+            />
+          </Form.Item>
+          <Form.Item label="Options installées" name="options">
+            <Select
+              mode="multiple"
+              style={{ width: '100%' }}
+              placeholder="Sélectionner les options installées"
+              allowClear
+              options={availableOptions.map((o: any) => ({ value: o.id, label: `${o.nom}${o.prixTTC ? ` (${o.prixTTC} €)` : ''}` }))}
+              notFoundContent="Aucune option disponible pour ce modèle"
             />
           </Form.Item>
         </Form>

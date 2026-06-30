@@ -4,6 +4,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.BateauOptionEntity;
 import jakarta.transaction.Transactional;
 import java.util.List;
 
@@ -93,6 +94,25 @@ public class BateauCatalogueResource {
         entity.montantTVA = updatedBateauCatalogue.montantTVA;
         entity.prixVenteTTC = updatedBateauCatalogue.prixVenteTTC;
         entity.fournisseurs = updatedBateauCatalogue.fournisseurs;
+        entity.options.clear();
+        if (updatedBateauCatalogue.options != null) {
+            for (BateauOptionEntity option : updatedBateauCatalogue.options) {
+                if (option.id != null) {
+                    BateauOptionEntity existing = BateauOptionEntity.findById(option.id);
+                    if (existing != null) {
+                        existing.nom = option.nom;
+                        existing.description = option.description;
+                        existing.prixHT = option.prixHT;
+                        existing.tva = option.tva;
+                        existing.montantTVA = option.montantTVA;
+                        existing.prixTTC = option.prixTTC;
+                        entity.options.add(existing);
+                    }
+                } else {
+                    entity.options.add(option);
+                }
+            }
+        }
         return Response.ok(entity).build();
     }
 

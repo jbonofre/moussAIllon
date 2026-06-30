@@ -2,8 +2,11 @@ package net.nanthrax.moussaillon.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTransient;
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 
 import java.util.ArrayList;
@@ -88,5 +91,9 @@ public class BateauCatalogueEntity extends PanacheEntity {
     @OneToMany
     @JsonbTransient
     public List<FournisseurEntity> fournisseurs = new ArrayList<>();
+
+    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JoinColumn(name = "bateau_catalogue_id")
+    public List<BateauOptionEntity> options = new ArrayList<>();
 
 }
