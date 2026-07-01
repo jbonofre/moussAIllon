@@ -709,6 +709,27 @@ export default function Comptoir() {
         }
     };
 
+    // Rafraîchit les listes catalogue (produits + bateaux/moteurs/hélices/remorques)
+    // afin d'afficher l'état de stock le plus à jour à chaque nouvelle vente.
+    const refreshCatalogue = async () => {
+        try {
+            const [catProduitsRes, catBateauxRes, catMoteursRes, catHelicesRes, catRemorquesRes] = await Promise.all([
+                api.get('/catalogue/produits'),
+                api.get('/catalogue/bateaux'),
+                api.get('/catalogue/moteurs'),
+                api.get('/catalogue/helices'),
+                api.get('/catalogue/remorques')
+            ]);
+            setProduits(catProduitsRes.data || []);
+            setCatalogueBateaux(catBateauxRes.data || []);
+            setCatalogueMoteurs(catMoteursRes.data || []);
+            setCatalogueHelices(catHelicesRes.data || []);
+            setCatalogueRemorques(catRemorquesRes.data || []);
+        } catch {
+            // silencieux : le stock affiché reste celui du dernier chargement réussi
+        }
+    };
+
     useEffect(() => {
         fetchVentes();
         fetchOptions();
@@ -833,7 +854,9 @@ export default function Comptoir() {
         }
     };
 
-    const openModal = (vente?: VenteEntity) => {
+    const openModal = async (vente?: VenteEntity) => {
+        // Recharge le stock depuis le backend pour repartir d'un état à jour.
+        await refreshCatalogue();
         if (vente) {
             setIsEdit(true);
             setCurrentVente(vente);
