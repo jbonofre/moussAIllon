@@ -10,6 +10,7 @@ import {
     InputNumber,
     Modal,
     Popconfirm,
+    Popover,
     Rate,
     Row,
     Select,
@@ -22,7 +23,7 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, FileDoneOutlined, FileTextOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -2993,11 +2994,6 @@ export default function Vente() {
                                                                 {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
                                                             </Tag>
                                                         )}
-                                                        {lineType === 'produit' && itemId && emplacement && (
-                                                            <Form.Item style={{ width: 200 }}>
-                                                                <Input disabled value={emplacement} title={emplacement} placeholder="Emplacement" />
-                                                            </Form.Item>
-                                                        )}
                                                         <Form.Item
                                                             {...field}
                                                             name={[field.name, 'quantite']}
@@ -3096,6 +3092,11 @@ export default function Vente() {
                                                                     <Button icon={<CalendarOutlined />} title="Planifier" disabled={!watchedBonPourAccord} onClick={() => { setModalVisible(false); navigate('/planning'); }} />
                                                                 )}
                                                             </>
+                                                        )}
+                                                        {emplacement && (
+                                                            <Popover content={emplacement} title="Emplacement" trigger="click">
+                                                                <Button icon={<EnvironmentOutlined />} title="Emplacement de la pièce" />
+                                                            </Popover>
                                                         )}
                                                         <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
                                                     </Space>

@@ -9,6 +9,7 @@ import {
     InputNumber,
     Modal,
     Popconfirm,
+    Popover,
     Rate,
     Row,
     Select,
@@ -19,7 +20,7 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CreditCardOutlined, DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined } from '@ant-design/icons';
+import { CreditCardOutlined, DeleteOutlined, EditOutlined, EnvironmentOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import api from './api.ts';
@@ -466,7 +467,7 @@ export default function Comptoir() {
             options: produits.map((p) => ({
                 value: `produit:${p.id}`,
                 label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}`,
-                searchText: `${p.nom} ${p.marque || ''} ${p.ref || ''} ${(p.refs || []).join(' ')}`.toLowerCase(),
+                searchText: `${p.nom} ${p.marque || ''} ${p.ref || ''} ${(p.refs || []).join(' ')} ${p.emplacement || ''}`.toLowerCase(),
             })),
         },
         {
@@ -514,6 +515,15 @@ export default function Comptoir() {
         if (type === 'helice') return catalogueHelices.find((h) => h.id === id)?.prixVenteTTC || 0;
         if (type === 'remorque') return catalogueRemorques.find((r) => r.id === id)?.prixVenteTTC || 0;
         return 0;
+    };
+
+    const getProduitEmplacement = (ref?: string): string | undefined => {
+        if (!ref) return undefined;
+        const [type, idStr] = ref.split(':');
+        if (type !== 'produit') return undefined;
+        const id = parseInt(idStr, 10);
+        if (isNaN(id)) return undefined;
+        return produits.find((p) => p.id === id)?.emplacement || undefined;
     };
     const serviceOptions = useMemo(
         () => services.map((service) => ({ value: service.id, label: service.nom })),
@@ -1585,6 +1595,7 @@ export default function Comptoir() {
                                             {() => {
                                                 const produitRef = form.getFieldValue(['produits', field.name, 'produitRef']);
                                                 const prixUnitaire = getCatalogueItemPrice(produitRef) || undefined;
+                                                const emplacement = getProduitEmplacement(produitRef);
                                                 const quantite = form.getFieldValue(['produits', field.name, 'quantite']);
                                                 const remiseLigne = form.getFieldValue(['produits', field.name, 'remise']) || 0;
                                                 const brutLigne = (prixUnitaire && quantite) ? Math.round(prixUnitaire * quantite * 100) / 100 : undefined;
@@ -1676,6 +1687,11 @@ export default function Comptoir() {
                                                     </Form.Item>
                                                     {isEmptyLine && (
                                                         <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
+                                                    )}
+                                                    {emplacement && (
+                                                        <Popover content={emplacement} title="Emplacement" trigger="click">
+                                                            <Button icon={<EnvironmentOutlined />} title="Emplacement de la pièce" />
+                                                        </Popover>
                                                     )}
                                                     <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
                                                 </Space>
