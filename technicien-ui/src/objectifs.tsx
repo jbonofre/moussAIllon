@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Card, Col, Empty, Progress, Row, Spin, Statistic, message } from 'antd';
+import { Alert, Card, Col, Empty, Progress, Row, Spin, Statistic, message } from 'antd';
 import { CheckCircleOutlined, ClockCircleOutlined, AimOutlined } from '@ant-design/icons';
 import api from './api.ts';
 
@@ -13,6 +13,11 @@ interface PlanningItem {
     statusDate?: string;
     dureeReelle?: number;
     dureeEstimee?: number;
+}
+
+interface Objectif {
+    cibleInterventions?: number | null;
+    cibleHeures?: number | null;
 }
 
 interface ObjectifsProps {
@@ -35,24 +40,33 @@ const isSameMonth = (value: string | undefined, year: number, month: number): bo
 // la date de fin si terminée, sinon la date planifiée / de début.
 const referenceDate = (t: PlanningItem) => t.dateFin || t.statusDate || t.datePlanification || t.dateDebut;
 
+const pct = (value: number, target: number) => (target > 0 ? Math.min(100, Math.round((value / target) * 100)) : 0);
+
 export default function Objectifs({ technicienId }: ObjectifsProps) {
     const [items, setItems] = useState<PlanningItem[]>([]);
+    const [objectif, setObjectif] = useState<Objectif>({});
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         let mounted = true;
-        const fetchItems = async () => {
+        const fetchData = async () => {
             setLoading(true);
             try {
-                const res = await api.get(`/technicien-portal/techniciens/${technicienId}/taches`);
-                if (mounted) setItems(res.data || []);
+                const [tachesRes, objectifRes] = await Promise.all([
+                    api.get(`/technicien-portal/techniciens/${technicienId}/taches`),
+                    api.get(`/technicien-portal/techniciens/${technicienId}/objectif`),
+                ]);
+                if (mounted) {
+                    setItems(tachesRes.data || []);
+                    setObjectif(objectifRes.data || {});
+                }
             } catch {
                 message.error('Erreur lors du chargement des objectifs');
             } finally {
                 if (mounted) setLoading(false);
             }
         };
-        fetchItems();
+        fetchData();
         return () => { mounted = false; };
     }, [technicienId]);
 
@@ -75,13 +89,39 @@ export default function Objectifs({ technicienId }: ObjectifsProps) {
             completionPct: total > 0 ? Math.round((done / total) * 100) : 0,
             heuresRealisees: Math.round(heuresRealisees * 100) / 100,
             heuresEstimees: Math.round(heuresEstimees * 100) / 100,
-            heuresPct: heuresEstimees > 0 ? Math.min(100, Math.round((heuresRealisees / heuresEstimees) * 100)) : 0,
         };
     }, [items]);
+
+    const cibleInterventions = objectif.cibleInterventions ?? undefined;
+    const cibleHeures = objectif.cibleHeures ?? undefined;
+    const hasCible = (cibleInterventions != null && cibleInterventions > 0)
+        || (cibleHeures != null && cibleHeures > 0);
+
+    // Interventions : progression vers la cible si définie, sinon part du mois réalisée.
+    const interventionsSuffix = cibleInterventions ? `/ ${cibleInterventions}` : `/ ${stats.total}`;
+    const interventionsPct = cibleInterventions
+        ? pct(stats.done, cibleInterventions)
+        : stats.completionPct;
+
+    // Heures : progression vers la cible si définie, sinon vs estimé du mois.
+    const heuresPct = cibleHeures
+        ? pct(stats.heuresRealisees, cibleHeures)
+        : pct(stats.heuresRealisees, stats.heuresEstimees);
+    const heuresHint = cibleHeures
+        ? `Objectif : ${cibleHeures} h`
+        : `Estimé : ${stats.heuresEstimees} h`;
 
     return (
         <Spin spinning={loading}>
             <Card title={`Mes objectifs — ${stats.monthLabel}`}>
+                {!hasCible && (
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="Aucun objectif n'a encore été défini par votre responsable. Les indicateurs ci-dessous reflètent votre activité du mois."
+                    />
+                )}
                 {stats.total === 0 ? (
                     <Empty description="Aucune intervention ce mois-ci" />
                 ) : (
@@ -91,10 +131,10 @@ export default function Objectifs({ technicienId }: ObjectifsProps) {
                                 <Statistic
                                     title="Interventions terminées"
                                     value={stats.done}
-                                    suffix={`/ ${stats.total}`}
+                                    suffix={interventionsSuffix}
                                     prefix={<CheckCircleOutlined />}
                                 />
-                                <Progress percent={stats.completionPct} status="active" />
+                                <Progress percent={interventionsPct} status="active" />
                             </Card>
                         </Col>
                         <Col xs={24} sm={8}>
@@ -102,13 +142,11 @@ export default function Objectifs({ technicienId }: ObjectifsProps) {
                                 <Statistic
                                     title="Heures réalisées"
                                     value={stats.heuresRealisees}
-                                    suffix="h"
+                                    suffix={cibleHeures ? `/ ${cibleHeures} h` : 'h'}
                                     prefix={<ClockCircleOutlined />}
                                 />
-                                <Progress percent={stats.heuresPct} />
-                                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
-                                    Estimé : {stats.heuresEstimees} h
-                                </div>
+                                <Progress percent={heuresPct} />
+                                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{heuresHint}</div>
                             </Card>
                         </Col>
                         <Col xs={24} sm={8}>
