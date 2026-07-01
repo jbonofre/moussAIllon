@@ -18,6 +18,7 @@ import {
     message,
 } from 'antd';
 import {
+    AimOutlined,
     CheckCircleOutlined,
     ClockCircleOutlined,
     ExclamationCircleOutlined,
@@ -36,6 +37,7 @@ import dayjs from 'dayjs';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
+import Objectifs from './objectifs.tsx';
 
 interface Technicien {
     id: number;
@@ -93,7 +95,7 @@ interface MobileAppProps {
     onChangePassword: () => void;
 }
 
-type Tab = 'today' | 'all' | 'incidents';
+type Tab = 'today' | 'all' | 'incidents' | 'objectifs';
 
 const taskStatusOptions: Array<{ value: TaskStatus; label: string }> = [
     { value: 'EN_ATTENTE', label: 'En attente' },
@@ -294,21 +296,27 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
 
             {/* Content */}
             <div style={{ flex: 1, padding: 12, background: '#f5f5f5', overflowY: 'auto' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <h3 style={{ margin: 0 }}>
-                        {tab === 'today' && `Aujourd'hui (${todayIso()})`}
-                        {tab === 'all' && 'Toutes les taches'}
-                        {tab === 'incidents' && 'Incidents'}
-                    </h3>
-                    <Button size="small" icon={<ReloadOutlined />} onClick={fetchItems} />
-                </div>
-                <Spin spinning={loading}>
-                    {displayedItems.length > 0 ? (
-                        <List dataSource={displayedItems} renderItem={renderItemCard} />
-                    ) : (
-                        <Card style={{ textAlign: 'center', color: '#999' }}>Aucune tache</Card>
-                    )}
-                </Spin>
+                {tab === 'objectifs' ? (
+                    <Objectifs technicienId={user.id} />
+                ) : (
+                    <>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <h3 style={{ margin: 0 }}>
+                                {tab === 'today' && `Aujourd'hui (${todayIso()})`}
+                                {tab === 'all' && 'Toutes les taches'}
+                                {tab === 'incidents' && 'Incidents'}
+                            </h3>
+                            <Button size="small" icon={<ReloadOutlined />} onClick={fetchItems} />
+                        </div>
+                        <Spin spinning={loading}>
+                            {displayedItems.length > 0 ? (
+                                <List dataSource={displayedItems} renderItem={renderItemCard} />
+                            ) : (
+                                <Card style={{ textAlign: 'center', color: '#999' }}>Aucune tache</Card>
+                            )}
+                        </Spin>
+                    </>
+                )}
             </div>
 
             {/* Bottom tab bar */}
@@ -321,6 +329,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                         { value: 'today', icon: <ScheduleOutlined />, label: "Aujourd'hui" },
                         { value: 'all', icon: <UnorderedListOutlined />, label: 'Toutes' },
                         { value: 'incidents', icon: <ExclamationCircleOutlined />, label: 'Incidents' },
+                        { value: 'objectifs', icon: <AimOutlined />, label: 'Objectifs' },
                     ]}
                     style={{ borderRadius: 0 }}
                 />
