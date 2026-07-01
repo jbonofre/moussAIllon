@@ -2970,10 +2970,15 @@ export default function Vente() {
                                                                         const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
                                                                         const updated = [...currentLignes];
                                                                         if (parsed) {
-                                                                            const defaults: Partial<LigneUnifiee> = parsed.type !== 'produit'
+                                                                            const isPlanifiable = parsed.type === 'forfait' || parsed.type === 'service';
+                                                                            // Le statut de planification et les techniciens ne concernent que les
+                                                                            // forfaits/services : on les réinitialise quand la ligne devient un
+                                                                            // produit ou un article catalogue, sinon la mention « en attente »
+                                                                            // persiste sur la ligne (#398).
+                                                                            const planningReset: Partial<LigneUnifiee> = isPlanifiable
                                                                                 ? { status: 'EN_ATTENTE' }
-                                                                                : {};
-                                                                            updated[field.name] = { ...updated[field.name], type: parsed.type, itemId: parsed.id, ...defaults };
+                                                                                : { status: undefined, technicienIds: undefined };
+                                                                            updated[field.name] = { ...updated[field.name], type: parsed.type, itemId: parsed.id, ...planningReset };
                                                                             const lastLine = updated[updated.length - 1];
                                                                             if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
                                                                                 updated.push({ quantite: 1 });
