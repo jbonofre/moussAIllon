@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Card, Col, Empty, Progress, Row, Spin, Statistic, message } from 'antd';
+import { Alert, Card, Col, Progress, Row, Spin, Statistic, message } from 'antd';
 import { CheckCircleOutlined, ClockCircleOutlined, AimOutlined } from '@ant-design/icons';
 import api from './api.ts';
 
@@ -122,46 +122,50 @@ export default function Objectifs({ technicienId }: ObjectifsProps) {
                         message="Aucun objectif n'a encore été défini par votre responsable. Les indicateurs ci-dessous reflètent votre activité du mois."
                     />
                 )}
-                {stats.total === 0 ? (
-                    <Empty description="Aucune intervention ce mois-ci" />
-                ) : (
-                    <Row gutter={[16, 16]}>
-                        <Col xs={24} sm={8}>
-                            <Card>
-                                <Statistic
-                                    title="Interventions terminées"
-                                    value={stats.done}
-                                    suffix={interventionsSuffix}
-                                    prefix={<CheckCircleOutlined />}
-                                />
-                                <Progress percent={interventionsPct} status="active" />
-                            </Card>
-                        </Col>
-                        <Col xs={24} sm={8}>
-                            <Card>
-                                <Statistic
-                                    title="Heures réalisées"
-                                    value={stats.heuresRealisees}
-                                    suffix={cibleHeures ? `/ ${cibleHeures} h` : 'h'}
-                                    prefix={<ClockCircleOutlined />}
-                                />
-                                <Progress percent={heuresPct} />
-                                <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{heuresHint}</div>
-                            </Card>
-                        </Col>
-                        <Col xs={24} sm={8}>
-                            <Card>
-                                <Statistic
-                                    title="Taux de complétion"
-                                    value={stats.completionPct}
-                                    suffix="%"
-                                    prefix={<AimOutlined />}
-                                />
-                                <Progress percent={stats.completionPct} />
-                            </Card>
-                        </Col>
-                    </Row>
+                {stats.total === 0 && (
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="Aucune intervention ne vous est assignée ce mois-ci pour le moment."
+                    />
                 )}
+                <Row gutter={[16, 16]}>
+                    <Col xs={24} sm={8}>
+                        <Card>
+                            <Statistic
+                                title="Interventions terminées"
+                                value={stats.done}
+                                suffix={interventionsSuffix}
+                                prefix={<CheckCircleOutlined />}
+                            />
+                            <Progress percent={interventionsPct} status="active" />
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={8}>
+                        <Card>
+                            <Statistic
+                                title="Heures réalisées"
+                                value={stats.heuresRealisees}
+                                suffix={cibleHeures ? `/ ${cibleHeures} h` : 'h'}
+                                prefix={<ClockCircleOutlined />}
+                            />
+                            <Progress percent={heuresPct} />
+                            <div style={{ fontSize: 12, color: '#999', marginTop: 4 }}>{heuresHint}</div>
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={8}>
+                        <Card>
+                            <Statistic
+                                title="Taux de complétion"
+                                value={stats.completionPct}
+                                suffix="%"
+                                prefix={<AimOutlined />}
+                            />
+                            <Progress percent={stats.completionPct} />
+                        </Card>
+                    </Col>
+                </Row>
             </Card>
         </Spin>
     );
