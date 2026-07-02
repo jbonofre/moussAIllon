@@ -2938,14 +2938,12 @@ export default function Vente() {
                                                     return (
                                                     <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'type']}
                                                             hidden
                                                         >
                                                             <Input />
                                                         </Form.Item>
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'itemId']}
                                                             hidden
                                                         >
@@ -3004,7 +3002,6 @@ export default function Vente() {
                                                             </Form.Item>
                                                         )}
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'quantite']}
                                                             rules={[
                                                                 {
@@ -3034,14 +3031,12 @@ export default function Vente() {
                                                             }}
                                                         </Form.Item>
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'remisePourcentage']}
                                                             style={{ width: 100 }}
                                                         >
                                                             <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
                                                         </Form.Item>
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'remise']}
                                                             style={{ width: 110 }}
                                                         >
@@ -3064,14 +3059,12 @@ export default function Vente() {
                                                         {isForfaitOrService && (
                                                             <>
                                                                 <Form.Item
-                                                                    {...field}
                                                                     name={[field.name, 'status']}
                                                                     style={{ width: 130 }}
                                                                 >
                                                                     <Select allowClear options={planningStatusOptions} placeholder="Statut" />
                                                                 </Form.Item>
                                                                 <Form.Item
-                                                                    {...field}
                                                                     name={[field.name, 'technicienIds']}
                                                                     style={{ width: 200 }}
                                                                 >
