@@ -395,10 +395,15 @@ export default function Planning() {
             return;
         }
         setCurrentRow(row);
+        // Lors d'un dépôt sur un jour (forcedDate), cette date prime sur la date
+        // déjà planifiée, en conservant l'heure d'origine si elle existe.
+        const forcedDateTime = forcedDate
+            ? dayjs(`${forcedDate}T${toDayjs(row.item.statusDate)?.format('HH:mm') || '08:00'}`)
+            : undefined;
         form.setFieldsValue({
             date:
-                toDayjs(row.item.statusDate)
-                || (forcedDate ? dayjs(`${forcedDate}T08:00`) : undefined)
+                forcedDateTime
+                || toDayjs(row.item.statusDate)
                 || dayjs(`${selectedDate || todayIso()}T08:00`),
             dateDebut: toDayjs(row.item.dateDebut),
             dateFin: toDayjs(row.item.dateFin),
@@ -1111,13 +1116,24 @@ export default function Planning() {
                                                         </div>
                                                     );
 
+                                                    const eventRow = allItems.find((r) => r.key === ev.eventId);
                                                     return (
                                                         <Tooltip key={ev.eventId} title={tooltipContent}>
                                                             <div
+                                                                draggable={!!eventRow}
+                                                                onDragStart={(e) => {
+                                                                    if (!eventRow) return;
+                                                                    draggedRowRef.current = eventRow;
+                                                                    e.dataTransfer.effectAllowed = 'move';
+                                                                    e.dataTransfer.setData('text/plain', ev.eventId);
+                                                                }}
+                                                                onDragEnd={() => {
+                                                                    draggedRowRef.current = null;
+                                                                    setDragOverDay(null);
+                                                                }}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    const matchedRow = allItems.find((r) => r.key === ev.eventId);
-                                                                    if (matchedRow) openPlanningModal(matchedRow);
+                                                                    if (eventRow) openPlanningModal(eventRow);
                                                                 }}
                                                                 style={{
                                                                     position: 'absolute',
@@ -1131,7 +1147,7 @@ export default function Planning() {
                                                                     padding: '2px 6px',
                                                                     fontSize: 11,
                                                                     lineHeight: '20px',
-                                                                    cursor: 'pointer',
+                                                                    cursor: eventRow ? 'grab' : 'pointer',
                                                                     overflow: 'hidden',
                                                                     textOverflow: 'ellipsis',
                                                                     whiteSpace: 'nowrap',
