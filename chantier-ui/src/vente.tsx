@@ -3055,14 +3055,12 @@ export default function Vente() {
                                                     return (
                                                     <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'type']}
                                                             hidden
                                                         >
                                                             <Input />
                                                         </Form.Item>
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'itemId']}
                                                             hidden
                                                         >
@@ -3087,10 +3085,15 @@ export default function Vente() {
                                                                         const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
                                                                         const updated = [...currentLignes];
                                                                         if (parsed) {
-                                                                            const defaults: Partial<LigneUnifiee> = parsed.type !== 'produit'
+                                                                            const isPlanifiable = parsed.type === 'forfait' || parsed.type === 'service';
+                                                                            // Le statut de planification et les techniciens ne concernent que les
+                                                                            // forfaits/services : on les réinitialise quand la ligne devient un
+                                                                            // produit ou un article catalogue, sinon la mention « en attente »
+                                                                            // persiste sur la ligne (#398).
+                                                                            const planningReset: Partial<LigneUnifiee> = isPlanifiable
                                                                                 ? { status: 'EN_ATTENTE' }
-                                                                                : {};
-                                                                            updated[field.name] = { ...updated[field.name], type: parsed.type, itemId: parsed.id, ...defaults };
+                                                                                : { status: undefined, technicienIds: undefined };
+                                                                            updated[field.name] = { ...updated[field.name], type: parsed.type, itemId: parsed.id, ...planningReset };
                                                                             const lastLine = updated[updated.length - 1];
                                                                             if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
                                                                                 updated.push({ quantite: 1 });
@@ -3125,7 +3128,6 @@ export default function Vente() {
                                                             />
                                                         )}
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'quantite']}
                                                             rules={[
                                                                 {
@@ -3155,14 +3157,12 @@ export default function Vente() {
                                                             }}
                                                         </Form.Item>
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'remisePourcentage']}
                                                             style={{ width: 100 }}
                                                         >
                                                             <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
                                                         </Form.Item>
                                                         <Form.Item
-                                                            {...field}
                                                             name={[field.name, 'remise']}
                                                             style={{ width: 110 }}
                                                         >
@@ -3185,14 +3185,12 @@ export default function Vente() {
                                                         {isForfaitOrService && (
                                                             <>
                                                                 <Form.Item
-                                                                    {...field}
                                                                     name={[field.name, 'status']}
                                                                     style={{ width: 130 }}
                                                                 >
                                                                     <Select allowClear options={planningStatusOptions} placeholder="Statut" />
                                                                 </Form.Item>
                                                                 <Form.Item
-                                                                    {...field}
                                                                     name={[field.name, 'technicienIds']}
                                                                     style={{ width: 200 }}
                                                                 >
