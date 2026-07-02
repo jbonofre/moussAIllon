@@ -43,14 +43,6 @@ public class HeliceCatalogueEntity extends PanacheEntity {
     @JsonbTransient
     public List<MoteurCatalogueEntity> moteursCompatibles = new ArrayList<>();
 
-    public double prixPublic;   
-
-    public double frais;
-
-    public double tauxMarge;
-
-    public double tauxMarque;
-
     public double prixVenteHT;
 
     public double tva;

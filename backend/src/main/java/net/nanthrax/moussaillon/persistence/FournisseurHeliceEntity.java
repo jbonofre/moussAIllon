@@ -27,5 +27,11 @@ public class FournisseurHeliceEntity extends PanacheEntity {
     
     public int nombreMinACommander;
 
+    @jakarta.persistence.Column(columnDefinition = "double default 0")
+    public double tauxMarge;
+
+    @jakarta.persistence.Column(columnDefinition = "double default 0")
+    public double tauxMarque;
+
     public String notes;
 }

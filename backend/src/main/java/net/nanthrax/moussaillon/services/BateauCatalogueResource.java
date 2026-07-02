@@ -85,10 +85,6 @@ public class BateauCatalogueResource {
         entity.stock = updatedBateauCatalogue.stock;
         entity.stockAlerte = updatedBateauCatalogue.stockAlerte;
         entity.emplacement = updatedBateauCatalogue.emplacement;
-        entity.prixPublic = updatedBateauCatalogue.prixPublic;
-        entity.frais = updatedBateauCatalogue.frais;
-        entity.tauxMarge = updatedBateauCatalogue.tauxMarge;
-        entity.tauxMarque = updatedBateauCatalogue.tauxMarque;
         entity.prixVenteHT = updatedBateauCatalogue.prixVenteHT;
         entity.tva = updatedBateauCatalogue.tva;
         entity.montantTVA = updatedBateauCatalogue.montantTVA;

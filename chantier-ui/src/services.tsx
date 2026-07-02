@@ -80,7 +80,6 @@ const defaultNewMainOeuvre = {
 const defaultNewProduit = {
     nom: '', marque: '', categorie: '', ref: '', refs: [], images: [], description: '',
     evaluation: 0, stock: 0, stockMini: 0, emplacement: '',
-    prixPublic: 0, frais: 0, tauxMarge: 0, tauxMarque: 0,
     prixVenteHT: 0, tva: 20, montantTVA: 0, prixVenteTTC: 0,
 };
 

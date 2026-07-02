@@ -119,10 +119,6 @@ public class RemorqueCatalogResource {
         entity.stock = remorque.stock;
         entity.stockAlerte = remorque.stockAlerte;
         entity.emplacement = remorque.emplacement;
-        entity.prixPublic = remorque.prixPublic;
-        entity.frais = remorque.frais;
-        entity.tauxMarge = remorque.tauxMarge;
-        entity.tauxMarque = remorque.tauxMarque;
         entity.prixVenteHT = remorque.prixVenteHT;
         entity.tva = remorque.tva;
         entity.montantTVA = remorque.montantTVA;

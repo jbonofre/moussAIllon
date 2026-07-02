@@ -18,20 +18,20 @@ INSERT INTO TechnicienEntity (id, nom, prenom, email, telephone, couleur, motDeP
 INSERT INTO FournisseurEntity (id, nom, email, telephone, adresse, evaluation) VALUES (100, 'Marine Parts SA', 'contact@marineparts.com', '0400001111', '5 zone portuaire', 4.0);
 
 -- Catalogue bateaux
-INSERT INTO BateauCatalogueEntity (id, modele, marque, type, description, evaluation, anneeDebut, anneeFin, longueurExterieure, largeur, poidsVide, stock, stockAlerte, prixPublic, prixVenteHT, tva, montantTVA, prixVenteTTC, frais, tauxMarge, tauxMarque, longueurCoque, hauteur, tirantAir, tirantEau, poidsMoteurMax, chargeMax, reservoirEau, reservoirCarburant, nombrePassagersMax) VALUES (100, 'Quicksilver 505', 'Quicksilver', 'Open', 'Bateau open polyvalent', 4.0, 2024, 2024, 5.05, 2.10, 650, 3, 1, 25000.0, 22000.0, 20.0, 4400.0, 26400.0, 500.0, 10.0, 9.0, 4.80, 1.50, 2.0, 0.5, 200.0, 800.0, 50.0, 100.0, 6);
+INSERT INTO BateauCatalogueEntity (id, modele, marque, type, description, evaluation, anneeDebut, anneeFin, longueurExterieure, largeur, poidsVide, stock, stockAlerte, prixVenteHT, tva, montantTVA, prixVenteTTC, longueurCoque, hauteur, tirantAir, tirantEau, poidsMoteurMax, chargeMax, reservoirEau, reservoirCarburant, nombrePassagersMax) VALUES (100, 'Quicksilver 505', 'Quicksilver', 'Open', 'Bateau open polyvalent', 4.0, 2024, 2024, 5.05, 2.10, 650, 3, 1, 22000.0, 20.0, 4400.0, 26400.0, 4.80, 1.50, 2.0, 0.5, 200.0, 800.0, 50.0, 100.0, 6);
 
 -- Catalogue moteurs (all primitive fields included)
-INSERT INTO MoteurCatalogueEntity (id, modele, marque, type, description, anneeDebut, anneeFin, puissanceCv, puissanceKw, arbre, cylindres, cylindree, evaluation, stock, stockAlerte, prixPublic, frais, tauxMarge, tauxMarque, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (100, 'Mercury 115 EFI', 'Mercury', 'Hors-bord', 'Moteur 4 temps', NULL, NULL, 115, 85, 0, 4, 2100, 0, 5, 1, 12000.0, 0, 0, 0, 10000.0, 20.0, 2000.0, 12000.0);
+INSERT INTO MoteurCatalogueEntity (id, modele, marque, type, description, anneeDebut, anneeFin, puissanceCv, puissanceKw, arbre, cylindres, cylindree, evaluation, stock, stockAlerte, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (100, 'Mercury 115 EFI', 'Mercury', 'Hors-bord', 'Moteur 4 temps', NULL, NULL, 115, 85, 0, 4, 2100, 0, 5, 1, 10000.0, 20.0, 2000.0, 12000.0);
 
 -- Catalogue helices (all primitive fields included)
-INSERT INTO HeliceCatalogueEntity (id, modele, marque, description, diametre, pales, cannelures, evaluation, prixPublic, frais, tauxMarge, tauxMarque, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (100, 'Vengeance 14x19', 'Mercury', 'Helice inox', 14, 3, 15, 0, 350.0, 0, 0, 0, 300.0, 20.0, 60.0, 360.0);
+INSERT INTO HeliceCatalogueEntity (id, modele, marque, description, diametre, pales, cannelures, evaluation, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (100, 'Vengeance 14x19', 'Mercury', 'Helice inox', 14, 3, 15, 0, 300.0, 20.0, 60.0, 360.0);
 
 -- Catalogue remorques (all primitive fields included)
-INSERT INTO RemorqueCatalogueEntity (id, modele, marque, description, evaluation, ptac, chargeAVide, chargeUtile, longueur, largeur, longueurMaxBateau, largeurMaxBateau, stock, stockAlerte, prixPublic, frais, tauxMarge, tauxMarque, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (100, 'Sun Way 500', 'Sun Way', 'Remorque routiere', 0, 750, 200, 550, 600, 200, 500, 200, 2, 1, 2500.0, 0, 0, 0, 2000.0, 20.0, 400.0, 2400.0);
+INSERT INTO RemorqueCatalogueEntity (id, modele, marque, description, evaluation, ptac, chargeAVide, chargeUtile, longueur, largeur, longueurMaxBateau, largeurMaxBateau, stock, stockAlerte, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (100, 'Sun Way 500', 'Sun Way', 'Remorque routiere', 0, 750, 200, 550, 600, 200, 500, 200, 2, 1, 2000.0, 20.0, 400.0, 2400.0);
 
 -- Catalogue produits (all primitive fields included)
-INSERT INTO ProduitCatalogueEntity (id, nom, marque, categorie, description, evaluation, stock, stockMini, prixPublic, frais, tauxMarge, tauxMarque, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (100, 'Huile moteur 4T', 'Motul', 'Entretien', 'Huile marine 4 temps', 0, 50, 10, 25.0, 0, 0, 0, 20.0, 20.0, 4.0, 24.0);
-INSERT INTO ProduitCatalogueEntity (id, nom, marque, categorie, description, evaluation, stock, stockMini, prixPublic, frais, tauxMarge, tauxMarque, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (101, 'Filtre a huile', 'Mercury', 'Entretien', 'Filtre compatible Mercury', 0, 2, 5, 15.0, 0, 0, 0, 12.0, 20.0, 2.4, 14.4);
+INSERT INTO ProduitCatalogueEntity (id, nom, marque, categorie, description, evaluation, stock, stockMini, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (100, 'Huile moteur 4T', 'Motul', 'Entretien', 'Huile marine 4 temps', 0, 50, 10, 20.0, 20.0, 4.0, 24.0);
+INSERT INTO ProduitCatalogueEntity (id, nom, marque, categorie, description, evaluation, stock, stockMini, prixVenteHT, tva, montantTVA, prixVenteTTC) VALUES (101, 'Filtre a huile', 'Mercury', 'Entretien', 'Filtre compatible Mercury', 0, 2, 5, 12.0, 20.0, 2.4, 14.4);
 
 -- Main d'oeuvres (all primitive fields included)
 INSERT INTO MainOeuvreEntity (id, reference, nom, description, prixHT, tva, montantTVA, prixTTC) VALUES (100, 'MO-001', 'Revision annuelle', 'Revision complete moteur', 150.0, 20.0, 30.0, 180.0);

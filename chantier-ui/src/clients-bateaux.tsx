@@ -902,30 +902,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           </Row>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="prixPublic" label="Prix public">
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="frais" label="Frais">
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="tauxMarge" label="Taux de marge">
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="%" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="tauxMarque" label="Taux de marque">
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="%" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
               <Form.Item name="prixVenteHT" label="Prix de vente HT">
                 <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
               </Form.Item>
@@ -1122,30 +1098,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           <Form.Item name="emplacement" label="Emplacement">
             <Input />
           </Form.Item>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="prixPublic" label="Prix public">
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="frais" label="Frais">
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="tauxMarge" label="Taux de marge">
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="%" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="tauxMarque" label="Taux de marque">
-                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="%" />
-              </Form.Item>
-            </Col>
-          </Row>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="prixVenteHT" label="Prix de vente HT">

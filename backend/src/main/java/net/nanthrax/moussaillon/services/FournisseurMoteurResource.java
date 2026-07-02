@@ -138,6 +138,8 @@ public class FournisseurMoteurResource {
         entity.portForfaitaire = updated.portForfaitaire;
         entity.portParUnite = updated.portParUnite;
         entity.nombreMinACommander = updated.nombreMinACommander;
+        entity.tauxMarge = updated.tauxMarge;
+        entity.tauxMarque = updated.tauxMarque;
         entity.notes = updated.notes;
         return entity;
     }

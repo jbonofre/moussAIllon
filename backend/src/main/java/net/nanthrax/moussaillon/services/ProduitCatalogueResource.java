@@ -162,10 +162,6 @@ public class ProduitCatalogueResource {
         entity.stock = produit.stock;
         entity.stockMini = produit.stockMini;
         entity.emplacement = produit.emplacement;
-        entity.prixPublic = produit.prixPublic;
-        entity.frais = produit.frais;
-        entity.tauxMarge = produit.tauxMarge;
-        entity.tauxMarque = produit.tauxMarque;
         entity.prixVenteHT = produit.prixVenteHT;
         entity.tva = produit.tva;
         entity.montantTVA = produit.montantTVA;
