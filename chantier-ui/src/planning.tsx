@@ -35,6 +35,7 @@ interface VenteForfaitEntry {
     id?: number;
     forfait?: { id: number; nom: string; dureeEstimee?: number };
     quantite?: number;
+    dureePlanifiee?: number;
     techniciens?: TechnicienEntity[];
     datePlanification?: string;
     dateDebut?: string;
@@ -50,6 +51,7 @@ interface VenteServiceEntry {
     id?: number;
     service?: { id: number; nom: string; dureeEstimee?: number };
     quantite?: number;
+    dureePlanifiee?: number;
     techniciens?: TechnicienEntity[];
     datePlanification?: string;
     dateDebut?: string;
@@ -86,6 +88,7 @@ interface PlanningItem {
     status?: PlanningStatus;
     statusDate?: string;
     dureeEstimee?: number;
+    dureePlanifiee?: number;
     dureeReelle?: number;
     quantite?: number;
     venteId?: number;
@@ -113,6 +116,7 @@ interface CalendarEvent {
     backgroundColor?: string;
     textColor?: string;
     dureeEstimee?: number;
+    dureePlanifiee?: number;
     bateauNom?: string;
     bateauImmatriculation?: string;
     clientNom?: string;
@@ -268,6 +272,7 @@ const buildPlanningItems = (ventes: VenteEntity[]): PlanningItemRow[] => {
                 status: vf.status,
                 statusDate: vf.statusDate,
                 dureeEstimee: vf.forfait?.dureeEstimee,
+                dureePlanifiee: vf.dureePlanifiee,
                 dureeReelle: vf.dureeReelle,
                 quantite: vf.quantite,
                 venteId: vente.id,
@@ -298,6 +303,7 @@ const buildPlanningItems = (ventes: VenteEntity[]): PlanningItemRow[] => {
                 status: vs.status,
                 statusDate: vs.statusDate,
                 dureeEstimee: vs.service?.dureeEstimee,
+                dureePlanifiee: vs.dureePlanifiee,
                 dureeReelle: vs.dureeReelle,
                 quantite: vs.quantite,
                 venteId: vente.id,
@@ -333,6 +339,9 @@ export default function Planning() {
     const [form] = Form.useForm<PlanningFormValues>();
     const draggedRowRef = useRef<PlanningItemRow | null>(null);
     const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+    // Redimensionnement d'un événement pour ajuster sa durée allouée
+    const [resize, setResize] = useState<{ key: string; duration: number } | null>(null);
+    const resizeRef = useRef<{ key: string; row: PlanningItemRow; startX: number; origDuration: number; cellWidth: number } | null>(null);
     const [prestationModalVisible, setPrestationModalVisible] = useState(false);
     const [prestationVente, setPrestationVente] = useState<VenteEntity | null>(null);
     const [prestationLoading, setPrestationLoading] = useState(false);
@@ -395,10 +404,19 @@ export default function Planning() {
             return;
         }
         setCurrentRow(row);
+        // Lors d'un dépôt sur le calendrier (forcedDate), cette date prime sur la
+        // date déjà planifiée. Si forcedDate contient une heure (dépôt sur un
+        // créneau horaire), on l'utilise telle quelle ; sinon on conserve l'heure
+        // d'origine (ou 08:00 par défaut).
+        const forcedDateTime = forcedDate
+            ? (forcedDate.includes('T')
+                ? dayjs(forcedDate)
+                : dayjs(`${forcedDate}T${toDayjs(row.item.statusDate)?.format('HH:mm') || '08:00'}`))
+            : undefined;
         form.setFieldsValue({
             date:
-                toDayjs(row.item.statusDate)
-                || (forcedDate ? dayjs(`${forcedDate}T08:00`) : undefined)
+                forcedDateTime
+                || toDayjs(row.item.statusDate)
                 || dayjs(`${selectedDate || todayIso()}T08:00`),
             dateDebut: toDayjs(row.item.dateDebut),
             dateFin: toDayjs(row.item.dateFin),
@@ -523,6 +541,7 @@ export default function Planning() {
                         backgroundColor: getTechnicienColor(item.techniciens),
                         textColor: '#ffffff',
                         dureeEstimee: item.dureeEstimee,
+                        dureePlanifiee: item.dureePlanifiee,
                         bateauNom: item.bateauNom,
                         bateauImmatriculation: item.bateauImmatriculation,
                         clientNom: item.clientNom,
@@ -748,6 +767,34 @@ export default function Planning() {
             message.error("Erreur lors de la mise a jour.");
         } finally {
             setSaving(false);
+        }
+    };
+
+    // Persiste la nouvelle durée allouée (heures) d'une intervention après redimensionnement.
+    const persistDureePlanifiee = async (row: PlanningItemRow, duree: number) => {
+        if (!row.vente?.id) {
+            return;
+        }
+        try {
+            const venteId = row.vente.id;
+            const latestVente = ((await api.get(`/ventes/${venteId}`)).data || row.vente) as VenteEntity;
+            const listKey = row.itemType === 'forfait' ? 'venteForfaits' : 'venteServices';
+            const list = [...(latestVente[listKey] || [])];
+            let idx = (row.item.id !== undefined && row.item.id !== null)
+                ? list.findIndex((e: VenteForfaitEntry | VenteServiceEntry) => e.id === row.item.id)
+                : -1;
+            if (idx < 0) {
+                idx = Math.min(row.itemIndex, list.length - 1);
+            }
+            if (idx < 0 || !list[idx]) {
+                return;
+            }
+            list[idx] = { ...list[idx], dureePlanifiee: duree };
+            await api.put(`/ventes/${venteId}`, { ...latestVente, [listKey]: list });
+            message.success(`Durée allouée : ${duree} h`);
+            fetchVentes();
+        } catch {
+            message.error("Erreur lors de la mise à jour de la durée allouée.");
         }
     };
 
@@ -1058,6 +1105,7 @@ export default function Planning() {
                                             </div>
                                             {/* Timeline cells */}
                                             <div
+                                                data-timeline-cell
                                                 style={{
                                                     gridColumn: `2 / -1`,
                                                     borderBottom: '1px solid #f0f0f0',
@@ -1072,7 +1120,16 @@ export default function Planning() {
                                                     setDragOverDay(null);
                                                     const row = draggedRowRef.current;
                                                     draggedRowRef.current = null;
-                                                    if (row) openPlanningModal(row, dayStr);
+                                                    if (!row) return;
+                                                    // Heure calculée selon la position horizontale du dépôt sur la timeline (pas de 30 min).
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    const fraction = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
+                                                    const rawMinutes = (HOUR_START + fraction * TOTAL_HOURS) * 60;
+                                                    const snapped = Math.round(rawMinutes / 30) * 30;
+                                                    const clamped = Math.min(Math.max(snapped, HOUR_START * 60), HOUR_END * 60 - 30);
+                                                    const hh = String(Math.floor(clamped / 60)).padStart(2, '0');
+                                                    const mm = String(clamped % 60).padStart(2, '0');
+                                                    openPlanningModal(row, `${dayStr}T${hh}:${mm}`);
                                                 }}
                                             >
                                                 {/* Vertical grid lines */}
@@ -1097,7 +1154,8 @@ export default function Planning() {
                                                 {dayEvts.map((ev, idx) => {
                                                     const start = dayjs(ev.startTime);
                                                     const startHour = start.hour() + start.minute() / 60;
-                                                    const duration = ev.dureeEstimee || 1;
+                                                    const baseDuration = ev.dureePlanifiee ?? ev.dureeEstimee ?? 1;
+                                                    const duration = (resize && resize.key === ev.eventId) ? resize.duration : baseDuration;
                                                     const leftPct = Math.max(0, ((startHour - HOUR_START) / TOTAL_HOURS) * 100);
                                                     const widthPct = Math.min((duration / TOTAL_HOURS) * 100, 100 - leftPct);
                                                     const statusLabel = ev.status ? statusOptions.find((s) => s.value === ev.status)?.label || ev.status : '';
@@ -1111,13 +1169,24 @@ export default function Planning() {
                                                         </div>
                                                     );
 
+                                                    const eventRow = allItems.find((r) => r.key === ev.eventId);
                                                     return (
                                                         <Tooltip key={ev.eventId} title={tooltipContent}>
                                                             <div
+                                                                draggable={!!eventRow && resize?.key !== ev.eventId}
+                                                                onDragStart={(e) => {
+                                                                    if (!eventRow) return;
+                                                                    draggedRowRef.current = eventRow;
+                                                                    e.dataTransfer.effectAllowed = 'move';
+                                                                    e.dataTransfer.setData('text/plain', ev.eventId);
+                                                                }}
+                                                                onDragEnd={() => {
+                                                                    draggedRowRef.current = null;
+                                                                    setDragOverDay(null);
+                                                                }}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
-                                                                    const matchedRow = allItems.find((r) => r.key === ev.eventId);
-                                                                    if (matchedRow) openPlanningModal(matchedRow);
+                                                                    if (eventRow) openPlanningModal(eventRow);
                                                                 }}
                                                                 style={{
                                                                     position: 'absolute',
@@ -1131,7 +1200,7 @@ export default function Planning() {
                                                                     padding: '2px 6px',
                                                                     fontSize: 11,
                                                                     lineHeight: '20px',
-                                                                    cursor: 'pointer',
+                                                                    cursor: eventRow ? 'grab' : 'pointer',
                                                                     overflow: 'hidden',
                                                                     textOverflow: 'ellipsis',
                                                                     whiteSpace: 'nowrap',
@@ -1140,6 +1209,50 @@ export default function Planning() {
                                                                 }}
                                                             >
                                                                 {ev.bateauNom || ev.forfaitServiceNom || '-'}{ev.progressPct !== undefined ? ` (${ev.progressPct}%)` : ''}
+                                                                {eventRow && (
+                                                                    <div
+                                                                        title="Étirer pour ajuster la durée"
+                                                                        onClick={(e) => e.stopPropagation()}
+                                                                        onMouseDown={(e) => {
+                                                                            e.stopPropagation();
+                                                                            e.preventDefault();
+                                                                            const cell = (e.currentTarget as HTMLElement).closest('[data-timeline-cell]') as HTMLElement | null;
+                                                                            const cellWidth = cell ? cell.getBoundingClientRect().width : 0;
+                                                                            resizeRef.current = { key: ev.eventId, row: eventRow, startX: e.clientX, origDuration: baseDuration, cellWidth };
+                                                                            setResize({ key: ev.eventId, duration: baseDuration });
+                                                                            const onMove = (me: MouseEvent) => {
+                                                                                const r = resizeRef.current;
+                                                                                if (!r || r.cellWidth <= 0) return;
+                                                                                const deltaHours = ((me.clientX - r.startX) / r.cellWidth) * TOTAL_HOURS;
+                                                                                const snapped = Math.max(0.5, Math.round((r.origDuration + deltaHours) * 2) / 2);
+                                                                                setResize({ key: r.key, duration: snapped });
+                                                                            };
+                                                                            const onUp = () => {
+                                                                                document.removeEventListener('mousemove', onMove);
+                                                                                document.removeEventListener('mouseup', onUp);
+                                                                                const r = resizeRef.current;
+                                                                                resizeRef.current = null;
+                                                                                setResize((cur) => {
+                                                                                    if (r && cur && cur.duration !== r.origDuration) {
+                                                                                        persistDureePlanifiee(r.row, cur.duration);
+                                                                                    }
+                                                                                    return null;
+                                                                                });
+                                                                            };
+                                                                            document.addEventListener('mousemove', onMove);
+                                                                            document.addEventListener('mouseup', onUp);
+                                                                        }}
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            top: 0,
+                                                                            right: 0,
+                                                                            width: 8,
+                                                                            height: '100%',
+                                                                            cursor: 'ew-resize',
+                                                                            zIndex: 3,
+                                                                        }}
+                                                                    />
+                                                                )}
                                                             </div>
                                                         </Tooltip>
                                                     );

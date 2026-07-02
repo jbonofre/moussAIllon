@@ -57,6 +57,9 @@ public class VenteServiceEntity extends PanacheEntity {
 
     public double dureeReelle;
 
+    // Durée allouée à la planification (heures) ; à défaut on utilise la durée estimée du service
+    public Double dureePlanifiee;
+
     public Date incidentDate;
 
     public String incidentDetails;
