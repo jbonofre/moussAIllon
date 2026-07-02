@@ -191,6 +191,7 @@ interface CatalogueBateauEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueMoteurEntity {
@@ -198,6 +199,7 @@ interface CatalogueMoteurEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueHeliceEntity {
@@ -205,6 +207,7 @@ interface CatalogueHeliceEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueRemorqueEntity {
@@ -212,6 +215,7 @@ interface CatalogueRemorqueEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 
@@ -1016,6 +1020,27 @@ export default function Vente() {
         }
     };
 
+    // Rafraîchit les listes catalogue (produits + bateaux/moteurs/hélices/remorques)
+    // afin d'afficher l'état de stock le plus à jour à chaque nouvelle vente.
+    const refreshCatalogue = async () => {
+        try {
+            const [catProduitsRes, catBateauxRes, catMoteursRes, catHelicesRes, catRemorquesRes] = await Promise.all([
+                api.get('/catalogue/produits'),
+                api.get('/catalogue/bateaux'),
+                api.get('/catalogue/moteurs'),
+                api.get('/catalogue/helices'),
+                api.get('/catalogue/remorques')
+            ]);
+            setProduits(catProduitsRes.data || []);
+            setCatalogueBateaux(catBateauxRes.data || []);
+            setCatalogueMoteurs(catMoteursRes.data || []);
+            setCatalogueHelices(catHelicesRes.data || []);
+            setCatalogueRemorques(catRemorquesRes.data || []);
+        } catch {
+            // silencieux : le stock affiché reste celui du dernier chargement réussi
+        }
+    };
+
     useEffect(() => {
         fetchVentes();
         fetchOptions();
@@ -1800,6 +1825,8 @@ export default function Vente() {
 
     const openModal = async (vente?: VenteEntity) => {
         suppressDirtyRef.current = true;
+        // Recharge le stock depuis le backend pour repartir d'un état à jour.
+        await refreshCatalogue();
         if (vente) {
             setIsEdit(true);
             setCurrentVente(vente);
@@ -3180,6 +3207,80 @@ export default function Vente() {
                                                                         <InputNumber addonAfter="EUR" value={total} style={{ width: '100%' }} disabled />
                                                                     </Form.Item>
                                                                 );
+                                                            }}
+                                                        </Form.Item>
+                                                        <Form.Item noStyle shouldUpdate>
+                                                            {() => {
+                                                                const quantite = form.getFieldValue(['lignes', field.name, 'quantite']) || 0;
+                                                                let stock: number | undefined;
+                                                                let stockMini = 0;
+                                                                if (lineType === 'produit') {
+                                                                    const produit = produits.find((p) => p.id === itemId);
+                                                                    if (!produit) return null;
+                                                                    stock = produit.stock ?? 0;
+                                                                    stockMini = produit.stockMini ?? 0;
+                                                                } else if (lineType === 'bateau') {
+                                                                    const item = catalogueBateaux.find((b) => b.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'moteur') {
+                                                                    const item = catalogueMoteurs.find((m) => m.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'helice') {
+                                                                    const item = catalogueHelices.find((h) => h.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'remorque') {
+                                                                    const item = catalogueRemorques.find((r) => r.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'forfait' || lineType === 'service') {
+                                                                    // Stock des pièces rattachées au forfait/service
+                                                                    const source = lineType === 'forfait'
+                                                                        ? forfaits.find((f) => f.id === itemId)
+                                                                        : services.find((s) => s.id === itemId);
+                                                                    const composants = (source?.produits || [])
+                                                                        .filter((cp: { produit?: ProduitCatalogueEntity }) => cp?.produit?.id)
+                                                                        .map((cp: { produit: ProduitCatalogueEntity; quantite?: number }) => {
+                                                                            const prod = produits.find((p) => p.id === cp.produit.id) || cp.produit;
+                                                                            const besoin = (cp.quantite || 1) * (quantite || 1);
+                                                                            return {
+                                                                                nom: prod?.nom || `#${cp.produit.id}`,
+                                                                                stock: prod?.stock ?? 0,
+                                                                                stockMini: prod?.stockMini ?? 0,
+                                                                                besoin,
+                                                                            };
+                                                                        });
+                                                                    if (composants.length === 0) return null;
+                                                                    const etat = composants.reduce((acc: number, c: { stock: number; stockMini: number; besoin: number }) => {
+                                                                        const s = c.stock === 0 ? 2 : (c.stock < c.besoin || c.stock < c.stockMini) ? 1 : 0;
+                                                                        return Math.max(acc, s);
+                                                                    }, 0);
+                                                                    const couleurComposant = etat === 2 ? 'red' : etat === 1 ? 'orange' : 'green';
+                                                                    const libelle = etat === 2 ? 'Pièces en rupture' : etat === 1 ? 'Pièces en alerte' : 'Pièces en stock';
+                                                                    const contenu = (
+                                                                        <div style={{ maxWidth: 260 }}>
+                                                                            {composants.map((c: { nom: string; stock: number; stockMini: number; besoin: number }, i: number) => (
+                                                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                                                                    <span>{c.nom}</span>
+                                                                                    <span style={{ color: c.stock === 0 ? '#cf1322' : (c.stock < c.besoin || c.stock < c.stockMini) ? '#d46b08' : '#389e0d' }}>
+                                                                                        {c.stock} en stock{c.besoin > 1 ? ` (besoin ${c.besoin})` : ''}
+                                                                                    </span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    );
+                                                                    return (
+                                                                        <Popover content={contenu} title="Stock des pièces">
+                                                                            <Tag color={couleurComposant} style={{ marginRight: 0, cursor: 'pointer' }}>{libelle}</Tag>
+                                                                        </Popover>
+                                                                    );
+                                                                } else {
+                                                                    return null;
+                                                                }
+                                                                const color = stock === 0 ? 'red' : (stock < quantite || stock < stockMini) ? 'orange' : 'green';
+                                                                return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
                                                             }}
                                                         </Form.Item>
                                                         {isForfaitOrService && (

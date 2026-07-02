@@ -92,6 +92,7 @@ interface CatalogueBateauEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueMoteurEntity {
@@ -99,6 +100,7 @@ interface CatalogueMoteurEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueHeliceEntity {
@@ -106,6 +108,7 @@ interface CatalogueHeliceEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueRemorqueEntity {
@@ -113,6 +116,7 @@ interface CatalogueRemorqueEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 
@@ -713,6 +717,27 @@ export default function Comptoir() {
         }
     };
 
+    // Rafraîchit les listes catalogue (produits + bateaux/moteurs/hélices/remorques)
+    // afin d'afficher l'état de stock le plus à jour à chaque nouvelle vente.
+    const refreshCatalogue = async () => {
+        try {
+            const [catProduitsRes, catBateauxRes, catMoteursRes, catHelicesRes, catRemorquesRes] = await Promise.all([
+                api.get('/catalogue/produits'),
+                api.get('/catalogue/bateaux'),
+                api.get('/catalogue/moteurs'),
+                api.get('/catalogue/helices'),
+                api.get('/catalogue/remorques')
+            ]);
+            setProduits(catProduitsRes.data || []);
+            setCatalogueBateaux(catBateauxRes.data || []);
+            setCatalogueMoteurs(catMoteursRes.data || []);
+            setCatalogueHelices(catHelicesRes.data || []);
+            setCatalogueRemorques(catRemorquesRes.data || []);
+        } catch {
+            // silencieux : le stock affiché reste celui du dernier chargement réussi
+        }
+    };
+
     useEffect(() => {
         fetchVentes();
         fetchOptions();
@@ -837,7 +862,9 @@ export default function Comptoir() {
         }
     };
 
-    const openModal = (vente?: VenteEntity) => {
+    const openModal = async (vente?: VenteEntity) => {
+        // Recharge le stock depuis le backend pour repartir d'un état à jour.
+        await refreshCatalogue();
         if (vente) {
             setIsEdit(true);
             setCurrentVente(vente);
@@ -1723,6 +1750,13 @@ export default function Comptoir() {
                                                 const isEmptyLine = !produitRef;
                                                 const [ligneType, ligneIdStr] = (produitRef || '').split(':');
                                                 const ligneItemId = parseInt(ligneIdStr, 10);
+                                                const refType = ligneType;
+                                                const refId = ligneItemId;
+                                                const produitCatalogue = refType === 'produit' ? produits.find((p) => p.id === refId) : undefined;
+                                                const bateauCatalogue = refType === 'bateau' ? catalogueBateaux.find((b) => b.id === refId) : undefined;
+                                                const moteurCatalogue = refType === 'moteur' ? catalogueMoteurs.find((m) => m.id === refId) : undefined;
+                                                const heliceCatalogue = refType === 'helice' ? catalogueHelices.find((h) => h.id === refId) : undefined;
+                                                const remorqueCatalogue = refType === 'remorque' ? catalogueRemorques.find((r) => r.id === refId) : undefined;
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
                                                     <Form.Item
@@ -1796,6 +1830,28 @@ export default function Comptoir() {
                                                     >
                                                         <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
                                                     </Form.Item>
+                                                    {(() => {
+                                                        const qty = quantite || 0;
+                                                        let stock: number | undefined;
+                                                        let stockMini = 0;
+                                                        if (produitCatalogue) {
+                                                            stock = produitCatalogue.stock ?? 0;
+                                                            stockMini = produitCatalogue.stockMini ?? 0;
+                                                        } else if (bateauCatalogue) {
+                                                            stock = bateauCatalogue.stock ?? 0;
+                                                        } else if (moteurCatalogue) {
+                                                            stock = moteurCatalogue.stock ?? 0;
+                                                        } else if (heliceCatalogue) {
+                                                            stock = heliceCatalogue.stock ?? 0;
+                                                        } else if (remorqueCatalogue) {
+                                                            stock = remorqueCatalogue.stock ?? 0;
+                                                        }
+                                                        if (stock === undefined) return null;
+                                                        // Une vente comptoir décrémente le stock : on alerte si le stock
+                                                        // restant après la vente (stock - quantité) passe sous le seuil d'alerte.
+                                                        const color = stock === 0 ? 'red' : (stock < qty || (stock - qty) < stockMini) ? 'orange' : 'green';
+                                                        return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
+                                                    })()}
                                                     <Form.Item style={{ width: 130 }}>
                                                         <InputNumber
                                                             addonAfter="EUR"
