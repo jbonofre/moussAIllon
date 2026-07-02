@@ -20,11 +20,13 @@ import {
 import {
     CheckCircleOutlined,
     ClockCircleOutlined,
+    DeleteOutlined,
     ExclamationCircleOutlined,
     FileOutlined,
     KeyOutlined,
     LogoutOutlined,
     PictureOutlined,
+    PlusOutlined,
     ReloadOutlined,
     ScheduleOutlined,
     ShoppingOutlined,
@@ -83,6 +85,7 @@ interface PlanningItem {
     quantite?: number;
     taches?: ChecklistItem[];
     produits?: ProduitItem[];
+    produitsExtra?: ProduitItem[];
     images?: string[];
     documents?: string[];
 }
@@ -131,10 +134,16 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
     const [modalVisible, setModalVisible] = useState(false);
     const [currentItem, setCurrentItem] = useState<PlanningItem | null>(null);
     const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
+    const [produitsExtra, setProduitsExtra] = useState<ProduitItem[]>([]);
     const [images, setImages] = useState<string[]>([]);
     const [documents, setDocuments] = useState<string[]>([]);
     const [form] = Form.useForm();
     const [saving, setSaving] = useState(false);
+    const [addProduitVisible, setAddProduitVisible] = useState(false);
+    const [catalogue, setCatalogue] = useState<ProduitItem[]>([]);
+    const [catalogueLoading, setCatalogueLoading] = useState(false);
+    const [selectedProduitId, setSelectedProduitId] = useState<number | undefined>(undefined);
+    const [addQuantite, setAddQuantite] = useState(1);
 
     const technicienName = `${user.prenom || ''} ${user.nom}`.trim();
 
@@ -161,6 +170,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
     const openModal = (item: PlanningItem, presetStatus?: TaskStatus) => {
         setCurrentItem(item);
         setChecklist((item.taches || []).map((t) => ({ ...t })));
+        setProduitsExtra((item.produitsExtra || []).map((p) => ({ ...p })));
         setImages(item.images || []);
         setDocuments(item.documents || []);
         form.setFieldsValue({
@@ -201,6 +211,9 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
             if (updated.taches) {
                 setChecklist(updated.taches.map((t: ChecklistItem) => ({ ...t })));
             }
+            if (updated.produitsExtra) {
+                setProduitsExtra(updated.produitsExtra.map((p: ProduitItem) => ({ ...p })));
+            }
             if (updated.images) {
                 setImages(updated.images);
             }
@@ -219,6 +232,56 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
             message.error('Erreur lors de la mise a jour');
         } finally {
             setSaving(false);
+        }
+    };
+
+    const openAddProduit = async () => {
+        setAddProduitVisible(true);
+        setSelectedProduitId(undefined);
+        setAddQuantite(1);
+        if (catalogue.length === 0) {
+            setCatalogueLoading(true);
+            try {
+                const res = await api.get('/technicien-portal/produits');
+                setCatalogue(res.data || []);
+            } catch {
+                message.error('Impossible de charger le catalogue');
+            } finally {
+                setCatalogueLoading(false);
+            }
+        }
+    };
+
+    const handleAddProduit = async () => {
+        if (!currentItem || !selectedProduitId) return;
+        const endpoint = currentItem.itemType === 'forfait'
+            ? `/technicien-portal/forfaits/${currentItem.itemId}/produits`
+            : `/technicien-portal/services/${currentItem.itemId}/produits`;
+        try {
+            const res = await api.post(endpoint, { produitId: selectedProduitId, quantite: addQuantite });
+            const updated = res.data;
+            setCurrentItem({ ...currentItem, ...updated });
+            setProduitsExtra((updated.produitsExtra || []).map((p: ProduitItem) => ({ ...p })));
+            setAddProduitVisible(false);
+            message.success('Produit ajoute');
+        } catch {
+            message.error("Erreur lors de l'ajout du produit");
+        }
+    };
+
+    const handleRemoveProduit = async (produitExtraId: number) => {
+        if (!currentItem) return;
+        const endpoint = currentItem.itemType === 'forfait'
+            ? `/technicien-portal/forfaits/${currentItem.itemId}/produits/${produitExtraId}`
+            : `/technicien-portal/services/${currentItem.itemId}/produits/${produitExtraId}`;
+        try {
+            const res = await api.delete(endpoint);
+            const updated = res.data;
+            setCurrentItem({ ...currentItem, ...updated });
+            setProduitsExtra((updated.produitsExtra || []).map((p: ProduitItem) => ({ ...p })));
+            message.success('Produit retire');
+        } catch {
+            message.error('Erreur lors de la suppression du produit');
         }
     };
 
@@ -326,6 +389,43 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                 />
             </div>
 
+            {/* Add product modal */}
+            <Modal
+                open={addProduitVisible}
+                title="Ajouter un produit"
+                onOk={handleAddProduit}
+                okText="Ajouter"
+                cancelText="Annuler"
+                onCancel={() => setAddProduitVisible(false)}
+                okButtonProps={{ disabled: !selectedProduitId }}
+                destroyOnHidden
+                width="90vw"
+            >
+                <Spin spinning={catalogueLoading}>
+                    <Form layout="vertical">
+                        <Form.Item label="Produit" required>
+                            <Select
+                                showSearch
+                                placeholder="Rechercher un produit"
+                                value={selectedProduitId}
+                                onChange={setSelectedProduitId}
+                                filterOption={(input, option) =>
+                                    (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
+                                }
+                                options={catalogue.map((p) => ({
+                                    value: p.id,
+                                    label: `${p.nom || ''}${p.marque ? ` - ${p.marque}` : ''}${p.ref ? ` (${p.ref})` : ''}`,
+                                }))}
+                                style={{ width: '100%' }}
+                            />
+                        </Form.Item>
+                        <Form.Item label="Quantite">
+                            <InputNumber min={1} value={addQuantite} onChange={(v) => setAddQuantite(v ?? 1)} style={{ width: '100%' }} />
+                        </Form.Item>
+                    </Form>
+                </Spin>
+            </Modal>
+
             {/* Update modal */}
             <Modal
                 open={modalVisible}
@@ -334,7 +434,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                 okText="Enregistrer"
                 cancelText="Annuler"
                 confirmLoading={saving}
-                onCancel={() => { setModalVisible(false); setCurrentItem(null); setChecklist([]); setImages([]); setDocuments([]); form.resetFields(); }}
+                onCancel={() => { setModalVisible(false); setCurrentItem(null); setChecklist([]); setProduitsExtra([]); setImages([]); setDocuments([]); form.resetFields(); }}
                 destroyOnHidden
                 width="95vw"
                 style={{ top: 20 }}
@@ -348,7 +448,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                             )}
                         </div>
                         <Space>
-                            <Button onClick={() => { setModalVisible(false); setCurrentItem(null); setChecklist([]); setImages([]); setDocuments([]); form.resetFields(); }}>
+                            <Button onClick={() => { setModalVisible(false); setCurrentItem(null); setChecklist([]); setProduitsExtra([]); setImages([]); setDocuments([]); form.resetFields(); }}>
                                 Annuler
                             </Button>
                             <Button type="primary" loading={saving} onClick={handleSave}>
@@ -399,7 +499,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                         </Card>
                     )}
                     {currentItem?.produits && currentItem.produits.length > 0 && (
-                        <Card size="small" title={<><ShoppingOutlined /> Produits</>} style={{ marginBottom: 12 }}>
+                        <Card size="small" title={<><ShoppingOutlined /> Produits du forfait/service</>} style={{ marginBottom: 12 }}>
                             {currentItem.produits.map((p) => (
                                 <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                                     <div>
@@ -416,6 +516,39 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                             ))}
                         </Card>
                     )}
+                    <Card
+                        size="small"
+                        title={<><ShoppingOutlined /> Produits supplementaires</>}
+                        style={{ marginBottom: 12 }}
+                        extra={<Button size="small" icon={<PlusOutlined />} onClick={openAddProduit}>Ajouter</Button>}
+                    >
+                        {produitsExtra.length === 0 ? (
+                            <div style={{ color: '#999', fontSize: 13 }}>Aucun produit supplementaire</div>
+                        ) : (
+                            produitsExtra.map((p) => (
+                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
+                                    <div>
+                                        <div style={{ fontWeight: 500 }}>{p.nom || '-'}</div>
+                                        <div style={{ fontSize: 11, color: '#888' }}>
+                                            {p.ref && <span>Ref: {p.ref}</span>}
+                                            {p.ref && p.marque && <span> - </span>}
+                                            {p.marque && <span>{p.marque}</span>}
+                                        </div>
+                                        {p.emplacement && <div style={{ fontSize: 11, color: '#888' }}>Emplacement: {p.emplacement}</div>}
+                                    </div>
+                                    <Space>
+                                        <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>x{p.quantite ?? 0}</span>
+                                        <Button
+                                            size="small"
+                                            danger
+                                            icon={<DeleteOutlined />}
+                                            onClick={() => p.id && handleRemoveProduit(p.id)}
+                                        />
+                                    </Space>
+                                </div>
+                            ))
+                        )}
+                    </Card>
                     <Card size="small" title={<><PictureOutlined /> Images</>} style={{ marginBottom: 12 }}>
                         <ImageUpload value={images} onChange={setImages} />
                     </Card>

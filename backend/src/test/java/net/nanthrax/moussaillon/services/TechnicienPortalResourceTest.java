@@ -155,4 +155,44 @@ public class TechnicienPortalResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void testObtenirCatalogueProduits() {
+        given()
+            .when().get("/technicien-portal/produits")
+            .then()
+            .statusCode(200)
+            .body("$.size()", org.hamcrest.Matchers.greaterThan(0));
+    }
+
+    @Test
+    void testAjouterProduitForfait() {
+        given()
+            .contentType("application/json")
+            .body("{\"produitId\":100,\"quantite\":2}")
+            .when().post("/technicien-portal/forfaits/100/produits")
+            .then()
+            .statusCode(200)
+            .body("produitsExtra.size()", org.hamcrest.Matchers.greaterThan(0));
+    }
+
+    @Test
+    void testAjouterProduitForfaitNonTrouve() {
+        given()
+            .contentType("application/json")
+            .body("{\"produitId\":100,\"quantite\":1}")
+            .when().post("/technicien-portal/forfaits/9999/produits")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void testAjouterProduitForfaitProduitInconnu() {
+        given()
+            .contentType("application/json")
+            .body("{\"produitId\":9999,\"quantite\":1}")
+            .when().post("/technicien-portal/forfaits/100/produits")
+            .then()
+            .statusCode(404);
+    }
 }

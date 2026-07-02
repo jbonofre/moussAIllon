@@ -20,4 +20,8 @@ public class VenteProduitEntity extends PanacheEntity {
     @Column(columnDefinition = "double default 0")
     public double remisePourcentage;
 
+    // Marque une ligne produit ajoutee par le technicien depuis l'espace technicien
+    @Column(columnDefinition = "boolean default false")
+    public boolean ajouteParTechnicien;
+
 }
