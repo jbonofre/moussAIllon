@@ -71,8 +71,4 @@ public class VenteServiceEntity extends PanacheEntity {
 
     public List<String> documents = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
-    @JoinColumn(name = "vente_service_extra_id")
-    public List<VentePrestationProduitEntity> produitsExtra = new ArrayList<>();
-
 }
