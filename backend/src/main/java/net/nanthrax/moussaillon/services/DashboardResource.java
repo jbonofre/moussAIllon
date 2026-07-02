@@ -113,6 +113,31 @@ public class DashboardResource {
             }
         }
 
+        // Bateaux dans le chantier
+        LocalDate startOfWeek = now.with(java.time.DayOfWeek.MONDAY);
+        Timestamp weekStart = Timestamp.valueOf(startOfWeek.atStartOfDay());
+        List<VenteEntity> ventesActives = VenteEntity.list("status in (?1, ?2, ?3)",
+                VenteEntity.Status.DEVIS, VenteEntity.Status.FACTURE_EN_ATTENTE, VenteEntity.Status.FACTURE_PRETE);
+        java.util.Set<Long> bateauxIds = new java.util.HashSet<>();
+        java.util.Set<Long> bateauxSemaine = new java.util.HashSet<>();
+        java.util.Set<Long> bateauxEnAttente = new java.util.HashSet<>();
+        for (VenteEntity v : ventesActives) {
+            if (v.bateau != null) {
+                bateauxIds.add(v.bateau.id);
+                if (v.date != null && !v.date.before(weekStart)) {
+                    bateauxSemaine.add(v.bateau.id);
+                }
+                boolean hasEnAttente = v.venteForfaits.stream().anyMatch(vf -> vf.status == VenteForfaitEntity.Status.EN_ATTENTE)
+                        || v.venteServices.stream().anyMatch(vs -> vs.status == VenteServiceEntity.Status.EN_ATTENTE);
+                if (hasEnAttente) {
+                    bateauxEnAttente.add(v.bateau.id);
+                }
+            }
+        }
+        data.bateauxDansLeChantier = bateauxIds.size();
+        data.bateauxEntreesSemaine = bateauxSemaine.size();
+        data.bateauxEnAttenteIntervention = bateauxEnAttente.size();
+
         // Stock a surveiller
         data.stockAlerts = new ArrayList<>();
         for (ProduitCatalogueEntity produit : produitsEnAlerte) {
@@ -166,6 +191,9 @@ public class DashboardResource {
         public int heuresAtelierPct;
         public int ventesComptoirPct;
         public int contratsMaintenancePct;
+        public int bateauxDansLeChantier;
+        public int bateauxEntreesSemaine;
+        public int bateauxEnAttenteIntervention;
     }
 
     public static class InterventionRow {

@@ -23,6 +23,9 @@ public class DashboardResourceTest {
             .body("stockAlerts", notNullValue())
             .body("heuresAtelierPct", notNullValue())
             .body("ventesComptoirPct", notNullValue())
-            .body("contratsMaintenancePct", notNullValue());
+            .body("contratsMaintenancePct", notNullValue())
+            .body("bateauxDansLeChantier", notNullValue())
+            .body("bateauxEntreesSemaine", notNullValue())
+            .body("bateauxEnAttenteIntervention", notNullValue());
     }
 }

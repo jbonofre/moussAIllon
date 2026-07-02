@@ -1,9 +1,12 @@
 import { fetchWithAuth } from './api.ts';
-import React, { useEffect, useState } from 'react';
-import { ArrowDownOutlined, ArrowUpOutlined, ClockCircleOutlined, WarningOutlined } from '@ant-design/icons';
-import { Badge, Button, Card, Col, Empty, List, Progress, Row, Space, Spin, Statistic, Table, Tag, Typography } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
+import { ArrowDownOutlined, ArrowUpOutlined, ClockCircleOutlined, WarningOutlined, AimOutlined, PlusOutlined, CalendarOutlined, ReloadOutlined, RobotOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import { Alert, Badge, Button, Card, Col, Empty, List, Progress, Row, Space, Spin, Statistic, Table, Tag, Typography } from 'antd';
 import { Column, Pie } from '@ant-design/charts';
 import dayjs from 'dayjs';
+import { useNavigation } from './navigation-context.tsx';
+import Home from './home.tsx';
+import { VERSION_LABEL } from './version.ts';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -32,6 +35,9 @@ type DashboardData = {
     heuresAtelierPct: number;
     ventesComptoirPct: number;
     contratsMaintenancePct: number;
+    bateauxDansLeChantier: number;
+    bateauxEntreesSemaine: number;
+    bateauxEnAttenteIntervention: number;
 };
 
 type PlanningWarning = {
@@ -172,7 +178,7 @@ const interventionColumns = [
         sorter: (a: InterventionRow, b: InterventionRow) => (a.client || '').localeCompare(b.client || ''),
     },
     {
-        title: 'Unite',
+        title: 'Unité',
         dataIndex: 'unite',
         key: 'unite',
         sorter: (a: InterventionRow, b: InterventionRow) => (a.unite || '').localeCompare(b.unite || ''),
@@ -201,15 +207,22 @@ const interventionColumns = [
     }
 ];
 
-export default function Dashboard() {
+export default function Dashboard({ user }: { user?: string }) {
     const [data, setData] = useState<DashboardData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [lastUpdated, setLastUpdated] = useState<string | null>(null);
     const [warnings, setWarnings] = useState<PlanningWarning[]>([]);
     const [canalData, setCanalData] = useState<{ canal: string; count: number }[]>([]);
     const [ventesParJour, setVentesParJour] = useState<{ date: string; ventes: number }[]>([]);
     const [caParJour, setCaParJour] = useState<{ date: string; ca: number }[]>([]);
+    const [assistantOpen, setAssistantOpen] = useState(false);
+    const { navigate } = useNavigation();
 
-    useEffect(() => {
+    const loadData = useCallback(() => {
+        setLoading(true);
+        setError(null);
+
         const ventesPromise = fetchWithAuth('/ventes')
             .then(res => res.json())
             .then((ventes: Array<Record<string, unknown>>) => {
@@ -272,28 +285,129 @@ export default function Dashboard() {
         ])
             .then(([d, caDuMois]: [DashboardData, number]) => {
                 setData({ ...d, caDuMois });
+                setLastUpdated(dayjs().format('DD/MM/YYYY HH:mm'));
             })
+            .catch(() => setError("Impossible de charger les données du tableau de bord."))
             .finally(() => setLoading(false));
     }, []);
 
-    if (loading || !data) {
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    if (loading && !data) {
         return <Spin size="large" style={{ display: 'flex', justifyContent: 'center', marginTop: 100 }} />;
     }
 
+    if (error && !data) {
+        return (
+            <Alert
+                type="error"
+                showIcon
+                message="Erreur de chargement"
+                description={error}
+                action={<Button size="small" danger icon={<ReloadOutlined />} onClick={loadData}>Réessayer</Button>}
+            />
+        );
+    }
+
+    if (!data) {
+        return null;
+    }
+
+    const dateLabel = (() => {
+        const formatted = new Intl.DateTimeFormat('fr-FR', {
+            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+        }).format(new Date());
+        return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+    })();
+
     return (
         <Space direction="vertical" size={16} style={{ width: '100%' }}>
+            {error && (
+                <Alert type="error" showIcon closable message={error} onClose={() => setError(null)} />
+            )}
             <Card>
-                <Space direction="vertical" size={0}>
-                    <Title level={3} style={{ margin: 0 }}>Tableau de bord</Title>
-                    <Paragraph style={{ marginBottom: 0, color: '#8c8c8c' }}>
-                        Vue synthese de l'activite atelier et comptoir.
-                    </Paragraph>
-                </Space>
+                <Row align="middle" justify="space-between" gutter={[16, 8]}>
+                    <Col>
+                        <Title level={3} style={{ margin: 0 }}>Bonjour{user ? ` ${user}` : ''} 👋</Title>
+                        <Paragraph style={{ marginBottom: 0, color: '#8c8c8c' }}>
+                            {dateLabel} · Vue synthèse de l'activité atelier et comptoir.
+                        </Paragraph>
+                    </Col>
+                    <Col>
+                        <Space direction="vertical" align="end" size={4}>
+                            <Space>
+                                {lastUpdated && (
+                                    <Text type="secondary" style={{ fontSize: 12 }}>Mis à jour à {lastUpdated}</Text>
+                                )}
+                                <Button icon={<ReloadOutlined />} loading={loading} onClick={loadData}>
+                                    Actualiser
+                                </Button>
+                            </Space>
+                            <Text type="secondary" style={{ fontSize: 11 }}>{VERSION_LABEL}</Text>
+                        </Space>
+                    </Col>
+                </Row>
+            </Card>
+
+            {assistantOpen ? (
+                <div>
+                    <div style={{ textAlign: 'right', marginBottom: 8 }}>
+                        <Button type="text" size="small" icon={<UpOutlined />} onClick={() => setAssistantOpen(false)}>
+                            Masquer l'assistant
+                        </Button>
+                    </div>
+                    <Home />
+                </div>
+            ) : (
+                <Card
+                    hoverable
+                    onClick={() => setAssistantOpen(true)}
+                    style={{ cursor: 'pointer' }}
+                    styles={{ body: { padding: '12px 16px' } }}
+                >
+                    <Row align="middle" justify="space-between">
+                        <Space>
+                            <div style={{
+                                width: 36, height: 36, borderRadius: 10,
+                                background: 'linear-gradient(135deg, #722ed1, #9254de)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            }}>
+                                <RobotOutlined style={{ color: '#fff', fontSize: 18 }} />
+                            </div>
+                            <div>
+                                <div style={{ fontWeight: 600, fontSize: 15 }}>Assistant IA</div>
+                                <div style={{ color: '#8c8c8c', fontSize: 12 }}>
+                                    Cliquez pour poser une question ou taper une commande
+                                </div>
+                            </div>
+                        </Space>
+                        <DownOutlined style={{ color: '#8c8c8c' }} />
+                    </Row>
+                </Card>
+            )}
+
+            <Card title="Actions rapides">
+                <Row gutter={[12, 12]}>
+                    <Col xs={24} sm={12} lg={6}>
+                        <Button type="primary" icon={<PlusOutlined />} block size="large" onClick={() => navigate('/prestations')}>Créer une intervention</Button>
+                    </Col>
+                    <Col xs={24} sm={12} lg={6}>
+                        <Button icon={<CalendarOutlined />} block size="large" onClick={() => navigate('/planning')}>Planifier un rendez-vous atelier</Button>
+                    </Col>
+                    <Col xs={24} sm={12} lg={6}>
+                        <Button icon={<ClockCircleOutlined />} block size="large" onClick={() => navigate('/planning')}>Vérifier les retards en cours</Button>
+                    </Col>
+                    <Col xs={24} sm={12} lg={6}>
+                        <Button icon={<WarningOutlined />} block size="large" onClick={() => navigate('/catalogue/produits')}>Consulter le stock critique</Button>
+                    </Col>
+                </Row>
             </Card>
 
             <Row gutter={[16, 16]}>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card style={{ borderTop: '3px solid #52c41a' }}>
+                    <Card hoverable onClick={() => navigate('/prestations')} style={{ borderTop: '3px solid #52c41a', cursor: 'pointer' }}>
                         <Statistic
                             title="CA du mois"
                             value={data.caDuMois}
@@ -305,7 +419,7 @@ export default function Dashboard() {
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card style={{ borderTop: '3px solid #1677ff' }}>
+                    <Card hoverable onClick={() => navigate('/prestations')} style={{ borderTop: '3px solid #1677ff', cursor: 'pointer' }}>
                         <Statistic
                             title="Interventions ouvertes"
                             value={data.interventionsOuvertes}
@@ -315,7 +429,7 @@ export default function Dashboard() {
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card style={{ borderTop: '3px solid #ff4d4f' }}>
+                    <Card hoverable onClick={() => navigate('/planning')} style={{ borderTop: '3px solid #ff4d4f', cursor: 'pointer' }}>
                         <Statistic
                             title="Retards > 48h"
                             value={data.retards48h}
@@ -325,12 +439,43 @@ export default function Dashboard() {
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card style={{ borderTop: '3px solid #faad14' }}>
+                    <Card hoverable onClick={() => navigate('/catalogue/produits')} style={{ borderTop: '3px solid #faad14', cursor: 'pointer' }}>
                         <Statistic
                             title="Alertes stock"
                             value={data.alertesStock}
                             valueStyle={{ color: '#d48806', fontWeight: 700 }}
                             prefix={<WarningOutlined />}
+                        />
+                    </Card>
+                </Col>
+            </Row>
+
+            <Row gutter={[16, 16]}>
+                <Col xs={24} sm={8}>
+                    <Card hoverable onClick={() => navigate('/clients/bateaux')} style={{ borderTop: '3px solid #722ed1', cursor: 'pointer' }}>
+                        <Statistic
+                            title="Bateaux dans le chantier"
+                            value={data.bateauxDansLeChantier}
+                            valueStyle={{ color: '#722ed1', fontWeight: 700 }}
+                            prefix={<AimOutlined />}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={8}>
+                    <Card hoverable onClick={() => navigate('/clients/bateaux')} style={{ borderTop: '3px solid #13c2c2', cursor: 'pointer' }}>
+                        <Statistic
+                            title="Entrées cette semaine"
+                            value={data.bateauxEntreesSemaine}
+                            valueStyle={{ color: '#08979c', fontWeight: 700 }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={8}>
+                    <Card hoverable onClick={() => navigate('/prestations')} style={{ borderTop: '3px solid #fa8c16', cursor: 'pointer' }}>
+                        <Statistic
+                            title="En attente d'intervention"
+                            value={data.bateauxEnAttenteIntervention}
+                            valueStyle={{ color: '#d46b08', fontWeight: 700 }}
                         />
                     </Card>
                 </Col>
@@ -355,9 +500,9 @@ export default function Dashboard() {
                 </Card>
             )}
 
-            <Row gutter={[16, 16]}>
+            <Row gutter={[16, 16]} align="stretch">
                 <Col xs={24} xl={16}>
-                    <Card title="Interventions du jour">
+                    <Card title="Interventions du jour" style={{ height: '100%' }}>
                         <Table
                             columns={interventionColumns}
                             dataSource={data.interventions}
@@ -367,7 +512,7 @@ export default function Dashboard() {
                     </Card>
                 </Col>
                 <Col xs={24} xl={8}>
-                    <Card title="Stock a surveiller">
+                    <Card title="Stock à surveiller" style={{ height: '100%' }}>
                         <List
                             dataSource={data.stockAlerts}
                             renderItem={(item) => (
@@ -414,9 +559,9 @@ export default function Dashboard() {
                 )}
             </Card>
 
-            <Row gutter={[16, 16]}>
+            <Row gutter={[16, 16]} align="stretch">
                 <Col xs={24} md={12}>
-                    <Card title="Canal d'acquisition clients">
+                    <Card title="Canal d'acquisition clients" style={{ height: '100%' }}>
                         {canalData.length > 0 ? (
                             <Pie
                                 data={canalData}
@@ -433,10 +578,10 @@ export default function Dashboard() {
                     </Card>
                 </Col>
                 <Col xs={24} md={12}>
-                    <Card title="Objectifs mensuels">
+                    <Card title="Objectifs mensuels" style={{ height: '100%' }}>
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
                             <div>
-                                <Text>Heures atelier facturees</Text>
+                                <Text>Heures atelier facturées</Text>
                                 <Progress percent={data.heuresAtelierPct} status="active" />
                             </div>
                             <div>
@@ -447,19 +592,6 @@ export default function Dashboard() {
                                 <Text>Contrats de maintenance</Text>
                                 <Progress percent={data.contratsMaintenancePct} />
                             </div>
-                        </Space>
-                    </Card>
-                </Col>
-            </Row>
-
-            <Row gutter={[16, 16]}>
-                <Col xs={24} md={12}>
-                    <Card title="Actions rapides">
-                        <Space direction="vertical" style={{ width: '100%' }} size={10}>
-                            <Button type="primary" block>Creer une intervention</Button>
-                            <Button block>Planifier un rendez-vous atelier</Button>
-                            <Button block>Verifier les retards en cours</Button>
-                            <Button block>Consulter le stock critique</Button>
                         </Space>
                     </Card>
                 </Col>

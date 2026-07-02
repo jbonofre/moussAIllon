@@ -1,17 +1,13 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Typography, Row, Col, Card, Input, Button, Space, Divider, Tag, Modal, theme } from 'antd';
+import { Typography, Row, Card, Input, Button, Space, Divider, Tag, Modal, theme } from 'antd';
 import {
-    SmileOutlined, RobotOutlined, SendOutlined, QuestionCircleOutlined,
-    AudioOutlined, AudioMutedOutlined, TeamOutlined, ToolOutlined,
-    ShoppingCartOutlined, CalendarOutlined, DashboardOutlined, ReadOutlined
+    RobotOutlined, SendOutlined, QuestionCircleOutlined,
+    AudioOutlined, AudioMutedOutlined
 } from '@ant-design/icons';
-import Icon from '@ant-design/icons';
-import { ReactComponent as BoatOutlined } from './boat.svg';
-import { ReactComponent as ParcOutlined } from './parc.svg';
 import { useNavigation } from './navigation-context.tsx';
 
-const { Title, Paragraph } = Typography;
+const { Paragraph } = Typography;
 const { TextArea } = Input;
 
 type ChatMessage = {
@@ -743,90 +739,8 @@ export default function Home() {
         }
     };
 
-    const quickAccessItems = [
-        { title: 'Clients', description: 'Gérer vos clients et contacts', icon: <TeamOutlined style={{ fontSize: 28 }} />, route: '/clients', color: '#1677ff' },
-        { title: 'Parc', description: 'Bateaux, moteurs et remorques', icon: <Icon component={ParcOutlined} style={{ fontSize: 28 }} />, route: '/clients/bateaux', color: '#52c41a' },
-        { title: 'Catalogue', description: 'Produits et fournisseurs', icon: <ReadOutlined style={{ fontSize: 28 }} />, route: '/catalogue/produits', color: '#fa8c16' },
-        { title: 'Ventes', description: 'Comptoir et prestations', icon: <ShoppingCartOutlined style={{ fontSize: 28 }} />, route: '/prestations', color: '#eb2f96' },
-        { title: 'Atelier', description: 'Planning et équipe technique', icon: <ToolOutlined style={{ fontSize: 28 }} />, route: '/planning', color: '#722ed1' },
-        { title: 'Tableau de bord', description: 'Statistiques et indicateurs', icon: <DashboardOutlined style={{ fontSize: 28 }} />, route: '/dashboard', color: '#13c2c2' },
-    ];
-
     return (
         <>
-            {/* Hero Section */}
-            <div
-                style={{
-                    position: 'relative',
-                    borderRadius: 16,
-                    overflow: 'hidden',
-                    marginBottom: 24,
-                    background: `linear-gradient(135deg, #0958d9 0%, #1677ff 40%, #4096ff 100%)`,
-                    padding: '40px 36px',
-                    boxShadow: '0 8px 24px rgba(22, 119, 255, 0.25)',
-                }}
-            >
-                <div style={{
-                    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, opacity: 0.08,
-                    backgroundImage: 'url(/logo.png)',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'right -40px bottom -40px',
-                    backgroundSize: '320px',
-                    pointerEvents: 'none',
-                }} />
-                <Row align="middle" gutter={24}>
-                    <Col flex="auto">
-                        <Title level={2} style={{ color: '#fff', marginBottom: 4, fontWeight: 700, letterSpacing: -0.5 }}>
-                            Bienvenue sur moussAIllon
-                        </Title>
-                        <Paragraph style={{ color: 'rgba(255,255,255,0.85)', fontSize: 16, marginBottom: 0, maxWidth: 600 }}>
-                            Votre plateforme de gestion de chantier naval.
-                            Gérez vos clients, bateaux, moteurs, remorques et prestations en toute simplicité.
-                        </Paragraph>
-                    </Col>
-                    <Col>
-                        <Icon component={BoatOutlined} style={{ fontSize: 80, color: 'rgba(255,255,255,0.35)' }} />
-                    </Col>
-                </Row>
-            </div>
-
-            {/* Quick Access Cards */}
-            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
-                {quickAccessItems.map((item) => (
-                    <Col xs={24} sm={12} md={8} key={item.title}>
-                        <Card
-                            hoverable
-                            onClick={() => navigate(item.route)}
-                            style={{
-                                borderRadius: 12,
-                                border: `1px solid ${token.colorBorderSecondary}`,
-                                cursor: 'pointer',
-                                height: '100%',
-                                transition: 'all 0.3s ease',
-                            }}
-                            styles={{ body: { padding: '20px 24px' } }}
-                        >
-                            <Row align="middle" gutter={16}>
-                                <Col>
-                                    <div style={{
-                                        width: 52, height: 52, borderRadius: 12,
-                                        background: item.color + '15',
-                                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                        color: item.color,
-                                    }}>
-                                        {item.icon}
-                                    </div>
-                                </Col>
-                                <Col flex="auto">
-                                    <div style={{ fontWeight: 600, fontSize: 15, color: token.colorText }}>{item.title}</div>
-                                    <div style={{ fontSize: 13, color: token.colorTextSecondary, marginTop: 2 }}>{item.description}</div>
-                                </Col>
-                            </Row>
-                        </Card>
-                    </Col>
-                ))}
-            </Row>
-
             {/* AI Assistant Chat */}
             <Card
                 style={{
@@ -863,8 +777,8 @@ export default function Home() {
                 <div
                     ref={chatMessagesRef}
                     style={{
-                        height: 350,
-                        maxHeight: 350,
+                        height: 220,
+                        maxHeight: 220,
                         overflowY: 'auto',
                         borderRadius: 10,
                         padding: 16,
