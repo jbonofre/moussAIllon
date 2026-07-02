@@ -777,8 +777,8 @@ export default function Home() {
                 <div
                     ref={chatMessagesRef}
                     style={{
-                        height: 350,
-                        maxHeight: 350,
+                        height: 220,
+                        maxHeight: 220,
                         overflowY: 'auto',
                         borderRadius: 10,
                         padding: 16,

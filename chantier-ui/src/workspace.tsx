@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DeploymentUnitOutlined, DisconnectOutlined, RobotOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DeploymentUnitOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -10,7 +10,6 @@ import { ReactComponent as ParcOutlined } from './parc.svg';
 import { ReactComponent as TailerOutlined } from './remorque.svg';
 import { Result } from 'antd';
 import GlobalSearch from './global-search.tsx';
-import Home from './home.tsx';
 import Clients from './clients.tsx';
 import Produits from './catalogue-produits.tsx';
 import CatalogueBateaux from './catalogue-bateaux.tsx';
@@ -87,7 +86,6 @@ function SideMenu(props) {
     const roles = props.roles || '';
 
     const allMenuItems = [
-      { key: '/', label: 'Chatbot', icon: <RobotOutlined/> },
       { key: '/dashboard', label: 'Accueil', icon: <HomeOutlined/> },
       { key: 'Vente', label: 'Vente', icon: <DollarOutlined/>, requiredRole: 'vendeur', children: [
         { key: '/comptoir', label: 'Comptoir', icon: <ShopOutlined/> },
@@ -448,9 +446,10 @@ export default function Workspace(props) {
     const isDarkTheme = theme === 'DARK';
 
     const renderPage = () => {
+        const accueil = <Dashboard user={props.user} />;
         switch (currentPage) {
             case '/dashboard':
-                return <Dashboard />;
+                return accueil;
             case '/clients':
                 return <ProtectedRoute roles={props.roles} requiredRole="manager"><Clients /></ProtectedRoute>;
             case '/clients/bateaux':
@@ -502,7 +501,7 @@ export default function Workspace(props) {
             case '/reference-valeurs':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><ReferenceValeurs /></ProtectedRoute>;
             default:
-                return <Home />;
+                return accueil;
         }
     };
 
