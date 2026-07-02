@@ -43,6 +43,7 @@ interface ServiceEntity {
     id?: number;
     nom: string;
     description?: string;
+    dureeEstimee?: number;
     mainOeuvres: ServiceMainOeuvreEntity[];
     produits: ServiceProduitEntity[];
     prixHT?: number;
@@ -54,6 +55,7 @@ interface ServiceEntity {
 interface ServiceFormValues {
     nom: string;
     description?: string;
+    dureeEstimee?: number;
     mainOeuvres: Array<{ mainOeuvreId?: number; quantite?: number }>;
     produits: Array<{ produitId?: number; quantite?: number }>;
     prixHT?: number;
@@ -65,6 +67,7 @@ interface ServiceFormValues {
 const defaultService: ServiceFormValues = {
     nom: '',
     description: '',
+    dureeEstimee: 0,
     mainOeuvres: [{}],
     produits: [{}],
     prixHT: 0,
@@ -159,6 +162,7 @@ export default function Services() {
             form.setFieldsValue({
                 nom: service.nom || '',
                 description: service.description || '',
+                dureeEstimee: service.dureeEstimee || 0,
                 mainOeuvres: (service.mainOeuvres || [])
                     .filter((item) => item.mainOeuvre?.id)
                     .map((item) => ({ mainOeuvreId: item.mainOeuvre!.id, quantite: item.quantite || 1 }))
@@ -236,6 +240,7 @@ export default function Services() {
     const toPayload = (values: ServiceFormValues): Partial<ServiceEntity> => ({
         nom: values.nom,
         description: values.description,
+        dureeEstimee: values.dureeEstimee || 0,
         mainOeuvres: (values.mainOeuvres || [])
             .filter((item) => item.mainOeuvreId)
             .map((item) => ({
@@ -337,6 +342,17 @@ export default function Services() {
             form.setFieldValue('prixTTC', prixTTC);
             form.setFieldValue('montantTVA', montantTVA);
             form.setFieldValue('prixHT', prixHT);
+        }
+
+        // Durée estimée = somme des quantités de main d'œuvre (1h = 1 unité)
+        if (changedValues.mainOeuvres !== undefined) {
+            const moValues = form.getFieldValue('mainOeuvres') || [];
+            const totalHeures = moValues.reduce(
+                (total: number, item: { mainOeuvreId?: number; quantite?: number }) =>
+                    total + (item.mainOeuvreId ? (item.quantite || 0) : 0),
+                0
+            );
+            form.setFieldValue('dureeEstimee', Math.round((totalHeures + Number.EPSILON) * 100) / 100);
         }
 
         if (changedValues.prixHT !== undefined || changedValues.tva !== undefined) {
@@ -701,6 +717,20 @@ export default function Services() {
                             }
                         ]}
                     />
+
+                    <Row gutter={16} style={{ marginTop: 16 }}>
+                        <Col span={6}>
+                            <Form.Item name="dureeEstimee" label="Durée estimée" tooltip="Calculée automatiquement : 1h par unité de main d'œuvre">
+                                <InputNumber
+                                    addonAfter="h"
+                                    min={0}
+                                    step={0.5}
+                                    style={{ width: '100%' }}
+                                    disabled
+                                />
+                            </Form.Item>
+                        </Col>
+                    </Row>
 
                     <Row gutter={16} style={{ marginTop: 16 }}>
                         <Col span={6}>
