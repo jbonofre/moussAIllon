@@ -6,6 +6,7 @@ import { Column, Pie } from '@ant-design/charts';
 import dayjs from 'dayjs';
 import { useNavigation } from './navigation-context.tsx';
 import Home from './home.tsx';
+import { VERSION_LABEL } from './version.ts';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -335,13 +336,16 @@ export default function Dashboard({ user }: { user?: string }) {
                         </Paragraph>
                     </Col>
                     <Col>
-                        <Space>
-                            {lastUpdated && (
-                                <Text type="secondary" style={{ fontSize: 12 }}>Mis à jour à {lastUpdated}</Text>
-                            )}
-                            <Button icon={<ReloadOutlined />} loading={loading} onClick={loadData}>
-                                Actualiser
-                            </Button>
+                        <Space direction="vertical" align="end" size={4}>
+                            <Space>
+                                {lastUpdated && (
+                                    <Text type="secondary" style={{ fontSize: 12 }}>Mis à jour à {lastUpdated}</Text>
+                                )}
+                                <Button icon={<ReloadOutlined />} loading={loading} onClick={loadData}>
+                                    Actualiser
+                                </Button>
+                            </Space>
+                            <Text type="secondary" style={{ fontSize: 11 }}>{VERSION_LABEL}</Text>
                         </Space>
                     </Col>
                 </Row>

@@ -10,6 +10,7 @@ import { ReactComponent as ParcOutlined } from './parc.svg';
 import { ReactComponent as TailerOutlined } from './remorque.svg';
 import { Result } from 'antd';
 import GlobalSearch from './global-search.tsx';
+import { VERSION_LABEL } from './version.ts';
 import Clients from './clients.tsx';
 import Produits from './catalogue-produits.tsx';
 import CatalogueBateaux from './catalogue-bateaux.tsx';
@@ -534,6 +535,8 @@ export default function Workspace(props) {
                   padding: '16px 50px',
               }}>
                   Copyright © 2025-2026 - NOSE Experts - Tous droits réservés
+                  <span style={{ margin: '0 8px', opacity: 0.5 }}>·</span>
+                  {VERSION_LABEL}
               </Layout.Footer>
             </Layout>
             </NavigationContext.Provider>
