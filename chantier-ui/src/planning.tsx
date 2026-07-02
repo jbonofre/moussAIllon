@@ -1154,6 +1154,42 @@ export default function Planning() {
                 </Col>
             </Row>
 
+            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+                <Col span={24}>
+                    <Card
+                        title="A planifier (en attente)"
+                        size="small"
+                        bodyStyle={{ padding: pendingItems.length ? 12 : 24 }}
+                    >
+                        {pendingItems.length ? (
+                            <Table
+                                rowKey="key"
+                                loading={loading}
+                                dataSource={pendingItems}
+                                columns={pendingColumns}
+                                pagination={{ pageSize: 6 }}
+                                bordered
+                                onRow={(record) => ({
+                                    draggable: true,
+                                    style: { cursor: 'grab' },
+                                    onDragStart: (e) => {
+                                        draggedRowRef.current = record;
+                                        e.dataTransfer.effectAllowed = 'move';
+                                        e.dataTransfer.setData('text/plain', record.key);
+                                    },
+                                    onDragEnd: () => {
+                                        draggedRowRef.current = null;
+                                        setDragOverDay(null);
+                                    }
+                                })}
+                            />
+                        ) : (
+                            <Empty description="Aucun element en attente." />
+                        )}
+                    </Card>
+                </Col>
+            </Row>
+
             {lateItems.length > 0 && (
                 <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                     <Col span={24}>
@@ -1217,42 +1253,6 @@ export default function Planning() {
                             />
                         ) : (
                             <Empty description="Aucun element planifie pour cette date." />
-                        )}
-                    </Card>
-                </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                <Col span={24}>
-                    <Card
-                        title="A planifier (en attente)"
-                        size="small"
-                        bodyStyle={{ padding: pendingItems.length ? 12 : 24 }}
-                    >
-                        {pendingItems.length ? (
-                            <Table
-                                rowKey="key"
-                                loading={loading}
-                                dataSource={pendingItems}
-                                columns={pendingColumns}
-                                pagination={{ pageSize: 6 }}
-                                bordered
-                                onRow={(record) => ({
-                                    draggable: true,
-                                    style: { cursor: 'grab' },
-                                    onDragStart: (e) => {
-                                        draggedRowRef.current = record;
-                                        e.dataTransfer.effectAllowed = 'move';
-                                        e.dataTransfer.setData('text/plain', record.key);
-                                    },
-                                    onDragEnd: () => {
-                                        draggedRowRef.current = null;
-                                        setDragOverDay(null);
-                                    }
-                                })}
-                            />
-                        ) : (
-                            <Empty description="Aucun element en attente." />
                         )}
                     </Card>
                 </Col>
