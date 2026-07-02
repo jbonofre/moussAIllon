@@ -4,12 +4,14 @@ import {
     Button,
     Card,
     Col,
+    Descriptions,
     Divider,
     Form,
     Input,
     InputNumber,
     Modal,
     Popconfirm,
+    Popover,
     Rate,
     Row,
     Select,
@@ -22,7 +24,7 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, FileDoneOutlined, FileTextOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -590,6 +592,121 @@ const getClientLabel = (client?: ClientEntity) => {
     const fullName = `${client.prenom || ''} ${client.nom || ''}`.trim();
     return fullName || `Client #${client.id}`;
 };
+
+const formatEuroCatalogue = (v?: number) => v != null ? v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-';
+
+function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques, forfaits, services, navigate }: {
+    type?: string; itemId?: number;
+    produits: ProduitCatalogueEntity[];
+    catalogueBateaux: CatalogueBateauEntity[];
+    catalogueMoteurs: CatalogueMoteurEntity[];
+    catalogueHelices: CatalogueHeliceEntity[];
+    catalogueRemorques: CatalogueRemorqueEntity[];
+    forfaits: any[];
+    services: any[];
+    navigate: (route: string) => void;
+}) {
+    if (!type || !itemId) return null;
+
+    let items: { label: string; value: React.ReactNode }[] = [];
+    let catalogueRoute: string | null = null;
+    let titre = '';
+
+    if (type === 'produit') {
+        const p = produits.find((x) => x.id === itemId);
+        if (!p) return null;
+        titre = p.nom;
+        catalogueRoute = '/catalogue/produits';
+        items = [
+            { label: 'Marque', value: p.marque || '-' },
+            { label: 'Référence', value: p.ref || '-' },
+            { label: 'Catégorie', value: p.categorie || '-' },
+            { label: 'Stock', value: p.stock != null ? p.stock : '-' },
+            { label: 'Emplacement', value: p.emplacement || '-' },
+            { label: 'Prix TTC', value: formatEuroCatalogue(p.prixVenteTTC) },
+        ];
+        if (p.description) items.push({ label: 'Description', value: p.description });
+    } else if (type === 'bateau') {
+        const b = catalogueBateaux.find((x) => x.id === itemId);
+        if (!b) return null;
+        titre = `${b.marque} ${b.modele}`;
+        catalogueRoute = '/catalogue/bateaux';
+        items = [
+            { label: 'Marque', value: b.marque },
+            { label: 'Modèle', value: b.modele },
+            { label: 'Prix TTC', value: formatEuroCatalogue(b.prixVenteTTC) },
+        ];
+    } else if (type === 'moteur') {
+        const m = catalogueMoteurs.find((x) => x.id === itemId);
+        if (!m) return null;
+        titre = `${m.marque} ${m.modele}`;
+        catalogueRoute = '/catalogue/moteurs';
+        items = [
+            { label: 'Marque', value: m.marque },
+            { label: 'Modèle', value: m.modele },
+            { label: 'Prix TTC', value: formatEuroCatalogue(m.prixVenteTTC) },
+        ];
+    } else if (type === 'helice') {
+        const h = catalogueHelices.find((x) => x.id === itemId);
+        if (!h) return null;
+        titre = `${h.marque} ${h.modele}`;
+        catalogueRoute = '/catalogue/helices';
+        items = [
+            { label: 'Marque', value: h.marque },
+            { label: 'Modèle', value: h.modele },
+            { label: 'Prix TTC', value: formatEuroCatalogue(h.prixVenteTTC) },
+        ];
+    } else if (type === 'remorque') {
+        const r = catalogueRemorques.find((x) => x.id === itemId);
+        if (!r) return null;
+        titre = `${r.marque} ${r.modele}`;
+        catalogueRoute = '/catalogue/remorques';
+        items = [
+            { label: 'Marque', value: r.marque },
+            { label: 'Modèle', value: r.modele },
+            { label: 'Prix TTC', value: formatEuroCatalogue(r.prixVenteTTC) },
+        ];
+    } else if (type === 'forfait') {
+        const f = forfaits.find((x: any) => x.id === itemId);
+        if (!f) return null;
+        titre = f.nom;
+        items = [
+            { label: 'Prix TTC', value: formatEuroCatalogue(f.prixTTC) },
+            { label: 'Durée estimée', value: f.dureeEstimee != null ? `${f.dureeEstimee}h` : '-' },
+        ];
+        if (f.description) items.push({ label: 'Description', value: f.description });
+    } else if (type === 'service') {
+        const s = services.find((x: any) => x.id === itemId);
+        if (!s) return null;
+        titre = s.nom;
+        items = [
+            { label: 'Prix TTC', value: formatEuroCatalogue(s.prixTTC) },
+            { label: 'Durée estimée', value: s.dureeEstimee != null ? `${s.dureeEstimee}h` : '-' },
+        ];
+        if (s.description) items.push({ label: 'Description', value: s.description });
+    } else {
+        return null;
+    }
+
+    const content = (
+        <div style={{ maxWidth: 280 }}>
+            <Descriptions column={1} size="small" items={items.map((it, i) => ({ key: i, label: it.label, children: it.value }))} />
+            {catalogueRoute && (
+                <div style={{ marginTop: 8, textAlign: 'right' }}>
+                    <Button type="link" size="small" onClick={() => navigate(catalogueRoute!)}>
+                        Voir dans le catalogue
+                    </Button>
+                </div>
+            )}
+        </div>
+    );
+
+    return (
+        <Popover title={titre} content={content} trigger="click" placement="right">
+            <Button icon={<InfoCircleOutlined />} title="Fiche produit" size="small" />
+        </Popover>
+    );
+}
 
 export default function Vente() {
     const PRODUIT_CATEGORIES = useReferenceValeurs('CATEGORIE_PRODUIT');
@@ -2356,7 +2473,7 @@ export default function Vente() {
             return;
         }
         try {
-            await axios.post(`/ventes/${vente.id}/email`);
+            await api.post(`/ventes/${vente.id}/email`);
             message.success('L\'email a été envoyé à ' + email);
         } catch {
             message.error('Erreur lors de l\'envoi de l\'email.');
@@ -3020,10 +3137,19 @@ export default function Vente() {
                                                                 {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
                                                             </Tag>
                                                         )}
-                                                        {lineType === 'produit' && itemId && emplacement && (
-                                                            <Form.Item style={{ width: 200 }}>
-                                                                <Input disabled value={emplacement} title={emplacement} placeholder="Emplacement" />
-                                                            </Form.Item>
+                                                        {!isEmptyLine && (
+                                                            <FicheCataloguePopover
+                                                                type={lineType}
+                                                                itemId={itemId}
+                                                                produits={produits}
+                                                                catalogueBateaux={catalogueBateaux}
+                                                                catalogueMoteurs={catalogueMoteurs}
+                                                                catalogueHelices={catalogueHelices}
+                                                                catalogueRemorques={catalogueRemorques}
+                                                                forfaits={forfaits}
+                                                                services={services}
+                                                                navigate={navigate}
+                                                            />
                                                         )}
                                                         <Form.Item
                                                             {...field}
@@ -3109,6 +3235,47 @@ export default function Vente() {
                                                                     const item = catalogueRemorques.find((r) => r.id === itemId);
                                                                     if (!item) return null;
                                                                     stock = item.stock ?? 0;
+                                                                } else if (lineType === 'forfait' || lineType === 'service') {
+                                                                    // Stock des pièces rattachées au forfait/service
+                                                                    const source = lineType === 'forfait'
+                                                                        ? forfaits.find((f) => f.id === itemId)
+                                                                        : services.find((s) => s.id === itemId);
+                                                                    const composants = (source?.produits || [])
+                                                                        .filter((cp: { produit?: ProduitCatalogueEntity }) => cp?.produit?.id)
+                                                                        .map((cp: { produit: ProduitCatalogueEntity; quantite?: number }) => {
+                                                                            const prod = produits.find((p) => p.id === cp.produit.id) || cp.produit;
+                                                                            const besoin = (cp.quantite || 1) * (quantite || 1);
+                                                                            return {
+                                                                                nom: prod?.nom || `#${cp.produit.id}`,
+                                                                                stock: prod?.stock ?? 0,
+                                                                                stockMini: prod?.stockMini ?? 0,
+                                                                                besoin,
+                                                                            };
+                                                                        });
+                                                                    if (composants.length === 0) return null;
+                                                                    const etat = composants.reduce((acc: number, c: { stock: number; stockMini: number; besoin: number }) => {
+                                                                        const s = c.stock === 0 ? 2 : (c.stock < c.besoin || c.stock < c.stockMini) ? 1 : 0;
+                                                                        return Math.max(acc, s);
+                                                                    }, 0);
+                                                                    const couleurComposant = etat === 2 ? 'red' : etat === 1 ? 'orange' : 'green';
+                                                                    const libelle = etat === 2 ? 'Pièces en rupture' : etat === 1 ? 'Pièces en alerte' : 'Pièces en stock';
+                                                                    const contenu = (
+                                                                        <div style={{ maxWidth: 260 }}>
+                                                                            {composants.map((c: { nom: string; stock: number; stockMini: number; besoin: number }, i: number) => (
+                                                                                <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                                                                    <span>{c.nom}</span>
+                                                                                    <span style={{ color: c.stock === 0 ? '#cf1322' : (c.stock < c.besoin || c.stock < c.stockMini) ? '#d46b08' : '#389e0d' }}>
+                                                                                        {c.stock} en stock{c.besoin > 1 ? ` (besoin ${c.besoin})` : ''}
+                                                                                    </span>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    );
+                                                                    return (
+                                                                        <Popover content={contenu} title="Stock des pièces">
+                                                                            <Tag color={couleurComposant} style={{ marginRight: 0, cursor: 'pointer' }}>{libelle}</Tag>
+                                                                        </Popover>
+                                                                    );
                                                                 } else {
                                                                     return null;
                                                                 }
@@ -3156,6 +3323,11 @@ export default function Vente() {
                                                                     <Button icon={<CalendarOutlined />} title="Planifier" disabled={!watchedBonPourAccord} onClick={() => { setModalVisible(false); navigate('/planning'); }} />
                                                                 )}
                                                             </>
+                                                        )}
+                                                        {emplacement && (
+                                                            <Popover content={emplacement} title="Emplacement" trigger="click">
+                                                                <Button icon={<EnvironmentOutlined />} title="Emplacement de la pièce" />
+                                                            </Popover>
                                                         )}
                                                         <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
                                                     </Space>

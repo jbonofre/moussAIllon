@@ -45,7 +45,7 @@ export default function Login({ setUser }: LoginProps) {
             left: 0,
             width: '100vw',
             height: '100vh',
-            backgroundImage: 'url(./login-background.jpg)',
+            backgroundImage: `url(${process.env.PUBLIC_URL}/login-background.jpg)`,
             backgroundSize: 'cover',
             backgroundPosition: 'center',
             backgroundRepeat: 'no-repeat',
@@ -70,7 +70,7 @@ export default function Login({ setUser }: LoginProps) {
                     animation: 'fadeInUp 0.5s ease-out',
                 }}>
                     <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                        <Image src="./logo.png" preview={false} width={80} style={{ marginBottom: 16 }} />
+                        <Image src={process.env.PUBLIC_URL + '/logo.png'} preview={false} width={80} style={{ marginBottom: 16 }} />
                         <Title level={3} style={{ margin: 0, fontWeight: 700 }}>
                             Espace Client
                         </Title>

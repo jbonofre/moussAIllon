@@ -91,6 +91,17 @@ public class BateauCatalogueResourceTest {
     }
 
     @Test
+    void testCreerBateauAvecOptions() {
+        given()
+            .contentType("application/json")
+            .body("{\"modele\":\"Options 400\",\"marque\":\"TestBrand\",\"type\":\"Open\",\"options\":[{\"nom\":\"GPS chartplotter\",\"description\":\"Navigation GPS\",\"prixHT\":800.0,\"tva\":20.0,\"montantTVA\":160.0,\"prixTTC\":960.0}]}")
+            .when().post("/catalogue/bateaux")
+            .then()
+            .statusCode(201)
+            .body("options[0].nom", is("GPS chartplotter"));
+    }
+
+    @Test
     void testSupprimerBateau() {
         // Creer un bateau a supprimer
         int id = given()

@@ -6,8 +6,8 @@
     "@ant-design/charts": "^2.6.7",
     "@ant-design/icons": "^6.2.5",
     "@types/leaflet": "^1.9.21",
-    "antd": "^6.4.5",
-    "axios": "^1.18.0",
+    "antd": "^6.5.0",
+    "axios": "^1.18.1",
     "leaflet": "^1.9.4",
     "react": "^19.2.6",
     "react-dom": "^19.2.7",
@@ -26,8 +26,8 @@
     "typescript": "^6.0.3"
   },
   "scripts": {
-    "start": "NODE_OPTIONS='--localstorage-file=/tmp/moussaillon-localstorage' react-scripts start",
-    "build": "BUILD_PATH=target/classes/META-INF/resources react-scripts build",
+    "start": "NODE_OPTIONS='--localstorage-file=/tmp/moussaillon-localstorage' REACT_APP_VERSION=$npm_package_version REACT_APP_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) react-scripts start",
+    "build": "BUILD_PATH=target/classes/META-INF/resources REACT_APP_VERSION=$npm_package_version REACT_APP_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },

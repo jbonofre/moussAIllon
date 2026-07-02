@@ -22,6 +22,7 @@ import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitProduitEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.ServiceEntity;
 import net.nanthrax.moussaillon.persistence.ServiceProduitEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.TaskEntity;
@@ -544,6 +545,21 @@ public class TechnicienPortalResource {
                             ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(fp.produit.id);
                             if (p != null) {
                                 p.stock = Math.max(0, p.stock - fp.quantite * vf.quantite);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        for (VenteServiceEntity vs : vente.venteServices) {
+            if (vs.service != null) {
+                ServiceEntity s = ServiceEntity.findById(vs.service.id);
+                if (s != null && s.produits != null) {
+                    for (ServiceProduitEntity sp : s.produits) {
+                        if (sp.produit != null) {
+                            ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(sp.produit.id);
+                            if (p != null) {
+                                p.stock = Math.max(0, p.stock - sp.quantite * vs.quantite);
                             }
                         }
                     }

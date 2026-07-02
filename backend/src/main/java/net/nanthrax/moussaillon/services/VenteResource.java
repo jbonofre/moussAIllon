@@ -34,6 +34,7 @@ import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ServiceEntity;
+import net.nanthrax.moussaillon.persistence.ServiceProduitEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.TaskEntity;
 import net.nanthrax.moussaillon.persistence.VenteBateauCatalogueEntity;
@@ -916,6 +917,18 @@ public class VenteResource {
                     for (ForfaitProduitEntity fp : f.produits) {
                         if (fp.produit != null) {
                             produitQuantites.merge(fp.produit.id, fp.quantite * vf.quantite, Integer::sum);
+                        }
+                    }
+                }
+            }
+        }
+        for (VenteServiceEntity vs : vente.venteServices) {
+            if (vs.service != null) {
+                ServiceEntity s = ServiceEntity.findById(vs.service.id);
+                if (s != null && s.produits != null) {
+                    for (ServiceProduitEntity sp : s.produits) {
+                        if (sp.produit != null) {
+                            produitQuantites.merge(sp.produit.id, sp.quantite * vs.quantite, Integer::sum);
                         }
                     }
                 }
