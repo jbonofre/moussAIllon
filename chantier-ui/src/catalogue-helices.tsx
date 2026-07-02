@@ -33,10 +33,6 @@ interface HeliceCatalogueEntity {
     anneeDebut?: number;
     anneeFin?: number;
     moteursCompatibles?: MoteurCatalogueEntity[];
-    prixPublic?: number;
-    frais?: number;
-    tauxMarge?: number;
-    tauxMarque?: number;
     prixVenteHT?: number;
     tva?: number;
     montantTVA?: number;
@@ -57,10 +53,6 @@ const defaultHelice: HeliceCatalogueEntity = {
     anneeDebut: new Date().getFullYear(),
     anneeFin: new Date().getFullYear(),
     moteursCompatibles: [],
-    prixPublic: 0,
-    frais: 0,
-    tauxMarge: 0,
-    tauxMarque: 0,
     prixVenteHT: 0,
     tva: 20,
     montantTVA: 0,
@@ -503,30 +495,6 @@ const HeliceCatalogueView: React.FC = () => {
                                     ))}
                                 </Select>
                             </Form.Item>
-                            <Row gutter={16}>
-                                <Col span={12}>
-                                    <Form.Item name="prixPublic" label="Prix Public">
-                                        <InputNumber min={0} step={0.01} addonAfter="€" style={{ width: '100%' }} />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item name="frais" label="Frais">
-                                        <InputNumber min={0} step={0.01} addonAfter="€" style={{ width: '100%' }} />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
-                            <Row gutter={16}>
-                                <Col span={12}>
-                                    <Form.Item name="tauxMarge" label="Taux Marge">
-                                        <InputNumber min={0} max={100} step={0.01} addonAfter="%" style={{ width: '100%' }} />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item name="tauxMarque" label="Taux Marque">
-                                        <InputNumber min={0} max={100} step={0.01} addonAfter="%" style={{ width: '100%' }} />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
                             <Row gutter={16}>
                                 <Col span={12}>
                                     <Form.Item name="prixVenteHT" label="Prix Vente HT">

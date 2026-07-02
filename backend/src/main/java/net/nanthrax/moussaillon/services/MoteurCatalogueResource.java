@@ -82,10 +82,6 @@ public class MoteurCatalogueResource {
         entity.stock = moteur.stock;
         entity.stockAlerte = moteur.stockAlerte;
         entity.emplacement = moteur.emplacement;
-        entity.prixPublic = moteur.prixPublic;
-        entity.frais = moteur.frais;
-        entity.tauxMarge = moteur.tauxMarge;
-        entity.tauxMarque = moteur.tauxMarque;
         entity.prixVenteHT = moteur.prixVenteHT;
         entity.tva = moteur.tva;
         entity.montantTVA = moteur.montantTVA;

@@ -57,10 +57,6 @@ const defaultRemorqueCatalogue = {
   stock: 0,
   stockAlerte: 0,
   emplacement: "",
-  prixPublic: 0,
-  frais: 0,
-  tauxMarge: 0,
-  tauxMarque: 0,
   prixVenteHT: 0,
   tva: 20,
   montantTVA: 0,
@@ -89,6 +85,8 @@ type FournisseurRemorque = {
   portForfaitaire?: number;
   portParUnite?: number;
   nombreMinACommander?: number;
+  tauxMarge?: number;
+  tauxMarque?: number;
   notes?: string;
 };
 
@@ -100,6 +98,8 @@ const defaultFournisseurRemorque: Partial<FournisseurRemorque> = {
   portForfaitaire: 0,
   portParUnite: 0,
   nombreMinACommander: 1,
+  tauxMarge: 0,
+  tauxMarque: 0,
   notes: "",
 };
 
@@ -531,6 +531,18 @@ const FournisseurRemorques = ({
           </Row>
           <Row gutter={8}>
             <Col span={12}>
+              <Form.Item label="Taux de marge (%)" name="tauxMarge">
+                <InputNumber min={0} max={100} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Taux de marque (%)" name="tauxMarque">
+                <InputNumber min={0} max={100} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={8}>
+            <Col span={12}>
               <Form.Item label="Port forfaitaire (€)" name="portForfaitaire">
                 <InputNumber min={0} style={{ width: "100%" }} />
               </Form.Item>
@@ -761,30 +773,6 @@ const FournisseurRemorques = ({
             <Col span={12}>
               <Form.Item name="stockAlerte" label="Stock alerte">
                 <InputNumber min={0} style={{ width: "100%" }} />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="prixPublic" label="Prix public">
-                <InputNumber min={0} style={{ width: "100%" }} step={100} addonAfter="€" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="frais" label="Frais">
-                <InputNumber min={0} style={{ width: "100%" }} step={10} addonAfter="€" />
-              </Form.Item>
-            </Col>
-          </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="tauxMarge" label="Taux de marge">
-                <InputNumber min={0} max={100} style={{ width: "100%" }} addonAfter="%" />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="tauxMarque" label="Taux de marque">
-                <InputNumber min={0} max={100} style={{ width: "100%" }} addonAfter="%" />
               </Form.Item>
             </Col>
           </Row>

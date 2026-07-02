@@ -47,10 +47,6 @@ interface Moteur {
   stock: number;
   stockAlerte: number;
   emplacement: string;
-  prixPublic: number;
-  frais: number;
-  tauxMarge: number;
-  tauxMarque: number;
   prixVenteHT: number;
   tva: number;
   montantTVA: number;
@@ -81,10 +77,6 @@ const defaultMoteur: Moteur = {
   stock: 0,
   stockAlerte: 0,
   emplacement: '',
-  prixPublic: 0,
-  frais: 0,
-  tauxMarge: 0,
-  tauxMarque: 0,
   prixVenteHT: 0,
   tva: 20,
   montantTVA: 0,
@@ -601,30 +593,6 @@ const MoteurCatalogue = () => {
               <Form.Item name="emplacement" label="Emplacement">
                 <Input />
               </Form.Item>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="prixPublic" label="Prix public">
-                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€"/>
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="frais" label="Frais">
-                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€"/>
-                  </Form.Item>
-                </Col>
-              </Row>
-              <Row gutter={16}>
-                <Col span={12}>
-                  <Form.Item name="tauxMarge" label="Taux de marge">
-                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="%" />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="tauxMarque" label="Taux de marque">
-                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="%" />
-                  </Form.Item>
-                </Col>
-              </Row>
               <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item name="prixVenteHT" label="Prix de vente HT">
