@@ -395,10 +395,14 @@ export default function Planning() {
             return;
         }
         setCurrentRow(row);
-        // Lors d'un dépôt sur un jour (forcedDate), cette date prime sur la date
-        // déjà planifiée, en conservant l'heure d'origine si elle existe.
+        // Lors d'un dépôt sur le calendrier (forcedDate), cette date prime sur la
+        // date déjà planifiée. Si forcedDate contient une heure (dépôt sur un
+        // créneau horaire), on l'utilise telle quelle ; sinon on conserve l'heure
+        // d'origine (ou 08:00 par défaut).
         const forcedDateTime = forcedDate
-            ? dayjs(`${forcedDate}T${toDayjs(row.item.statusDate)?.format('HH:mm') || '08:00'}`)
+            ? (forcedDate.includes('T')
+                ? dayjs(forcedDate)
+                : dayjs(`${forcedDate}T${toDayjs(row.item.statusDate)?.format('HH:mm') || '08:00'}`))
             : undefined;
         form.setFieldsValue({
             date:
@@ -1077,7 +1081,16 @@ export default function Planning() {
                                                     setDragOverDay(null);
                                                     const row = draggedRowRef.current;
                                                     draggedRowRef.current = null;
-                                                    if (row) openPlanningModal(row, dayStr);
+                                                    if (!row) return;
+                                                    // Heure calculée selon la position horizontale du dépôt sur la timeline (pas de 30 min).
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    const fraction = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
+                                                    const rawMinutes = (HOUR_START + fraction * TOTAL_HOURS) * 60;
+                                                    const snapped = Math.round(rawMinutes / 30) * 30;
+                                                    const clamped = Math.min(Math.max(snapped, HOUR_START * 60), HOUR_END * 60 - 30);
+                                                    const hh = String(Math.floor(clamped / 60)).padStart(2, '0');
+                                                    const mm = String(clamped % 60).padStart(2, '0');
+                                                    openPlanningModal(row, `${dayStr}T${hh}:${mm}`);
                                                 }}
                                             >
                                                 {/* Vertical grid lines */}
