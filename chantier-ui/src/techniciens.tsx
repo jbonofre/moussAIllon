@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Space, Table, Button, Input, Form, Modal, Card, Row, Col, Popconfirm, message, Drawer, Statistic, Progress, Divider, Spin, Checkbox, ColorPicker } from 'antd';
+import { Space, Table, Button, Input, InputNumber, Form, Modal, Card, Row, Col, Popconfirm, message, Drawer, Statistic, Progress, Divider, Spin, Checkbox, ColorPicker } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, UserOutlined, BarChartOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, WarningOutlined, EuroCircleOutlined, KeyOutlined, MailOutlined } from '@ant-design/icons';
 import api from './api.ts';
 
@@ -13,6 +13,8 @@ interface TechnicienEntity {
     email: string;
     telephone?: string;
     couleur?: string;
+    cibleInterventions?: number;
+    cibleHeures?: number;
 }
 
 interface TechnicienKpi {
@@ -42,6 +44,8 @@ interface TechnicienFormValues {
     email: string;
     telephone?: string;
     couleur?: string;
+    cibleInterventions?: number;
+    cibleHeures?: number;
 }
 
 const defaultTechnicien: TechnicienFormValues = {
@@ -445,6 +449,25 @@ const Techniciens: React.FC = () => {
                                                 </Popconfirm>
                                             )}
                                         </Space>
+                                    </Col>
+                                </Row>
+                                <Divider orientation="left" plain>Objectifs mensuels</Divider>
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="cibleInterventions"
+                                            label="Cible interventions / mois"
+                                        >
+                                            <InputNumber min={0} step={1} style={{ width: '100%' }} placeholder="Ex : 18" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="cibleHeures"
+                                            label="Cible heures / mois"
+                                        >
+                                            <InputNumber min={0} step={0.5} style={{ width: '100%' }} addonAfter="h" placeholder="Ex : 40" />
+                                        </Form.Item>
                                     </Col>
                                 </Row>
                                 <Form.Item

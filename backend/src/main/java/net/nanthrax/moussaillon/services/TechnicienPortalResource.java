@@ -332,6 +332,24 @@ public class TechnicienPortalResource {
         return Response.noContent().build();
     }
 
+    public static class ObjectifResponse {
+        public Integer cibleInterventions;
+        public Double cibleHeures;
+    }
+
+    @GET
+    @Path("/techniciens/{id}/objectif")
+    public ObjectifResponse getTechnicienObjectif(@PathParam("id") long technicienId) {
+        TechnicienEntity technicien = TechnicienEntity.findById(technicienId);
+        if (technicien == null) {
+            throw new WebApplicationException("Technicien non trouve", Response.Status.NOT_FOUND);
+        }
+        ObjectifResponse response = new ObjectifResponse();
+        response.cibleInterventions = technicien.cibleInterventions;
+        response.cibleHeures = technicien.cibleHeures;
+        return response;
+    }
+
     @GET
     @Path("/techniciens/{id}/taches")
     public List<PlanningItemWithVente> getTechnicienTasks(@PathParam("id") long technicienId) {
