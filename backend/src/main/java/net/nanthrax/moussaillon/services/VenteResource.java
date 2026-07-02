@@ -481,6 +481,7 @@ public class VenteResource {
                 cloned.status = incoming.status;
                 cloned.statusDate = incoming.statusDate;
                 cloned.dureeReelle = incoming.dureeReelle;
+                cloned.dureePlanifiee = incoming.dureePlanifiee;
                 cloned.incidentDate = incoming.incidentDate;
                 cloned.incidentDetails = incoming.incidentDetails;
                 cloned.notes = incoming.notes;
@@ -529,6 +530,7 @@ public class VenteResource {
                 cloned.status = incoming.status;
                 cloned.statusDate = incoming.statusDate;
                 cloned.dureeReelle = incoming.dureeReelle;
+                cloned.dureePlanifiee = incoming.dureePlanifiee;
                 cloned.incidentDate = incoming.incidentDate;
                 cloned.incidentDetails = incoming.incidentDetails;
                 cloned.notes = incoming.notes;
