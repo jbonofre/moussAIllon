@@ -577,6 +577,17 @@ export default function Forfaits() {
             form.setFieldValue('prixHT', prixHT);
         }
 
+        // Durée estimée = somme des quantités de main d'œuvre (1h = 1 unité)
+        if (changedValues.mainOeuvres !== undefined) {
+            const moValues = form.getFieldValue('mainOeuvres') || [];
+            const totalHeures = moValues.reduce(
+                (total: number, item: { mainOeuvreId?: number; quantite?: number }) =>
+                    total + (item.mainOeuvreId ? (item.quantite || 0) : 0),
+                0
+            );
+            form.setFieldValue('dureeEstimee', Math.round((totalHeures + Number.EPSILON) * 100) / 100);
+        }
+
         if (
             changedValues.prixHT !== undefined
             || changedValues.tva !== undefined
@@ -765,8 +776,8 @@ export default function Forfaits() {
                         </Col>
                     </Row>
 
-                    <Form.Item name="dureeEstimee" label="Durée estimée">
-                        <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" />
+                    <Form.Item name="dureeEstimee" label="Durée estimée" tooltip="Calculée automatiquement : 1h par unité de main d'œuvre">
+                        <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" disabled />
                     </Form.Item>
 
                     <Row gutter={16}>
