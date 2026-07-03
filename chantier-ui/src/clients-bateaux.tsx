@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
   Button,
@@ -100,10 +100,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [clients, setClients] = useState<any[]>([]);
   const [proprietaireOptions, setProprietaireOptions] = useState<any[]>([]);
   const [proprietaireSearchTimeout, setProprietaireSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [modeleOptions, setModeleOptions] = useState<any[]>([]);
-  const [modeleSearchTimeout, setModeleSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [moteurOptions, setMoteurOptions] = useState<any[]>([]);
-  const [moteurSearchTimeout, setMoteurSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
@@ -204,6 +200,23 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setClients(res.data);
   };
 
+  // Listes déroulantes peuplées à partir du catalogue complet, avec recherche côté client
+  // (comportement identique à la liste des produits sur une prestation).
+  const modeleSelectOptions = useMemo(
+    () => bateauxCatalogue.map((b: any) => ({
+      value: b.id,
+      label: `${b.marque} ${b.modele}${formatAnnee(b.anneeDebut, b.anneeFin) ? ` (${formatAnnee(b.anneeDebut, b.anneeFin)})` : ''}`,
+    })),
+    [bateauxCatalogue]
+  );
+  const moteurSelectOptions = useMemo(
+    () => moteursCatalogue.map((m: any) => ({
+      value: m.id,
+      label: `${m.marque} ${m.modele}${formatAnnee(m.anneeDebut, m.anneeFin) ? ` (${formatAnnee(m.anneeDebut, m.anneeFin)})` : ''}`,
+    })),
+    [moteursCatalogue]
+  );
+
   const handleProprietaireSearch = (value: string) => {
     if (proprietaireSearchTimeout) clearTimeout(proprietaireSearchTimeout);
     if (!value || value.trim() === "") {
@@ -219,40 +232,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       }
     }, 300);
     setProprietaireSearchTimeout(timeout);
-  };
-
-  const handleModeleSearch = (value: string) => {
-    if (modeleSearchTimeout) clearTimeout(modeleSearchTimeout);
-    if (!value || value.trim() === "") {
-      setModeleOptions([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await api.get(`/catalogue/bateaux/search?q=${encodeURIComponent(value)}`);
-        setModeleOptions(res.data);
-      } catch {
-        setModeleOptions([]);
-      }
-    }, 300);
-    setModeleSearchTimeout(timeout);
-  };
-
-  const handleMoteurSearch = (value: string) => {
-    if (moteurSearchTimeout) clearTimeout(moteurSearchTimeout);
-    if (!value || value.trim() === "") {
-      setMoteurOptions([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await api.get(`/catalogue/moteurs/search?q=${encodeURIComponent(value)}`);
-        setMoteurOptions(res.data);
-      } catch {
-        setMoteurOptions([]);
-      }
-    }, 300);
-    setMoteurSearchTimeout(timeout);
   };
 
   const handleModalCancel = () => {
@@ -276,8 +255,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setEditing(null);
     form.resetFields();
     setFormDirty(false);
-    setModeleOptions([]);
-    setMoteurOptions([]);
     if (clientId) {
       const client = clients.find((c: any) => c.id === clientId);
       setProprietaireOptions(client ? [client] : []);
@@ -292,8 +269,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     setEditing(record);
     setFormDirty(false);
     setProprietaireOptions(record.proprietaires || []);
-    setModeleOptions(record.modele ? [record.modele] : []);
-    setMoteurOptions(record.moteurs || []);
     setAvailableOptions(record.modele?.options || []);
     form.setFieldsValue({
       ...record,
@@ -329,7 +304,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       setCatalogueModalVisible(false);
       catalogueForm.resetFields();
       await fetchBateauxCatalogue();
-      setModeleOptions((prev) => [...prev, res.data]);
       form.setFieldsValue({ modeleId: res.data.id });
     } catch (e) {
       if (e && e.response) {
@@ -346,7 +320,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       setMoteurModalVisible(false);
       moteurForm.resetFields();
       await fetchMoteursCatalogue();
-      setMoteurOptions((prev) => [...prev, res.data]);
       // Add the new moteur to the current selection
       const currentMoteurs = form.getFieldValue("moteurs") || [];
       form.setFieldsValue({ moteurs: [...currentMoteurs, res.data.id] });
@@ -607,18 +580,11 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                 <Select
                   showSearch
                   placeholder="Rechercher un modèle par marque, modèle ou type"
-                  filterOption={false}
-                  onSearch={handleModeleSearch}
+                  optionFilterProp="label"
                   allowClear
-                  notFoundContent={null}
                   style={{ width: "100%" }}
-                >
-                  {modeleOptions.map((bateau: any) => (
-                    <Select.Option key={bateau.id} value={bateau.id}>
-                      {bateau.marque} {bateau.modele} {formatAnnee(bateau.anneeDebut, bateau.anneeFin) ? `(${formatAnnee(bateau.anneeDebut, bateau.anneeFin)})` : ''}
-                    </Select.Option>
-                  ))}
-                </Select>
+                  options={modeleSelectOptions}
+                />
               </Form.Item>
               <Button
                 icon={<PlusCircleOutlined />}
@@ -665,18 +631,11 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                   mode="multiple"
                   style={{ width: '100%' }}
                   placeholder="Rechercher un moteur par marque, modèle ou type"
-                  filterOption={false}
+                  optionFilterProp="label"
                   showSearch
-                  onSearch={handleMoteurSearch}
                   allowClear
-                  notFoundContent={null}
-                >
-                  {moteurOptions.map((moteur: any) => (
-                    <Select.Option key={moteur.id} value={moteur.id}>
-                      {moteur.marque} {moteur.modele} {formatAnnee(moteur.anneeDebut, moteur.anneeFin) ? `(${formatAnnee(moteur.anneeDebut, moteur.anneeFin)})` : ''}
-                    </Select.Option>
-                  ))}
-                </Select>
+                  options={moteurSelectOptions}
+                />
               </Form.Item>
               <Button
                 icon={<PlusCircleOutlined />}
