@@ -3224,7 +3224,7 @@ export default function Vente() {
                                                     </Space>
                                                     );
                                                 })}
-                                                <Space style={{ marginTop: 8 }}>
+                                                <Space style={{ marginTop: -4 }}>
                                                     <Button icon={<PlusOutlined />} onClick={() => openNewForfaitModal(findOrCreateEmptyLineIndex())}>
                                                         Ajouter Forfait
                                                     </Button>
