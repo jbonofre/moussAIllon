@@ -38,6 +38,7 @@ import api from "./api.ts";
 import BateauxClients from "./clients-bateaux.tsx";
 import ClientsMoteurs from "./clients-moteurs.tsx";
 import RemorquesClients from "./clients-remorques.tsx";
+import ClientsAvoirs from "./clients-avoirs.tsx";
 import DocumentUpload from "./DocumentUpload.tsx";
 import { useNavigation } from "./navigation-context.tsx";
 import HistoriqueOperations from "./historique-operations.tsx";
@@ -577,6 +578,8 @@ function Clients() {
             <RemorquesClients clientId={editing.id} />
             <Divider />
             <HistoriqueOperations clientId={editing.id} />
+            <Divider />
+            <ClientsAvoirs clientId={editing.id} />
           </>
         )}
       </Modal>
