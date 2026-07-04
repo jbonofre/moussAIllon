@@ -98,8 +98,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [moteursCatalogue, setMoteursCatalogue] = useState<any[]>([]);
   const [produitsCatalogue, setProduitsCatalogue] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
-  const [proprietaireOptions, setProprietaireOptions] = useState<any[]>([]);
-  const [proprietaireSearchTimeout, setProprietaireSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
@@ -216,23 +214,10 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     })),
     [moteursCatalogue]
   );
-
-  const handleProprietaireSearch = (value: string) => {
-    if (proprietaireSearchTimeout) clearTimeout(proprietaireSearchTimeout);
-    if (!value || value.trim() === "") {
-      setProprietaireOptions([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
-        setProprietaireOptions(res.data);
-      } catch {
-        setProprietaireOptions([]);
-      }
-    }, 300);
-    setProprietaireSearchTimeout(timeout);
-  };
+  const proprietaireSelectOptions = useMemo(
+    () => clients.map((c: any) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+    [clients]
+  );
 
   const handleModalCancel = () => {
     if (formDirty) {
@@ -256,11 +241,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     form.resetFields();
     setFormDirty(false);
     if (clientId) {
-      const client = clients.find((c: any) => c.id === clientId);
-      setProprietaireOptions(client ? [client] : []);
       form.setFieldsValue({ proprietaires: [clientId] });
-    } else {
-      setProprietaireOptions([]);
     }
     setModalVisible(true);
   };
@@ -268,7 +249,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const handleEdit = (record: BateauClient) => {
     setEditing(record);
     setFormDirty(false);
-    setProprietaireOptions(record.proprietaires || []);
     setAvailableOptions(record.modele?.options || []);
     form.setFieldsValue({
       ...record,
@@ -338,7 +318,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       setClientModalVisible(false);
       clientForm.resetFields();
       await fetchClients();
-      setProprietaireOptions((prev) => [...prev, res.data]);
       const currentProprietaires = form.getFieldValue("proprietaires") || [];
       form.setFieldsValue({ proprietaires: [...currentProprietaires, res.data.id] });
     } catch (e) {
@@ -602,18 +581,11 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                   mode="multiple"
                   style={{ width: '100%' }}
                   placeholder="Rechercher un propriétaire par prénom ou nom"
-                  filterOption={false}
+                  optionFilterProp="label"
                   showSearch
-                  onSearch={handleProprietaireSearch}
                   allowClear
-                  notFoundContent={null}
-                >
-                  {proprietaireOptions.map((client: any) => (
-                    <Select.Option key={client.id} value={client.id}>
-                      {client.prenom} {client.nom}
-                    </Select.Option>
-                  ))}
-                </Select>
+                  options={proprietaireSelectOptions}
+                />
               </Form.Item>
               <Button
                 icon={<PlusCircleOutlined />}

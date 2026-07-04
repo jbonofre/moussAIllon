@@ -89,8 +89,6 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const [annonceImageModalVisible, setAnnonceImageModalVisible] = useState(false);
   const [annonceImageMoteur, setAnnonceImageMoteur] = useState<MoteurClient | null>(null);
   const [annonceSelectedImages, setAnnonceSelectedImages] = useState<Set<string>>(new Set());
-  const [proprietaireOptions, setProprietaireOptions] = useState<any[]>([]);
-  const [proprietaireSearchTimeout, setProprietaireSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const { navigate } = useNavigation();
 
   const openAnnonceImageModal = (moteur: MoteurClient) => {
@@ -193,34 +191,17 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
     })),
     [catalogueMoteurs]
   );
-
-  const handleProprietaireSearch = (value: string) => {
-    if (proprietaireSearchTimeout) clearTimeout(proprietaireSearchTimeout);
-    if (!value || value.trim() === "") {
-      setProprietaireOptions([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
-        setProprietaireOptions(res.data);
-      } catch {
-        setProprietaireOptions([]);
-      }
-    }, 300);
-    setProprietaireSearchTimeout(timeout);
-  };
+  const proprietaireSelectOptions = useMemo(
+    () => clients.map((c: any) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+    [clients]
+  );
 
   const handleAdd = () => {
     setEditing(null);
     form.resetFields();
     setFormDirty(false);
     if (clientId) {
-      const client = clients.find((c: any) => c.id === clientId);
-      setProprietaireOptions(client ? [client] : []);
       form.setFieldsValue({ proprietaireId: clientId });
-    } else {
-      setProprietaireOptions([]);
     }
     setModalVisible(true);
   };
@@ -228,7 +209,6 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const handleEdit = (record: MoteurClient) => {
     setEditing(record);
     setFormDirty(false);
-    setProprietaireOptions(record.proprietaire ? [record.proprietaire] : []);
     form.setFieldsValue({
       ...record,
       dateMeS: record.dateMeS ? dayjs(record.dateMeS) : null,
@@ -262,7 +242,6 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       setClientModalVisible(false);
       clientForm.resetFields();
       await fetchClients();
-      setProprietaireOptions((prev) => [...prev, res.data]);
       form.setFieldsValue({ proprietaireId: res.data.id });
     } catch (e: any) {
       if (e && e.response) {
@@ -492,18 +471,11 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
                 <Select
                   showSearch
                   placeholder="Rechercher un propriétaire par prénom ou nom"
-                  filterOption={false}
-                  onSearch={handleProprietaireSearch}
+                  optionFilterProp="label"
                   allowClear
-                  notFoundContent={null}
                   style={{ width: "100%" }}
-                >
-                  {proprietaireOptions.map((client: any) => (
-                    <Option key={client.id} value={client.id}>
-                      {client.prenom} {client.nom}
-                    </Option>
-                  ))}
-                </Select>
+                  options={proprietaireSelectOptions}
+                />
               </Form.Item>
               <Button
                 icon={<PlusCircleOutlined />}
