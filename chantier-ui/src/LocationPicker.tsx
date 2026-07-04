@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
+import { AutoComplete, Input, Spin } from "antd";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -38,6 +39,17 @@ function ClickHandler({ onLocationSelect }: ClickHandlerProps) {
   return null;
 }
 
+interface NominatimResult {
+  display_name: string;
+  lat: string;
+  lon: string;
+}
+
+interface AddressOption {
+  value: string;
+  coords: [number, number];
+}
+
 interface LocationPickerProps {
   value?: string;
   onChange?: (value: string) => void;
@@ -47,7 +59,10 @@ function LocationPicker({ value, onChange }: LocationPickerProps) {
   const [position, setPosition] = useState<[number, number] | null>(
     parseGps(value)
   );
+  const [options, setOptions] = useState<AddressOption[]>([]);
+  const [searching, setSearching] = useState(false);
   const mapRef = useRef<L.Map | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     const parsed = parseGps(value);
@@ -56,6 +71,11 @@ function LocationPicker({ value, onChange }: LocationPickerProps) {
       mapRef.current.setView(parsed, MARKER_ZOOM);
     }
   }, [value]);
+
+  // Nettoyage du timer de debounce au démontage
+  useEffect(() => () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+  }, []);
 
   const handleLocationSelect = (lat: number, lng: number) => {
     const coords: [number, number] = [
@@ -71,11 +91,63 @@ function LocationPicker({ value, onChange }: LocationPickerProps) {
     }
   };
 
+  // Géocodage d'adresse via Nominatim (OpenStreetMap)
+  const geocode = async (query: string) => {
+    setSearching(true);
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query)}`,
+        { headers: { "Accept-Language": "fr" } }
+      );
+      const data: NominatimResult[] = await res.json();
+      setOptions(
+        data
+          .map((r) => ({
+            value: r.display_name,
+            coords: [parseFloat(r.lat), parseFloat(r.lon)] as [number, number],
+          }))
+          .filter((o) => !isNaN(o.coords[0]) && !isNaN(o.coords[1]))
+      );
+    } catch {
+      setOptions([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleSearch = (query: string) => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!query || query.trim().length < 3) {
+      setOptions([]);
+      return;
+    }
+    debounceRef.current = setTimeout(() => geocode(query.trim()), 400);
+  };
+
+  const handleSelect = (_value: string, option: AddressOption) => {
+    handleLocationSelect(option.coords[0], option.coords[1]);
+    setOptions([]);
+  };
+
   const center = position || DEFAULT_CENTER;
   const zoom = position ? MARKER_ZOOM : DEFAULT_ZOOM;
 
   return (
     <div>
+      <AutoComplete
+        options={options}
+        onSearch={handleSearch}
+        onSelect={handleSelect}
+        filterOption={false}
+        style={{ width: "100%", marginBottom: 8 }}
+        notFoundContent={searching ? <Spin size="small" /> : null}
+      >
+        <Input.Search
+          placeholder="Rechercher une adresse..."
+          loading={searching}
+          allowClear
+        />
+      </AutoComplete>
       <MapContainer
         center={center}
         zoom={zoom}
@@ -92,7 +164,7 @@ function LocationPicker({ value, onChange }: LocationPickerProps) {
       <div style={{ marginTop: 4, color: "#888", fontSize: 12 }}>
         {position
           ? `Coordonnées : ${position[0]}, ${position[1]}`
-          : "Cliquez sur la carte pour sélectionner une position"}
+          : "Recherchez une adresse ou cliquez sur la carte pour sélectionner une position"}
       </div>
     </div>
   );
