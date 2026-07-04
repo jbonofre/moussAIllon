@@ -774,6 +774,72 @@ public class VenteResource {
         public Long avoirId;
     }
 
+    public static class PaiementGroupeRequest {
+        public List<Long> venteIds;
+        public String mode;
+        public double montant;
+        public String notes;
+    }
+
+    @POST
+    @Path("/paiement-groupe")
+    @Transactional
+    public Response addPaiementGroupe(PaiementGroupeRequest request) {
+        if (request.venteIds == null || request.venteIds.isEmpty()) {
+            throw new WebApplicationException("Aucune vente sélectionnée", 400);
+        }
+        if (request.montant <= 0) {
+            throw new WebApplicationException("Le montant doit être supérieur à zéro", 400);
+        }
+        VentePaiementEntity.Mode mode;
+        try {
+            mode = VentePaiementEntity.Mode.valueOf(request.mode);
+        } catch (IllegalArgumentException | NullPointerException e) {
+            throw new WebApplicationException("Mode de paiement invalide : " + request.mode, 400);
+        }
+        if (mode == VentePaiementEntity.Mode.AVOIR) {
+            throw new WebApplicationException("Le mode AVOIR n'est pas supporté pour un règlement groupé", 400);
+        }
+        List<VenteEntity> ventes = new ArrayList<>();
+        for (Long vid : request.venteIds) {
+            VenteEntity v = VenteEntity.findById(vid);
+            if (v == null) {
+                throw new WebApplicationException("Vente (" + vid + ") non trouvée", 404);
+            }
+            if (v.status != VenteEntity.Status.FACTURE_PRETE) {
+                throw new WebApplicationException("La vente (" + vid + ") n'est pas en statut 'Facture prête'", 400);
+            }
+            ventes.add(v);
+        }
+        ventes.sort(java.util.Comparator.comparingLong(v -> v.dateDevis != null ? v.dateDevis.getTime() : 0L));
+        double restant = Math.round(request.montant * 100.0) / 100.0;
+        int count = 0;
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        for (VenteEntity vente : ventes) {
+            if (restant <= 0.005) break;
+            double totalPaye = vente.paiements.stream().mapToDouble(p -> p.montant).sum();
+            double balance = Math.round((vente.prixVenteTTC - totalPaye) * 100.0) / 100.0;
+            if (balance <= 0.005) continue;
+            double montantPaiement = Math.min(balance, Math.round(restant * 100.0) / 100.0);
+            VentePaiementEntity paiement = new VentePaiementEntity();
+            paiement.mode = mode;
+            paiement.montant = montantPaiement;
+            paiement.date = now;
+            paiement.notes = request.notes;
+            vente.paiements.add(paiement);
+            restant = Math.round((restant - montantPaiement) * 100.0) / 100.0;
+            count++;
+        }
+        if (count == 0) {
+            throw new WebApplicationException("Aucun paiement appliqué (toutes les ventes sont déjà soldées)", 400);
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("count", count);
+        result.put("applique", Math.round((request.montant - restant) * 100.0) / 100.0);
+        result.put("restant", Math.max(0, restant));
+        return Response.ok(result).build();
+    }
+
     @POST
     @Path("{id}/paiements")
     @Transactional

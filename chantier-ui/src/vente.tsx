@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    Alert,
     AutoComplete,
     Button,
     Card,
@@ -802,6 +803,15 @@ export default function Vente() {
     const [paiementAvoirId, setPaiementAvoirId] = useState<number | null>(null);
     const [avoirsDisponibles, setAvoirsDisponibles] = useState<AvoirDisponible[]>([]);
     const [addingPaiement, setAddingPaiement] = useState(false);
+
+    // Règlement groupé sur plusieurs factures
+    const [reglementGroupeVisible, setReglementGroupeVisible] = useState(false);
+    const [rgClientId, setRgClientId] = useState<number | null>(null);
+    const [rgSelectedIds, setRgSelectedIds] = useState<number[]>([]);
+    const [rgMode, setRgMode] = useState<ModeReglement>('CHEQUE');
+    const [rgMontant, setRgMontant] = useState<number>(0);
+    const [rgNotes, setRgNotes] = useState('');
+    const [rgSubmitting, setRgSubmitting] = useState(false);
 
     // Génération d'avoir depuis une vente
     const [genAvoirModalVente, setGenAvoirModalVente] = useState<VenteEntity | null>(null);
@@ -2184,6 +2194,57 @@ export default function Vente() {
         }
     };
 
+    const rgVentesClient = useMemo(() => {
+        if (!rgClientId) return [];
+        return ventes.filter(
+            (v) => v.client?.id === rgClientId && v.status === 'FACTURE_PRETE'
+        );
+    }, [ventes, rgClientId]);
+
+    const rgDistribution = useMemo(() => {
+        const selected = rgVentesClient.filter((v) => rgSelectedIds.includes(v.id!));
+        const sorted = [...selected].sort((a, b) => {
+            const da = a.dateDevis ? new Date(a.dateDevis).getTime() : 0;
+            const db = b.dateDevis ? new Date(b.dateDevis).getTime() : 0;
+            return da - db;
+        });
+        let restant = rgMontant;
+        return sorted.map((v) => {
+            const totalPaye = (v.paiements || []).reduce((s, p) => s + p.montant, 0);
+            const balance = Math.round((v.prixVenteTTC - totalPaye) * 100) / 100;
+            const alloue = Math.max(0, Math.min(balance, Math.round(restant * 100) / 100));
+            restant = Math.round((restant - alloue) * 100) / 100;
+            return { vente: v, balance, alloue };
+        });
+    }, [rgVentesClient, rgSelectedIds, rgMontant]);
+
+    const handleReglementGroupe = async () => {
+        if (rgSelectedIds.length === 0) { message.warning('Sélectionnez au moins une facture'); return; }
+        if (rgMontant <= 0) { message.warning('Le montant doit être supérieur à zéro'); return; }
+        setRgSubmitting(true);
+        try {
+            await api.post('/ventes/paiement-groupe', {
+                venteIds: rgSelectedIds,
+                mode: rgMode,
+                montant: rgMontant,
+                notes: rgNotes || undefined,
+            });
+            message.success('Règlement groupé enregistré');
+            setReglementGroupeVisible(false);
+            setRgClientId(null);
+            setRgSelectedIds([]);
+            setRgMontant(0);
+            setRgNotes('');
+            const res = await api.get('/ventes');
+            setVentes(res.data || []);
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: string } })?.response?.data || 'Erreur lors du règlement groupé';
+            message.error(msg);
+        } finally {
+            setRgSubmitting(false);
+        }
+    };
+
     const handleGenerateAvoir = async () => {
         if (!genAvoirModalVente?.id) return;
         if (!genAvoirMotif.trim()) { message.warning('Le motif est requis'); return; }
@@ -2868,6 +2929,19 @@ export default function Vente() {
                     onSearch={(value) => setSearchQuery(value)}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                <Button
+                    icon={<WalletOutlined />}
+                    onClick={() => {
+                        setRgClientId(null);
+                        setRgSelectedIds([]);
+                        setRgMode('CHEQUE');
+                        setRgMontant(0);
+                        setRgNotes('');
+                        setReglementGroupeVisible(true);
+                    }}
+                >
+                    Règlement groupé
+                </Button>
             </Space>
 
             <Row gutter={[16, 16]} style={{ marginTop: 8 }}>
@@ -4673,6 +4747,143 @@ export default function Vente() {
                             placeholder="Ex: chèque n°12345"
                         />
                     </Form.Item>
+                </Form>
+            </Modal>
+
+            {/* Règlement groupé */}
+            <Modal
+                title="Règlement groupé"
+                open={reglementGroupeVisible}
+                onCancel={() => setReglementGroupeVisible(false)}
+                onOk={handleReglementGroupe}
+                okText="Enregistrer"
+                cancelText="Annuler"
+                confirmLoading={rgSubmitting}
+                width={700}
+                destroyOnHidden
+            >
+                <Form layout="vertical" style={{ marginTop: 8 }}>
+                    <Form.Item label="Client">
+                        <Select
+                            showSearch
+                            placeholder="Sélectionner un client"
+                            filterOption={(input, option) =>
+                                (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
+                            }
+                            options={clientOptions}
+                            value={rgClientId}
+                            onChange={(v) => {
+                                setRgClientId(v);
+                                setRgSelectedIds([]);
+                                setRgMontant(0);
+                            }}
+                            allowClear
+                        />
+                    </Form.Item>
+                    {rgClientId && (
+                        <>
+                            {rgVentesClient.length === 0 ? (
+                                <Alert type="info" message="Aucune facture prête pour ce client" showIcon />
+                            ) : (
+                                <Form.Item label="Factures à régler">
+                                    <Table
+                                        rowKey="id"
+                                        size="small"
+                                        dataSource={rgVentesClient}
+                                        pagination={false}
+                                        rowSelection={{
+                                            selectedRowKeys: rgSelectedIds,
+                                            onChange: (keys) => {
+                                                const ids = keys as number[];
+                                                setRgSelectedIds(ids);
+                                                const total = rgVentesClient
+                                                    .filter((v) => ids.includes(v.id!))
+                                                    .reduce((s, v) => {
+                                                        const paid = (v.paiements || []).reduce((a, p) => a + p.montant, 0);
+                                                        return s + Math.max(0, v.prixVenteTTC - paid);
+                                                    }, 0);
+                                                setRgMontant(Math.round(total * 100) / 100);
+                                            },
+                                        }}
+                                        columns={[
+                                            { title: 'Référence', dataIndex: 'reference', render: (v: string) => v || '-' },
+                                            { title: 'Date', dataIndex: 'dateDevis', render: (v: string) => v ? new Date(v).toLocaleDateString('fr-FR') : '-' },
+                                            {
+                                                title: 'Solde restant',
+                                                align: 'right' as const,
+                                                render: (_: unknown, record: VenteEntity) => {
+                                                    const paid = (record.paiements || []).reduce((s, p) => s + p.montant, 0);
+                                                    const b = Math.max(0, Math.round((record.prixVenteTTC - paid) * 100) / 100);
+                                                    return formatEuro(b);
+                                                },
+                                            },
+                                        ]}
+                                    />
+                                </Form.Item>
+                            )}
+                            <Row gutter={16}>
+                                <Col span={12}>
+                                    <Form.Item label="Montant reçu (€)">
+                                        <InputNumber
+                                            style={{ width: '100%' }}
+                                            min={0}
+                                            step={0.01}
+                                            precision={2}
+                                            value={rgMontant}
+                                            onChange={(v) => setRgMontant(v ?? 0)}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                                <Col span={12}>
+                                    <Form.Item label="Mode de règlement">
+                                        <Select
+                                            value={rgMode}
+                                            onChange={(v) => setRgMode(v)}
+                                            options={modePaiementOptions.map((o) => ({ value: o.value, label: o.label }))}
+                                        />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+                            <Form.Item label="Notes (optionnel)">
+                                <Input
+                                    value={rgNotes}
+                                    onChange={(e) => setRgNotes(e.target.value)}
+                                    placeholder="Ex: virement du 04/07/2026"
+                                />
+                            </Form.Item>
+                            {rgDistribution.length > 0 && (
+                                <Form.Item label="Répartition">
+                                    <Table
+                                        rowKey={(r) => r.vente.id!}
+                                        size="small"
+                                        dataSource={rgDistribution}
+                                        pagination={false}
+                                        columns={[
+                                            { title: 'Facture', render: (_: unknown, r: { vente: VenteEntity }) => r.vente.reference || `#${r.vente.id}` },
+                                            { title: 'Solde', align: 'right' as const, render: (_: unknown, r: { balance: number }) => formatEuro(r.balance) },
+                                            { title: 'Alloué', align: 'right' as const, render: (_: unknown, r: { alloue: number }) => <Tag color={r.alloue > 0 ? 'green' : 'default'}>{formatEuro(r.alloue)}</Tag> },
+                                        ]}
+                                        summary={() => {
+                                            const totalAlloue = rgDistribution.reduce((s, r) => s + r.alloue, 0);
+                                            const nonApplique = Math.max(0, Math.round((rgMontant - totalAlloue) * 100) / 100);
+                                            return (
+                                                <Table.Summary.Row>
+                                                    <Table.Summary.Cell index={0}><strong>Total</strong></Table.Summary.Cell>
+                                                    <Table.Summary.Cell index={1} align="right"><strong>{formatEuro(rgDistribution.reduce((s, r) => s + r.balance, 0))}</strong></Table.Summary.Cell>
+                                                    <Table.Summary.Cell index={2} align="right">
+                                                        <strong>{formatEuro(totalAlloue)}</strong>
+                                                        {nonApplique > 0.005 && (
+                                                            <div style={{ color: '#faad14', fontSize: 11 }}>Non alloué : {formatEuro(nonApplique)}</div>
+                                                        )}
+                                                    </Table.Summary.Cell>
+                                                </Table.Summary.Row>
+                                            );
+                                        }}
+                                    />
+                                </Form.Item>
+                            )}
+                        </>
+                    )}
                 </Form>
             </Modal>
         </Card>
