@@ -41,13 +41,18 @@ public class SocieteEntity extends PanacheEntity {
 
     public List<String> images = new ArrayList<>();
 
-    // Abonnement : paiement « one-shot » d'activation du compte.
+    // Date de création du compte (sert de date d'activation de l'abonnement).
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateCreation;
+
+    // Abonnement (informations en lecture seule, gérées par le serveur).
+    // Paiement « one-shot » d'activation du compte.
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp abonnementActivationDate;
 
     public Double abonnementActivationMontant;
 
-    // Abonnement : prochaine échéance (date prévue et valeur à payer).
+    // Prochaine échéance (date prévue et valeur à payer).
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp abonnementProchainPaiementDate;
 
