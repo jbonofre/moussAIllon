@@ -1,12 +1,13 @@
 /* ── Logo ────────────────────────────────────────── */
 .logo {
-    height: 96px;
+    height: auto;
     margin: 20px 16px 8px;
     padding-bottom: 16px;
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 12px;
+    gap: 8px;
     color: #fff;
     font-size: 1.35em;
     font-weight: 600;
