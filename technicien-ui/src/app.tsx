@@ -66,7 +66,6 @@ export default function App() {
             <Sider breakpoint="lg" collapsedWidth="0">
                 <div className="logo">
                     <Image width={80} src={process.env.PUBLIC_URL + '/logo.png'} preview={false} />
-                    <span style={{ fontWeight: 600, letterSpacing: '1.5px', fontSize: '1.2em' }}>mouss<span style={{ color: '#4096ff' }}>AI</span>llon</span>
                 </div>
                 <Menu
                     theme="dark"
