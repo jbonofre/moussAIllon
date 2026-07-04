@@ -353,11 +353,38 @@ export default function Dashboard({ user }: { user?: string }) {
 
             {assistantOpen ? (
                 <div>
-                    <div style={{ textAlign: 'right', marginBottom: 8 }}>
-                        <Button type="text" size="small" icon={<UpOutlined />} onClick={() => setAssistantOpen(false)}>
-                            Masquer l'assistant
-                        </Button>
-                    </div>
+                    <Card
+                        hoverable
+                        onClick={() => setAssistantOpen(false)}
+                        style={{ cursor: 'pointer', marginBottom: 8 }}
+                        styles={{ body: { padding: '12px 16px' } }}
+                    >
+                        <Row align="middle" justify="space-between">
+                            <Space>
+                                <div style={{
+                                    width: 36, height: 36, borderRadius: 10,
+                                    background: 'linear-gradient(135deg, #722ed1, #9254de)',
+                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                }}>
+                                    <RobotOutlined style={{ color: '#fff', fontSize: 18 }} />
+                                </div>
+                                <div>
+                                    <div style={{ fontWeight: 600, fontSize: 15 }}>Assistant IA</div>
+                                    <div style={{ color: '#8c8c8c', fontSize: 12 }}>
+                                        Cliquez pour masquer l'assistant
+                                    </div>
+                                </div>
+                            </Space>
+                            <Button
+                                type="text"
+                                size="small"
+                                icon={<UpOutlined />}
+                                onClick={(e) => { e.stopPropagation(); setAssistantOpen(false); }}
+                            >
+                                Masquer l'assistant
+                            </Button>
+                        </Row>
+                    </Card>
                     <Home />
                 </div>
             ) : (
