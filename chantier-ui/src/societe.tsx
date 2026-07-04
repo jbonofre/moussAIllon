@@ -1,11 +1,18 @@
 import { fetchWithAuth } from './api.ts';
 import { useState, useEffect } from 'react';
-import { Card, Row, Col, Space, Button, Form, Input, InputNumber, Spin, message } from 'antd';
-import { PauseCircleOutlined, DeploymentUnitOutlined, SaveOutlined } from '@ant-design/icons';
+import { Card, Row, Col, Space, Button, Form, Input, InputNumber, DatePicker, Spin, message } from 'antd';
+import { PauseCircleOutlined, DeploymentUnitOutlined, SaveOutlined, CreditCardOutlined } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { demo } from './workspace.tsx';
 import ImageUpload from './ImageUpload.tsx';
 
 const { TextArea } = Input;
+
+const toFormValues = (data) => ({
+    ...data,
+    abonnementActivationDate: data.abonnementActivationDate ? dayjs(data.abonnementActivationDate) : null,
+    abonnementProchainPaiementDate: data.abonnementProchainPaiementDate ? dayjs(data.abonnementProchainPaiementDate) : null,
+});
 
 export default function Societe(props) {
 
@@ -35,7 +42,13 @@ export default function Societe(props) {
     }
 
     const updateSocieteFunction = (values) => {
-        let newSociete = values;
+        const newSociete = {
+            ...values,
+            abonnementActivationDate: values.abonnementActivationDate
+                ? values.abonnementActivationDate.format('YYYY-MM-DD') : null,
+            abonnementProchainPaiementDate: values.abonnementProchainPaiementDate
+                ? values.abonnementProchainPaiementDate.format('YYYY-MM-DD') : null,
+        };
         fetchWithAuth('./societe', {
             method: 'PUT',
             body: JSON.stringify(newSociete),
@@ -66,7 +79,7 @@ export default function Societe(props) {
                     form={societeForm}
                     onFinish={updateSocieteFunction}
                     wrapperCol={{ span: 16 }}
-                    style={{ width: '80%' }} initialValues={societe}>
+                    style={{ width: '80%' }} initialValues={toFormValues(societe)}>
                     <Form.Item name="nom" label="Nom" rules={[{required: true, message: 'Le nom est requis'}]}>
                         <Input allowClear={true} />
                     </Form.Item>
@@ -106,6 +119,27 @@ export default function Societe(props) {
                     <Form.Item name="images" label="Images">
                         <ImageUpload />
                     </Form.Item>
+
+                    <Card
+                        type="inner"
+                        size="small"
+                        title={<Space><CreditCardOutlined/> Abonnement</Space>}
+                        style={{ marginBottom: 24 }}
+                    >
+                        <Form.Item name="abonnementActivationDate" label="Date d'activation (paiement one-shot)">
+                            <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item name="abonnementActivationMontant" label="Montant d'activation">
+                            <InputNumber addonAfter="€" min={0} precision={2} style={{ width: '100%' }} allowClear={true} />
+                        </Form.Item>
+                        <Form.Item name="abonnementProchainPaiementDate" label="Prochaine échéance">
+                            <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
+                        </Form.Item>
+                        <Form.Item name="abonnementProchainPaiementMontant" label="Montant à payer">
+                            <InputNumber addonAfter="€" min={0} precision={2} style={{ width: '100%' }} allowClear={true} />
+                        </Form.Item>
+                    </Card>
+
                     <Form.Item label={null}>
                         <Space>
                             <Button onClick={() => societeForm.submit()} type="primary" icon={<SaveOutlined/>}>Enregistrer</Button>

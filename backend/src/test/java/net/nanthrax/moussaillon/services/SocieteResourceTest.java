@@ -38,4 +38,28 @@ public class SocieteResourceTest {
             .then()
             .statusCode(200);
     }
+
+    @Test
+    void testModifierAbonnement() {
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"MS Plaisance\",\"siren\":\"123456789\",\"adresse\":\"10 quai du Port\","
+                + "\"abonnementActivationDate\":\"2026-01-15\",\"abonnementActivationMontant\":990.0,"
+                + "\"abonnementProchainPaiementDate\":\"2027-01-15\",\"abonnementProchainPaiementMontant\":49.9}")
+            .when().put("/societe")
+            .then()
+            .statusCode(200)
+            .body("abonnementActivationDate", startsWith("2026-01-15"))
+            .body("abonnementActivationMontant", is(990.0f))
+            .body("abonnementProchainPaiementDate", startsWith("2027-01-15"))
+            .body("abonnementProchainPaiementMontant", is(49.9f));
+
+        // Restaurer l'original
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"MS Plaisance\",\"siren\":\"123456789\",\"adresse\":\"10 quai du Port\"}")
+            .when().put("/societe")
+            .then()
+            .statusCode(200);
+    }
 }

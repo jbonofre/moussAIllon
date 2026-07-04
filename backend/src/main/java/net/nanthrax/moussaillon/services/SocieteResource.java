@@ -42,6 +42,10 @@ public class SocieteResource {
         entity.email = societe.email;
         entity.bancaire = societe.bancaire;
         entity.images = societe.images;
+        entity.abonnementActivationDate = societe.abonnementActivationDate;
+        entity.abonnementActivationMontant = societe.abonnementActivationMontant;
+        entity.abonnementProchainPaiementDate = societe.abonnementProchainPaiementDate;
+        entity.abonnementProchainPaiementMontant = societe.abonnementProchainPaiementMontant;
 
         return entity;
     }
