@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { Table, Card, Space, Tag, Empty, message } from "antd";
-import { HistoryOutlined } from "@ant-design/icons";
+import { Table, Card, Space, Tag, Tooltip, Empty, message } from "antd";
+import { HistoryOutlined, WarningOutlined } from "@ant-design/icons";
 import api from "./api.ts";
 
 interface Operation {
@@ -11,10 +11,37 @@ interface Operation {
   type: "forfait" | "service";
   venteId: number;
   date?: string;
+  status?: string;
+  incidentDate?: string;
+  incidentDetails?: string;
 }
+
+const STATUS_LABEL: Record<string, string> = {
+  EN_ATTENTE: "En attente",
+  PLANIFIEE: "Planifiée",
+  EN_COURS: "En cours",
+  TERMINEE: "Terminée",
+  INCIDENT: "Incident",
+  ANNULEE: "Annulée",
+};
+
+const STATUS_COLOR: Record<string, string> = {
+  EN_ATTENTE: "default",
+  PLANIFIEE: "blue",
+  EN_COURS: "processing",
+  TERMINEE: "success",
+  INCIDENT: "error",
+  ANNULEE: "warning",
+};
 
 const formatEuro = (value?: number) =>
   `${(value ?? 0).toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
+
+const formatDate = (value?: string) => {
+  if (!value) return "";
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? value : d.toLocaleDateString("fr-FR");
+};
 
 interface Props {
   clientId?: number;
@@ -57,6 +84,9 @@ function HistoriqueOperations({ clientId, bateauId, moteurId, remorqueId }: Prop
               type: "forfait",
               venteId: vente.id,
               date: vente.date,
+              status: vf.status ?? undefined,
+              incidentDate: vf.incidentDate ?? undefined,
+              incidentDetails: vf.incidentDetails ?? undefined,
             });
           }
           for (const vs of vente.venteServices ?? []) {
@@ -71,6 +101,9 @@ function HistoriqueOperations({ clientId, bateauId, moteurId, remorqueId }: Prop
               type: "service",
               venteId: vente.id,
               date: vente.date,
+              status: vs.status ?? undefined,
+              incidentDate: vs.incidentDate ?? undefined,
+              incidentDetails: vs.incidentDetails ?? undefined,
             });
           }
         }
@@ -99,6 +132,36 @@ function HistoriqueOperations({ clientId, bateauId, moteurId, remorqueId }: Prop
           {nom}
         </Space>
       ),
+    },
+    {
+      title: "Statut",
+      dataIndex: "status",
+      width: 120,
+      render: (v: string) =>
+        v ? (
+          <Tag color={STATUS_COLOR[v] ?? "default"}>{STATUS_LABEL[v] ?? v}</Tag>
+        ) : (
+          "—"
+        ),
+    },
+    {
+      title: "Incident",
+      key: "incident",
+      width: 90,
+      render: (_: unknown, r: Operation) => {
+        if (!r.incidentDate && !r.incidentDetails) return "—";
+        const label = r.incidentDate ? formatDate(r.incidentDate) : "Oui";
+        const tooltipContent = r.incidentDetails
+          ? `${label} — ${r.incidentDetails}`
+          : label;
+        return (
+          <Tooltip title={tooltipContent}>
+            <Tag icon={<WarningOutlined />} color="error" style={{ cursor: "help" }}>
+              {label}
+            </Tag>
+          </Tooltip>
+        );
+      },
     },
     {
       title: "Prix TTC",
