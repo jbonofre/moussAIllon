@@ -30,6 +30,7 @@ import {
 } from "@ant-design/icons";
 import api from "./api.ts";
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
+import AiPhotoIdentify, { IdentifyResult } from './ai-photo-identify.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import dayjs from "dayjs";
@@ -375,6 +376,30 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     }
   };
 
+  const handleAiIdentify = (result: IdentifyResult) => {
+    const updates: Record<string, any> = {};
+    if (!form.getFieldValue('name') && (result.marque || result.modele)) {
+      updates.name = [result.marque, result.modele].filter(Boolean).join(' ');
+    }
+    if (result.immatriculation && !form.getFieldValue('immatriculation')) {
+      updates.immatriculation = result.immatriculation;
+    }
+    const matching = bateauxCatalogue.find((b: any) =>
+      result.marque && result.modele &&
+      b.marque?.toLowerCase() === result.marque.toLowerCase() &&
+      b.modele?.toLowerCase() === result.modele.toLowerCase()
+    );
+    if (matching) {
+      updates.modeleId = matching.id;
+      setModeleOptions(prev => prev.some((m: any) => m.id === matching.id) ? prev : [...prev, matching]);
+      setAvailableOptions(matching.options || []);
+    }
+    if (Object.keys(updates).length > 0) {
+      form.setFieldsValue(updates);
+      setFormDirty(true);
+    }
+  };
+
   const handleModalOk = async () => {
     try {
       const values = await form.validateFields();
@@ -528,6 +553,9 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         destroyOnHidden
         width={1024}
       >
+        <div style={{ marginBottom: 12 }}>
+          <AiPhotoIdentify productType="bateau" onApply={handleAiIdentify} />
+        </div>
         <Form layout="vertical" form={form} initialValues={defaultBateau} onValuesChange={(changedValues) => {
             setFormDirty(true);
             if (changedValues.localisationGps) {

@@ -29,6 +29,7 @@ import {
 } from "@ant-design/icons";
 import api from "./api.ts";
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
+import AiPhotoIdentify, { IdentifyResult } from './ai-photo-identify.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import dayjs from "dayjs";
@@ -300,6 +301,23 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
     }
   };
 
+  const handleAiIdentify = (result: IdentifyResult) => {
+    const updates: Record<string, any> = {};
+    const matching = catalogueMoteurs.find((m: any) =>
+      result.marque && result.modele &&
+      m.marque?.toLowerCase() === result.marque.toLowerCase() &&
+      m.modele?.toLowerCase() === result.modele.toLowerCase()
+    );
+    if (matching) {
+      updates.modeleId = matching.id;
+      setModeleOptions(prev => prev.some((m: any) => m.id === matching.id) ? prev : [...prev, matching]);
+    }
+    if (Object.keys(updates).length > 0) {
+      form.setFieldsValue(updates);
+      setFormDirty(true);
+    }
+  };
+
   const handleModalOk = async () => {
     try {
       const values = await form.validateFields();
@@ -450,6 +468,9 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
         destroyOnHidden
         width={1024}
       >
+        <div style={{ marginBottom: 12 }}>
+          <AiPhotoIdentify productType="moteur" onApply={handleAiIdentify} />
+        </div>
         <Form layout="vertical" form={form} initialValues={defaultMoteur} onValuesChange={() => setFormDirty(true)}>
           <Row gutter={16}>
             <Col span={12}>
