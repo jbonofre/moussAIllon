@@ -209,4 +209,58 @@ public class ClientPortalResource {
     public List<AnnonceEntity> getClientAnnonces(@PathParam("id") long id) {
         return AnnonceEntity.list("client.id = ?1", id);
     }
+
+    public static class MediasRequest {
+        public List<String> images;
+        public List<String> documents;
+    }
+
+    @PUT
+    @Path("/clients/{clientId}/bateaux/{bateauId}/medias")
+    @Transactional
+    public Response updateBateauMedias(@PathParam("clientId") long clientId, @PathParam("bateauId") long bateauId, MediasRequest request) {
+        BateauClientEntity entity = BateauClientEntity.findById(bateauId);
+        if (entity == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("Bateau non trouve.").build();
+        }
+        boolean belongs = entity.proprietaires.stream().anyMatch(p -> p.id == clientId);
+        if (!belongs) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Acces interdit.").build();
+        }
+        if (request.images != null) entity.images = request.images;
+        if (request.documents != null) entity.documents = request.documents;
+        return Response.noContent().build();
+    }
+
+    @PUT
+    @Path("/clients/{clientId}/moteurs/{moteurId}/medias")
+    @Transactional
+    public Response updateMoteurMedias(@PathParam("clientId") long clientId, @PathParam("moteurId") long moteurId, MediasRequest request) {
+        MoteurClientEntity entity = MoteurClientEntity.findById(moteurId);
+        if (entity == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("Moteur non trouve.").build();
+        }
+        if (entity.proprietaire == null || entity.proprietaire.id != clientId) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Acces interdit.").build();
+        }
+        if (request.images != null) entity.images = request.images;
+        if (request.documents != null) entity.documents = request.documents;
+        return Response.noContent().build();
+    }
+
+    @PUT
+    @Path("/clients/{clientId}/remorques/{remorqueId}/medias")
+    @Transactional
+    public Response updateRemorqueMedias(@PathParam("clientId") long clientId, @PathParam("remorqueId") long remorqueId, MediasRequest request) {
+        RemorqueClientEntity entity = RemorqueClientEntity.findById(remorqueId);
+        if (entity == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("Remorque non trouvee.").build();
+        }
+        if (entity.proprietaire == null || entity.proprietaire.id != clientId) {
+            return Response.status(Response.Status.FORBIDDEN).entity("Acces interdit.").build();
+        }
+        if (request.images != null) entity.images = request.images;
+        if (request.documents != null) entity.documents = request.documents;
+        return Response.noContent().build();
+    }
 }
