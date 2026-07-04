@@ -40,6 +40,7 @@ import ClientsMoteurs from "./clients-moteurs.tsx";
 import RemorquesClients from "./clients-remorques.tsx";
 import DocumentUpload from "./DocumentUpload.tsx";
 import { useNavigation } from "./navigation-context.tsx";
+import HistoriqueOperations from "./historique-operations.tsx";
 
 const { Option } = Select;
 const { Search } = Input;
@@ -574,6 +575,8 @@ function Clients() {
             <ClientsMoteurs clientId={editing.id} />
             <Divider />
             <RemorquesClients clientId={editing.id} />
+            <Divider />
+            <HistoriqueOperations clientId={editing.id} />
           </>
         )}
       </Modal>

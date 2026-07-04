@@ -317,7 +317,11 @@ public class VenteResource {
     public List<VenteEntity> search(
             @QueryParam("status") String status,
             @QueryParam("clientId") Long clientId,
-            @QueryParam("comptoir") Boolean comptoir
+            @QueryParam("bateauId") Long bateauId,
+            @QueryParam("moteurId") Long moteurId,
+            @QueryParam("remorqueId") Long remorqueId,
+            @QueryParam("comptoir") Boolean comptoir,
+            @QueryParam("limit") Integer limit
     ) {
         VenteEntity.Status parsedStatus = parseStatus(status);
         StringBuilder query = new StringBuilder();
@@ -330,14 +334,33 @@ public class VenteResource {
             query.append(query.length() == 0 ? "" : " and ").append("client.id = ?").append(params.size() + 1);
             params.add(clientId);
         }
+        if (bateauId != null) {
+            query.append(query.length() == 0 ? "" : " and ").append("bateau.id = ?").append(params.size() + 1);
+            params.add(bateauId);
+        }
+        if (moteurId != null) {
+            query.append(query.length() == 0 ? "" : " and ").append("moteur.id = ?").append(params.size() + 1);
+            params.add(moteurId);
+        }
+        if (remorqueId != null) {
+            query.append(query.length() == 0 ? "" : " and ").append("remorque.id = ?").append(params.size() + 1);
+            params.add(remorqueId);
+        }
         if (comptoir != null) {
             query.append(query.length() == 0 ? "" : " and ").append("comptoir = ?").append(params.size() + 1);
             params.add(comptoir);
         }
+        io.quarkus.panache.common.Sort sort = io.quarkus.panache.common.Sort.by("date").descending();
+        List<VenteEntity> results;
         if (query.length() == 0) {
-            return VenteEntity.listAll();
+            results = VenteEntity.listAll(sort);
+        } else {
+            results = VenteEntity.list(query.toString(), sort, params.toArray());
         }
-        return VenteEntity.list(query.toString(), params.toArray());
+        if (limit != null && limit > 0 && results.size() > limit) {
+            return results.subList(0, limit);
+        }
+        return results;
     }
 
     @POST
