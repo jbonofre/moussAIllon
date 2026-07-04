@@ -82,6 +82,11 @@ public class FournisseurResource {
         entity.naf = fournisseur.naf;
         entity.connexion = fournisseur.connexion;
         entity.documents = fournisseur.documents;
+        entity.portForfaitaireDefaut = fournisseur.portForfaitaireDefaut;
+        entity.portParUniteDefaut = fournisseur.portParUniteDefaut;
+        entity.nombreMinACommanderDefaut = fournisseur.nombreMinACommanderDefaut;
+        entity.tauxMargeDefaut = fournisseur.tauxMargeDefaut;
+        entity.tauxMarqueDefaut = fournisseur.tauxMarqueDefaut;
 
         return entity;
     }

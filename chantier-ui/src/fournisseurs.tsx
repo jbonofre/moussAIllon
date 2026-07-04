@@ -6,6 +6,7 @@ import {
   Modal,
   Form,
   Input,
+  InputNumber,
   Rate,
   Spin,
   Popconfirm,
@@ -14,6 +15,7 @@ import {
   Col,
   Card,
   Select,
+  Divider,
 } from "antd";
 import {
   EditOutlined,
@@ -49,6 +51,11 @@ type Fournisseur = {
   naf?: string;
   connexion?: string;
   documents?: string[];
+  portForfaitaireDefaut?: number;
+  portParUniteDefaut?: number;
+  nombreMinACommanderDefaut?: number;
+  tauxMargeDefaut?: number;
+  tauxMarqueDefaut?: number;
 };
 
 const defaultFournisseur: Fournisseur = {
@@ -64,6 +71,11 @@ const defaultFournisseur: Fournisseur = {
   naf: "",
   connexion: "",
   documents: [],
+  portForfaitaireDefaut: 0,
+  portParUniteDefaut: 0,
+  nombreMinACommanderDefaut: 1,
+  tauxMargeDefaut: 0,
+  tauxMarqueDefaut: 0,
 };
 
 const Fournisseurs = () => {
@@ -332,6 +344,36 @@ const Fournisseurs = () => {
             <Col span={12}>
               <Form.Item label="NAF" name="naf">
                 <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Divider orientation="left" orientationMargin={0}>Frais par défaut</Divider>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Port forfaitaire par défaut (€)" name="portForfaitaireDefaut">
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item label="Port par unité par défaut (€)" name="portParUniteDefaut">
+                <InputNumber min={0} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={8}>
+              <Form.Item label="Qte min. à commander par défaut" name="nombreMinACommanderDefaut">
+                <InputNumber min={1} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Taux de marge par défaut (%)" name="tauxMargeDefaut">
+                <InputNumber min={0} max={100} style={{ width: "100%" }} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
+              <Form.Item label="Taux de marque par défaut (%)" name="tauxMarqueDefaut">
+                <InputNumber min={0} max={100} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
           </Row>
