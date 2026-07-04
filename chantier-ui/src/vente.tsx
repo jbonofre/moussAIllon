@@ -1054,6 +1054,19 @@ export default function Vente() {
         setNewProduitModalVisible(true);
     };
 
+    // Renvoie l'index de la premiere ligne vide (sans type ni article), en en creant une si besoin.
+    // Utilise par les boutons « Ajouter Forfait » / « Ajouter Service » sous la liste des lignes.
+    const findOrCreateEmptyLineIndex = (): number => {
+        const currentLines: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+        const emptyIndex = currentLines.findIndex((l) => !l?.type && !l?.itemId);
+        if (emptyIndex >= 0) {
+            return emptyIndex;
+        }
+        const updated = [...currentLines, { quantite: 1 }];
+        form.setFieldValue('lignes', updated);
+        return updated.length - 1;
+    };
+
     const handleNewProduitSave = async () => {
         try {
             const values = await newProduitForm.validateFields();
@@ -3191,18 +3204,7 @@ export default function Vente() {
                                                             </>
                                                         )}
                                                         {isEmptyLine ? (
-                                                            <Dropdown
-                                                                menu={{
-                                                                    items: [
-                                                                        { key: 'forfait', label: 'Forfait', onClick: () => openNewForfaitModal(field.name) },
-                                                                        { key: 'service', label: 'Service', onClick: () => openNewServiceModal(field.name) },
-                                                                        { key: 'produit', label: 'Produit', onClick: () => openNewProduitModal(field.name) },
-                                                                    ],
-                                                                }}
-                                                                trigger={['click']}
-                                                            >
-                                                                <Button icon={<PlusOutlined />} title="Créer..." />
-                                                            </Dropdown>
+                                                            <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
                                                         ) : (
                                                             <>
                                                                 {lineType === 'service' && itemId && (
@@ -3222,6 +3224,14 @@ export default function Vente() {
                                                     </Space>
                                                     );
                                                 })}
+                                                <Space style={{ marginTop: -12, marginBottom: 16, marginLeft: 16 }}>
+                                                    <Button icon={<PlusOutlined />} onClick={() => openNewForfaitModal(findOrCreateEmptyLineIndex())}>
+                                                        Ajouter Forfait
+                                                    </Button>
+                                                    <Button icon={<PlusOutlined />} onClick={() => openNewServiceModal(findOrCreateEmptyLineIndex())}>
+                                                        Ajouter Service
+                                                    </Button>
+                                                </Space>
                                             </>
                                         )}
                                     </Form.List>
