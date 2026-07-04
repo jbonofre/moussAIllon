@@ -604,6 +604,95 @@ public class TechnicienPortalResource {
         return PlanningItemWithVente.fromService(vs, parentVente);
     }
 
+    public static class SelfAssignRequest {
+        public Long technicienId;
+        public String datePlanification;
+    }
+
+    @GET
+    @Path("/taches-non-affectees")
+    public List<PlanningItemWithVente> getNonAffectees() {
+        List<VenteEntity> ventes = VenteEntity.listAll();
+        List<PlanningItemWithVente> result = new ArrayList<>();
+        for (VenteEntity vente : ventes) {
+            if (vente.venteForfaits != null) {
+                for (VenteForfaitEntity vf : vente.venteForfaits) {
+                    if ((vf.techniciens == null || vf.techniciens.isEmpty())
+                            && vf.status == VenteForfaitEntity.Status.EN_ATTENTE) {
+                        result.add(PlanningItemWithVente.fromForfait(vf, vente));
+                    }
+                }
+            }
+            if (vente.venteServices != null) {
+                for (VenteServiceEntity vs : vente.venteServices) {
+                    if ((vs.techniciens == null || vs.techniciens.isEmpty())
+                            && vs.status == VenteServiceEntity.Status.EN_ATTENTE) {
+                        result.add(PlanningItemWithVente.fromService(vs, vente));
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
+    @POST
+    @Path("/forfaits/{itemId}/s-affecter")
+    @Transactional
+    public PlanningItemWithVente sAffecterForfait(@PathParam("itemId") long itemId, SelfAssignRequest request) {
+        VenteForfaitEntity vf = VenteForfaitEntity.findById(itemId);
+        if (vf == null) {
+            throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
+        }
+        TechnicienEntity technicien = TechnicienEntity.findById(request.technicienId);
+        if (technicien == null) {
+            throw new WebApplicationException("Technicien non trouve", Response.Status.NOT_FOUND);
+        }
+        if (vf.techniciens == null) {
+            vf.techniciens = new ArrayList<>();
+        }
+        if (vf.techniciens.stream().noneMatch(t -> t.id.equals(request.technicienId))) {
+            vf.techniciens.add(technicien);
+        }
+        if (request.datePlanification != null && !request.datePlanification.isBlank()) {
+            String dateStr = request.datePlanification.length() > 10
+                    ? request.datePlanification.substring(0, 10)
+                    : request.datePlanification;
+            vf.datePlanification = java.sql.Timestamp.valueOf(java.time.LocalDate.parse(dateStr).atStartOfDay());
+        }
+        vf.status = VenteForfaitEntity.Status.PLANIFIEE;
+        VenteEntity parentVente = venteParenteForfait(itemId);
+        return PlanningItemWithVente.fromForfait(vf, parentVente != null ? parentVente : new VenteEntity());
+    }
+
+    @POST
+    @Path("/services/{itemId}/s-affecter")
+    @Transactional
+    public PlanningItemWithVente sAffecterService(@PathParam("itemId") long itemId, SelfAssignRequest request) {
+        VenteServiceEntity vs = VenteServiceEntity.findById(itemId);
+        if (vs == null) {
+            throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
+        }
+        TechnicienEntity technicien = TechnicienEntity.findById(request.technicienId);
+        if (technicien == null) {
+            throw new WebApplicationException("Technicien non trouve", Response.Status.NOT_FOUND);
+        }
+        if (vs.techniciens == null) {
+            vs.techniciens = new ArrayList<>();
+        }
+        if (vs.techniciens.stream().noneMatch(t -> t.id.equals(request.technicienId))) {
+            vs.techniciens.add(technicien);
+        }
+        if (request.datePlanification != null && !request.datePlanification.isBlank()) {
+            String dateStr = request.datePlanification.length() > 10
+                    ? request.datePlanification.substring(0, 10)
+                    : request.datePlanification;
+            vs.datePlanification = java.sql.Timestamp.valueOf(java.time.LocalDate.parse(dateStr).atStartOfDay());
+        }
+        vs.status = VenteServiceEntity.Status.PLANIFIEE;
+        VenteEntity parentVente = venteParenteService(itemId);
+        return PlanningItemWithVente.fromService(vs, parentVente != null ? parentVente : new VenteEntity());
+    }
+
     private static VenteEntity venteParenteForfait(long forfaitId) {
         List<VenteEntity> ventes = VenteEntity.list("SELECT v FROM VenteEntity v JOIN v.venteForfaits vf WHERE vf.id = ?1", forfaitId);
         return ventes.isEmpty() ? null : ventes.get(0);

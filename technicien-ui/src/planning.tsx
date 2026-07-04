@@ -18,7 +18,7 @@ import {
     Tag,
     message,
 } from 'antd';
-import { CheckCircleOutlined, ClockCircleOutlined, DeleteOutlined, EditOutlined, ExclamationCircleOutlined, FileOutlined, PictureOutlined, PlusOutlined, ReloadOutlined, ShoppingOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, DeleteOutlined, EditOutlined, ExclamationCircleOutlined, FileOutlined, PictureOutlined, PlusOutlined, ReloadOutlined, ShoppingOutlined, UserAddOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
@@ -131,6 +131,12 @@ export default function Planning({ technicienId }: PlanningProps) {
     const [selectedProduitId, setSelectedProduitId] = useState<number | undefined>(undefined);
     const [addQuantite, setAddQuantite] = useState(1);
 
+    const [nonAffectees, setNonAffectees] = useState<PlanningItem[]>([]);
+    const [loadingNonAffectees, setLoadingNonAffectees] = useState(false);
+    const [selfAssignItem, setSelfAssignItem] = useState<PlanningItem | null>(null);
+    const [selfAssignDate, setSelfAssignDate] = useState<any>(null);
+    const [selfAssigning, setSelfAssigning] = useState(false);
+
     const fetchItems = async () => {
         setLoading(true);
         try {
@@ -143,8 +149,21 @@ export default function Planning({ technicienId }: PlanningProps) {
         }
     };
 
+    const fetchNonAffectees = async () => {
+        setLoadingNonAffectees(true);
+        try {
+            const res = await api.get('/technicien-portal/taches-non-affectees');
+            setNonAffectees(res.data || []);
+        } catch {
+            message.error('Erreur lors du chargement des taches disponibles');
+        } finally {
+            setLoadingNonAffectees(false);
+        }
+    };
+
     useEffect(() => {
         fetchItems();
+        fetchNonAffectees();
     }, [technicienId]);
 
     const filteredItems = filterStatus
@@ -505,6 +524,76 @@ export default function Planning({ technicienId }: PlanningProps) {
         },
     ];
 
+    const handleSelfAssign = async () => {
+        if (!selfAssignItem) return;
+        setSelfAssigning(true);
+        try {
+            const endpoint = selfAssignItem.itemType === 'forfait'
+                ? `/technicien-portal/forfaits/${selfAssignItem.itemId}/s-affecter`
+                : `/technicien-portal/services/${selfAssignItem.itemId}/s-affecter`;
+            await api.post(endpoint, {
+                technicienId,
+                datePlanification: selfAssignDate ? selfAssignDate.format('YYYY-MM-DD') : undefined,
+            });
+            message.success('Tache affectee et planifiee');
+            setSelfAssignItem(null);
+            setSelfAssignDate(null);
+            fetchItems();
+            fetchNonAffectees();
+        } catch {
+            message.error("Erreur lors de l'affectation");
+        } finally {
+            setSelfAssigning(false);
+        }
+    };
+
+    const nonAffecteesColumns = [
+        {
+            title: 'Opération',
+            key: 'nom',
+            render: (_: unknown, record: PlanningItem) => (
+                <Space>
+                    <Tag color={record.itemType === 'forfait' ? 'blue' : 'purple'}>
+                        {record.itemType === 'forfait' ? 'Forfait' : 'Service'}
+                    </Tag>
+                    {record.itemNom}
+                </Space>
+            ),
+        },
+        {
+            title: 'Client',
+            dataIndex: 'clientNom',
+            key: 'clientNom',
+            render: (val: string) => val || '-',
+        },
+        {
+            title: 'Bateau',
+            dataIndex: 'bateauNom',
+            key: 'bateauNom',
+            render: (val: string) => val || '-',
+        },
+        {
+            title: 'Durée estimée',
+            dataIndex: 'dureeEstimee',
+            key: 'dureeEstimee',
+            render: (val: number) => val ? `${val}h` : '-',
+        },
+        {
+            title: 'Action',
+            key: 'action',
+            render: (_: unknown, record: PlanningItem) => (
+                <Button
+                    size="small"
+                    type="primary"
+                    icon={<UserAddOutlined />}
+                    onClick={() => { setSelfAssignItem(record); setSelfAssignDate(null); }}
+                >
+                    S'affecter
+                </Button>
+            ),
+        },
+    ];
+
     return (
         <div>
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
@@ -565,6 +654,65 @@ export default function Planning({ technicienId }: PlanningProps) {
                     bordered
                 />
             </Card>
+
+            <Card
+                title={
+                    <Space>
+                        <CalendarOutlined />
+                        Taches disponibles (non affectees)
+                        <Tag>{nonAffectees.length}</Tag>
+                    </Space>
+                }
+                style={{ marginTop: 16 }}
+                extra={<Button icon={<ReloadOutlined />} size="small" onClick={fetchNonAffectees} />}
+            >
+                {nonAffectees.length === 0 ? (
+                    <Empty description="Aucune tache disponible" />
+                ) : (
+                    <Table
+                        rowKey="itemId"
+                        dataSource={nonAffectees}
+                        columns={nonAffecteesColumns}
+                        loading={loadingNonAffectees}
+                        pagination={{ pageSize: 10 }}
+                        bordered
+                    />
+                )}
+            </Card>
+
+            <Modal
+                open={!!selfAssignItem}
+                title="S'affecter cette tache"
+                onCancel={() => { setSelfAssignItem(null); setSelfAssignDate(null); }}
+                onOk={handleSelfAssign}
+                okText="Confirmer"
+                cancelText="Annuler"
+                confirmLoading={selfAssigning}
+                destroyOnHidden
+            >
+                {selfAssignItem && (
+                    <div style={{ marginBottom: 16 }}>
+                        <p>
+                            <strong>{selfAssignItem.itemNom}</strong>
+                            {selfAssignItem.clientNom && <> — {selfAssignItem.clientNom}</>}
+                            {selfAssignItem.bateauNom && <> ({selfAssignItem.bateauNom})</>}
+                        </p>
+                        <p style={{ color: '#888', fontSize: 13 }}>
+                            En confirmant, vous vous affectez cette tache et son statut passe a <strong>Planifiee</strong>.
+                        </p>
+                    </div>
+                )}
+                <Form layout="vertical">
+                    <Form.Item label="Date de planification (optionnel)">
+                        <DatePicker
+                            style={{ width: '100%' }}
+                            value={selfAssignDate}
+                            onChange={(date) => setSelfAssignDate(date)}
+                            placeholder="Choisir une date"
+                        />
+                    </Form.Item>
+                </Form>
+            </Modal>
 
             <Modal
                 open={addProduitVisible}
