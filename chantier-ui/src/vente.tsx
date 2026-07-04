@@ -187,6 +187,7 @@ interface CatalogueBateauEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueMoteurEntity {
@@ -194,6 +195,7 @@ interface CatalogueMoteurEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueHeliceEntity {
@@ -201,6 +203,7 @@ interface CatalogueHeliceEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 interface CatalogueRemorqueEntity {
@@ -208,6 +211,7 @@ interface CatalogueRemorqueEntity {
     modele: string;
     marque: string;
     prixVenteTTC?: number;
+    stock?: number;
 }
 
 
@@ -1005,6 +1009,27 @@ export default function Vente() {
             setCatalogueRemorques(catRemorquesRes.data || []);
         } catch {
             message.error('Erreur lors du chargement des listes de reference.');
+        }
+    };
+
+    // Rafraîchit les listes catalogue (produits + bateaux/moteurs/hélices/remorques)
+    // afin d'afficher l'état de stock le plus à jour à chaque nouvelle vente.
+    const refreshCatalogue = async () => {
+        try {
+            const [catProduitsRes, catBateauxRes, catMoteursRes, catHelicesRes, catRemorquesRes] = await Promise.all([
+                api.get('/catalogue/produits'),
+                api.get('/catalogue/bateaux'),
+                api.get('/catalogue/moteurs'),
+                api.get('/catalogue/helices'),
+                api.get('/catalogue/remorques')
+            ]);
+            setProduits(catProduitsRes.data || []);
+            setCatalogueBateaux(catBateauxRes.data || []);
+            setCatalogueMoteurs(catMoteursRes.data || []);
+            setCatalogueHelices(catHelicesRes.data || []);
+            setCatalogueRemorques(catRemorquesRes.data || []);
+        } catch {
+            // silencieux : le stock affiché reste celui du dernier chargement réussi
         }
     };
 
@@ -1827,6 +1852,8 @@ export default function Vente() {
 
     const openModal = async (vente?: VenteEntity) => {
         suppressDirtyRef.current = true;
+        // Recharge le stock depuis le backend pour repartir d'un état à jour.
+        await refreshCatalogue();
         if (vente) {
             setIsEdit(true);
             setCurrentVente(vente);
@@ -3207,6 +3234,39 @@ export default function Vente() {
                                                                         <InputNumber addonAfter="EUR" value={total} style={{ width: '100%' }} disabled />
                                                                     </Form.Item>
                                                                 );
+                                                            }}
+                                                        </Form.Item>
+                                                        <Form.Item noStyle shouldUpdate>
+                                                            {() => {
+                                                                const quantite = form.getFieldValue(['lignes', field.name, 'quantite']) || 0;
+                                                                let stock: number | undefined;
+                                                                let stockMini = 0;
+                                                                if (lineType === 'produit') {
+                                                                    const produit = produits.find((p) => p.id === itemId);
+                                                                    if (!produit) return null;
+                                                                    stock = produit.stock ?? 0;
+                                                                    stockMini = produit.stockMini ?? 0;
+                                                                } else if (lineType === 'bateau') {
+                                                                    const item = catalogueBateaux.find((b) => b.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'moteur') {
+                                                                    const item = catalogueMoteurs.find((m) => m.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'helice') {
+                                                                    const item = catalogueHelices.find((h) => h.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else if (lineType === 'remorque') {
+                                                                    const item = catalogueRemorques.find((r) => r.id === itemId);
+                                                                    if (!item) return null;
+                                                                    stock = item.stock ?? 0;
+                                                                } else {
+                                                                    return null;
+                                                                }
+                                                                const color = stock === 0 ? 'red' : (stock < quantite || stock < stockMini) ? 'orange' : 'green';
+                                                                return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
                                                             }}
                                                         </Form.Item>
                                                         {isForfaitOrService && (
