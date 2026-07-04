@@ -19,6 +19,7 @@ import {
   DatePicker,
   Checkbox,
   Divider,
+  Tabs,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -34,6 +35,7 @@ import DocumentUpload from './DocumentUpload.tsx';
 import dayjs from "dayjs";
 import { useNavigation } from './navigation-context.tsx';
 import HistoriqueOperations from './historique-operations.tsx';
+import PrestationsList from './PrestationsList.tsx';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -470,7 +472,20 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
         {editing && editing.id && (
           <>
             <Divider />
-            <HistoriqueOperations remorqueId={editing.id} />
+            <Tabs
+              items={[
+                {
+                  key: 'prestations',
+                  label: 'Prestations',
+                  children: <PrestationsList remorqueId={editing.id} />,
+                },
+                {
+                  key: 'historique',
+                  label: 'Historique',
+                  children: <HistoriqueOperations remorqueId={editing.id} />,
+                },
+              ]}
+            />
           </>
         )}
       </Modal>

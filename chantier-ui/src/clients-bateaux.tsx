@@ -20,6 +20,7 @@ import {
   DatePicker,
   Checkbox,
   Divider,
+  Tabs,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -38,6 +39,7 @@ import dayjs from "dayjs";
 import LocationPicker from "./LocationPicker.tsx";
 import { useNavigation } from './navigation-context.tsx';
 import HistoriqueOperations from './historique-operations.tsx';
+import PrestationsList from './PrestationsList.tsx';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -671,7 +673,20 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         {editing && editing.id && (
           <>
             <Divider />
-            <HistoriqueOperations bateauId={editing.id} />
+            <Tabs
+              items={[
+                {
+                  key: 'prestations',
+                  label: 'Prestations',
+                  children: <PrestationsList bateauId={editing.id} />,
+                },
+                {
+                  key: 'historique',
+                  label: 'Historique',
+                  children: <HistoriqueOperations bateauId={editing.id} />,
+                },
+              ]}
+            />
           </>
         )}
       </Modal>
