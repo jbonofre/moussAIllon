@@ -18,4 +18,9 @@ public class TechnicienEntity extends PanacheEntity {
 
     public String couleur;
 
+    // Objectifs mensuels fixes par le manager
+    public Integer cibleInterventions;
+
+    public Double cibleHeures;
+
 }

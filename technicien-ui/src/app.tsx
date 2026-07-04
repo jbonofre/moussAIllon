@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Layout, Menu, Image, Button } from 'antd';
 import {
+    AimOutlined,
     KeyOutlined,
     ScheduleOutlined,
     UserOutlined,
@@ -8,6 +9,7 @@ import {
 } from '@ant-design/icons';
 import Login from './login.tsx';
 import Planning from './planning.tsx';
+import Objectifs from './objectifs.tsx';
 import MobileApp from './mobile-app.tsx';
 import ChangePasswordModal from './change-password-modal.tsx';
 import useIsMobile from './use-is-mobile.tsx';
@@ -31,6 +33,7 @@ export default function App() {
         return stored ? JSON.parse(stored) : null;
     });
     const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+    const [section, setSection] = useState<'planning' | 'objectifs'>('planning');
     const isMobile = useIsMobile();
 
     const handleLogout = () => {
@@ -68,9 +71,11 @@ export default function App() {
                 <Menu
                     theme="dark"
                     mode="inline"
-                    selectedKeys={['planning']}
+                    selectedKeys={[section]}
+                    onClick={({ key }) => setSection(key as 'planning' | 'objectifs')}
                     items={[
                         { key: 'planning', icon: <ScheduleOutlined />, label: 'Mon planning' },
+                        { key: 'objectifs', icon: <AimOutlined />, label: 'Mes objectifs' },
                     ]}
                 />
             </Sider>
@@ -112,7 +117,9 @@ export default function App() {
                     boxShadow: '0 1px 4px rgba(0, 0, 0, 0.04)',
                     animation: 'fadeInUp 0.3s ease-out',
                 }}>
-                    <Planning technicienId={user.id} />
+                    {section === 'planning'
+                        ? <Planning technicienId={user.id} />
+                        : <Objectifs technicienId={user.id} />}
                 </Content>
                 <Footer style={{ background: 'transparent', padding: '16px 50px' }}>
                     moussAIllon - Espace Technicien

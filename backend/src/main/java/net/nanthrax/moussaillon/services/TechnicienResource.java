@@ -94,6 +94,8 @@ public class TechnicienResource {
         entity.email = technicien.email;
         entity.telephone = technicien.telephone;
         entity.couleur = technicien.couleur;
+        entity.cibleInterventions = technicien.cibleInterventions;
+        entity.cibleHeures = technicien.cibleHeures;
 
         entity.flush();
         TechnicienEntity.getEntityManager().detach(entity);
