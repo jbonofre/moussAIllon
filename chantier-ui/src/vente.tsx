@@ -1268,6 +1268,17 @@ export default function Vente() {
             newServiceForm.setFieldValue('prixHT', prixHT);
         }
 
+        // Durée estimée = somme des quantités de main d'œuvre (1h = 1 unité)
+        if (changedValues.mainOeuvres !== undefined) {
+            const moValues = newServiceForm.getFieldValue('mainOeuvres') || [];
+            const totalHeures = moValues.reduce(
+                (total: number, item: { mainOeuvreId?: number; quantite?: number }) =>
+                    total + (item.mainOeuvreId ? (item.quantite || 0) : 0),
+                0
+            );
+            newServiceForm.setFieldValue('dureeEstimee', Math.round((totalHeures + Number.EPSILON) * 100) / 100);
+        }
+
         if (changedValues.prixHT !== undefined || changedValues.tva !== undefined) {
             const prixHT = newServiceForm.getFieldValue('prixHT') || 0;
             const tva = newServiceForm.getFieldValue('tva') || 0;
@@ -1409,6 +1420,17 @@ export default function Vente() {
             newForfaitForm.setFieldValue('prixTTC', prixTTC);
             newForfaitForm.setFieldValue('montantTVA', montantTVA);
             newForfaitForm.setFieldValue('prixHT', prixHT);
+        }
+
+        // Durée estimée = somme des quantités de main d'œuvre (1h = 1 unité)
+        if (changedValues.mainOeuvres !== undefined) {
+            const moValues = newForfaitForm.getFieldValue('mainOeuvres') || [];
+            const totalHeures = moValues.reduce(
+                (total: number, item: { mainOeuvreId?: number; quantite?: number }) =>
+                    total + (item.mainOeuvreId ? (item.quantite || 0) : 0),
+                0
+            );
+            newForfaitForm.setFieldValue('dureeEstimee', Math.round((totalHeures + Number.EPSILON) * 100) / 100);
         }
 
         if (changedValues.prixHT !== undefined || changedValues.tva !== undefined) {
@@ -3692,8 +3714,8 @@ export default function Vente() {
                         <Form.Item name="description" label="Description">
                             <Input.TextArea rows={2} allowClear />
                         </Form.Item>
-                        <Form.Item name="dureeEstimee" label="Durée estimée">
-                            <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" />
+                        <Form.Item name="dureeEstimee" label="Durée estimée" tooltip="Calculée automatiquement : 1h par unité de main d'œuvre">
+                            <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" disabled />
                         </Form.Item>
                         <Tabs
                             defaultActiveKey="mainOeuvres"
@@ -3866,8 +3888,8 @@ export default function Vente() {
                             </Col>
                         </Row>
 
-                        <Form.Item name="dureeEstimee" label="Durée estimée">
-                            <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" />
+                        <Form.Item name="dureeEstimee" label="Durée estimée" tooltip="Calculée automatiquement : 1h par unité de main d'œuvre">
+                            <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" disabled />
                         </Form.Item>
 
                         <Row gutter={16}>
