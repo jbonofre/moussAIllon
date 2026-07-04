@@ -10,6 +10,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
@@ -28,6 +29,7 @@ import net.nanthrax.moussaillon.persistence.TaskEntity;
 import net.nanthrax.moussaillon.persistence.TechnicienEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 import net.nanthrax.moussaillon.persistence.VenteForfaitEntity;
+import net.nanthrax.moussaillon.persistence.VenteProduitEntity;
 import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
 
 @Path("/technicien-portal")
@@ -81,6 +83,11 @@ public class TechnicienPortalResource {
         public boolean done;
     }
 
+    public static class AddProduitRequest {
+        public Long produitId;
+        public int quantite;
+    }
+
     public static class ChecklistItem {
         public Long id;
         public String nom;
@@ -119,6 +126,7 @@ public class TechnicienPortalResource {
         public int quantite;
         public List<ChecklistItem> taches;
         public List<ProduitItem> produits;
+        public List<ProduitItem> produitsExtra;
         public List<String> images;
         public List<String> documents;
 
@@ -173,6 +181,7 @@ public class TechnicienPortalResource {
                     }
                 }
             }
+            item.produitsExtra = collectProduitsTechnicien(vente);
             item.images = new ArrayList<>();
             if (vente.images != null) {
                 item.images.addAll(vente.images);
@@ -249,6 +258,7 @@ public class TechnicienPortalResource {
                     }
                 }
             }
+            item.produitsExtra = collectProduitsTechnicien(vente);
             item.images = new ArrayList<>();
             if (vente.images != null) {
                 item.images.addAll(vente.images);
@@ -521,6 +531,159 @@ public class TechnicienPortalResource {
             return PlanningItemWithVente.fromService(vs, new VenteEntity());
         }
         return PlanningItemWithVente.fromService(vs, parentVente);
+    }
+
+    @GET
+    @Path("/produits")
+    public List<ProduitItem> getCatalogueProduits() {
+        List<ProduitCatalogueEntity> all = ProduitCatalogueEntity.listAll();
+        List<ProduitItem> result = new ArrayList<>();
+        for (ProduitCatalogueEntity p : all) {
+            ProduitItem pi = new ProduitItem();
+            pi.id = p.id;
+            pi.nom = p.nom;
+            pi.marque = p.marque;
+            pi.categorie = p.categorie;
+            pi.ref = p.ref;
+            pi.emplacement = p.emplacement;
+            pi.quantite = p.stock;
+            result.add(pi);
+        }
+        return result;
+    }
+
+    @POST
+    @Path("/forfaits/{itemId}/produits")
+    @Transactional
+    public PlanningItemWithVente addProduitToForfait(@PathParam("itemId") long itemId, AddProduitRequest request) {
+        VenteForfaitEntity vf = VenteForfaitEntity.findById(itemId);
+        if (vf == null) {
+            throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
+        }
+        VenteEntity parentVente = venteParenteForfait(itemId);
+        ajouterProduitAVente(parentVente, request);
+        return PlanningItemWithVente.fromForfait(vf, parentVente);
+    }
+
+    @DELETE
+    @Path("/forfaits/{itemId}/produits/{produitLigneId}")
+    @Transactional
+    public PlanningItemWithVente removeProduitFromForfait(@PathParam("itemId") long itemId, @PathParam("produitLigneId") long produitLigneId) {
+        VenteForfaitEntity vf = VenteForfaitEntity.findById(itemId);
+        if (vf == null) {
+            throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
+        }
+        VenteEntity parentVente = venteParenteForfait(itemId);
+        retirerProduitDeVente(parentVente, produitLigneId);
+        return PlanningItemWithVente.fromForfait(vf, parentVente);
+    }
+
+    @POST
+    @Path("/services/{itemId}/produits")
+    @Transactional
+    public PlanningItemWithVente addProduitToService(@PathParam("itemId") long itemId, AddProduitRequest request) {
+        VenteServiceEntity vs = VenteServiceEntity.findById(itemId);
+        if (vs == null) {
+            throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
+        }
+        VenteEntity parentVente = venteParenteService(itemId);
+        ajouterProduitAVente(parentVente, request);
+        return PlanningItemWithVente.fromService(vs, parentVente);
+    }
+
+    @DELETE
+    @Path("/services/{itemId}/produits/{produitLigneId}")
+    @Transactional
+    public PlanningItemWithVente removeProduitFromService(@PathParam("itemId") long itemId, @PathParam("produitLigneId") long produitLigneId) {
+        VenteServiceEntity vs = VenteServiceEntity.findById(itemId);
+        if (vs == null) {
+            throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
+        }
+        VenteEntity parentVente = venteParenteService(itemId);
+        retirerProduitDeVente(parentVente, produitLigneId);
+        return PlanningItemWithVente.fromService(vs, parentVente);
+    }
+
+    private static VenteEntity venteParenteForfait(long forfaitId) {
+        List<VenteEntity> ventes = VenteEntity.list("SELECT v FROM VenteEntity v JOIN v.venteForfaits vf WHERE vf.id = ?1", forfaitId);
+        return ventes.isEmpty() ? null : ventes.get(0);
+    }
+
+    private static VenteEntity venteParenteService(long serviceId) {
+        List<VenteEntity> ventes = VenteEntity.list("SELECT v FROM VenteEntity v JOIN v.venteServices vs WHERE vs.id = ?1", serviceId);
+        return ventes.isEmpty() ? null : ventes.get(0);
+    }
+
+    // Ajoute le produit comme vraie ligne de la vente (venteProduits) et met a jour les montants.
+    private void ajouterProduitAVente(VenteEntity vente, AddProduitRequest request) {
+        if (vente == null) {
+            throw new WebApplicationException("Prestation parente non trouvee", Response.Status.NOT_FOUND);
+        }
+        if (request == null || request.produitId == null) {
+            throw new WebApplicationException("L'identifiant du produit est requis", Response.Status.BAD_REQUEST);
+        }
+        ProduitCatalogueEntity produit = ProduitCatalogueEntity.findById(request.produitId);
+        if (produit == null) {
+            throw new WebApplicationException("Produit non trouve", Response.Status.NOT_FOUND);
+        }
+        int quantite = request.quantite > 0 ? request.quantite : 1;
+        VenteProduitEntity ligne = new VenteProduitEntity();
+        ligne.produit = produit;
+        ligne.quantite = quantite;
+        ligne.ajouteParTechnicien = true;
+        vente.venteProduits.add(ligne);
+        appliquerDeltaMontant(vente, produit.prixVenteTTC * quantite);
+    }
+
+    // Retire une ligne produit ajoutee par le technicien et met a jour les montants.
+    private void retirerProduitDeVente(VenteEntity vente, long produitLigneId) {
+        if (vente == null) {
+            throw new WebApplicationException("Prestation parente non trouvee", Response.Status.NOT_FOUND);
+        }
+        VenteProduitEntity ligne = vente.venteProduits.stream()
+                .filter(vp -> vp.ajouteParTechnicien && vp.id != null && vp.id.equals(produitLigneId))
+                .findFirst().orElse(null);
+        if (ligne == null) {
+            return;
+        }
+        double delta = ligne.produit != null ? -(ligne.produit.prixVenteTTC * ligne.quantite) : 0.0;
+        vente.venteProduits.remove(ligne);
+        appliquerDeltaMontant(vente, delta);
+    }
+
+    // Applique un delta TTC et recalcule les montants derives de la vente.
+    private static void appliquerDeltaMontant(VenteEntity vente, double deltaTTC) {
+        vente.montantTTC = arrondi(vente.montantTTC + deltaTTC);
+        double tva = vente.tva;
+        vente.montantTVA = (100.0 + tva) != 0.0 ? arrondi(vente.montantTTC / (100.0 + tva) * tva) : 0.0;
+        vente.montantHT = arrondi(vente.montantTTC - vente.montantTVA);
+        vente.prixVenteTTC = arrondi(vente.montantTTC - vente.remise);
+    }
+
+    private static double arrondi(double valeur) {
+        return Math.round(valeur * 100.0) / 100.0;
+    }
+
+    // Construit la liste des produits ajoutes par le technicien pour l'affichage.
+    private static List<ProduitItem> collectProduitsTechnicien(VenteEntity vente) {
+        List<ProduitItem> result = new ArrayList<>();
+        if (vente == null || vente.venteProduits == null) {
+            return result;
+        }
+        for (VenteProduitEntity vp : vente.venteProduits) {
+            if (vp.ajouteParTechnicien && vp.produit != null) {
+                ProduitItem pi = new ProduitItem();
+                pi.id = vp.id;
+                pi.nom = vp.produit.nom;
+                pi.marque = vp.produit.marque;
+                pi.categorie = vp.produit.categorie;
+                pi.ref = vp.produit.ref;
+                pi.emplacement = vp.produit.emplacement;
+                pi.quantite = vp.quantite;
+                result.add(pi);
+            }
+        }
+        return result;
     }
 
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {
