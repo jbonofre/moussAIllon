@@ -413,7 +413,7 @@ public class TechnicienPortalResource {
         }
         if ("INCIDENT".equals(request.status)) {
             if (request.incidentDate != null && !request.incidentDate.isBlank()) {
-                vf.incidentDate = Date.valueOf(request.incidentDate);
+                vf.incidentDate = Date.valueOf(request.incidentDate.length() > 10 ? request.incidentDate.substring(0, 10) : request.incidentDate);
             }
             vf.incidentDetails = request.incidentDetails;
         }
@@ -485,7 +485,7 @@ public class TechnicienPortalResource {
         }
         if ("INCIDENT".equals(request.status)) {
             if (request.incidentDate != null && !request.incidentDate.isBlank()) {
-                vs.incidentDate = Date.valueOf(request.incidentDate);
+                vs.incidentDate = Date.valueOf(request.incidentDate.length() > 10 ? request.incidentDate.substring(0, 10) : request.incidentDate);
             }
             vs.incidentDetails = request.incidentDetails;
         }

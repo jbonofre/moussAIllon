@@ -760,7 +760,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                                         label="Date de l'incident"
                                         rules={[{ required: true, message: "La date de l'incident est requise" }]}
                                     >
-                                        <DatePicker showTime style={{ width: '100%' }} />
+                                        <DatePicker style={{ width: '100%' }} />
                                     </Form.Item>
                                     <Form.Item
                                         name="incidentDetails"
