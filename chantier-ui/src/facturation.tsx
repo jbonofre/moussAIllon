@@ -26,84 +26,76 @@ const TYPE_COLOR: Record<string, string> = { MENSUEL: 'blue', ANNUEL: 'gold' };
 
 function downloadFacturePdf(paiement: any, societe: any) {
     const dateDebut = dayjs(paiement.date).format('DD/MM/YYYY');
-    const dateFin = paiement.type === 'ANNUEL'
-        ? dayjs(paiement.date).add(12, 'month').format('DD/MM/YYYY')
-        : dayjs(paiement.date).add(1, 'month').format('DD/MM/YYYY');
+    const dateFin = (paiement.type === 'ANNUEL'
+        ? dayjs(paiement.date).add(12, 'month')
+        : dayjs(paiement.date).add(1, 'month')
+    ).format('DD/MM/YYYY');
     const nomSociete = societe?.nom ?? 'moussAIllon';
     const montantStr = formatMontant(paiement.montant);
 
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const pageW = doc.internal.pageSize.getWidth();
-    const margin = 20;
-    const colW = pageW - margin * 2;
-    let y = margin;
+    const L = 20;   // left margin
+    const R = pageW - 20; // right edge
+    const lineH = 7;
+    let y = 24;
 
-    // En-tête
-    doc.setFontSize(20);
+    const sep = () => {
+        doc.setDrawColor(210);
+        doc.line(L, y, R, y);
+        y += 8;
+    };
+
+    const row = (label: string, value: string, bold = false) => {
+        doc.setFont('helvetica', bold ? 'bold' : 'normal');
+        doc.setFontSize(10);
+        doc.text(label, L, y);
+        doc.text(value, R, y, { align: 'right' });
+        y += lineH;
+    };
+
+    // ── Titre ──────────────────────────────────────────────
     doc.setFont('helvetica', 'bold');
-    doc.text('Facture d\'abonnement', margin, y);
+    doc.setFontSize(18);
+    doc.text("Facture d'abonnement", L, y);
     y += 8;
-    doc.setFontSize(11);
+
     doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
     doc.setTextColor(100);
-    doc.text(nomSociete, margin, y);
+    doc.text(nomSociete, L, y);
+    doc.text(`N° ${paiement.id}`, R, y, { align: 'right' });
     y += 6;
-    doc.text(`N° ${paiement.id} — émise le ${dayjs().format('DD/MM/YYYY')}`, margin, y);
+    doc.text(`Émise le ${dayjs().format('DD/MM/YYYY')}`, R, y, { align: 'right' });
     doc.setTextColor(0);
-    y += 14;
+    y += 12;
 
-    // Ligne de séparation
-    doc.setDrawColor(200);
-    doc.line(margin, y, pageW - margin, y);
-    y += 10;
+    sep();
 
-    // Tableau
-    const headers = ['Désignation', 'Période', 'Mode', 'Montant TTC'];
-    const colWidths = [70, 50, 35, colW - 70 - 50 - 35];
-    const rowH = 9;
-
-    // En-tête tableau
-    doc.setFillColor(245, 245, 245);
-    doc.rect(margin, y, colW, rowH, 'F');
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    let x = margin;
-    headers.forEach((h, i) => {
-        doc.text(h, x + 2, y + 6);
-        x += colWidths[i];
-    });
-    y += rowH;
-
-    // Ligne de données
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.rect(margin, y, colW, rowH);
-    x = margin;
-    const cells = [
-        `Abonnement moussAIllon — ${TYPE_LABEL[paiement.type] ?? paiement.type}`,
-        `${dateDebut} → ${dateFin}`,
-        MODE_LABEL[paiement.mode] ?? paiement.mode,
-        montantStr,
-    ];
-    cells.forEach((cell, i) => {
-        doc.text(cell, x + 2, y + 6, { maxWidth: colWidths[i] - 4 });
-        x += colWidths[i];
-    });
-    y += rowH + 10;
-
-    // Total
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.text(`Total TTC : ${montantStr}`, pageW - margin, y, { align: 'right' });
-    y += 16;
-
-    // Pied de page
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(130);
-    doc.line(margin, y, pageW - margin, y);
+    // ── Détail ─────────────────────────────────────────────
+    row('Désignation', `Abonnement moussAIllon — ${TYPE_LABEL[paiement.type] ?? paiement.type}`);
+    y += 2;
+    row('Période couverte', `${dateDebut}  →  ${dateFin}`);
+    y += 2;
+    row('Mode de paiement', MODE_LABEL[paiement.mode] ?? paiement.mode);
+    y += 2;
+    row('Date de paiement', formatDate(paiement.date));
     y += 6;
-    doc.text(`Date de paiement : ${formatDate(paiement.date)}`, margin, y);
+
+    sep();
+
+    // ── Total ──────────────────────────────────────────────
+    doc.setFillColor(245, 245, 245);
+    doc.rect(L, y - 4, R - L, lineH + 4, 'F');
+    row('Total TTC', montantStr, true);
+    y += 4;
+
+    sep();
+
+    // ── Pied de page ───────────────────────────────────────
+    doc.setFontSize(8);
+    doc.setTextColor(150);
+    doc.text(`Document généré automatiquement par moussAIllon le ${dayjs().format('DD/MM/YYYY')}`, L, y);
 
     doc.save(`facture-abonnement-${paiement.id}.pdf`);
 }
