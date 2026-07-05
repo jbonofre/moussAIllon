@@ -75,7 +75,7 @@ function downloadFacturePdf(paiement: any, societe: any) {
     // ── Détail ─────────────────────────────────────────────
     row('Désignation', `Abonnement moussAIllon — ${TYPE_LABEL[paiement.type] ?? paiement.type}`);
     y += 2;
-    row('Période couverte', `${dateDebut}  →  ${dateFin}`);
+    row('Période couverte', \`\${dateDebut} au \${dateFin}\`);
     y += 2;
     row('Mode de paiement', MODE_LABEL[paiement.mode] ?? paiement.mode);
     y += 2;
