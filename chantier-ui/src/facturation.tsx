@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button, Card, Descriptions, Divider, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
 import { CreditCardOutlined, DownloadOutlined, LinkOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { jsPDF } from 'jspdf';
 
 const formatDate = (value: any) => (value ? dayjs(value).format('DD/MM/YYYY') : '—');
 
@@ -23,56 +24,88 @@ const MODE_LABEL: Record<string, string> = {
 const TYPE_LABEL: Record<string, string> = { MENSUEL: 'Mensuel', ANNUEL: 'Annuel' };
 const TYPE_COLOR: Record<string, string> = { MENSUEL: 'blue', ANNUEL: 'gold' };
 
-const escapeHtml = (s: string) => s
-    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
-
-function downloadFacture(paiement: any, societe: any) {
+function downloadFacturePdf(paiement: any, societe: any) {
     const dateDebut = dayjs(paiement.date).format('DD/MM/YYYY');
     const dateFin = paiement.type === 'ANNUEL'
         ? dayjs(paiement.date).add(12, 'month').format('DD/MM/YYYY')
         : dayjs(paiement.date).add(1, 'month').format('DD/MM/YYYY');
+    const nomSociete = societe?.nom ?? 'moussAIllon';
+    const montantStr = formatMontant(paiement.montant);
 
-    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/>
-<title>Facture abonnement #${paiement.id}</title>
-<style>
-  body { font-family: Arial, sans-serif; margin: 40px; color: #1f1f1f; }
-  h1 { font-size: 22px; margin-bottom: 4px; }
-  .subtitle { color: #666; margin-bottom: 32px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 24px; }
-  th, td { border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; }
-  th { background: #fafafa; font-weight: 600; }
-  .total { text-align: right; font-size: 16px; font-weight: bold; margin-top: 16px; }
-  .footer { margin-top: 48px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 12px; }
-</style>
-</head><body>
-<h1>Facture d'abonnement #${paiement.id}</h1>
-<div class="subtitle">${escapeHtml(societe?.nom ?? 'moussAIllon')}</div>
-<table>
-  <thead><tr><th>Désignation</th><th>Période</th><th>Mode de paiement</th><th style="text-align:right;">Montant TTC</th></tr></thead>
-  <tbody>
-    <tr>
-      <td>Abonnement moussAIllon — ${escapeHtml(TYPE_LABEL[paiement.type] ?? paiement.type)}</td>
-      <td>${escapeHtml(dateDebut)} → ${escapeHtml(dateFin)}</td>
-      <td>${escapeHtml(MODE_LABEL[paiement.mode] ?? paiement.mode)}</td>
-      <td style="text-align:right;">${escapeHtml(formatMontant(paiement.montant))}</td>
-    </tr>
-  </tbody>
-</table>
-<div class="total">Total TTC : ${escapeHtml(formatMontant(paiement.montant))}</div>
-<div class="footer">
-  Date de paiement : ${escapeHtml(formatDate(paiement.date))}<br/>
-  Document généré le ${dayjs().format('DD/MM/YYYY')}
-</div>
-</body></html>`;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 20;
+    const colW = pageW - margin * 2;
+    let y = margin;
 
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `facture-abonnement-${paiement.id}.html`;
-    a.click();
-    URL.revokeObjectURL(url);
+    // En-tête
+    doc.setFontSize(20);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Facture d\'abonnement', margin, y);
+    y += 8;
+    doc.setFontSize(11);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(100);
+    doc.text(nomSociete, margin, y);
+    y += 6;
+    doc.text(`N° ${paiement.id} — émise le ${dayjs().format('DD/MM/YYYY')}`, margin, y);
+    doc.setTextColor(0);
+    y += 14;
+
+    // Ligne de séparation
+    doc.setDrawColor(200);
+    doc.line(margin, y, pageW - margin, y);
+    y += 10;
+
+    // Tableau
+    const headers = ['Désignation', 'Période', 'Mode', 'Montant TTC'];
+    const colWidths = [70, 50, 35, colW - 70 - 50 - 35];
+    const rowH = 9;
+
+    // En-tête tableau
+    doc.setFillColor(245, 245, 245);
+    doc.rect(margin, y, colW, rowH, 'F');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    let x = margin;
+    headers.forEach((h, i) => {
+        doc.text(h, x + 2, y + 6);
+        x += colWidths[i];
+    });
+    y += rowH;
+
+    // Ligne de données
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.rect(margin, y, colW, rowH);
+    x = margin;
+    const cells = [
+        `Abonnement moussAIllon — ${TYPE_LABEL[paiement.type] ?? paiement.type}`,
+        `${dateDebut} → ${dateFin}`,
+        MODE_LABEL[paiement.mode] ?? paiement.mode,
+        montantStr,
+    ];
+    cells.forEach((cell, i) => {
+        doc.text(cell, x + 2, y + 6, { maxWidth: colWidths[i] - 4 });
+        x += colWidths[i];
+    });
+    y += rowH + 10;
+
+    // Total
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text(`Total TTC : ${montantStr}`, pageW - margin, y, { align: 'right' });
+    y += 16;
+
+    // Pied de page
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(130);
+    doc.line(margin, y, pageW - margin, y);
+    y += 6;
+    doc.text(`Date de paiement : ${formatDate(paiement.date)}`, margin, y);
+
+    doc.save(`facture-abonnement-${paiement.id}.pdf`);
 }
 
 export default function Facturation() {
@@ -245,7 +278,7 @@ export default function Facturation() {
                     <Button
                         size="small"
                         icon={<DownloadOutlined />}
-                        onClick={() => downloadFacture(record, societe)}
+                        onClick={() => downloadFacturePdf(record, societe)}
                     />
                 </Tooltip>
             ),
