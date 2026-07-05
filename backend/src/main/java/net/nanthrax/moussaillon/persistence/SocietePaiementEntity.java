@@ -12,7 +12,7 @@ public class SocietePaiementEntity extends PanacheEntity {
 
     public enum Type { MENSUEL, ANNUEL }
 
-    public enum Mode { CHEQUE, VIREMENT, CARTE, ESPÈCES }
+    public enum Mode { VIREMENT, CARTE, STRIPE, PAYPLUG }
 
     @Enumerated(EnumType.STRING)
     public Type type;

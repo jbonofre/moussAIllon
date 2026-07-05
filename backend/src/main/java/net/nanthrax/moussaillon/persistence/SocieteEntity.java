@@ -61,4 +61,10 @@ public class SocieteEntity extends PanacheEntity {
     @OrderBy("date DESC")
     public List<SocietePaiementEntity> paiements = new ArrayList<>();
 
+    // Liens de paiement externe (Stripe / PayPlug) configurables par l'administrateur.
+    public String stripePaymentLinkMensuel;
+    public String stripePaymentLinkAnnuel;
+    public String payplugPaymentLinkMensuel;
+    public String payplugPaymentLinkAnnuel;
+
 }

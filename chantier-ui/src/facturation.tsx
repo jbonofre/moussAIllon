@@ -1,36 +1,85 @@
 import { fetchWithAuth } from './api.ts';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Card, Descriptions, Divider, Select, Space, Spin, Table, Tag, message } from 'antd';
-import { CreditCardOutlined } from '@ant-design/icons';
+import { Button, Card, Descriptions, Divider, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
+import { CreditCardOutlined, DownloadOutlined, LinkOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
-const formatDate = (value) => (value ? dayjs(value).format('DD/MM/YYYY') : '—');
+const formatDate = (value: any) => (value ? dayjs(value).format('DD/MM/YYYY') : '—');
 
-const formatMontant = (value) => (value != null
+const formatMontant = (value: any) => (value != null
     ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value)
     : '—');
 
 type PaiementType = 'MENSUEL' | 'ANNUEL';
-
-const MODE_OPTIONS = [
-    { value: 'CHEQUE',    label: 'Chèque' },
-    { value: 'VIREMENT',  label: 'Virement' },
-    { value: 'CARTE',     label: 'Carte bancaire' },
-    { value: 'ESPÈCES',   label: 'Espèces' },
-];
+type PaiementMode = 'VIREMENT' | 'CARTE' | 'STRIPE' | 'PAYPLUG';
 
 const MODE_LABEL: Record<string, string> = {
-    CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte bancaire', 'ESPÈCES': 'Espèces',
+    VIREMENT: 'Virement bancaire',
+    CARTE: 'Carte bancaire',
+    STRIPE: 'Stripe',
+    PAYPLUG: 'PayPlug',
 };
 
 const TYPE_LABEL: Record<string, string> = { MENSUEL: 'Mensuel', ANNUEL: 'Annuel' };
 const TYPE_COLOR: Record<string, string> = { MENSUEL: 'blue', ANNUEL: 'gold' };
 
+const escapeHtml = (s: string) => s
+    .replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;').replaceAll("'", '&#39;');
+
+function downloadFacture(paiement: any, societe: any) {
+    const dateDebut = dayjs(paiement.date).format('DD/MM/YYYY');
+    const dateFin = paiement.type === 'ANNUEL'
+        ? dayjs(paiement.date).add(12, 'month').format('DD/MM/YYYY')
+        : dayjs(paiement.date).add(1, 'month').format('DD/MM/YYYY');
+
+    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"/>
+<title>Facture abonnement #${paiement.id}</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 40px; color: #1f1f1f; }
+  h1 { font-size: 22px; margin-bottom: 4px; }
+  .subtitle { color: #666; margin-bottom: 32px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+  th, td { border: 1px solid #d9d9d9; padding: 8px 12px; text-align: left; }
+  th { background: #fafafa; font-weight: 600; }
+  .total { text-align: right; font-size: 16px; font-weight: bold; margin-top: 16px; }
+  .footer { margin-top: 48px; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 12px; }
+</style>
+</head><body>
+<h1>Facture d'abonnement #${paiement.id}</h1>
+<div class="subtitle">${escapeHtml(societe?.nom ?? 'moussAIllon')}</div>
+<table>
+  <thead><tr><th>Désignation</th><th>Période</th><th>Mode de paiement</th><th style="text-align:right;">Montant TTC</th></tr></thead>
+  <tbody>
+    <tr>
+      <td>Abonnement moussAIllon — ${escapeHtml(TYPE_LABEL[paiement.type] ?? paiement.type)}</td>
+      <td>${escapeHtml(dateDebut)} → ${escapeHtml(dateFin)}</td>
+      <td>${escapeHtml(MODE_LABEL[paiement.mode] ?? paiement.mode)}</td>
+      <td style="text-align:right;">${escapeHtml(formatMontant(paiement.montant))}</td>
+    </tr>
+  </tbody>
+</table>
+<div class="total">Total TTC : ${escapeHtml(formatMontant(paiement.montant))}</div>
+<div class="footer">
+  Date de paiement : ${escapeHtml(formatDate(paiement.date))}<br/>
+  Document généré le ${dayjs().format('DD/MM/YYYY')}
+</div>
+</body></html>`;
+
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `facture-abonnement-${paiement.id}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
 export default function Facturation() {
 
     const [societe, setSociete] = useState<any>(null);
     const [paiementType, setPaiementType] = useState<PaiementType | null>(null);
-    const [paiementMode, setPaiementMode] = useState<string>('CHEQUE');
+    const [paiementMode, setPaiementMode] = useState<PaiementMode>('VIREMENT');
     const [signatureModalOpen, setSignatureModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
@@ -39,12 +88,9 @@ export default function Facturation() {
 
     const fetchSociete = useCallback(() => {
         fetchWithAuth('./societe')
-            .then((response) => {
-                if (!response.ok) throw new Error('Erreur (code ' + response.status + ')');
-                return response.json();
-            })
-            .then(data => setSociete(data))
-            .catch((error) => message.error('Une erreur est survenue: ' + error.message));
+            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(setSociete)
+            .catch((e) => message.error('Erreur : ' + e.message));
     }, []);
 
     useEffect(() => { fetchSociete(); }, [fetchSociete]);
@@ -63,19 +109,15 @@ export default function Facturation() {
             ctx.lineWidth = 2;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-
             let drawing = false;
             const getPos = (e: MouseEvent | TouchEvent) => {
                 const rect = canvas.getBoundingClientRect();
-                if ('touches' in e) {
-                    return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
-                }
+                if ('touches' in e) return { x: e.touches[0].clientX - rect.left, y: e.touches[0].clientY - rect.top };
                 return { x: (e as MouseEvent).clientX - rect.left, y: (e as MouseEvent).clientY - rect.top };
             };
             const onStart = (e: MouseEvent | TouchEvent) => { e.preventDefault(); drawing = true; const p = getPos(e); ctx.beginPath(); ctx.moveTo(p.x, p.y); signatureDrawingRef.current = true; };
             const onMove = (e: MouseEvent | TouchEvent) => { if (!drawing) return; e.preventDefault(); const p = getPos(e); ctx.lineTo(p.x, p.y); ctx.stroke(); };
             const onEnd = () => { drawing = false; };
-
             canvas.addEventListener('mousedown', onStart);
             canvas.addEventListener('mousemove', onMove);
             canvas.addEventListener('mouseup', onEnd);
@@ -96,44 +138,78 @@ export default function Facturation() {
         signatureDrawingRef.current = false;
     };
 
+    const isExternalMode = (mode: PaiementMode) => mode === 'STRIPE' || mode === 'PAYPLUG';
+
+    const getPaymentLink = (type: PaiementType, mode: PaiementMode): string | undefined => {
+        if (!societe) return undefined;
+        if (mode === 'STRIPE') return type === 'ANNUEL' ? societe.stripePaymentLinkAnnuel : societe.stripePaymentLinkMensuel;
+        if (mode === 'PAYPLUG') return type === 'ANNUEL' ? societe.payplugPaymentLinkAnnuel : societe.payplugPaymentLinkMensuel;
+        return undefined;
+    };
+
     const openPaiementModal = (type: PaiementType) => {
         setPaiementType(type);
-        setPaiementMode('CHEQUE');
+        setPaiementMode('VIREMENT');
         signatureDrawingRef.current = false;
         setSignatureModalOpen(true);
         initSignatureCanvas();
     };
 
+    const handleModeChange = (mode: PaiementMode) => {
+        setPaiementMode(mode);
+        if (!isExternalMode(mode)) {
+            // Re-init canvas when switching back to a manual mode
+            signatureDrawingRef.current = false;
+            initSignatureCanvas();
+        }
+    };
+
     const handlePaiementConfirm = () => {
-        if (!signatureDrawingRef.current) {
+        if (!isExternalMode(paiementMode) && !signatureDrawingRef.current) {
             message.warning('La signature est requise pour valider le paiement');
             return;
         }
         const canvas = signatureCanvasRef.current;
-        const signature = canvas ? canvas.toDataURL('image/png') : '';
+        const signature = (!isExternalMode(paiementMode) && canvas)
+            ? canvas.toDataURL('image/png')
+            : 'external-payment';
 
         setSubmitting(true);
         fetchWithAuth('./societe/paiement', {
             method: 'POST',
             body: JSON.stringify({ type: paiementType, mode: paiementMode, signature }),
         })
-            .then((response) => {
-                if (!response.ok) throw new Error('Erreur (code ' + response.status + ')');
-                return response.json();
-            })
+            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
             .then((data) => {
                 setSociete(data);
                 setSignatureModalOpen(false);
                 message.success('Paiement enregistré avec succès');
             })
-            .catch((error) => message.error('Une erreur est survenue: ' + error.message))
+            .catch((e) => message.error('Erreur : ' + e.message))
             .finally(() => setSubmitting(false));
     };
+
+    const getModeOptions = (type: PaiementType): { value: string; label: string; disabled?: boolean }[] => [
+        { value: 'VIREMENT', label: 'Virement bancaire' },
+        { value: 'CARTE', label: 'Carte bancaire' },
+        {
+            value: 'STRIPE',
+            label: 'Stripe',
+            disabled: !getPaymentLink(type, 'STRIPE'),
+        },
+        {
+            value: 'PAYPLUG',
+            label: 'PayPlug',
+            disabled: !getPaymentLink(type, 'PAYPLUG'),
+        },
+    ];
 
     const montantPaiement = paiementType === 'ANNUEL' ? 1650 : 150;
     const labelPaiement = paiementType === 'ANNUEL'
         ? 'Paiement annuel — 1 650 EUR (1 mois offert)'
         : 'Paiement mensuel — 150 EUR';
+
+    const externalLink = paiementType ? getPaymentLink(paiementType, paiementMode) : undefined;
 
     const historiqueColumns = [
         {
@@ -151,7 +227,7 @@ export default function Facturation() {
         {
             title: 'Mode',
             dataIndex: 'mode',
-            width: 140,
+            width: 160,
             render: (v: string) => MODE_LABEL[v] ?? v,
         },
         {
@@ -160,22 +236,29 @@ export default function Facturation() {
             align: 'right' as const,
             render: (v: number) => formatMontant(v),
         },
+        {
+            title: '',
+            key: 'actions',
+            width: 60,
+            render: (_: unknown, record: any) => (
+                <Tooltip title="Télécharger la facture">
+                    <Button
+                        size="small"
+                        icon={<DownloadOutlined />}
+                        onClick={() => downloadFacture(record, societe)}
+                    />
+                </Tooltip>
+            ),
+        },
     ];
 
-    if (!societe) {
-        return <Spin />;
-    }
+    if (!societe) return <Spin />;
 
     return (
         <>
             <Card title={<Space><CreditCardOutlined /> Facturation</Space>}>
-                <Descriptions
-                    title="Abonnement"
-                    column={1}
-                    bordered
-                    size="small"
-                >
-                    <Descriptions.Item label="Date d'activation (paiement one-shot)">
+                <Descriptions title="Abonnement" column={1} bordered size="small">
+                    <Descriptions.Item label="Date d'activation">
                         {formatDate(societe.abonnementActivationDate)}
                     </Descriptions.Item>
                     <Descriptions.Item label="Montant d'activation">
@@ -190,17 +273,10 @@ export default function Facturation() {
                 </Descriptions>
 
                 <Space style={{ marginTop: 24 }}>
-                    <Button
-                        type="primary"
-                        icon={<CreditCardOutlined />}
-                        onClick={() => openPaiementModal('MENSUEL')}
-                    >
+                    <Button type="primary" icon={<CreditCardOutlined />} onClick={() => openPaiementModal('MENSUEL')}>
                         Payer ce mois — 150 EUR
                     </Button>
-                    <Button
-                        icon={<CreditCardOutlined />}
-                        onClick={() => openPaiementModal('ANNUEL')}
-                    >
+                    <Button icon={<CreditCardOutlined />} onClick={() => openPaiementModal('ANNUEL')}>
                         Payer l'année — 1 650 EUR (1 mois offert)
                     </Button>
                 </Space>
@@ -219,13 +295,11 @@ export default function Facturation() {
             </Card>
 
             {signatureModalOpen && (
-                <div
-                    style={{
-                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
-                    }}
-                >
-                    <div style={{ background: '#fff', borderRadius: 8, padding: 24, width: 520, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+                <div style={{
+                    position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
+                }}>
+                    <div style={{ background: '#fff', borderRadius: 8, padding: 24, width: 540, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
                         <h3 style={{ marginTop: 0 }}>{labelPaiement}</h3>
 
                         <div style={{ marginBottom: 16 }}>
@@ -234,32 +308,61 @@ export default function Facturation() {
                             </label>
                             <Select
                                 value={paiementMode}
-                                onChange={setPaiementMode}
-                                options={MODE_OPTIONS}
+                                onChange={handleModeChange}
+                                options={getModeOptions(paiementType!)}
                                 style={{ width: '100%' }}
                             />
                         </div>
 
-                        <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>
-                            Signature
-                        </label>
-                        <canvas
-                            ref={signatureCanvasRef}
-                            style={{
-                                width: '100%',
-                                height: 160,
-                                border: '1px solid #d9d9d9',
-                                borderRadius: 4,
-                                display: 'block',
-                                cursor: 'crosshair',
-                                touchAction: 'none',
-                            }}
-                        />
+                        {isExternalMode(paiementMode) ? (
+                            <div style={{ background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6, padding: 16, marginBottom: 16 }}>
+                                <p style={{ margin: '0 0 12px' }}>
+                                    Cliquez sur le bouton ci-dessous pour accéder à la page de paiement {MODE_LABEL[paiementMode]}.
+                                    Une fois le paiement effectué, revenez ici et cliquez sur <strong>Confirmer</strong>.
+                                </p>
+                                {externalLink ? (
+                                    <Button
+                                        type="default"
+                                        icon={<LinkOutlined />}
+                                        href={externalLink}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                    >
+                                        Payer via {MODE_LABEL[paiementMode]} — {formatMontant(montantPaiement)}
+                                    </Button>
+                                ) : (
+                                    <span style={{ color: '#ff4d4f' }}>
+                                        Lien de paiement {MODE_LABEL[paiementMode]} non configuré.
+                                    </span>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>
+                                    Signature
+                                </label>
+                                <canvas
+                                    ref={signatureCanvasRef}
+                                    style={{
+                                        width: '100%', height: 160,
+                                        border: '1px solid #d9d9d9', borderRadius: 4,
+                                        display: 'block', cursor: 'crosshair', touchAction: 'none',
+                                    }}
+                                />
+                            </>
+                        )}
 
                         <Space style={{ marginTop: 16, justifyContent: 'flex-end', width: '100%' }}>
-                            <Button onClick={clearSignatureCanvas}>Effacer la signature</Button>
+                            {!isExternalMode(paiementMode) && (
+                                <Button onClick={clearSignatureCanvas}>Effacer la signature</Button>
+                            )}
                             <Button onClick={() => setSignatureModalOpen(false)}>Annuler</Button>
-                            <Button type="primary" loading={submitting} onClick={handlePaiementConfirm}>
+                            <Button
+                                type="primary"
+                                loading={submitting}
+                                onClick={handlePaiementConfirm}
+                                disabled={isExternalMode(paiementMode) && !externalLink}
+                            >
                                 Confirmer — {formatMontant(montantPaiement)}
                             </Button>
                         </Space>

@@ -58,8 +58,10 @@ public class SocieteResource {
         entity.email = societe.email;
         entity.bancaire = societe.bancaire;
         entity.images = societe.images;
-        // Les informations d'abonnement sont en lecture seule : elles ne sont pas
-        // modifiables par le client et restent gérées par le serveur.
+        entity.stripePaymentLinkMensuel = societe.stripePaymentLinkMensuel;
+        entity.stripePaymentLinkAnnuel = societe.stripePaymentLinkAnnuel;
+        entity.payplugPaymentLinkMensuel = societe.payplugPaymentLinkMensuel;
+        entity.payplugPaymentLinkAnnuel = societe.payplugPaymentLinkAnnuel;
         initAbonnement(entity);
 
         return entity;
