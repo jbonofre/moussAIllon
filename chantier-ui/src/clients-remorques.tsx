@@ -405,6 +405,13 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
           dataSource={remorques}
           bordered
           pagination={{ pageSize: 10 }}
+          onRow={(record) => ({
+            onClick: (e) => {
+              if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+              handleEdit(record);
+            },
+            style: { cursor: 'pointer' },
+          })}
         />
       </Spin>
       <Modal
