@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Table,
   Button,
@@ -89,10 +89,6 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const [annonceImageModalVisible, setAnnonceImageModalVisible] = useState(false);
   const [annonceImageMoteur, setAnnonceImageMoteur] = useState<MoteurClient | null>(null);
   const [annonceSelectedImages, setAnnonceSelectedImages] = useState<Set<string>>(new Set());
-  const [modeleOptions, setModeleOptions] = useState<any[]>([]);
-  const [modeleSearchTimeout, setModeleSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
-  const [proprietaireOptions, setProprietaireOptions] = useState<any[]>([]);
-  const [proprietaireSearchTimeout, setProprietaireSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
   const { navigate } = useNavigation();
 
   const openAnnonceImageModal = (moteur: MoteurClient) => {
@@ -187,51 +183,25 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
     }
   };
 
-  const handleModeleSearch = (value: string) => {
-    if (modeleSearchTimeout) clearTimeout(modeleSearchTimeout);
-    if (!value || value.trim() === "") {
-      setModeleOptions([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await api.get(`/catalogue/moteurs/search?q=${encodeURIComponent(value)}`);
-        setModeleOptions(res.data);
-      } catch {
-        setModeleOptions([]);
-      }
-    }, 300);
-    setModeleSearchTimeout(timeout);
-  };
-
-  const handleProprietaireSearch = (value: string) => {
-    if (proprietaireSearchTimeout) clearTimeout(proprietaireSearchTimeout);
-    if (!value || value.trim() === "") {
-      setProprietaireOptions([]);
-      return;
-    }
-    const timeout = setTimeout(async () => {
-      try {
-        const res = await api.get(`/clients/search?q=${encodeURIComponent(value)}`);
-        setProprietaireOptions(res.data);
-      } catch {
-        setProprietaireOptions([]);
-      }
-    }, 300);
-    setProprietaireSearchTimeout(timeout);
-  };
+  // Liste déroulante peuplée à partir du catalogue moteurs complet, avec recherche côté client.
+  const modeleSelectOptions = useMemo(
+    () => catalogueMoteurs.map((m: any) => ({
+      value: m.id,
+      label: `${m.marque} ${m.modele}${formatAnnee(m.anneeDebut, m.anneeFin) ? ` (${formatAnnee(m.anneeDebut, m.anneeFin)})` : ''}`,
+    })),
+    [catalogueMoteurs]
+  );
+  const proprietaireSelectOptions = useMemo(
+    () => clients.map((c: any) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+    [clients]
+  );
 
   const handleAdd = () => {
     setEditing(null);
     form.resetFields();
     setFormDirty(false);
-    setModeleOptions([]);
     if (clientId) {
-      const client = clients.find((c: any) => c.id === clientId);
-      setProprietaireOptions(client ? [client] : []);
       form.setFieldsValue({ proprietaireId: clientId });
-    } else {
-      setProprietaireOptions([]);
     }
     setModalVisible(true);
   };
@@ -239,8 +209,6 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const handleEdit = (record: MoteurClient) => {
     setEditing(record);
     setFormDirty(false);
-    setModeleOptions(record.modele ? [record.modele] : []);
-    setProprietaireOptions(record.proprietaire ? [record.proprietaire] : []);
     form.setFieldsValue({
       ...record,
       dateMeS: record.dateMeS ? dayjs(record.dateMeS) : null,
@@ -274,7 +242,6 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       setClientModalVisible(false);
       clientForm.resetFields();
       await fetchClients();
-      setProprietaireOptions((prev) => [...prev, res.data]);
       form.setFieldsValue({ proprietaireId: res.data.id });
     } catch (e: any) {
       if (e && e.response) {
@@ -291,7 +258,6 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       setCatalogueModalVisible(false);
       catalogueForm.resetFields();
       await fetchCatalogueMoteurs();
-      setModeleOptions((prev) => [...prev, res.data]);
       form.setFieldsValue({ modeleId: res.data.id });
     } catch (e: any) {
       if (e && e.response) {
@@ -484,18 +450,11 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
                 <Select
                   showSearch
                   placeholder="Rechercher un modèle par marque, modèle ou type"
-                  filterOption={false}
-                  onSearch={handleModeleSearch}
+                  optionFilterProp="label"
                   allowClear
-                  notFoundContent={null}
                   style={{ width: "100%" }}
-                >
-                  {modeleOptions.map((modele: any) => (
-                    <Option key={modele.id} value={modele.id}>
-                      {modele.marque} {modele.modele} {formatAnnee(modele.anneeDebut, modele.anneeFin) ? `(${formatAnnee(modele.anneeDebut, modele.anneeFin)})` : ''}
-                    </Option>
-                  ))}
-                </Select>
+                  options={modeleSelectOptions}
+                />
               </Form.Item>
               <Button
                 icon={<PlusCircleOutlined />}
@@ -512,18 +471,11 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
                 <Select
                   showSearch
                   placeholder="Rechercher un propriétaire par prénom ou nom"
-                  filterOption={false}
-                  onSearch={handleProprietaireSearch}
+                  optionFilterProp="label"
                   allowClear
-                  notFoundContent={null}
                   style={{ width: "100%" }}
-                >
-                  {proprietaireOptions.map((client: any) => (
-                    <Option key={client.id} value={client.id}>
-                      {client.prenom} {client.nom}
-                    </Option>
-                  ))}
-                </Select>
+                  options={proprietaireSelectOptions}
+                />
               </Form.Item>
               <Button
                 icon={<PlusCircleOutlined />}
