@@ -1,6 +1,6 @@
 import { fetchWithAuth } from './api.ts';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Card, Descriptions, Modal, Space, Spin, message } from 'antd';
+import { Button, Card, Descriptions, Divider, Select, Space, Spin, Table, Tag, message } from 'antd';
 import { CreditCardOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -12,10 +12,25 @@ const formatMontant = (value) => (value != null
 
 type PaiementType = 'MENSUEL' | 'ANNUEL';
 
+const MODE_OPTIONS = [
+    { value: 'CHEQUE',    label: 'Chèque' },
+    { value: 'VIREMENT',  label: 'Virement' },
+    { value: 'CARTE',     label: 'Carte bancaire' },
+    { value: 'ESPÈCES',   label: 'Espèces' },
+];
+
+const MODE_LABEL: Record<string, string> = {
+    CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte bancaire', 'ESPÈCES': 'Espèces',
+};
+
+const TYPE_LABEL: Record<string, string> = { MENSUEL: 'Mensuel', ANNUEL: 'Annuel' };
+const TYPE_COLOR: Record<string, string> = { MENSUEL: 'blue', ANNUEL: 'gold' };
+
 export default function Facturation() {
 
     const [societe, setSociete] = useState<any>(null);
     const [paiementType, setPaiementType] = useState<PaiementType | null>(null);
+    const [paiementMode, setPaiementMode] = useState<string>('CHEQUE');
     const [signatureModalOpen, setSignatureModalOpen] = useState(false);
     const [submitting, setSubmitting] = useState(false);
 
@@ -83,6 +98,7 @@ export default function Facturation() {
 
     const openPaiementModal = (type: PaiementType) => {
         setPaiementType(type);
+        setPaiementMode('CHEQUE');
         signatureDrawingRef.current = false;
         setSignatureModalOpen(true);
         initSignatureCanvas();
@@ -99,7 +115,7 @@ export default function Facturation() {
         setSubmitting(true);
         fetchWithAuth('./societe/paiement', {
             method: 'POST',
-            body: JSON.stringify({ type: paiementType, signature }),
+            body: JSON.stringify({ type: paiementType, mode: paiementMode, signature }),
         })
             .then((response) => {
                 if (!response.ok) throw new Error('Erreur (code ' + response.status + ')');
@@ -118,6 +134,33 @@ export default function Facturation() {
     const labelPaiement = paiementType === 'ANNUEL'
         ? 'Paiement annuel — 1 650 EUR (1 mois offert)'
         : 'Paiement mensuel — 150 EUR';
+
+    const historiqueColumns = [
+        {
+            title: 'Date',
+            dataIndex: 'date',
+            width: 120,
+            render: (v: string) => formatDate(v),
+        },
+        {
+            title: 'Type',
+            dataIndex: 'type',
+            width: 100,
+            render: (v: string) => <Tag color={TYPE_COLOR[v] ?? 'default'}>{TYPE_LABEL[v] ?? v}</Tag>,
+        },
+        {
+            title: 'Mode',
+            dataIndex: 'mode',
+            width: 140,
+            render: (v: string) => MODE_LABEL[v] ?? v,
+        },
+        {
+            title: 'Montant',
+            dataIndex: 'montant',
+            align: 'right' as const,
+            render: (v: number) => formatMontant(v),
+        },
+    ];
 
     if (!societe) {
         return <Spin />;
@@ -161,41 +204,68 @@ export default function Facturation() {
                         Payer l'année — 1 650 EUR (1 mois offert)
                     </Button>
                 </Space>
+
+                <Divider>Historique des paiements</Divider>
+
+                <Table
+                    rowKey="id"
+                    dataSource={societe.paiements ?? []}
+                    columns={historiqueColumns}
+                    pagination={false}
+                    bordered
+                    size="small"
+                    locale={{ emptyText: 'Aucun paiement enregistré' }}
+                />
             </Card>
 
-            <Modal
-                title={labelPaiement}
-                open={signatureModalOpen}
-                onCancel={() => setSignatureModalOpen(false)}
-                width={520}
-                footer={[
-                    <Button key="clear" onClick={clearSignatureCanvas}>
-                        Effacer la signature
-                    </Button>,
-                    <Button key="cancel" onClick={() => setSignatureModalOpen(false)}>
-                        Annuler
-                    </Button>,
-                    <Button key="confirm" type="primary" loading={submitting} onClick={handlePaiementConfirm}>
-                        Confirmer le paiement ({formatMontant(montantPaiement)})
-                    </Button>,
-                ]}
-            >
-                <p style={{ marginBottom: 8 }}>
-                    Veuillez signer ci-dessous pour confirmer votre accord de paiement.
-                </p>
-                <canvas
-                    ref={signatureCanvasRef}
+            {signatureModalOpen && (
+                <div
                     style={{
-                        width: '100%',
-                        height: 160,
-                        border: '1px solid #d9d9d9',
-                        borderRadius: 4,
-                        display: 'block',
-                        cursor: 'crosshair',
-                        touchAction: 'none',
+                        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
                     }}
-                />
-            </Modal>
+                >
+                    <div style={{ background: '#fff', borderRadius: 8, padding: 24, width: 520, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
+                        <h3 style={{ marginTop: 0 }}>{labelPaiement}</h3>
+
+                        <div style={{ marginBottom: 16 }}>
+                            <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>
+                                Mode de paiement
+                            </label>
+                            <Select
+                                value={paiementMode}
+                                onChange={setPaiementMode}
+                                options={MODE_OPTIONS}
+                                style={{ width: '100%' }}
+                            />
+                        </div>
+
+                        <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>
+                            Signature
+                        </label>
+                        <canvas
+                            ref={signatureCanvasRef}
+                            style={{
+                                width: '100%',
+                                height: 160,
+                                border: '1px solid #d9d9d9',
+                                borderRadius: 4,
+                                display: 'block',
+                                cursor: 'crosshair',
+                                touchAction: 'none',
+                            }}
+                        />
+
+                        <Space style={{ marginTop: 16, justifyContent: 'flex-end', width: '100%' }}>
+                            <Button onClick={clearSignatureCanvas}>Effacer la signature</Button>
+                            <Button onClick={() => setSignatureModalOpen(false)}>Annuler</Button>
+                            <Button type="primary" loading={submitting} onClick={handlePaiementConfirm}>
+                                Confirmer — {formatMontant(montantPaiement)}
+                            </Button>
+                        </Space>
+                    </div>
+                </div>
+            )}
         </>
     );
 }
