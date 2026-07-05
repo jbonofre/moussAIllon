@@ -38,4 +38,31 @@ public class SocieteResourceTest {
             .then()
             .statusCode(200);
     }
+
+    @Test
+    void testAbonnementInfosParDefaut() {
+        // Les informations d'abonnement sont renseignées automatiquement (lecture seule).
+        given()
+            .when().get("/societe")
+            .then()
+            .statusCode(200)
+            .body("abonnementActivationDate", notNullValue())
+            .body("abonnementActivationMontant", is(350.0f))
+            .body("abonnementProchainPaiementDate", notNullValue())
+            .body("abonnementProchainPaiementMontant", is(150.0f));
+    }
+
+    @Test
+    void testAbonnementNonModifiableParPut() {
+        // Un PUT ne doit pas pouvoir écraser les informations d'abonnement.
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"MS Plaisance\",\"siren\":\"123456789\",\"adresse\":\"10 quai du Port\","
+                + "\"abonnementActivationMontant\":990.0,\"abonnementProchainPaiementMontant\":49.9}")
+            .when().put("/societe")
+            .then()
+            .statusCode(200)
+            .body("abonnementActivationMontant", is(350.0f))
+            .body("abonnementProchainPaiementMontant", is(150.0f));
+    }
 }

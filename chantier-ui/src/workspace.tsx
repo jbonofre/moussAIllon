@@ -18,6 +18,7 @@ import CatalogueMoteurs from './catalogue-moteurs.tsx';
 import CatalogueHelices from './catalogue-helices.tsx';
 import Fournisseurs from './fournisseurs.tsx';
 import Societe from './societe.tsx';
+import Facturation from './facturation.tsx';
 import Utilisateurs from './utilisateurs.tsx';
 import Forfaits from './forfaits.tsx';
 import CatalogueRemorques from './catalogue-remorques.tsx';
@@ -120,6 +121,7 @@ function SideMenu(props) {
       ] },
       { key: 'parametrage', label: 'Paramétrage', icon: <SettingOutlined/>, requiredRole: 'admin', children: [
         { key: '/societe', label: 'Société', icon: <BankOutlined/> },
+        { key: '/facturation', label: 'Facturation', icon: <DollarOutlined/> },
         { key: '/utilisateurs', label: 'Utilisateurs', icon: <UserOutlined/> },
         { key: '/emails', label: 'Emails', icon: <MailOutlined/> },
         { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> },
@@ -475,6 +477,8 @@ export default function Workspace(props) {
                 return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><CommandesFournisseur /></ProtectedRoute>;
             case '/societe':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Societe /></ProtectedRoute>;
+            case '/facturation':
+                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Facturation /></ProtectedRoute>;
             case '/utilisateurs':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Utilisateurs /></ProtectedRoute>;
             case '/emails':
