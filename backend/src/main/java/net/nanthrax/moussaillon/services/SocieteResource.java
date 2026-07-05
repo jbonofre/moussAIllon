@@ -8,6 +8,7 @@ import net.nanthrax.moussaillon.persistence.SocieteEntity;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
 
 @Path("/societe")
 @ApplicationScoped
@@ -15,9 +16,14 @@ import java.time.Instant;
 @Consumes(MediaType.APPLICATION_JSON)
 public class SocieteResource {
 
-    // Tarifs de l'abonnement (informations en lecture seule).
     static final double MONTANT_ACTIVATION = 350.0;
-    static final double MONTANT_ABONNEMENT = 150.0;
+    static final double MONTANT_ABONNEMENT_MENSUEL = 150.0;
+    static final double MONTANT_ABONNEMENT_ANNUEL = 1650.0; // 11 mois × 150 € (1 mois offert)
+
+    public static class PaiementRequest {
+        public String type; // MENSUEL | ANNUEL
+        public String signature;
+    }
 
     @GET
     @Transactional
@@ -58,6 +64,29 @@ public class SocieteResource {
         return entity;
     }
 
+    @POST
+    @Path("/paiement")
+    @Transactional
+    public SocieteEntity payer(PaiementRequest request) {
+        if (request.type == null || (!request.type.equals("MENSUEL") && !request.type.equals("ANNUEL"))) {
+            throw new WebApplicationException("Type de paiement invalide (MENSUEL ou ANNUEL attendu)", 400);
+        }
+        if (request.signature == null || request.signature.isBlank()) {
+            throw new WebApplicationException("La signature est requise", 400);
+        }
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null) {
+            throw new WebApplicationException("La société n'est pas trouvée", 404);
+        }
+        initAbonnement(entity);
+
+        int mois = request.type.equals("ANNUEL") ? 12 : 1;
+        entity.abonnementProchainPaiementDate = Timestamp.valueOf(
+            entity.abonnementProchainPaiementDate.toLocalDateTime().plusMonths(mois));
+
+        return entity;
+    }
+
     /**
      * Renseigne, si nécessaire, les informations d'abonnement du compte :
      * date d'activation = date de création du compte, montant d'activation de 350 €,
@@ -78,7 +107,7 @@ public class SocieteResource {
                 entity.abonnementActivationDate.toLocalDateTime().plusMonths(1));
         }
         if (entity.abonnementProchainPaiementMontant == null) {
-            entity.abonnementProchainPaiementMontant = MONTANT_ABONNEMENT;
+            entity.abonnementProchainPaiementMontant = MONTANT_ABONNEMENT_MENSUEL;
         }
     }
 
