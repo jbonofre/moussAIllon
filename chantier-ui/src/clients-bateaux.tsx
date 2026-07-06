@@ -19,6 +19,7 @@ import {
   Col,
   DatePicker,
   Checkbox,
+  Divider,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -35,6 +36,7 @@ import DocumentUpload from './DocumentUpload.tsx';
 import dayjs from "dayjs";
 import LocationPicker from "./LocationPicker.tsx";
 import { useNavigation } from './navigation-context.tsx';
+import HistoriqueOperations from './historique-operations.tsx';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -638,6 +640,12 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
             />
           </Form.Item>
         </Form>
+        {editing && editing.id && (
+          <>
+            <Divider />
+            <HistoriqueOperations bateauId={editing.id} />
+          </>
+        )}
       </Modal>
       <Modal
         open={catalogueModalVisible}
