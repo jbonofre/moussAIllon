@@ -5,6 +5,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
+import net.nanthrax.moussaillon.persistence.SocietePaiementEntity;
 
 import java.sql.Timestamp;
 import java.time.Instant;
@@ -15,9 +16,15 @@ import java.time.Instant;
 @Consumes(MediaType.APPLICATION_JSON)
 public class SocieteResource {
 
-    // Tarifs de l'abonnement (informations en lecture seule).
     static final double MONTANT_ACTIVATION = 350.0;
-    static final double MONTANT_ABONNEMENT = 150.0;
+    static final double MONTANT_ABONNEMENT_MENSUEL = 150.0;
+    static final double MONTANT_ABONNEMENT_ANNUEL = 1650.0; // 11 mois × 150 € (1 mois offert)
+
+    public static class PaiementRequest {
+        public String type; // MENSUEL | ANNUEL
+        public String mode; // CHEQUE | VIREMENT | CARTE | ESPÈCES
+        public String signature;
+    }
 
     @GET
     @Transactional
@@ -51,9 +58,51 @@ public class SocieteResource {
         entity.email = societe.email;
         entity.bancaire = societe.bancaire;
         entity.images = societe.images;
-        // Les informations d'abonnement sont en lecture seule : elles ne sont pas
-        // modifiables par le client et restent gérées par le serveur.
+        entity.stripePaymentLinkMensuel = societe.stripePaymentLinkMensuel;
+        entity.stripePaymentLinkAnnuel = societe.stripePaymentLinkAnnuel;
+        entity.payplugPaymentLinkMensuel = societe.payplugPaymentLinkMensuel;
+        entity.payplugPaymentLinkAnnuel = societe.payplugPaymentLinkAnnuel;
         initAbonnement(entity);
+
+        return entity;
+    }
+
+    @POST
+    @Path("/paiement")
+    @Transactional
+    public SocieteEntity payer(PaiementRequest request) {
+        if (request.type == null || (!request.type.equals("MENSUEL") && !request.type.equals("ANNUEL"))) {
+            throw new WebApplicationException("Type de paiement invalide (MENSUEL ou ANNUEL attendu)", 400);
+        }
+        SocietePaiementEntity.Mode mode;
+        try {
+            mode = SocietePaiementEntity.Mode.valueOf(request.mode);
+        } catch (Exception e) {
+            throw new WebApplicationException("Mode de paiement invalide", 400);
+        }
+        if (request.signature == null || request.signature.isBlank()) {
+            throw new WebApplicationException("La signature est requise", 400);
+        }
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null) {
+            throw new WebApplicationException("La société n'est pas trouvée", 404);
+        }
+        initAbonnement(entity);
+
+        int mois = request.type.equals("ANNUEL") ? 12 : 1;
+        double montant = request.type.equals("ANNUEL") ? MONTANT_ABONNEMENT_ANNUEL : MONTANT_ABONNEMENT_MENSUEL;
+
+        entity.abonnementProchainPaiementDate = Timestamp.valueOf(
+            entity.abonnementProchainPaiementDate.toLocalDateTime().plusMonths(mois));
+
+        SocietePaiementEntity paiement = new SocietePaiementEntity();
+        paiement.type = SocietePaiementEntity.Type.valueOf(request.type);
+        paiement.montant = montant;
+        paiement.mode = mode;
+        paiement.date = Timestamp.from(Instant.now());
+        paiement.societe = entity;
+        paiement.persist();
+        entity.paiements.add(0, paiement);
 
         return entity;
     }
@@ -78,7 +127,7 @@ public class SocieteResource {
                 entity.abonnementActivationDate.toLocalDateTime().plusMonths(1));
         }
         if (entity.abonnementProchainPaiementMontant == null) {
-            entity.abonnementProchainPaiementMontant = MONTANT_ABONNEMENT;
+            entity.abonnementProchainPaiementMontant = MONTANT_ABONNEMENT_MENSUEL;
         }
     }
 

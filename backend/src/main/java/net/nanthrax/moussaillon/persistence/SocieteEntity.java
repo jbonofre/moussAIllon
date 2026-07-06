@@ -2,8 +2,7 @@ package net.nanthrax.moussaillon.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
+import jakarta.persistence.*;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -57,5 +56,15 @@ public class SocieteEntity extends PanacheEntity {
     public Timestamp abonnementProchainPaiementDate;
 
     public Double abonnementProchainPaiementMontant;
+
+    @OneToMany(mappedBy = "societe", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OrderBy("date DESC")
+    public List<SocietePaiementEntity> paiements = new ArrayList<>();
+
+    // Liens de paiement externe (Stripe / PayPlug) configurables par l'administrateur.
+    public String stripePaymentLinkMensuel;
+    public String stripePaymentLinkAnnuel;
+    public String payplugPaymentLinkMensuel;
+    public String payplugPaymentLinkAnnuel;
 
 }
