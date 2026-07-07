@@ -35,4 +35,19 @@ public class FournisseurEntity extends PanacheEntity {
 
     public List<String> documents = new ArrayList<>();
 
+    @Column(columnDefinition = "double default 0")
+    public double portForfaitaireDefaut;
+
+    @Column(columnDefinition = "double default 0")
+    public double portParUniteDefaut;
+
+    @Column(columnDefinition = "integer default 1")
+    public int nombreMinACommanderDefaut = 1;
+
+    @Column(columnDefinition = "double default 0")
+    public double tauxMargeDefaut;
+
+    @Column(columnDefinition = "double default 0")
+    public double tauxMarqueDefaut;
+
 }

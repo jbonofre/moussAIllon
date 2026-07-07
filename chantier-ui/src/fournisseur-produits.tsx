@@ -56,6 +56,11 @@ const defaultProduitCatalogue = {
 type Fournisseur = {
   id: number;
   nom: string;
+  portForfaitaireDefaut?: number;
+  portParUniteDefaut?: number;
+  nombreMinACommanderDefaut?: number;
+  tauxMargeDefaut?: number;
+  tauxMarqueDefaut?: number;
 };
 
 type Produit = {
@@ -119,6 +124,8 @@ const FournisseurProduits = ({
   const [produitModalVisible, setProduitModalVisible] = useState(false);
   const [produitForm] = Form.useForm();
 
+  const [currentFournisseur, setCurrentFournisseur] = useState<Fournisseur | null>(null);
+
   const isProduitMode = !!produitId;
   const isFournisseurMode = !!fournisseurId;
 
@@ -173,6 +180,7 @@ const FournisseurProduits = ({
         fetchFournisseurs();
       } else {
         fetchProduits();
+        api.get(`/catalogue/fournisseurs/${fournisseurId}`).then(r => setCurrentFournisseur(r.data)).catch(() => {});
       }
     }
   }, [fournisseurId, produitId]);
@@ -225,10 +233,20 @@ const FournisseurProduits = ({
     }
   };
 
+  const defaultsFromFournisseur = (f: Fournisseur | null): Partial<FournisseurProduit> => ({
+    portForfaitaire: f?.portForfaitaireDefaut ?? 0,
+    portParUnite: f?.portParUniteDefaut ?? 0,
+    nombreMinACommander: f?.nombreMinACommanderDefaut ?? 1,
+    tauxMarge: f?.tauxMargeDefaut ?? 0,
+    tauxMarque: f?.tauxMarqueDefaut ?? 0,
+  });
+
   // Add
   const handleNew = () => {
+    const defaults = isFournisseurMode ? defaultsFromFournisseur(currentFournisseur) : {};
     setEditing({
       ...defaultFournisseurProduit,
+      ...defaults,
       fournisseur: isFournisseurMode ? { id: fournisseurId!, nom: "" } : undefined,
       produit: isProduitMode ? { id: produitId!, nom: "" } : undefined,
     });
@@ -441,13 +459,18 @@ const FournisseurProduits = ({
           initialValues={editing || defaultFournisseurProduit}
           onValuesChange={(changed, all) => {
             setFormDirty(true);
-            // Compute montantTVA et TTC dynamiquement
             if ("prixAchatHT" in changed || "tva" in changed) {
               let prixAchatHT = all.prixAchatHT ?? 0;
               let tva = all.tva ?? 20;
               let montantTVA = prixAchatHT * (tva / 100);
               let prixAchatTTC = prixAchatHT + montantTVA;
               form.setFieldsValue({ montantTVA, prixAchatTTC });
+            }
+            if ("fournisseurId" in changed && isProduitMode && !(editing && editing.id)) {
+              const selected = fournisseurs.find(f => f.id === changed.fournisseurId);
+              if (selected) {
+                form.setFieldsValue(defaultsFromFournisseur(selected));
+              }
             }
           }}
         >
