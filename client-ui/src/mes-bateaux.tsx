@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Table, Tag, Spin, message, Checkbox, Button, Space, Image } from 'antd';
+import { Card, Table, Tag, Spin, message, Checkbox, Button, Image, Divider, Typography } from 'antd';
 import { PictureOutlined, TagsOutlined } from '@ant-design/icons';
 import api from './api.ts';
+import ImageUpload from './ImageUpload.tsx';
+import DocumentUpload from './DocumentUpload.tsx';
 
 interface BateauClientEntity {
     id: number;
@@ -13,6 +15,7 @@ interface BateauClientEntity {
     dateFinDeGuarantie?: string;
     localisation?: string;
     images?: string[];
+    documents?: string[];
     modele?: { id: number; nom?: string; marque?: string };
     moteurs?: Array<{ id: number; nom?: string; marque?: string }>;
     equipements?: string[];
@@ -34,6 +37,9 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
     const [bateaux, setBateaux] = useState<BateauClientEntity[]>([]);
     const [loading, setLoading] = useState(false);
     const [selectedImages, setSelectedImages] = useState<Record<number, Set<string>>>({});
+    const [draftImages, setDraftImages] = useState<Record<number, string[]>>({});
+    const [draftDocuments, setDraftDocuments] = useState<Record<number, string[]>>({});
+    const [savingMedias, setSavingMedias] = useState<Record<number, boolean>>({});
 
     useEffect(() => {
         setLoading(true);
@@ -67,6 +73,22 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
             return;
         }
         onCreateAnnonce?.(Array.from(selected), bateau.id);
+    };
+
+    const handleSaveMedias = async (bateauId: number) => {
+        setSavingMedias((prev) => ({ ...prev, [bateauId]: true }));
+        const bateau = bateaux.find((b) => b.id === bateauId);
+        const images = draftImages[bateauId] ?? bateau?.images ?? [];
+        const documents = draftDocuments[bateauId] ?? bateau?.documents ?? [];
+        try {
+            await api.put(`/portal/clients/${clientId}/bateaux/${bateauId}/medias`, { images, documents });
+            setBateaux((prev) => prev.map((b) => b.id === bateauId ? { ...b, images, documents } : b));
+            message.success('Médias sauvegardés');
+        } catch {
+            message.error('Erreur lors de la sauvegarde des médias');
+        } finally {
+            setSavingMedias((prev) => ({ ...prev, [bateauId]: false }));
+        }
     };
 
     const columns = [
@@ -126,69 +148,96 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
     ];
 
     const expandedRowRender = (record: BateauClientEntity) => {
-        const images = record.images || [];
-        if (images.length === 0) {
-            return <p style={{ color: '#999', fontStyle: 'italic' }}>Aucune image disponible</p>;
-        }
+        const savedImages = record.images || [];
         const selected = selectedImages[record.id] || new Set();
-        const allSelected = images.every((img) => selected.has(img));
+        const allSelected = savedImages.length > 0 && savedImages.every((img) => selected.has(img));
 
         return (
             <div>
-                <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Checkbox
-                        checked={allSelected}
-                        indeterminate={selected.size > 0 && !allSelected}
-                        onChange={() => toggleAll(record.id, images)}
-                    >
-                        Tout selectionner ({selected.size}/{images.length})
-                    </Checkbox>
-                    {onCreateAnnonce && (
-                        <Button
-                            type="primary"
-                            icon={<TagsOutlined />}
-                            disabled={selected.size === 0}
-                            onClick={() => handleCreateAnnonce(record)}
-                        >
-                            Creer une annonce avec {selected.size > 0 ? `${selected.size} photo(s)` : 'les photos'}
-                        </Button>
-                    )}
+                <Typography.Text strong>Photos</Typography.Text>
+                <div style={{ marginTop: 8 }}>
+                    <ImageUpload
+                        value={draftImages[record.id] ?? record.images ?? []}
+                        onChange={(urls) => setDraftImages((prev) => ({ ...prev, [record.id]: urls }))}
+                    />
                 </div>
-                <Image.PreviewGroup>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                        {images.map((url, i) => (
-                            <div
-                                key={i}
-                                onClick={(e) => {
-                                    if (!(e.target as HTMLElement).closest('.ant-image-mask')) {
-                                        toggleImage(record.id, url);
-                                    }
-                                }}
-                                style={{
-                                    position: 'relative',
-                                    cursor: 'pointer',
-                                    border: selected.has(url) ? '3px solid #1890ff' : '3px solid transparent',
-                                    borderRadius: 8,
-                                    overflow: 'hidden',
-                                }}
+
+                <Divider style={{ margin: '12px 0' }} />
+                <Typography.Text strong>Documents</Typography.Text>
+                <div style={{ marginTop: 8 }}>
+                    <DocumentUpload
+                        value={draftDocuments[record.id] ?? record.documents ?? []}
+                        onChange={(urls) => setDraftDocuments((prev) => ({ ...prev, [record.id]: urls }))}
+                    />
+                </div>
+
+                <div style={{ marginTop: 12, display: 'flex', justifyContent: 'flex-end' }}>
+                    <Button
+                        type="primary"
+                        loading={savingMedias[record.id]}
+                        onClick={() => handleSaveMedias(record.id)}
+                    >
+                        Sauvegarder les modifications
+                    </Button>
+                </div>
+
+                {onCreateAnnonce && savedImages.length > 0 && (
+                    <>
+                        <Divider>Créer une annonce</Divider>
+                        <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <Checkbox
+                                checked={allSelected}
+                                indeterminate={selected.size > 0 && !allSelected}
+                                onChange={() => toggleAll(record.id, savedImages)}
                             >
-                                <Image
-                                    width={120}
-                                    height={120}
-                                    src={url}
-                                    style={{ objectFit: 'cover', display: 'block' }}
-                                    preview={{ mask: 'Agrandir' }}
-                                />
-                                <Checkbox
-                                    checked={selected.has(url)}
-                                    onChange={() => toggleImage(record.id, url)}
-                                    onClick={(e) => e.stopPropagation()}
-                                    style={{ position: 'absolute', top: 4, left: 4, zIndex: 1 }}
-                                />
+                                Tout selectionner ({selected.size}/{savedImages.length})
+                            </Checkbox>
+                            <Button
+                                type="primary"
+                                icon={<TagsOutlined />}
+                                disabled={selected.size === 0}
+                                onClick={() => handleCreateAnnonce(record)}
+                            >
+                                Creer une annonce avec {selected.size > 0 ? `${selected.size} photo(s)` : 'les photos'}
+                            </Button>
+                        </div>
+                        <Image.PreviewGroup>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                {savedImages.map((url, i) => (
+                                    <div
+                                        key={i}
+                                        onClick={(e) => {
+                                            if (!(e.target as HTMLElement).closest('.ant-image-mask')) {
+                                                toggleImage(record.id, url);
+                                            }
+                                        }}
+                                        style={{
+                                            position: 'relative',
+                                            cursor: 'pointer',
+                                            border: selected.has(url) ? '3px solid #1890ff' : '3px solid transparent',
+                                            borderRadius: 8,
+                                            overflow: 'hidden',
+                                        }}
+                                    >
+                                        <Image
+                                            width={120}
+                                            height={120}
+                                            src={url}
+                                            style={{ objectFit: 'cover', display: 'block' }}
+                                            preview={{ mask: 'Agrandir' }}
+                                        />
+                                        <Checkbox
+                                            checked={selected.has(url)}
+                                            onChange={() => toggleImage(record.id, url)}
+                                            onClick={(e) => e.stopPropagation()}
+                                            style={{ position: 'absolute', top: 4, left: 4, zIndex: 1 }}
+                                        />
+                                    </div>
+                                ))}
                             </div>
-                        ))}
-                    </div>
-                </Image.PreviewGroup>
+                        </Image.PreviewGroup>
+                    </>
+                )}
             </div>
         );
     };
@@ -204,7 +253,7 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
                     bordered
                     expandable={{
                         expandedRowRender,
-                        rowExpandable: (record) => (record.images || []).length > 0,
+                        rowExpandable: () => true,
                     }}
                 />
             </Spin>
