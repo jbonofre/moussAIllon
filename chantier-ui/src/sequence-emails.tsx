@@ -243,7 +243,7 @@ function SequenceTable({ cible, variables }: { cible: string; variables: string 
                 title={editing && editing.id ? 'Modifier l\'étape' : 'Ajouter une étape'}
                 okText="Enregistrer"
                 cancelText="Fermer"
-                width={900}
+                width="95vw"
                 onOk={() => form.submit()}
                 onCancel={() => {
                     form.resetFields();

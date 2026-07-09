@@ -2982,7 +2982,7 @@ export default function Vente() {
                 ]}
                 maskClosable={false}
                 destroyOnHidden
-                width={1400}
+                width="95vw"
             >
                 <Form form={form} layout="vertical" initialValues={defaultVente} onValuesChange={onValuesChange} disabled={isReadOnly}>
                     <Form.Item noStyle name="status"><input type="hidden" /></Form.Item>
@@ -3644,7 +3644,7 @@ export default function Vente() {
                     onOk={handleNewProduitSave}
                     onCancel={makeInnerModalCancel(newProduitFormDirty, setNewProduitFormDirty, setNewProduitModalVisible)}
                     maskClosable={false}
-                    width={1024}
+                width="95vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden
@@ -3762,7 +3762,7 @@ export default function Vente() {
                     onOk={handleNewServiceSave}
                     onCancel={makeInnerModalCancel(newServiceFormDirty, setNewServiceFormDirty, setNewServiceModalVisible)}
                     maskClosable={false}
-                    width={1000}
+                width="95vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden
@@ -3922,7 +3922,7 @@ export default function Vente() {
                     onOk={handleNewForfaitSave}
                     onCancel={makeInnerModalCancel(newForfaitFormDirty, setNewForfaitFormDirty, setNewForfaitModalVisible)}
                     maskClosable={false}
-                    width={1024}
+                width="95vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden
@@ -4117,7 +4117,7 @@ export default function Vente() {
                 onOk={handleNewClientSave}
                 onCancel={makeInnerModalCancel(newClientFormDirty, setNewClientFormDirty, setNewClientModalVisible)}
                 maskClosable={false}
-                width={800}
+                width="95vw"
                 okText="Enregistrer"
                 cancelText="Fermer"
                 destroyOnHidden
@@ -4223,7 +4223,7 @@ export default function Vente() {
                 onOk={handleNewBateauSave}
                 onCancel={makeInnerModalCancel(newBateauFormDirty, setNewBateauFormDirty, setNewBateauModalVisible)}
                 maskClosable={false}
-                width={800}
+                width="95vw"
                 okText="Enregistrer"
                 cancelText="Fermer"
                 destroyOnHidden
@@ -4343,7 +4343,7 @@ export default function Vente() {
                 onOk={handleNewMoteurSave}
                 onCancel={makeInnerModalCancel(newMoteurFormDirty, setNewMoteurFormDirty, setNewMoteurModalVisible)}
                 maskClosable={false}
-                width={800}
+                width="95vw"
                 okText="Enregistrer"
                 cancelText="Fermer"
                 destroyOnHidden
@@ -4423,7 +4423,7 @@ export default function Vente() {
                 onOk={handleNewRemorqueSave}
                 onCancel={makeInnerModalCancel(newRemorqueFormDirty, setNewRemorqueFormDirty, setNewRemorqueModalVisible)}
                 maskClosable={false}
-                width={800}
+                width="95vw"
                 okText="Enregistrer"
                 cancelText="Fermer"
                 destroyOnHidden
@@ -4495,7 +4495,7 @@ export default function Vente() {
                 title="Bon pour accord — Signature client"
                 open={bpaModalVisible}
                 onCancel={handleBpaCancel}
-                width={700}
+                width="95vw"
                 maskClosable={false}
                 destroyOnHidden
                 footer={[
@@ -4573,7 +4573,7 @@ export default function Vente() {
                 okText="Générer"
                 confirmLoading={generatingAvoir}
                 destroyOnHidden
-                width={480}
+                width="95vw"
             >
                 <p style={{ marginBottom: 16, color: '#595959' }}>
                     Un avoir en brouillon sera créé avec les lignes de la facture <strong>#{genAvoirModalVente?.id}</strong>.
@@ -4606,7 +4606,7 @@ export default function Vente() {
                 okText="Valider"
                 confirmLoading={addingPaiement}
                 destroyOnHidden
-                width={480}
+                width="95vw"
             >
                 <Form layout="vertical">
                     <Form.Item label="Mode de règlement" required>

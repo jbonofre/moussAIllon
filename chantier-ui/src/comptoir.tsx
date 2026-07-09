@@ -1691,7 +1691,7 @@ export default function Comptoir() {
                 ]}
                 maskClosable={false}
                 destroyOnHidden
-                width={1100}
+                width="95vw"
             >
                 <Form form={form} layout="vertical" initialValues={defaultVente} onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }} disabled={isReadOnly}>
                     <Form.Item noStyle name="status"><input type="hidden" /></Form.Item>
@@ -2017,7 +2017,7 @@ export default function Comptoir() {
                     onOk={handleNewProduitSave}
                     onCancel={handleNewProduitCancel}
                     maskClosable={false}
-                    width={1024}
+                width="95vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden
@@ -2134,7 +2134,7 @@ export default function Comptoir() {
                     okText="Valider"
                     confirmLoading={addingPaiement}
                     destroyOnHidden
-                    width={480}
+                width="95vw"
                 >
                     <Form layout="vertical">
                         <Form.Item label="Mode de règlement" required>

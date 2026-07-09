@@ -392,7 +392,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
         okText="Enregistrer"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form layout="vertical" form={form} initialValues={defaultRemorque} onValuesChange={() => setFormDirty(true)}>
           <Row gutter={16}>
@@ -497,7 +497,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form
           layout="vertical"
@@ -679,7 +679,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form layout="vertical" form={clientForm} initialValues={{ type: "PARTICULIER", consentement: false, remise: 0 }}>
           <Row gutter={16}>
@@ -790,7 +790,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
         okText={`Creer une annonce (${annonceSelectedImages.size} photo(s))`}
         okButtonProps={{ disabled: annonceSelectedImages.size === 0 }}
         cancelText="Fermer"
-        width={700}
+                width="95vw"
       >
         {annonceImageRemorque && (
           <div>
@@ -826,7 +826,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
                     }}
                   >
                     <Image
-                      width={120}
+                width="95vw"
                       height={120}
                       src={url}
                       style={{ objectFit: 'cover', display: 'block' }}

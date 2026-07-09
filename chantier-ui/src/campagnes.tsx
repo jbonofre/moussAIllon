@@ -433,7 +433,7 @@ export default function Campagnes() {
                 onOk={handleSave}
                 okText={editing ? 'Mettre à jour' : 'Créer'}
                 cancelText="Fermer"
-                width={750}
+                width="95vw"
                 destroyOnHidden
             >
                 <Form form={form} layout="vertical" onValuesChange={(changed) => {
@@ -562,7 +562,7 @@ export default function Campagnes() {
                 open={detailOpen}
                 onCancel={() => setDetailOpen(false)}
                 footer={null}
-                width={700}
+                width="95vw"
             >
                 {detailCampagne && (
                     <div>

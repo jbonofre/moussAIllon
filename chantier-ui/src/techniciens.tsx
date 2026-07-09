@@ -327,7 +327,7 @@ const Techniciens: React.FC = () => {
                             onOk={handleModalOk}
                             onCancel={handleModalCancel}
                             maskClosable={false}
-                            width={1024}
+                width="95vw"
                             okText="Enregistrer"
                             cancelText="Fermer"
                             destroyOnClose
@@ -486,7 +486,7 @@ const Techniciens: React.FC = () => {
                 title={kpiTechnicien ? `KPI — ${kpiTechnicien.prenom} ${kpiTechnicien.nom}` : 'KPI'}
                 open={kpiDrawerVisible}
                 onClose={() => { setKpiDrawerVisible(false); setKpiData(null); }}
-                width={520}
+                width="95vw"
             >
                 {kpiLoading ? (
                     <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>

@@ -398,7 +398,7 @@ export default function Annonces() {
                 onOk={handleSave}
                 okText={editing ? 'Mettre a jour' : 'Publier'}
                 cancelText="Fermer"
-                width={650}
+                width="95vw"
             >
                 <Form form={form} layout="vertical" onValuesChange={() => setFormDirty(true)}>
                     <Form.Item name="titre" label="Titre" rules={[{ required: true, message: 'Le titre est requis' }]}>
@@ -465,7 +465,7 @@ export default function Annonces() {
                 open={detailOpen}
                 onCancel={() => setDetailOpen(false)}
                 footer={null}
-                width={700}
+                width="95vw"
             >
                 {detailAnnonce && (
                     <div>
@@ -512,7 +512,7 @@ export default function Annonces() {
                 open={publishModalOpen}
                 onCancel={() => setPublishModalOpen(false)}
                 footer={null}
-                width={550}
+                width="95vw"
             >
                 {publishAnnonce && (
                     <div>

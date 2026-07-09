@@ -18,6 +18,7 @@ import {
   Checkbox,
   Alert,
   Tabs,
+  Collapse,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -358,7 +359,7 @@ function Clients() {
         okText="Enregistrer"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         {editing && editing.id && editing.soldeDu != null && editing.soldeDu > 0 && (
           <Alert
@@ -551,9 +552,6 @@ function Clients() {
           <Form.Item label="Notes" name="notes">
             <Input.TextArea rows={3} />
           </Form.Item>
-          <Form.Item label="Documents" name="documents">
-            <DocumentUpload />
-          </Form.Item>
         </Form>
         {editing && editing.id && (
           <>
@@ -562,15 +560,28 @@ function Clients() {
               items={[
                 {
                   key: 'vehicules',
-                  label: 'Véhicules',
+                  label: 'Bateaux, Moteurs, Remorques',
                   children: (
-                    <>
-                      <BateauxClients clientId={editing.id} />
-                      <Divider />
-                      <ClientsMoteurs clientId={editing.id} />
-                      <Divider />
-                      <RemorquesClients clientId={editing.id} />
-                    </>
+                    <Collapse
+                      defaultActiveKey={[]}
+                      items={[
+                        {
+                          key: 'bateaux',
+                          label: 'Bateaux Clients',
+                          children: <BateauxClients clientId={editing.id} />,
+                        },
+                        {
+                          key: 'moteurs',
+                          label: 'Moteurs Clients',
+                          children: <ClientsMoteurs clientId={editing.id} />,
+                        },
+                        {
+                          key: 'remorques',
+                          label: 'Remorques Clients',
+                          children: <RemorquesClients clientId={editing.id} />,
+                        },
+                      ]}
+                    />
                   ),
                 },
                 {
@@ -587,6 +598,17 @@ function Clients() {
                   key: 'avoirs',
                   label: 'Avoirs',
                   children: <ClientsAvoirs clientId={editing.id} />,
+                },
+                {
+                  key: 'documents',
+                  label: 'Documents',
+                  children: (
+                    <Form form={form}>
+                      <Form.Item name="documents" style={{ marginBottom: 0 }}>
+                        <DocumentUpload />
+                      </Form.Item>
+                    </Form>
+                  ),
                 },
               ]}
             />

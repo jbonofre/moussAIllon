@@ -466,7 +466,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
             cancelText="Fermer"
             maskClosable={false}
             destroyOnHidden
-            width={1024}
+                width="95vw"
         >
             <Form form={form} layout="vertical" initialValues={defaultForfait} onValuesChange={onValuesChange}>
                 <Form.Item name="reference" label="Référence" rules={[{ required: true, message: 'La référence est requise' }]}>
@@ -712,7 +712,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                 onOk={handleNewProduitSave}
                 onCancel={handleNewProduitCancel}
                 maskClosable={false}
-                width={1024}
+                width="95vw"
                 okText="Enregistrer"
                 cancelText="Fermer"
                 destroyOnHidden
@@ -791,7 +791,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                 onOk={handleNewMainOeuvreSave}
                 onCancel={handleNewMainOeuvreCancel}
                 maskClosable={false}
-                width={900}
+                width="95vw"
                 okText="Enregistrer"
                 cancelText="Fermer"
                 destroyOnHidden

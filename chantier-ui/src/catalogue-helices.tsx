@@ -404,7 +404,7 @@ const HeliceCatalogueView: React.FC = () => {
                         okText="Enregistrer"
                         cancelText="Fermer"
                         destroyOnHidden
-                        width={1024}
+                width="95vw"
                     >
                         <Form
                             form={form}
