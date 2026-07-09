@@ -740,7 +740,7 @@ export default function Forfaits() {
                 cancelText="Fermer"
                 maskClosable={false}
                 destroyOnHidden
-                width={1024}
+                width="95vw"
             >
                 <Form form={form} layout="vertical" initialValues={defaultForfait} onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }}>
                     <Form.Item
@@ -1028,7 +1028,7 @@ export default function Forfaits() {
                     onOk={handleNewProduitSave}
                     onCancel={handleNewProduitCancel}
                     maskClosable={false}
-                    width={1024}
+                width="95vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden
@@ -1106,7 +1106,7 @@ export default function Forfaits() {
                     onOk={handleNewMainOeuvreSave}
                     onCancel={handleNewMainOeuvreCancel}
                     maskClosable={false}
-                    width={900}
+                width="95vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden

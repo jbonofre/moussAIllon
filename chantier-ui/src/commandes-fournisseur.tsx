@@ -595,7 +595,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
         onCancel={handleModalCancel}
         onOk={handleModalOk}
         destroyOnHidden
-        width={1024}
+                width="95vw"
         title={editing ? "Modifier la commande" : "Nouvelle commande fournisseur"}
         okText="Enregistrer"
         cancelText="Fermer"
@@ -791,7 +791,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form layout="vertical" form={fournisseurForm} initialValues={{ evaluation: 0 }} onValuesChange={() => setFournisseurFormDirty(true)}>
           <Row gutter={16}>

@@ -713,7 +713,7 @@ export default function Avoirs() {
                 onOk={handleSave}
                 okText={editingAvoir ? 'Enregistrer' : 'Créer'}
                 confirmLoading={saving}
-                width={860}
+                width="95vw"
                 destroyOnHidden
             >
                 <Form layout="vertical">
@@ -826,7 +826,7 @@ export default function Avoirs() {
                 okText="Appliquer"
                 confirmLoading={applying}
                 destroyOnHidden
-                width={500}
+                width="95vw"
             >
                 {appliquerAvoir && (
                     <Form layout="vertical">

@@ -568,7 +568,7 @@ export default function Services() {
                 cancelText="Fermer"
                 maskClosable={false}
                 destroyOnHidden
-                width={1000}
+                width="95vw"
             >
                 <Form
                     form={form}
@@ -787,7 +787,7 @@ export default function Services() {
                 cancelText="Fermer"
                 maskClosable={false}
                 destroyOnHidden
-                width={700}
+                width="95vw"
             >
                 <Form form={newMainOeuvreForm} layout="vertical" initialValues={defaultNewMainOeuvre} onValuesChange={(...args) => { setNewMainOeuvreFormDirty(true); onNewMainOeuvreValuesChange(...args); }}>
                     <Form.Item name="reference" label="Référence">
@@ -834,7 +834,7 @@ export default function Services() {
                 cancelText="Fermer"
                 maskClosable={false}
                 destroyOnHidden
-                width={700}
+                width="95vw"
             >
                 <Form form={newProduitForm} layout="vertical" initialValues={defaultNewProduit} onValuesChange={(...args) => { setNewProduitFormDirty(true); onNewProduitValuesChange(...args); }}>
                     <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>

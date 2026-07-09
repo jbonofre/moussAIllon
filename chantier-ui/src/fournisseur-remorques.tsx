@@ -403,7 +403,7 @@ const FournisseurRemorques = ({
         }
         okText="Enregistrer"
         cancelText="Fermer"
-        width={640}
+                width="95vw"
       >
         <Form
           form={form}
@@ -567,7 +567,7 @@ const FournisseurRemorques = ({
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form layout="vertical" form={fournisseurForm} initialValues={{ evaluation: 0 }}>
           <Row gutter={16}>
@@ -644,7 +644,7 @@ const FournisseurRemorques = ({
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
         maskClosable={false}
       >
         <Form

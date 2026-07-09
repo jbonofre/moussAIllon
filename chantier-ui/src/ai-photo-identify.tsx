@@ -141,7 +141,7 @@ const AiPhotoIdentify: React.FC<Props> = ({ productType, onApply }) => {
         title={`Identification du ${PRODUCT_LABEL[productType]} par photo (IA)`}
         onCancel={handleClose}
         footer={null}
-        width={600}
+                width="95vw"
         destroyOnHidden
       >
         <Spin spinning={loading}>

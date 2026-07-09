@@ -381,7 +381,7 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
         title={editing && editing.id ? "Modifier l'association" : (isBateauMode ? "Associer un Fournisseur" : "Associer un Bateau")}
         okText="Enregistrer"
         cancelText="Fermer"
-        width={640}
+                width="95vw"
       >
         <Form
           form={form}
@@ -546,7 +546,7 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form layout="vertical" form={fournisseurForm} initialValues={{ evaluation: 0 }}>
           <Row gutter={16}>
@@ -623,7 +623,7 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
         maskClosable={false}
       >
         <Form

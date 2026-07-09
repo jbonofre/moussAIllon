@@ -507,7 +507,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         okText="Enregistrer"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <div style={{ marginBottom: 12 }}>
           <AiPhotoIdentify productType="bateau" onApply={handleAiIdentify} />
@@ -698,7 +698,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form
           layout="vertical"
@@ -916,7 +916,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form
           layout="vertical"
@@ -1114,7 +1114,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         okText="Ajouter"
         cancelText="Fermer"
         destroyOnHidden
-        width={1024}
+                width="95vw"
       >
         <Form layout="vertical" form={clientForm} initialValues={{ type: "PARTICULIER", consentement: false, remise: 0 }}>
           <Row gutter={16}>
@@ -1225,7 +1225,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         okText={`Creer une annonce (${annonceSelectedImages.size} photo(s))`}
         okButtonProps={{ disabled: annonceSelectedImages.size === 0 }}
         cancelText="Fermer"
-        width={700}
+                width="95vw"
       >
         {annonceImageBateau && (
           <div>
@@ -1261,7 +1261,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                     }}
                   >
                     <Image
-                      width={120}
+                width="95vw"
                       height={120}
                       src={url}
                       style={{ objectFit: 'cover', display: 'block' }}

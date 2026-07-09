@@ -1427,7 +1427,7 @@ export default function Planning() {
                 okText="Enregistrer"
                 confirmLoading={saving}
                 cancelText="Fermer"
-                width={720}
+                width="95vw"
                 onCancel={handleModalCancel}
                 destroyOnHidden
             >
@@ -1488,7 +1488,7 @@ export default function Planning() {
                 footer={<Button onClick={() => { setPrestationModalVisible(false); setPrestationVente(null); }}>Fermer</Button>}
                 onCancel={() => { setPrestationModalVisible(false); setPrestationVente(null); }}
                 destroyOnHidden
-                width={800}
+                width="95vw"
             >
                 {prestationLoading ? (
                     <div style={{ textAlign: 'center', padding: 40 }}>Chargement...</div>
