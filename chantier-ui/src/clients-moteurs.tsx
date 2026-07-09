@@ -4,6 +4,8 @@ import {
   Button,
   Modal,
   Form,
+  Divider,
+  Tabs,
   Input,
   InputNumber,
   Select,
@@ -19,7 +21,6 @@ import {
   Col,
   DatePicker,
   Checkbox,
-  Divider,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -36,6 +37,7 @@ import DocumentUpload from './DocumentUpload.tsx';
 import dayjs from "dayjs";
 import { useNavigation } from './navigation-context.tsx';
 import HistoriqueOperations from './historique-operations.tsx';
+import PrestationsList from './PrestationsList.tsx';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -519,7 +521,20 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
         {editing && editing.id && (
           <>
             <Divider />
-            <HistoriqueOperations moteurId={editing.id} />
+            <Tabs
+              items={[
+                {
+                  key: 'prestations',
+                  label: 'Prestations',
+                  children: <PrestationsList moteurId={editing.id} />,
+                },
+                {
+                  key: 'historique',
+                  label: 'Historique',
+                  children: <HistoriqueOperations moteurId={editing.id} />,
+                },
+              ]}
+            />
           </>
         )}
       </Modal>

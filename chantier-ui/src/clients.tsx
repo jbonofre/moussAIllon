@@ -17,6 +17,7 @@ import {
   Col,
   Checkbox,
   Alert,
+  Tabs,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -32,7 +33,6 @@ import {
   ShopOutlined,
   GlobalOutlined,
   PhoneOutlined,
-  ToolOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
 import BateauxClients from "./clients-bateaux.tsx";
@@ -40,7 +40,7 @@ import ClientsMoteurs from "./clients-moteurs.tsx";
 import RemorquesClients from "./clients-remorques.tsx";
 import ClientsAvoirs from "./clients-avoirs.tsx";
 import DocumentUpload from "./DocumentUpload.tsx";
-import { useNavigation } from "./navigation-context.tsx";
+import PrestationsList from "./PrestationsList.tsx";
 import HistoriqueOperations from "./historique-operations.tsx";
 
 const { Option } = Select;
@@ -105,7 +105,6 @@ const canalAcquisitionOptions = [
 ];
 
 function Clients() {
-  const { navigate } = useNavigation();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -559,27 +558,38 @@ function Clients() {
         {editing && editing.id && (
           <>
             <Divider />
-            <Button
-              type="primary"
-              icon={<ToolOutlined />}
-              onClick={() => {
-                setModalVisible(false);
-                navigate('/prestations', { clientId: editing.id });
-              }}
-            >
-              Créer une prestation
-            </Button>
-            <Divider />
-            {/* Affiche la liste des bateaux pour ce client */}
-            <BateauxClients clientId={editing.id} />
-            <Divider />
-            <ClientsMoteurs clientId={editing.id} />
-            <Divider />
-            <RemorquesClients clientId={editing.id} />
-            <Divider />
-            <HistoriqueOperations clientId={editing.id} />
-            <Divider />
-            <ClientsAvoirs clientId={editing.id} />
+            <Tabs
+              items={[
+                {
+                  key: 'vehicules',
+                  label: 'Véhicules',
+                  children: (
+                    <>
+                      <BateauxClients clientId={editing.id} />
+                      <Divider />
+                      <ClientsMoteurs clientId={editing.id} />
+                      <Divider />
+                      <RemorquesClients clientId={editing.id} />
+                    </>
+                  ),
+                },
+                {
+                  key: 'prestations',
+                  label: 'Prestations',
+                  children: <PrestationsList clientId={editing.id} />,
+                },
+                {
+                  key: 'historique',
+                  label: 'Historique',
+                  children: <HistoriqueOperations clientId={editing.id} />,
+                },
+                {
+                  key: 'avoirs',
+                  label: 'Avoirs',
+                  children: <ClientsAvoirs clientId={editing.id} />,
+                },
+              ]}
+            />
           </>
         )}
       </Modal>
