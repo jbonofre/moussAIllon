@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DeploymentUnitOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DeploymentUnitOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, UploadOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -38,6 +38,7 @@ import CommandesFournisseur from './commandes-fournisseur.tsx';
 import Emails from './emails.tsx';
 import SequenceEmails from './sequence-emails.tsx';
 import ReferenceValeurs from './reference-valeurs.tsx';
+import Import from './import.tsx';
 
 export function demo() {
     message.warning("Vous êtes sur une version de démonstration de moussAIllon. Il n'est pas possible d'ajouter ou supprimer des éléments.")
@@ -125,7 +126,8 @@ function SideMenu(props) {
         { key: '/utilisateurs', label: 'Utilisateurs', icon: <UserOutlined/> },
         { key: '/emails', label: 'Emails', icon: <MailOutlined/> },
         { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> },
-        { key: '/reference-valeurs', label: 'Valeurs de Référence', icon: <DatabaseOutlined/> }
+        { key: '/reference-valeurs', label: 'Valeurs de Référence', icon: <DatabaseOutlined/> },
+        { key: '/import', label: 'Import', icon: <UploadOutlined/> }
       ] }
     ];
 
@@ -505,6 +507,8 @@ export default function Workspace(props) {
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Campagnes /></ProtectedRoute>;
             case '/reference-valeurs':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><ReferenceValeurs /></ProtectedRoute>;
+            case '/import':
+                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Import /></ProtectedRoute>;
             default:
                 return accueil;
         }
