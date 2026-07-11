@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button, Card, Descriptions, Divider, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
-import { CreditCardOutlined, DownloadOutlined, LinkOutlined, StopOutlined } from '@ant-design/icons';
+import { CreditCardOutlined, DownloadOutlined, LinkOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { jsPDF } from 'jspdf';
 
@@ -224,6 +224,16 @@ export default function Facturation() {
             .catch((e) => message.error('Erreur : ' + e.message));
     };
 
+    const handleReactiver = () => {
+        fetchWithAuth('./societe/reactiver', { method: 'POST' })
+            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then((data) => {
+                setSociete(data);
+                message.success('Abonnement réactivé');
+            })
+            .catch((e) => message.error('Erreur : ' + e.message));
+    };
+
     const getModeOptions = (type: PaiementType): { value: string; label: string; disabled?: boolean }[] => [
         { value: 'VIREMENT', label: 'Virement bancaire' },
         { value: 'CARTE', label: 'Carte bancaire' },
@@ -328,10 +338,15 @@ export default function Facturation() {
                     >
                         Payer l'année — 1 650 EUR (1 mois offert)
                     </Button>
+                    {societe.abonnementResilie && (
+                        <Button icon={<ReloadOutlined />} onClick={handleReactiver}>
+                            Réactiver l'abonnement
+                        </Button>
+                    )}
                     {!societe.abonnementResilie && (
                         <Popconfirm
                             title="Résilier l'abonnement ?"
-                            description="Cette action mettra fin à l'abonnement. Elle est irréversible."
+                            description="Cette action mettra fin à l'abonnement. Elle pourra être réactivée à tout moment."
                             onConfirm={handleResilier}
                             okText="Confirmer"
                             cancelText="Non"
