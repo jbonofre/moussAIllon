@@ -107,6 +107,25 @@ public class SocieteResource {
         return entity;
     }
 
+    @POST
+    @Path("/resilier")
+    @Transactional
+    public SocieteEntity resilier() {
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null) {
+            throw new WebApplicationException("La société n'est pas trouvée", 404);
+        }
+        if (entity.abonnementResilie) {
+            throw new WebApplicationException("L'abonnement est déjà résilié", 400);
+        }
+        initAbonnement(entity);
+
+        entity.abonnementResilie = true;
+        entity.abonnementResiliationDate = Timestamp.from(Instant.now());
+
+        return entity;
+    }
+
     /**
      * Renseigne, si nécessaire, les informations d'abonnement du compte :
      * date d'activation = date de création du compte, montant d'activation de 350 €,

@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Card, Descriptions, Divider, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
-import { CreditCardOutlined, DownloadOutlined, LinkOutlined } from '@ant-design/icons';
+import { Button, Card, Descriptions, Divider, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
+import { CreditCardOutlined, DownloadOutlined, LinkOutlined, StopOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { jsPDF } from 'jspdf';
 
@@ -214,6 +214,16 @@ export default function Facturation() {
             .finally(() => setSubmitting(false));
     };
 
+    const handleResilier = () => {
+        fetchWithAuth('./societe/resilier', { method: 'POST' })
+            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then((data) => {
+                setSociete(data);
+                message.success('Abonnement résilié');
+            })
+            .catch((e) => message.error('Erreur : ' + e.message));
+    };
+
     const getModeOptions = (type: PaiementType): { value: string; label: string; disabled?: boolean }[] => [
         { value: 'VIREMENT', label: 'Virement bancaire' },
         { value: 'CARTE', label: 'Carte bancaire' },
@@ -295,15 +305,42 @@ export default function Facturation() {
                     <Descriptions.Item label="Montant à payer">
                         {formatMontant(societe.abonnementProchainPaiementMontant)}
                     </Descriptions.Item>
+                    <Descriptions.Item label="Statut">
+                        {societe.abonnementResilie
+                            ? <Tag color="red">Résilié le {formatDate(societe.abonnementResiliationDate)}</Tag>
+                            : <Tag color="green">Actif</Tag>}
+                    </Descriptions.Item>
                 </Descriptions>
 
                 <Space style={{ marginTop: 24 }}>
-                    <Button type="primary" icon={<CreditCardOutlined />} onClick={() => openPaiementModal('MENSUEL')}>
+                    <Button
+                        type="primary"
+                        icon={<CreditCardOutlined />}
+                        onClick={() => openPaiementModal('MENSUEL')}
+                        disabled={societe.abonnementResilie}
+                    >
                         Payer ce mois — 150 EUR
                     </Button>
-                    <Button icon={<CreditCardOutlined />} onClick={() => openPaiementModal('ANNUEL')}>
+                    <Button
+                        icon={<CreditCardOutlined />}
+                        onClick={() => openPaiementModal('ANNUEL')}
+                        disabled={societe.abonnementResilie}
+                    >
                         Payer l'année — 1 650 EUR (1 mois offert)
                     </Button>
+                    {!societe.abonnementResilie && (
+                        <Popconfirm
+                            title="Résilier l'abonnement ?"
+                            description="Cette action mettra fin à l'abonnement. Elle est irréversible."
+                            onConfirm={handleResilier}
+                            okText="Confirmer"
+                            cancelText="Non"
+                        >
+                            <Button danger icon={<StopOutlined />}>
+                                Résilier l'abonnement
+                            </Button>
+                        </Popconfirm>
+                    )}
                 </Space>
 
                 <Divider>Historique des paiements</Divider>

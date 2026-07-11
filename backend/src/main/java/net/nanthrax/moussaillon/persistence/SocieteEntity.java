@@ -57,6 +57,12 @@ public class SocieteEntity extends PanacheEntity {
 
     public Double abonnementProchainPaiementMontant;
 
+    // Résiliation de l'abonnement par l'administrateur.
+    public boolean abonnementResilie = false;
+
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp abonnementResiliationDate;
+
     @OneToMany(mappedBy = "societe", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @OrderBy("date DESC")
     public List<SocietePaiementEntity> paiements = new ArrayList<>();
