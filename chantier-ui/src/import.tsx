@@ -35,7 +35,7 @@ const columnsHelp = [
   {
     key: "clients",
     label: "Clients",
-    colonnes: "Prénom, Nom (requis), Type (Particulier/Professionnel/Professionnel_Mer), Email, Téléphone, Adresse, Consentement (oui/non), Canal Acquisition, Notes",
+    colonnes: "Prénom, Nom (requis), Type (Particulier/Professionnel/Professionnel_Mer), Email, Téléphone, Adresse, Consentement (oui/non), Canal Acquisition (Bouche à oreille/Facebook/Instagram/LinkedIn/Passage/Site Internet/Pages Jaunes), Notes",
     cle: "Déduplication par Email : une ligne avec un email déjà connu met à jour le client existant.",
   },
   {

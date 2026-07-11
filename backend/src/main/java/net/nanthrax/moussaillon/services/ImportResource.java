@@ -168,7 +168,7 @@ public class ImportResource {
             }
             client.telephone = orKeepExisting(value(row, "telephone"), isNew ? null : client.telephone);
             client.adresse = orKeepExisting(value(row, "adresse"), isNew ? null : client.adresse);
-            client.canalAcquisition = orKeepExisting(value(row, "canalAcquisition"), isNew ? null : client.canalAcquisition);
+            client.canalAcquisition = orKeepExisting(resolveCanalAcquisition(value(row, "canalAcquisition")), isNew ? null : client.canalAcquisition);
             client.notes = orKeepExisting(value(row, "notes"), isNew ? null : client.notes);
             String consentement = value(row, "consentement");
             if (!isBlank(consentement)) {
@@ -559,6 +559,30 @@ public class ImportResource {
             case "PARTICULIER", "PROFESSIONNEL", "PROFESSIONNEL_MER" -> normalized;
             default -> fallback;
         };
+    }
+
+    /**
+     * La vue Clients (chantier-ui) n'affiche que les codes canaux connus
+     * (BOUCHE_A_OREILLE, FACEBOOK, ...). On accepte en entrée aussi bien le
+     * code que le libellé français affiché dans le sélecteur.
+     */
+    private static final Map<String, String> CANAL_ACQUISITION_ALIASES = new HashMap<>();
+    static {
+        CANAL_ACQUISITION_ALIASES.put(normalizeHeader("Bouche à oreille"), "BOUCHE_A_OREILLE");
+        CANAL_ACQUISITION_ALIASES.put(normalizeHeader("Facebook"), "FACEBOOK");
+        CANAL_ACQUISITION_ALIASES.put(normalizeHeader("Instagram"), "INSTAGRAM");
+        CANAL_ACQUISITION_ALIASES.put(normalizeHeader("LinkedIn"), "LINKEDIN");
+        CANAL_ACQUISITION_ALIASES.put(normalizeHeader("Passage"), "PASSAGE");
+        CANAL_ACQUISITION_ALIASES.put(normalizeHeader("Site Internet"), "SITE_INTERNET");
+        CANAL_ACQUISITION_ALIASES.put(normalizeHeader("Pages Jaunes"), "PAGES_JAUNES");
+    }
+
+    private String resolveCanalAcquisition(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        String code = CANAL_ACQUISITION_ALIASES.get(normalizeHeader(value));
+        return code != null ? code : value.trim().toUpperCase(Locale.ROOT).replace(' ', '_');
     }
 
     private boolean parseBoolean(String value) {
