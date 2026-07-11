@@ -8,6 +8,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
@@ -30,6 +31,7 @@ public class ClientResource {
         clients.forEach(c -> {
             c.motDePasse = null;
             c.soldeDu = computeSoldeDu(c.id);
+            c.nombreBateaux = computeNombreBateaux(c.id);
         });
         return clients;
     }
@@ -37,19 +39,20 @@ public class ClientResource {
     @GET
     @Path("/search")
     public List<ClientEntity> search(@QueryParam("q") String q) {
+        List<ClientEntity> clients;
         if (q == null || q.trim().isEmpty()) {
-            List<ClientEntity> clients = ClientEntity.listAll();
-            clients.forEach(c -> {
-                c.motDePasse = null;
-                c.soldeDu = computeSoldeDu(c.id);
-            });
-            return clients;
+            clients = ClientEntity.listAll();
+        } else {
+            String likePattern = "%" + q.toLowerCase() + "%";
+            clients = ClientEntity.list(
+                "LOWER(nom) LIKE ?1 OR LOWER(prenom) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(email) LIKE ?1 OR LOWER(telephone) LIKE ?1 OR LOWER(adresse) LIKE ?1",
+                likePattern
+            );
         }
-        String likePattern = "%" + q.toLowerCase() + "%";
-        List<ClientEntity> clients = ClientEntity.list("LOWER(nom) LIKE ?1 OR LOWER(prenom) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(email) LIKE ?1 OR LOWER(telephone) LIKE ?1", likePattern);
         clients.forEach(c -> {
             c.motDePasse = null;
             c.soldeDu = computeSoldeDu(c.id);
+            c.nombreBateaux = computeNombreBateaux(c.id);
         });
         return clients;
     }
@@ -80,6 +83,7 @@ public class ClientResource {
         }
         entity.motDePasse = null;
         entity.soldeDu = computeSoldeDu(id);
+        entity.nombreBateaux = computeNombreBateaux(id);
         return entity;
     }
 
@@ -129,6 +133,7 @@ public class ClientResource {
         ClientEntity.getEntityManager().detach(entity);
         entity.motDePasse = null;
         entity.soldeDu = computeSoldeDu(id);
+        entity.nombreBateaux = computeNombreBateaux(id);
         return entity;
     }
 
@@ -138,6 +143,13 @@ public class ClientResource {
             clientId, VenteEntity.Status.FACTURE_EN_ATTENTE, VenteEntity.Status.FACTURE_PRETE
         );
         return unpaid.stream().mapToDouble(v -> v.prixVenteTTC).sum();
+    }
+
+    private long computeNombreBateaux(long clientId) {
+        return BateauClientEntity.getEntityManager()
+            .createQuery("SELECT COUNT(b) FROM BateauClientEntity b JOIN b.proprietaires p WHERE p.id = :clientId", Long.class)
+            .setParameter("clientId", clientId)
+            .getSingleResult();
     }
 
     @POST
