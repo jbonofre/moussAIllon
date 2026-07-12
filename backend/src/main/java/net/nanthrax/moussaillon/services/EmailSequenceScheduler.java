@@ -19,9 +19,12 @@ import net.nanthrax.moussaillon.persistence.EmailSequenceHistoriqueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurClientEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueClientEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
+import org.jboss.logging.Logger;
 
 @ApplicationScoped
 public class EmailSequenceScheduler {
+
+    private static final Logger LOG = Logger.getLogger(EmailSequenceScheduler.class);
 
     @Inject
     Mailer mailer;
@@ -38,6 +41,21 @@ public class EmailSequenceScheduler {
         traiterBateaux(today, societeNom);
         traiterMoteurs(today, societeNom);
         traiterRemorques(today, societeNom);
+    }
+
+    /**
+     * Déclenche immédiatement (sans attendre le cron du lendemain) l'étape de bienvenue
+     * (delaiJours = 0) pour un bateau qui vient d'être enregistré, c'est-à-dire une "entrée en parc".
+     */
+    @Transactional
+    public void declencherEntreeEnParc(BateauClientEntity bateau) {
+        List<EmailSequenceEtapeEntity> etapes = EmailSequenceEtapeEntity.listActivesByCible(Cible.BATEAU);
+        if (etapes.isEmpty()) return;
+
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        String societeNom = societe != null ? societe.nom : "moussAIllon";
+
+        traiterBateau(LocalDate.now(), societeNom, etapes, bateau);
     }
 
     private void traiterClients(LocalDate today, String societeNom) {
@@ -67,22 +85,27 @@ public class EmailSequenceScheduler {
 
         List<BateauClientEntity> bateaux = BateauClientEntity.list("dateCreation is not null");
         for (BateauClientEntity bateau : bateaux) {
-            if (bateau.proprietaires == null || bateau.proprietaires.isEmpty()) continue;
-            LocalDate dateCreation = bateau.dateCreation.toLocalDateTime().toLocalDate();
+            traiterBateau(today, societeNom, etapes, bateau);
+        }
+    }
 
-            for (ClientEntity proprietaire : bateau.proprietaires) {
-                if (!proprietaire.consentement) continue;
-                if (proprietaire.email == null || proprietaire.email.isBlank()) continue;
-                String clientName = proprietaire.prenom != null && !proprietaire.prenom.isBlank() ? proprietaire.prenom : proprietaire.nom;
-                String bateauNom = bateau.name != null ? bateau.name : (bateau.immatriculation != null ? bateau.immatriculation : String.valueOf(bateau.id));
+    private void traiterBateau(LocalDate today, String societeNom, List<EmailSequenceEtapeEntity> etapes, BateauClientEntity bateau) {
+        if (bateau.proprietaires == null || bateau.proprietaires.isEmpty()) return;
+        if (bateau.dateCreation == null) return;
+        LocalDate dateCreation = bateau.dateCreation.toLocalDateTime().toLocalDate();
 
-                for (EmailSequenceEtapeEntity etape : etapes) {
-                    long jours = ChronoUnit.DAYS.between(dateCreation, today);
-                    if (jours >= etape.delaiJours && !EmailSequenceHistoriqueEntity.dejaSent(Cible.BATEAU, bateau.id, etape.id)) {
-                        String subject = applyEquipementVariables(etape.sujet, clientName, societeNom, bateauNom, proprietaire);
-                        String body = applyEquipementVariables(etape.contenu, clientName, societeNom, bateauNom, proprietaire);
-                        envoyerEtape(Cible.BATEAU, bateau.id, proprietaire.email, etape, subject, body);
-                    }
+        for (ClientEntity proprietaire : bateau.proprietaires) {
+            if (!proprietaire.consentement) continue;
+            if (proprietaire.email == null || proprietaire.email.isBlank()) continue;
+            String clientName = proprietaire.prenom != null && !proprietaire.prenom.isBlank() ? proprietaire.prenom : proprietaire.nom;
+            String bateauNom = bateau.name != null ? bateau.name : (bateau.immatriculation != null ? bateau.immatriculation : String.valueOf(bateau.id));
+
+            for (EmailSequenceEtapeEntity etape : etapes) {
+                long jours = ChronoUnit.DAYS.between(dateCreation, today);
+                if (jours >= etape.delaiJours && !EmailSequenceHistoriqueEntity.dejaSent(Cible.BATEAU, bateau.id, etape.id)) {
+                    String subject = applyEquipementVariables(etape.sujet, clientName, societeNom, bateauNom, proprietaire);
+                    String body = applyEquipementVariables(etape.contenu, clientName, societeNom, bateauNom, proprietaire);
+                    envoyerEtape(Cible.BATEAU, bateau.id, proprietaire.email, etape, subject, body);
                 }
             }
         }
@@ -133,7 +156,12 @@ public class EmailSequenceScheduler {
     }
 
     private void envoyerEtape(Cible cible, long cibleId, String email, EmailSequenceEtapeEntity etape, String subject, String body) {
-        mailer.send(Mail.withHtml(email, subject, body));
+        try {
+            mailer.send(Mail.withHtml(email, subject, body));
+        } catch (Exception e) {
+            LOG.warnf(e, "Échec de l'envoi de l'email de séquence (cible=%s, cibleId=%d, etapeId=%d) à %s", cible, cibleId, etape.id, email);
+            return;
+        }
 
         EmailSequenceHistoriqueEntity historique = new EmailSequenceHistoriqueEntity();
         historique.cible = cible;

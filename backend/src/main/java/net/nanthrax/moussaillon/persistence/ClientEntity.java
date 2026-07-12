@@ -55,4 +55,7 @@ public class ClientEntity extends PanacheEntity {
     @jakarta.persistence.Transient
     public Double soldeDu;
 
+    @jakarta.persistence.Transient
+    public Long nombreBateaux;
+
 }

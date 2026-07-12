@@ -67,6 +67,7 @@ interface Client {
   canalAcquisition?: string;
   documents?: string[];
   soldeDu?: number;
+  nombreBateaux?: number;
 }
 
 const defaultClient = {
@@ -255,6 +256,7 @@ function Clients() {
       render: (type) => (type === "PROFESSIONNEL" ? "Professionnel" : "Particulier"),
     },
     { title: "Email", dataIndex: "email", key: "email", sorter: (a, b) => (a.email || '').localeCompare(b.email || '') },
+    { title: "Adresse", dataIndex: "adresse", key: "adresse", sorter: (a, b) => (a.adresse || '').localeCompare(b.adresse || '') },
     {
       title: "Canal d'acquisition",
       dataIndex: "canalAcquisition",
@@ -284,6 +286,18 @@ function Clients() {
         if (!val || val === 0) return <span style={{ color: "#52c41a" }}>0,00 €</span>;
         return <span style={{ color: "#ff4d4f", fontWeight: 600 }}>{val.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>;
       },
+    },
+    {
+      title: "Bateau(x)",
+      dataIndex: "nombreBateaux",
+      key: "nombreBateaux",
+      sorter: (a, b) => (a.nombreBateaux || 0) - (b.nombreBateaux || 0),
+      filters: [
+        { text: "Avec bateau(x)", value: "OUI" },
+        { text: "Sans bateau", value: "NON" },
+      ],
+      onFilter: (value, record) => (value === "OUI" ? (record.nombreBateaux || 0) > 0 : !(record.nombreBateaux || 0)),
+      render: (val) => (val ? <span>{val}</span> : <span style={{ color: "#bfbfbf" }}>0</span>),
     },
     {
       title: "Actions",

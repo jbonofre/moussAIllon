@@ -1,5 +1,7 @@
 package net.nanthrax.moussaillon.services;
 
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -15,9 +17,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Path("/bateaux")
+@ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class BateauClientResource {
+
+    @Inject
+    EmailSequenceScheduler emailSequenceScheduler;
 
     @GET
     public List<BateauClientEntity> listAll() {
@@ -99,6 +105,8 @@ public class BateauClientResource {
             entity.dateCreation = new Timestamp(System.currentTimeMillis());
         }
         entity.persist();
+        // Entrée en parc : déclenche immédiatement le mailing de bienvenue plutôt que d'attendre le cron du lendemain
+        emailSequenceScheduler.declencherEntreeEnParc(entity);
         return Response.status(Response.Status.CREATED).entity(entity).build();
     }
 
