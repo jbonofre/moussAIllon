@@ -20,7 +20,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^6"
+    "typescript": "^7"
   },
   "scripts": {
     "start": "PORT=3002 react-scripts start",
