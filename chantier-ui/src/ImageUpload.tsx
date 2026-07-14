@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, message, Button, Input, Space } from 'antd';
 import { CloseOutlined, DeleteOutlined, InboxOutlined, LeftOutlined, LinkOutlined, RightOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
@@ -14,8 +14,14 @@ interface ImageUploadProps {
 const ImageUpload: React.FC<ImageUploadProps> = ({ value = [], onChange }) => {
     const [urlInput, setUrlInput] = useState('');
     const [previewIndex, setPreviewIndex] = useState<number | null>(null);
+    // Uploading several files at once fires one customRequest per file concurrently;
+    // reading/writing through this ref (instead of the `value` closure) keeps concurrent
+    // completions from overwriting each other so every uploaded photo ends up in the list.
+    const valueRef = useRef(value);
+    useEffect(() => { valueRef.current = value; }, [value]);
 
     const triggerChange = (urls: string[]) => {
+        valueRef.current = urls;
         onChange?.(urls);
     };
 
@@ -29,7 +35,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value = [], onChange }) => {
             });
             const urls: string[] = res.data;
             if (urls.length > 0) {
-                triggerChange([...value, ...urls]);
+                triggerChange([...valueRef.current, ...urls]);
             }
             onSuccess?.(res.data);
         } catch (err) {
