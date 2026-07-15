@@ -65,6 +65,7 @@ type Helice = {
 type FournisseurProduit = {
   id: number;
   produit: Produit;
+  reference?: string;
   prixAchatHT: number;
   tva: number;
   montantTVA: number;
@@ -102,6 +103,7 @@ type ArticleItem = {
   type: ArticleType;
   id: number;
   label: string;
+  reference?: string;
   prixAchatHT: number;
   tva: number;
 };
@@ -211,7 +213,8 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           key: `produit-${fp.produit.id}`,
           type: "produit" as ArticleType,
           id: fp.produit.id,
-          label: `${fp.produit.nom}${fp.produit.marque ? ` (${fp.produit.marque})` : ""}`,
+          label: `${fp.produit.nom}${fp.produit.marque ? ` (${fp.produit.marque})` : ""}${fp.reference ? ` — Réf: ${fp.reference}` : ""}`,
+          reference: fp.reference,
           prixAchatHT: fp.prixAchatHT,
           tva: fp.tva,
         })),
@@ -680,9 +683,11 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
 
           <Divider orientation="left">Lignes de commande</Divider>
 
-          {lignes.map((ligne, index) => (
+          {lignes.map((ligne, index) => {
+            const selectedArticle = articles.find((a) => a.key === ligne.articleKey);
+            return (
             <Row gutter={8} key={index} align="middle" style={{ marginBottom: 8 }}>
-              <Col span={8}>
+              <Col span={7}>
                 <Select
                   showSearch
                   placeholder="Article"
@@ -696,6 +701,13 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
                     { label: "Moteurs", options: articles.filter((a) => a.type === "moteur").map((a) => ({ value: a.key, label: a.label })) },
                     { label: "Hélices", options: articles.filter((a) => a.type === "helice").map((a) => ({ value: a.key, label: a.label })) },
                   ].filter((g) => g.options.length > 0)}
+                />
+              </Col>
+              <Col span={3}>
+                <Input
+                  placeholder="Réf. fournisseur"
+                  value={selectedArticle?.reference || ""}
+                  disabled
                 />
               </Col>
               <Col span={3}>
@@ -717,7 +729,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
                   addonAfter="€"
                 />
               </Col>
-              <Col span={3}>
+              <Col span={2}>
                 <InputNumber
                   min={0}
                   max={100}
@@ -728,7 +740,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
                   addonAfter="%"
                 />
               </Col>
-              <Col span={4}>
+              <Col span={3}>
                 <InputNumber
                   value={ligne.prixTotalTTC}
                   disabled
@@ -745,7 +757,8 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
                 />
               </Col>
             </Row>
-          ))}
+            );
+          })}
 
 
           <Divider orientation="left">Totaux</Divider>

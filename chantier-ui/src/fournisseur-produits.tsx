@@ -84,7 +84,7 @@ type FournisseurProduit = {
   tauxMarge?: number;
   tauxMarque?: number;
   delaiLivraison?: string;
-  referenceFournisseur?: string;
+  reference?: string;
   notes?: string;
 };
 
@@ -99,7 +99,7 @@ const defaultFournisseurProduit: Partial<FournisseurProduit> = {
   tauxMarge: 0,
   tauxMarque: 0,
   delaiLivraison: "",
-  referenceFournisseur: "",
+  reference: "",
   notes: "",
 };
 
@@ -394,6 +394,7 @@ const FournisseurProduits = ({
             ),
           },
         ]),
+    { title: "Référence fournisseur", dataIndex: "reference", key: "reference", sorter: (a, b) => (a.reference || "").localeCompare(b.reference || ""), render: (v: string) => v || "-" },
     { title: "Prix Achat HT", dataIndex: "prixAchatHT", key: "prixAchatHT", sorter: (a, b) => a.prixAchatHT - b.prixAchatHT },
     { title: "TVA (%)", dataIndex: "tva", key: "tva", sorter: (a, b) => (a.tva ?? 0) - (b.tva ?? 0) },
     { title: "Montant TVA", dataIndex: "montantTVA", key: "montantTVA", sorter: (a, b) => (a.montantTVA ?? 0) - (b.montantTVA ?? 0) },
@@ -613,7 +614,7 @@ const FournisseurProduits = ({
           <Form.Item label="Délai de livraison" name="delaiLivraison">
             <Input />
           </Form.Item>
-          <Form.Item label="Référence Fournisseur" name="referenceFournisseur">
+          <Form.Item label="Référence Fournisseur" name="reference">
             <Input />
           </Form.Item>
           <Form.Item label="Notes" name="notes">
