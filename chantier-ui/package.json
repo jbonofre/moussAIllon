@@ -24,7 +24,7 @@
     "@types/jest": "^30.0.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.0.0",
-    "typescript": "^6.0.3"
+    "typescript": "^7.0.2"
   },
   "scripts": {
     "start": "NODE_OPTIONS='--localstorage-file=/tmp/moussaillon-localstorage' REACT_APP_VERSION=$npm_package_version REACT_APP_BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) react-scripts start",
