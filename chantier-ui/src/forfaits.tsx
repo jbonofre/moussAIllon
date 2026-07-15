@@ -501,29 +501,39 @@ export default function Forfaits() {
 
     const onValuesChange = (changedValues: Partial<ForfaitFormValues>, allValues: ForfaitFormValues) => {
         if (changedValues.produits !== undefined) {
-            const currentProduitLines = allValues.produits || [];
+            let currentProduitLines = (allValues.produits || []).map((item: any) => (
+                item?.produitId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentProduitLines.length === 0) {
-                form.setFieldValue('produits', [{}]);
+                currentProduitLines = [{}];
             } else {
                 const lastProduitLine = currentProduitLines[currentProduitLines.length - 1];
                 const isLastLineComplete = !!lastProduitLine?.produitId && (lastProduitLine?.quantite || 0) > 0;
                 if (isLastLineComplete) {
-                    form.setFieldValue('produits', [...currentProduitLines, {}]);
+                    currentProduitLines = [...currentProduitLines, {}];
                 }
             }
+            form.setFieldValue('produits', currentProduitLines);
         }
 
         if (changedValues.mainOeuvres !== undefined) {
-            const currentMoLines = allValues.mainOeuvres || [];
+            let currentMoLines = (allValues.mainOeuvres || []).map((item: any) => (
+                item?.mainOeuvreId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentMoLines.length === 0) {
-                form.setFieldValue('mainOeuvres', [{}]);
+                currentMoLines = [{}];
             } else {
                 const lastMoLine = currentMoLines[currentMoLines.length - 1];
                 const isLastLineComplete = !!lastMoLine?.mainOeuvreId && (lastMoLine?.quantite || 0) > 0;
                 if (isLastLineComplete) {
-                    form.setFieldValue('mainOeuvres', [...currentMoLines, {}]);
+                    currentMoLines = [...currentMoLines, {}];
                 }
             }
+            form.setFieldValue('mainOeuvres', currentMoLines);
         }
 
         if (changedValues.taches !== undefined) {
