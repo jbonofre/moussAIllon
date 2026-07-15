@@ -1424,7 +1424,11 @@ export default function Comptoir() {
                 syncLineRemise(changedValues.produits as Array<Partial<{ produitRef: string; quantite: number; remise: number; remisePourcentage: number }> | undefined>);
             }
 
-            const currentProduitLines = allValues.produits || [];
+            let currentProduitLines = (allValues.produits || []).map((item: any) => (
+                item?.produitRef && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentProduitLines.length === 0) {
                 form.setFieldValue('produits', [{}]);
                 return;
@@ -1432,7 +1436,10 @@ export default function Comptoir() {
             const lastProduitLine = currentProduitLines[currentProduitLines.length - 1];
             const isLastLineComplete = !!lastProduitLine?.produitRef && (lastProduitLine?.quantite || 0) > 0;
             if (isLastLineComplete) {
-                form.setFieldValue('produits', [...currentProduitLines, {}]);
+                currentProduitLines = [...currentProduitLines, {}];
+            }
+            form.setFieldValue('produits', currentProduitLines);
+            if (isLastLineComplete) {
                 return;
             }
         }
