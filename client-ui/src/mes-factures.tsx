@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Button, Card, Divider, Modal, Space, Table, Tag, Spin, message } from 'antd';
+import { Button, Card, Checkbox, Divider, Modal, Space, Table, Tag, Spin, message } from 'antd';
 import { CheckCircleOutlined, CreditCardOutlined, EyeOutlined, PrinterOutlined } from '@ant-design/icons';
 import api from './api.ts';
+import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
 
 interface ForfaitRef { id: number; nom: string; reference?: string; prixTTC?: number }
 interface ProduitRef { id: number; nom: string; marque?: string; prixVenteTTC?: number }
@@ -154,6 +155,8 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
     const [loading, setLoading] = useState(false);
     const [detailVente, setDetailVente] = useState<VenteEntity | null>(null);
     const [bpaModalVente, setBpaModalVente] = useState<VenteEntity | null>(null);
+    const [cgvAccepted, setCgvAccepted] = useState(false);
+    const [cgvModalOpen, setCgvModalOpen] = useState(false);
     const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const signatureDrawingRef = useRef(false);
 
@@ -204,6 +207,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
 
     const openBpaModal = (vente: VenteEntity) => {
         signatureDrawingRef.current = false;
+        setCgvAccepted(false);
         setBpaModalVente(vente);
         initSignatureCanvas();
     };
@@ -219,6 +223,10 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
     };
 
     const handleBpaConfirm = async () => {
+        if (!cgvAccepted) {
+            message.warning('Vous devez accepter les conditions générales de vente pour continuer');
+            return;
+        }
         if (!signatureDrawingRef.current) {
             message.warning('La signature est requise pour valider le bon pour accord');
             return;
@@ -506,7 +514,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                     <Button key="cancel" onClick={() => setBpaModalVente(null)}>
                         Fermer
                     </Button>,
-                    <Button key="confirm" type="primary" onClick={handleBpaConfirm}>
+                    <Button key="confirm" type="primary" disabled={!cgvAccepted} onClick={handleBpaConfirm}>
                         Valider le bon pour accord
                     </Button>,
                 ]}
@@ -565,8 +573,35 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                                 touchAction: 'none',
                             }}
                         />
+                        <div style={{ marginTop: 12 }}>
+                            <Checkbox checked={cgvAccepted} onChange={(e) => setCgvAccepted(e.target.checked)}>
+                                J'ai lu et j'accepte les{' '}
+                                <a onClick={(e) => { e.preventDefault(); setCgvModalOpen(true); }} href="#">
+                                    conditions générales de vente
+                                </a>
+                            </Checkbox>
+                        </div>
                     </>
                 )}
+            </Modal>
+
+            <Modal
+                title={CGV_TITLE}
+                open={cgvModalOpen}
+                onCancel={() => setCgvModalOpen(false)}
+                footer={[
+                    <Button key="close" type="primary" onClick={() => setCgvModalOpen(false)}>
+                        Fermer
+                    </Button>,
+                ]}
+                width={700}
+            >
+                {CGV_SECTIONS.map((section) => (
+                    <div key={section.titre} style={{ marginBottom: 12 }}>
+                        <div style={{ fontWeight: 500 }}>{section.titre}</div>
+                        <div>{section.texte}</div>
+                    </div>
+                ))}
             </Modal>
         </Card>
     );
