@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Upload, message, Button, Input, Space } from 'antd';
-import { CloseOutlined, DeleteOutlined, InboxOutlined, LeftOutlined, LinkOutlined, RightOutlined } from '@ant-design/icons';
+import { CloseOutlined, DeleteOutlined, InboxOutlined, LeftOutlined, LinkOutlined, RightOutlined, StarFilled, StarOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
 import api from './api.ts';
 
@@ -43,6 +43,12 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value = [], onChange }) => {
         triggerChange(newUrls);
     };
 
+    const handleSetAsCover = (index: number) => {
+        if (index === 0) return;
+        const newUrls = [value[index], ...value.filter((_, i) => i !== index)];
+        triggerChange(newUrls);
+    };
+
     const handleAddUrl = () => {
         const trimmed = urlInput.trim();
         if (trimmed) {
@@ -62,7 +68,7 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value = [], onChange }) => {
                                 position: 'relative',
                                 width: 104,
                                 height: 104,
-                                border: '1px solid #d9d9d9',
+                                border: index === 0 ? '2px solid #1677ff' : '1px solid #d9d9d9',
                                 borderRadius: 8,
                                 overflow: 'hidden',
                                 display: 'flex',
@@ -78,6 +84,46 @@ const ImageUpload: React.FC<ImageUploadProps> = ({ value = [], onChange }) => {
                                 height={104}
                                 style={{ objectFit: 'cover', cursor: 'pointer' }}
                                 onClick={() => setPreviewIndex(index)}
+                            />
+                            {index === 0 && (
+                                <span
+                                    style={{
+                                        position: 'absolute',
+                                        bottom: 2,
+                                        left: 2,
+                                        zIndex: 1,
+                                        background: 'rgba(22,119,255,0.85)',
+                                        color: '#fff',
+                                        fontSize: 10,
+                                        padding: '1px 6px',
+                                        borderRadius: 4,
+                                    }}
+                                >
+                                    Profil
+                                </span>
+                            )}
+                            <Button
+                                type="text"
+                                size="small"
+                                title={index === 0 ? 'Photo de profil' : 'Définir comme photo de profil'}
+                                icon={index === 0
+                                    ? <StarFilled style={{ color: '#ffd700', fontSize: 14 }} />
+                                    : <StarOutlined style={{ color: '#fff', fontSize: 14 }} />}
+                                onClick={(e) => { e.stopPropagation(); handleSetAsCover(index); }}
+                                style={{
+                                    position: 'absolute',
+                                    top: 2,
+                                    left: 2,
+                                    zIndex: 1,
+                                    background: 'rgba(0,0,0,0.5)',
+                                    borderRadius: '50%',
+                                    width: 24,
+                                    height: 24,
+                                    minWidth: 24,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}
                             />
                             <Button
                                 type="text"
