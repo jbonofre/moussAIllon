@@ -123,6 +123,8 @@ interface CalendarEvent {
     forfaitServiceNom?: string;
     status?: PlanningStatus;
     progressPct?: number;
+    technicienId?: number;
+    technicienNom?: string;
 }
 
 interface PlanningItemRow {
@@ -552,6 +554,7 @@ export default function Planning() {
                     const totalTaches = taches.length;
                     const doneTaches = taches.filter((t) => t.done).length;
                     const progressPct = totalTaches > 0 ? Math.round((doneTaches / totalTaches) * 100) : undefined;
+                    const technicien = item.techniciens?.[0];
 
                     return {
                         eventId: row.key,
@@ -567,6 +570,8 @@ export default function Planning() {
                         forfaitServiceNom: item.nom,
                         status: item.status,
                         progressPct,
+                        technicienId: technicien?.id,
+                        technicienNom: `${technicien?.prenom || ''} ${technicien?.nom || ''}`.trim() || undefined,
                     } as CalendarEvent;
                 })
                 .filter(Boolean) as CalendarEvent[],
@@ -1116,7 +1121,16 @@ export default function Planning() {
                                     const dayStr = day.format('YYYY-MM-DD');
                                     const isToday = dayStr === todayIso();
                                     const isSelected = dayStr === selectedDate;
-                                    const dayEvts = weekEvents.filter((ev) => dayjs(ev.startTime).format('YYYY-MM-DD') === dayStr);
+                                    // Regroupe les événements par technicien (puis par heure de début) afin de
+                                    // pouvoir afficher une ligne de séparation visuelle entre les techniciens.
+                                    const dayEvts = weekEvents
+                                        .filter((ev) => dayjs(ev.startTime).format('YYYY-MM-DD') === dayStr)
+                                        .sort((a, b) => {
+                                            const ta = a.technicienId ?? Number.MAX_SAFE_INTEGER;
+                                            const tb = b.technicienId ?? Number.MAX_SAFE_INTEGER;
+                                            if (ta !== tb) return ta - tb;
+                                            return dayjs(a.startTime).valueOf() - dayjs(b.startTime).valueOf();
+                                        });
 
                                     return (
                                         <React.Fragment key={dayStr}>
@@ -1195,6 +1209,7 @@ export default function Planning() {
                                                         <div style={{ fontSize: 12, lineHeight: '18px' }}>
                                                             <div><strong>{ev.bateauNom || '-'}</strong>{ev.bateauImmatriculation ? ` (${ev.bateauImmatriculation})` : ''}</div>
                                                             <div>Client : {ev.clientNom || '-'}</div>
+                                                            <div>Technicien : {ev.technicienNom || '-'}</div>
                                                             <div>{ev.forfaitServiceNom || '-'}</div>
                                                             <div>Statut : {statusLabel} {ev.progressPct !== undefined ? `— ${ev.progressPct}%` : ''}</div>
                                                             <div>{start.format('HH:mm')} — {duration}h</div>
@@ -1202,8 +1217,27 @@ export default function Planning() {
                                                     );
 
                                                     const eventRow = allItems.find((r) => r.key === ev.eventId);
+                                                    const previousEv = idx > 0 ? dayEvts[idx - 1] : null;
+                                                    // Ligne de séparation visuelle entre deux groupes de techniciens
+                                                    // différents pour améliorer la lisibilité du planning.
+                                                    const showTechnicienSeparator = !!previousEv && previousEv.technicienId !== ev.technicienId;
                                                     return (
-                                                        <Tooltip key={ev.eventId} title={tooltipContent}>
+                                                        <React.Fragment key={ev.eventId}>
+                                                            {showTechnicienSeparator && (
+                                                                <div
+                                                                    style={{
+                                                                        position: 'absolute',
+                                                                        top: 4 + idx * 28 - 3,
+                                                                        left: 0,
+                                                                        right: 0,
+                                                                        height: 2,
+                                                                        background: '#bfbfbf',
+                                                                        zIndex: 1,
+                                                                        pointerEvents: 'none',
+                                                                    }}
+                                                                />
+                                                            )}
+                                                            <Tooltip title={tooltipContent}>
                                                             <div
                                                                 draggable={!!eventRow && resize?.key !== ev.eventId}
                                                                 onDragStart={(e) => {
@@ -1286,7 +1320,8 @@ export default function Planning() {
                                                                     />
                                                                 )}
                                                             </div>
-                                                        </Tooltip>
+                                                            </Tooltip>
+                                                        </React.Fragment>
                                                     );
                                                 })}
                                             </div>
