@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Badge, Button, Card, Col, DatePicker, Empty, Form, Input, Modal, Row, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { Badge, Button, Card, Col, DatePicker, Empty, Form, Input, List, Modal, Row, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { CalendarOutlined, EditOutlined, EyeOutlined, LeftOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
 import { Line } from '@ant-design/charts';
 import axios from 'axios';
@@ -347,6 +347,7 @@ export default function Planning() {
     const [prestationLoading, setPrestationLoading] = useState(false);
     const [selectedTideLocationId, setSelectedTideLocationId] = useState<string>('carantec');
     const [tideDate, setTideDate] = useState<string>(todayIso);
+    const [tideScheduleChoice, setTideScheduleChoice] = useState<{ forcedDate: string; items: PlanningItemRow[] } | null>(null);
     const [tideData, setTideData] = useState<TideData | null>(null);
     const [tideLoading, setTideLoading] = useState(false);
     const [tideError, setTideError] = useState<string | null>(null);
@@ -471,6 +472,24 @@ export default function Planning() {
         () => pendingItems.filter((row) => toIsoDay(row.item.statusDate) === selectedDate),
         [pendingItems, selectedDate]
     );
+
+    const pendingItemsForTideDate = useMemo<PlanningItemRow[]>(
+        () => pendingItems.filter((row) => toIsoDay(row.item.statusDate) === tideDate),
+        [pendingItems, tideDate]
+    );
+
+    const handleTideChartClick = (time: string) => {
+        const forcedDate = `${tideDate}T${time}`;
+        if (pendingItemsForTideDate.length === 0) {
+            message.info('Aucune prestation en attente ce jour. Créez d\'abord une prestation.');
+            return;
+        }
+        if (pendingItemsForTideDate.length === 1) {
+            openPlanningModal(pendingItemsForTideDate[0], forcedDate);
+            return;
+        }
+        setTideScheduleChoice({ forcedDate, items: pendingItemsForTideDate });
+    };
 
     const plannedItems = useMemo<PlanningItemRow[]>(
         () =>
@@ -978,6 +997,9 @@ export default function Planning() {
                         extra={<Typography.Text type="secondary" style={{ fontSize: 11 }}>Source : SHOM</Typography.Text>}
                         loading={tideLoading}
                     >
+                        <Typography.Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>
+                            Cliquez sur la courbe pour planifier une prestation à ce moment
+                        </Typography.Text>
                         <Row gutter={[16, 16]}>
                             <Col xs={24} sm={8}>
                                 <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
@@ -1029,12 +1051,22 @@ export default function Planning() {
                                         yField="height"
                                         smooth
                                         height={200}
-                                        style={{ lineWidth: 2, stroke: '#1677ff' }}
+                                        style={{ lineWidth: 2, stroke: '#1677ff', cursor: 'pointer' }}
                                         axis={{
                                             y: { title: 'Hauteur (m)' },
                                             x: { title: false }
                                         }}
-                                        area={{ style: { fill: 'l(270) 0:#ffffff 1:#1677ff', fillOpacity: 0.15 } }}
+                                        area={{ style: { fill: 'l(270) 0:#ffffff 1:#1677ff', fillOpacity: 0.15, cursor: 'pointer' } }}
+                                        onEvent={(chart, event) => {
+                                            if (event?.type !== 'click') return;
+                                            // @ant-design/charts wraps the underlying @antv/g2 Chart in `.chart`;
+                                            // getDataByXY maps the click's canvas coordinates back to the matching
+                                            // {time, height} datum (there is no simpler public API for this in v2/G2 v5).
+                                            const inner = (chart as unknown as { chart?: { getDataByXY?: (p: { x: number; y: number }, opts?: { shared?: boolean }) => Array<{ time?: string }> } }).chart;
+                                            const matches = inner?.getDataByXY?.({ x: event.offsetX, y: event.offsetY }, { shared: true });
+                                            const time = matches && matches[0]?.time;
+                                            if (time) handleTideChartClick(time);
+                                        }}
                                     />
                                 )}
                             </Col>
@@ -1544,6 +1576,30 @@ export default function Planning() {
                         )}
                     </div>
                 ) : null}
+            </Modal>
+            <Modal
+                title="Choisir une prestation à planifier"
+                open={!!tideScheduleChoice}
+                onCancel={() => setTideScheduleChoice(null)}
+                footer={null}
+            >
+                <List
+                    dataSource={tideScheduleChoice?.items || []}
+                    renderItem={(row) => (
+                        <List.Item
+                            style={{ cursor: 'pointer' }}
+                            onClick={() => {
+                                if (tideScheduleChoice) openPlanningModal(row, tideScheduleChoice.forcedDate);
+                                setTideScheduleChoice(null);
+                            }}
+                        >
+                            <List.Item.Meta
+                                title={row.item.nom || '(Sans nom)'}
+                                description={`${getClientLabel(row.vente.client)}${row.item.bateauNom ? ` — ${row.item.bateauNom}` : ''}`}
+                            />
+                        </List.Item>
+                    )}
+                />
             </Modal>
         </Card>
     );
