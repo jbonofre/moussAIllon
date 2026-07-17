@@ -317,7 +317,14 @@ export default function Facturation() {
                     </Descriptions.Item>
                     <Descriptions.Item label="Statut">
                         {societe.abonnementResilie
-                            ? <Tag color="red">Résilié le {formatDate(societe.abonnementResiliationDate)}</Tag>
+                            ? (
+                                <Space direction="vertical" size={4}>
+                                    <Tag color="red">Résilié le {formatDate(societe.abonnementResiliationDate)}</Tag>
+                                    {societe.accesBloque
+                                        ? <Tag color="volcano">Accès bloqué depuis le {formatDate(societe.abonnementBlocageDate)}</Tag>
+                                        : <Tag color="orange">Accès bloqué à partir du {formatDate(societe.abonnementBlocageDate)} (fin de la période de rétractation de 14 jours)</Tag>}
+                                </Space>
+                            )
                             : <Tag color="green">Actif</Tag>}
                     </Descriptions.Item>
                 </Descriptions>
@@ -346,7 +353,7 @@ export default function Facturation() {
                     {!societe.abonnementResilie && (
                         <Popconfirm
                             title="Résilier l'abonnement ?"
-                            description="Cette action mettra fin à l'abonnement. Elle pourra être réactivée à tout moment."
+                            description="Les accès resteront actifs pendant une période de rétractation de 14 jours, durant laquelle l'abonnement pourra être réactivé à tout moment."
                             onConfirm={handleResilier}
                             okText="Confirmer"
                             cancelText="Non"
