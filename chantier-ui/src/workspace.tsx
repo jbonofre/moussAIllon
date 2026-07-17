@@ -38,6 +38,7 @@ import CommandesFournisseur from './commandes-fournisseur.tsx';
 import Emails from './emails.tsx';
 import SequenceEmails from './sequence-emails.tsx';
 import ReferenceValeurs from './reference-valeurs.tsx';
+import ChatbotWidget from './home.tsx';
 
 export function demo() {
     message.warning("Vous êtes sur une version de démonstration de moussAIllon. Il n'est pas possible d'ajouter ou supprimer des éléments.")
@@ -543,6 +544,7 @@ export default function Workspace(props) {
                   {VERSION_LABEL}
               </Layout.Footer>
             </Layout>
+            <ChatbotWidget currentPage={currentPage} />
             </NavigationContext.Provider>
         </ConfigProvider>
     );

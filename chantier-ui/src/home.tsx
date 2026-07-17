@@ -1,11 +1,41 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Typography, Row, Card, Input, Button, Space, Divider, Tag, Modal, theme } from 'antd';
+import { Typography, Row, Input, Button, Space, Tag, Modal, theme } from 'antd';
 import {
     RobotOutlined, SendOutlined, QuestionCircleOutlined,
-    AudioOutlined, AudioMutedOutlined
+    AudioOutlined, AudioMutedOutlined, CloseOutlined
 } from '@ant-design/icons';
 import { useNavigation } from './navigation-context.tsx';
+
+const PAGE_LABELS: Record<string, string> = {
+    '/dashboard': "le tableau de bord",
+    '/comptoir': "le comptoir",
+    '/prestations': "les prestations",
+    '/avoirs': "les avoirs",
+    '/clients': "les clients",
+    '/clients/bateaux': "les bateaux des clients",
+    '/clients/moteurs': "les moteurs des clients",
+    '/clients/remorques': "les remorques des clients",
+    '/catalogue/produits': "le catalogue produits",
+    '/catalogue/bateaux': "le catalogue bateaux",
+    '/catalogue/moteurs': "le catalogue moteurs",
+    '/catalogue/helices': "le catalogue hélices",
+    '/catalogue/remorques': "le catalogue remorques",
+    '/catalogue/fournisseurs': "les fournisseurs",
+    '/commandes-fournisseur': "les commandes fournisseur",
+    '/main-oeuvres': "les mains d'oeuvre",
+    '/forfaits': "les forfaits",
+    '/techniciens': "l'équipe technique",
+    '/planning': "le planning",
+    '/annonces': "les petites annonces",
+    '/campagnes': "les campagnes marketing",
+    '/societe': "la société",
+    '/facturation': "la facturation",
+    '/utilisateurs': "les utilisateurs",
+    '/emails': "les emails",
+    '/sequence-emails': "les séquences d'emails",
+    '/reference-valeurs': "les valeurs de référence"
+};
 
 const { Paragraph } = Typography;
 const { TextArea } = Input;
@@ -136,13 +166,15 @@ const renderJsonNode = (
     );
 };
 
-export default function Home() {
+export default function ChatbotWidget({ currentPage }: { currentPage?: string }) {
     const { navigate } = useNavigation();
     const { token } = theme.useToken();
+    const currentPageLabel = (currentPage && PAGE_LABELS[currentPage]) || '';
     const initialAssistantMessage =
         "Bonjour, je suis moussAIllon, votre assistant de gestion de chantier naval.\n\n" +
         "Comment puis-je vous aider aujourd'hui ?\n\n";
 
+    const [ open, setOpen ] = useState(false);
     const [ prompt, setPrompt ] = useState('');
     const [ loading, setLoading ] = useState(false);
     const [ listening, setListening ] = useState(false);
@@ -382,6 +414,9 @@ export default function Home() {
 
     const buildPlannerPrompt = (userInput: string) =>
         "Tu es un moussAIllon, un assistant de gestion de chantier naval.\n" +
+        (currentPageLabel
+            ? "L'utilisateur consulte actuellement " + currentPageLabel + ". Tiens compte de ce contexte.\n"
+            : "") +
         "Réponds UNIQUEMENT en JSON valide, sans texte hors JSON.\n" +
         "Si une action API est utile, renvoie:\n" +
         "{\"action\":\"mcp_call\",\"method\":\"GET|POST|PUT|DELETE\",\"path\":\"/...\",\"query\":{...},\"body\":{...}}\n" +
@@ -741,16 +776,54 @@ export default function Home() {
 
     return (
         <>
-            {/* AI Assistant Chat */}
-            <Card
+            {/* Floating launcher button, present on top of every page */}
+            <Button
+                type="primary"
+                shape="circle"
+                size="large"
+                onClick={() => setOpen((v) => !v)}
+                title={open ? "Fermer l'assistant IA" : "Ouvrir l'assistant IA"}
+                aria-label={open ? "Fermer l'assistant IA" : "Ouvrir l'assistant IA"}
+                icon={open ? <CloseOutlined style={{ fontSize: 20 }} /> : <RobotOutlined style={{ fontSize: 22 }} />}
                 style={{
-                    borderRadius: 12,
-                    border: `1px solid ${token.colorBorderSecondary}`,
-                    overflow: 'hidden',
+                    position: 'fixed',
+                    right: 24,
+                    bottom: 24,
+                    width: 56,
+                    height: 56,
+                    zIndex: 1001,
+                    border: 'none',
+                    background: 'linear-gradient(135deg, #722ed1, #9254de)',
+                    boxShadow: '0 6px 20px rgba(114, 46, 209, 0.45)',
                 }}
-                styles={{ header: { borderBottom: `1px solid ${token.colorBorderSecondary}` } }}
-                title={
-                    <Row align="middle" justify="space-between">
+            />
+
+            {open && (
+            <div
+                style={{
+                    position: 'fixed',
+                    right: 24,
+                    bottom: 92,
+                    zIndex: 1001,
+                    width: 400,
+                    maxWidth: 'calc(100vw - 32px)',
+                    height: 560,
+                    maxHeight: 'calc(100vh - 140px)',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    borderRadius: 14,
+                    overflow: 'hidden',
+                    background: token.colorBgContainer,
+                    border: `1px solid ${token.colorBorderSecondary}`,
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.24)',
+                }}
+            >
+                {/* Header */}
+                <div style={{
+                    padding: '12px 16px',
+                    borderBottom: `1px solid ${token.colorBorderSecondary}`,
+                }}>
+                    <Row align="middle" justify="space-between" wrap={false}>
                         <Space>
                             <div style={{
                                 width: 36, height: 36, borderRadius: 10,
@@ -769,18 +842,29 @@ export default function Home() {
                                 </Tag>
                             </div>
                         </Space>
-                        <Tag color="purple" style={{ borderRadius: 10 }}>Claude (Anthropic)</Tag>
+                        <Button
+                            type="text"
+                            size="small"
+                            icon={<CloseOutlined />}
+                            onClick={() => setOpen(false)}
+                            aria-label="Fermer"
+                        />
                     </Row>
-                }
-            >
+                    {currentPageLabel && (
+                        <div style={{ marginTop: 8 }}>
+                            <Tag color="purple" style={{ borderRadius: 10, fontSize: 11 }}>
+                                Contexte : {currentPageLabel}
+                            </Tag>
+                        </div>
+                    )}
+                </div>
 
                 <div
                     ref={chatMessagesRef}
                     style={{
-                        height: 220,
-                        maxHeight: 220,
+                        flex: 1,
+                        minHeight: 0,
                         overflowY: 'auto',
-                        borderRadius: 10,
                         padding: 16,
                         background: token.colorFillQuaternary,
                     }}
@@ -835,54 +919,60 @@ export default function Home() {
                     ))}
                 </div>
 
-                <Divider style={{ margin: '16px 0 12px' }} />
-
-                <Space direction="vertical" style={{ width: '100%' }}>
-                    <TextArea
-                        value={prompt}
-                        onChange={(e) => setPrompt(e.target.value)}
-                        placeholder={"Posez une question ou tapez une commande..."}
-                        autoSize={{ minRows: 2, maxRows: 6 }}
-                        style={{
-                            background: token.colorBgContainer,
-                            color: token.colorText,
-                            borderRadius: 10,
-                        }}
-                        onPressEnter={(e) => {
-                            if (!e.shiftKey) {
-                                e.preventDefault();
-                                onSend();
-                            }
-                        }}
-                    />
-                    <Row justify="space-between" align="middle">
-                        <Space>
-                            <Button icon={<QuestionCircleOutlined />} onClick={() => setIsHelpOpen(true)} style={{ borderRadius: 8 }}>
-                                Aide
-                            </Button>
-                            <Button onClick={() => setPrompt('resources')} style={{ borderRadius: 8 }}>Resources</Button>
+                <div style={{
+                    padding: '12px 16px',
+                    borderTop: `1px solid ${token.colorBorderSecondary}`,
+                    background: token.colorBgContainer,
+                }}>
+                    <Space direction="vertical" style={{ width: '100%' }}>
+                        <TextArea
+                            value={prompt}
+                            onChange={(e) => setPrompt(e.target.value)}
+                            placeholder={"Posez une question ou tapez une commande..."}
+                            autoSize={{ minRows: 2, maxRows: 6 }}
+                            style={{
+                                background: token.colorBgContainer,
+                                color: token.colorText,
+                                borderRadius: 10,
+                            }}
+                            onPressEnter={(e) => {
+                                if (!e.shiftKey) {
+                                    e.preventDefault();
+                                    onSend();
+                                }
+                            }}
+                        />
+                        <Row justify="space-between" align="middle">
+                            <Space size={4}>
+                                <Button size="small" icon={<QuestionCircleOutlined />} onClick={() => setIsHelpOpen(true)} style={{ borderRadius: 8 }}>
+                                    Aide
+                                </Button>
+                                <Button size="small" onClick={() => setPrompt('resources')} style={{ borderRadius: 8 }}>Resources</Button>
+                                <Button
+                                    size="small"
+                                    icon={listening ? <AudioMutedOutlined /> : <AudioOutlined />}
+                                    danger={listening}
+                                    onClick={onToggleVoice}
+                                    title={listening ? 'Arrêter l\'écoute' : 'Dicter un message'}
+                                    style={{ borderRadius: 8 }}
+                                >
+                                    {listening ? 'Écoute...' : 'Voix'}
+                                </Button>
+                            </Space>
                             <Button
-                                icon={listening ? <AudioMutedOutlined /> : <AudioOutlined />}
-                                danger={listening}
-                                onClick={onToggleVoice}
-                                title={listening ? 'Arrêter l\'écoute' : 'Dicter un message'}
+                                type="primary"
+                                icon={<SendOutlined />}
+                                loading={loading}
+                                onClick={onSend}
                                 style={{ borderRadius: 8 }}
                             >
-                                {listening ? 'Écoute...' : 'Voix'}
+                                Envoyer
                             </Button>
-                        </Space>
-                        <Button
-                            type="primary"
-                            icon={<SendOutlined />}
-                            loading={loading}
-                            onClick={onSend}
-                            style={{ borderRadius: 8, paddingInline: 24 }}
-                        >
-                            Envoyer
-                        </Button>
-                    </Row>
-                </Space>
-            </Card>
+                        </Row>
+                    </Space>
+                </div>
+            </div>
+            )}
 
             <Modal
                 title="Aide du chatbot moussAIllon"

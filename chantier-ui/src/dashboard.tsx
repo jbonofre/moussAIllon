@@ -1,11 +1,10 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useState } from 'react';
-import { ArrowDownOutlined, ArrowUpOutlined, ClockCircleOutlined, WarningOutlined, AimOutlined, PlusOutlined, CalendarOutlined, ReloadOutlined, RobotOutlined, DownOutlined, UpOutlined } from '@ant-design/icons';
+import { ArrowDownOutlined, ArrowUpOutlined, ClockCircleOutlined, WarningOutlined, AimOutlined, PlusOutlined, CalendarOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Alert, Badge, Button, Card, Col, Empty, List, Progress, Row, Space, Spin, Statistic, Table, Tag, Typography } from 'antd';
 import { Column, Pie } from '@ant-design/charts';
 import dayjs from 'dayjs';
 import { useNavigation } from './navigation-context.tsx';
-import Home from './home.tsx';
 import { VERSION_LABEL } from './version.ts';
 
 const { Title, Paragraph, Text } = Typography;
@@ -216,7 +215,6 @@ export default function Dashboard({ user }: { user?: string }) {
     const [canalData, setCanalData] = useState<{ canal: string; count: number }[]>([]);
     const [ventesParJour, setVentesParJour] = useState<{ date: string; ventes: number }[]>([]);
     const [caParJour, setCaParJour] = useState<{ date: string; ca: number }[]>([]);
-    const [assistantOpen, setAssistantOpen] = useState(false);
     const { navigate } = useNavigation();
 
     const loadData = useCallback(() => {
@@ -350,70 +348,6 @@ export default function Dashboard({ user }: { user?: string }) {
                     </Col>
                 </Row>
             </Card>
-
-            {assistantOpen ? (
-                <div>
-                    <Card
-                        hoverable
-                        onClick={() => setAssistantOpen(false)}
-                        style={{ cursor: 'pointer', marginBottom: 8 }}
-                        styles={{ body: { padding: '12px 16px' } }}
-                    >
-                        <Row align="middle" justify="space-between">
-                            <Space>
-                                <div style={{
-                                    width: 36, height: 36, borderRadius: 10,
-                                    background: 'linear-gradient(135deg, #722ed1, #9254de)',
-                                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                }}>
-                                    <RobotOutlined style={{ color: '#fff', fontSize: 18 }} />
-                                </div>
-                                <div>
-                                    <div style={{ fontWeight: 600, fontSize: 15 }}>Assistant IA</div>
-                                    <div style={{ color: '#8c8c8c', fontSize: 12 }}>
-                                        Cliquez pour masquer l'assistant
-                                    </div>
-                                </div>
-                            </Space>
-                            <Button
-                                type="text"
-                                size="small"
-                                icon={<UpOutlined />}
-                                onClick={(e) => { e.stopPropagation(); setAssistantOpen(false); }}
-                            >
-                                Masquer l'assistant
-                            </Button>
-                        </Row>
-                    </Card>
-                    <Home />
-                </div>
-            ) : (
-                <Card
-                    hoverable
-                    onClick={() => setAssistantOpen(true)}
-                    style={{ cursor: 'pointer' }}
-                    styles={{ body: { padding: '12px 16px' } }}
-                >
-                    <Row align="middle" justify="space-between">
-                        <Space>
-                            <div style={{
-                                width: 36, height: 36, borderRadius: 10,
-                                background: 'linear-gradient(135deg, #722ed1, #9254de)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            }}>
-                                <RobotOutlined style={{ color: '#fff', fontSize: 18 }} />
-                            </div>
-                            <div>
-                                <div style={{ fontWeight: 600, fontSize: 15 }}>Assistant IA</div>
-                                <div style={{ color: '#8c8c8c', fontSize: 12 }}>
-                                    Cliquez pour poser une question ou taper une commande
-                                </div>
-                            </div>
-                        </Space>
-                        <DownOutlined style={{ color: '#8c8c8c' }} />
-                    </Row>
-                </Card>
-            )}
 
             <Card title="Actions rapides">
                 <Row gutter={[12, 12]}>
