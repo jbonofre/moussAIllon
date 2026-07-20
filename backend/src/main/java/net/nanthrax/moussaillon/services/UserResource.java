@@ -41,6 +41,10 @@ public class UserResource {
     @Path("/authenticate")
     @Transactional
     public Response authenticate(LoginRequest request) {
+        if (SocieteResource.accesBloque()) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity("Accès bloqué : l'abonnement a été résilié.").build();
+        }
         if (request == null || request.name == null || request.password == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Nom d'utilisateur et mot de passe requis.").build();
         }

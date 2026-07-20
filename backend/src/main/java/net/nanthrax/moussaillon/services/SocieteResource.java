@@ -20,6 +20,9 @@ public class SocieteResource {
     static final double MONTANT_ABONNEMENT_MENSUEL = 150.0;
     static final double MONTANT_ABONNEMENT_ANNUEL = 1650.0; // 11 mois × 150 € (1 mois offert)
 
+    // Délai de rétractation après résiliation avant blocage effectif des accès.
+    static final int DUREE_RETRACTATION_JOURS = 14;
+
     public static class PaiementRequest {
         public String type; // MENSUEL | ANNUEL
         public String mode; // CHEQUE | VIREMENT | CARTE | ESPÈCES
@@ -107,6 +110,44 @@ public class SocieteResource {
         return entity;
     }
 
+    @POST
+    @Path("/resilier")
+    @Transactional
+    public SocieteEntity resilier() {
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null) {
+            throw new WebApplicationException("La société n'est pas trouvée", 404);
+        }
+        if (entity.abonnementResilie) {
+            throw new WebApplicationException("L'abonnement est déjà résilié", 400);
+        }
+
+        entity.abonnementResilie = true;
+        entity.abonnementResiliationDate = Timestamp.from(Instant.now());
+        initAbonnement(entity);
+
+        return entity;
+    }
+
+    @POST
+    @Path("/reactiver")
+    @Transactional
+    public SocieteEntity reactiver() {
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null) {
+            throw new WebApplicationException("La société n'est pas trouvée", 404);
+        }
+        if (!entity.abonnementResilie) {
+            throw new WebApplicationException("L'abonnement n'est pas résilié", 400);
+        }
+
+        entity.abonnementResilie = false;
+        entity.abonnementResiliationDate = null;
+        initAbonnement(entity);
+
+        return entity;
+    }
+
     /**
      * Renseigne, si nécessaire, les informations d'abonnement du compte :
      * date d'activation = date de création du compte, montant d'activation de 350 €,
@@ -129,6 +170,30 @@ public class SocieteResource {
         if (entity.abonnementProchainPaiementMontant == null) {
             entity.abonnementProchainPaiementMontant = MONTANT_ABONNEMENT_MENSUEL;
         }
+
+        if (entity.abonnementResilie && entity.abonnementResiliationDate != null) {
+            entity.abonnementBlocageDate = Timestamp.valueOf(
+                entity.abonnementResiliationDate.toLocalDateTime().plusDays(DUREE_RETRACTATION_JOURS));
+            entity.accesBloque = Timestamp.from(Instant.now()).after(entity.abonnementBlocageDate);
+        } else {
+            entity.abonnementBlocageDate = null;
+            entity.accesBloque = false;
+        }
+    }
+
+    /**
+     * Indique si les accès (login) doivent être bloqués : abonnement résilié depuis plus
+     * longtemps que le délai de rétractation ({@link #DUREE_RETRACTATION_JOURS} jours).
+     * Utilisé par les points d'authentification (chantier, technicien, client).
+     */
+    public static boolean accesBloque() {
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null || !entity.abonnementResilie || entity.abonnementResiliationDate == null) {
+            return false;
+        }
+        Timestamp dateBlocage = Timestamp.valueOf(
+            entity.abonnementResiliationDate.toLocalDateTime().plusDays(DUREE_RETRACTATION_JOURS));
+        return Timestamp.from(Instant.now()).after(dateBlocage);
     }
 
 }
