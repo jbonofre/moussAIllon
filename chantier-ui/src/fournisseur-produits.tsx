@@ -395,12 +395,12 @@ const FournisseurProduits = ({
           },
         ]),
     { title: "Référence fournisseur", dataIndex: "reference", key: "reference", sorter: (a, b) => (a.reference || "").localeCompare(b.reference || ""), render: (v: string) => v || "-" },
-    { title: "Prix Achat HT", dataIndex: "prixAchatHT", key: "prixAchatHT", sorter: (a, b) => a.prixAchatHT - b.prixAchatHT },
+    { title: "Prix Achat HT", dataIndex: "prixAchatHT", key: "prixAchatHT", sorter: (a, b) => a.prixAchatHT - b.prixAchatHT, render: (v: number) => `${(v ?? 0).toFixed(2)} €` },
     { title: "TVA (%)", dataIndex: "tva", key: "tva", sorter: (a, b) => (a.tva ?? 0) - (b.tva ?? 0) },
-    { title: "Montant TVA", dataIndex: "montantTVA", key: "montantTVA", sorter: (a, b) => (a.montantTVA ?? 0) - (b.montantTVA ?? 0) },
-    { title: "Prix Achat TTC", dataIndex: "prixAchatTTC", key: "prixAchatTTC", sorter: (a, b) => (a.prixAchatTTC ?? 0) - (b.prixAchatTTC ?? 0) },
-    { title: "Port forfaitaire", dataIndex: "portForfaitaire", key: "portForfaitaire", sorter: (a, b) => (a.portForfaitaire ?? 0) - (b.portForfaitaire ?? 0) },
-    { title: "Port/unité", dataIndex: "portParUnite", key: "portParUnite", sorter: (a, b) => (a.portParUnite ?? 0) - (b.portParUnite ?? 0) },
+    { title: "Montant TVA", dataIndex: "montantTVA", key: "montantTVA", sorter: (a, b) => (a.montantTVA ?? 0) - (b.montantTVA ?? 0), render: (v: number) => `${(v ?? 0).toFixed(2)} €` },
+    { title: "Prix Achat TTC", dataIndex: "prixAchatTTC", key: "prixAchatTTC", sorter: (a, b) => (a.prixAchatTTC ?? 0) - (b.prixAchatTTC ?? 0), render: (v: number) => `${(v ?? 0).toFixed(2)} €` },
+    { title: "Port forfaitaire", dataIndex: "portForfaitaire", key: "portForfaitaire", sorter: (a, b) => (a.portForfaitaire ?? 0) - (b.portForfaitaire ?? 0), render: (v: number) => `${(v ?? 0).toFixed(2)} €` },
+    { title: "Port/unité", dataIndex: "portParUnite", key: "portParUnite", sorter: (a, b) => (a.portParUnite ?? 0) - (b.portParUnite ?? 0), render: (v: number) => `${(v ?? 0).toFixed(2)} €` },
     { title: "Qte min. commande", dataIndex: "nombreMinACommander", key: "nombreMinACommander", sorter: (a, b) => (a.nombreMinACommander ?? 1) - (b.nombreMinACommander ?? 1) },
     {
       title: "Actions",
@@ -463,8 +463,8 @@ const FournisseurProduits = ({
             if ("prixAchatHT" in changed || "tva" in changed) {
               let prixAchatHT = all.prixAchatHT ?? 0;
               let tva = all.tva ?? 20;
-              let montantTVA = prixAchatHT * (tva / 100);
-              let prixAchatTTC = prixAchatHT + montantTVA;
+              let montantTVA = Math.round((prixAchatHT * (tva / 100) + Number.EPSILON) * 100) / 100;
+              let prixAchatTTC = Math.round((prixAchatHT + montantTVA + Number.EPSILON) * 100) / 100;
               form.setFieldsValue({ montantTVA, prixAchatTTC });
             }
             if ("tauxMarge" in changed) {
@@ -563,7 +563,7 @@ const FournisseurProduits = ({
                 name="prixAchatHT"
                 rules={[{ required: true, message: "Prix achat HT requis" }]}
               >
-                <InputNumber min={0} style={{ width: "100%" }} />
+                <InputNumber min={0} step={0.01} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
             <Col span={6}>
@@ -578,14 +578,14 @@ const FournisseurProduits = ({
             </Col>
             <Col span={6}>
               <Form.Item label="Montant TVA (€)" name="montantTVA">
-                <InputNumber min={0} style={{ width: "100%" }} disabled />
+                <InputNumber min={0} step={0.01} style={{ width: "100%" }} disabled />
               </Form.Item>
             </Col>
           </Row>
           <Row gutter={8}>
             <Col span={12}>
               <Form.Item label="Prix Achat TTC (€)" name="prixAchatTTC">
-                <InputNumber min={0} style={{ width: "100%" }} disabled />
+                <InputNumber min={0} step={0.01} style={{ width: "100%" }} disabled />
               </Form.Item>
             </Col>
             <Col span={12}>
@@ -615,12 +615,12 @@ const FournisseurProduits = ({
           <Row gutter={8}>
             <Col span={12}>
               <Form.Item label="Port forfaitaire (€)" name="portForfaitaire">
-                <InputNumber min={0} style={{ width: "100%" }} />
+                <InputNumber min={0} step={0.01} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
             <Col span={12}>
               <Form.Item label="Port par unité (€)" name="portParUnite">
-                <InputNumber min={0} style={{ width: "100%" }} />
+                <InputNumber min={0} step={0.01} style={{ width: "100%" }} />
               </Form.Item>
             </Col>
           </Row>
