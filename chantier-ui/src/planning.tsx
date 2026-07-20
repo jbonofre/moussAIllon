@@ -1122,7 +1122,7 @@ export default function Planning() {
                                     const isToday = dayStr === todayIso();
                                     const isSelected = dayStr === selectedDate;
                                     // Regroupe les événements par technicien (puis par heure de début) afin de
-                                    // pouvoir afficher une ligne de séparation visuelle entre les techniciens.
+                                    // pouvoir aligner les tâches de chaque technicien sur une même ligne.
                                     const dayEvts = weekEvents
                                         .filter((ev) => dayjs(ev.startTime).format('YYYY-MM-DD') === dayStr)
                                         .sort((a, b) => {
@@ -1131,6 +1131,43 @@ export default function Planning() {
                                             if (ta !== tb) return ta - tb;
                                             return dayjs(a.startTime).valueOf() - dayjs(b.startTime).valueOf();
                                         });
+
+                                    // Attribue à chaque technicien un couloir horizontal dédié pour la journée :
+                                    // toutes ses tâches s'alignent sur la même ligne, positionnées par heure de
+                                    // début. En cas de chevauchement horaire pour un même technicien (rare), la
+                                    // tâche bascule sur une sous-ligne libre de son couloir plutôt que d'en créer
+                                    // une nouvelle pour chaque tâche.
+                                    const rowByEventId = new Map<string, number>();
+                                    const rowTechnicien = new Map<number, number | undefined>();
+                                    const techBaseRow = new Map<number, number>();
+                                    const techLaneEnds = new Map<number, number[]>();
+                                    let totalRows = 0;
+                                    dayEvts.forEach((ev) => {
+                                        const tid = ev.technicienId ?? -1;
+                                        const start = dayjs(ev.startTime).valueOf();
+                                        const dur = ev.dureePlanifiee ?? ev.dureeEstimee ?? 1;
+                                        const end = start + dur * 3600000;
+                                        if (!techBaseRow.has(tid)) {
+                                            techBaseRow.set(tid, totalRows);
+                                            techLaneEnds.set(tid, []);
+                                            rowTechnicien.set(totalRows, ev.technicienId);
+                                            totalRows += 1;
+                                        }
+                                        const lanes = techLaneEnds.get(tid)!;
+                                        let laneIdx = lanes.findIndex((laneEnd) => start >= laneEnd);
+                                        if (laneIdx === -1) {
+                                            laneIdx = lanes.length;
+                                            lanes.push(end);
+                                            if (laneIdx > 0) {
+                                                rowTechnicien.set(techBaseRow.get(tid)! + laneIdx, ev.technicienId);
+                                                totalRows += 1;
+                                            }
+                                        } else {
+                                            lanes[laneIdx] = end;
+                                        }
+                                        rowByEventId.set(ev.eventId, techBaseRow.get(tid)! + laneIdx);
+                                    });
+                                    const renderedSeparatorRows = new Set<number>();
 
                                     return (
                                         <React.Fragment key={dayStr}>
@@ -1156,7 +1193,7 @@ export default function Planning() {
                                                     gridColumn: `2 / -1`,
                                                     borderBottom: '1px solid #f0f0f0',
                                                     position: 'relative',
-                                                    minHeight: Math.max(80, dayEvts.length * 28 + 16),
+                                                    minHeight: Math.max(80, totalRows * 28 + 16),
                                                     background: isToday ? '#e6f4ff' : isSelected ? '#f0f5ff' : undefined,
                                                 }}
                                                 onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverDay(dayStr); }}
@@ -1197,7 +1234,8 @@ export default function Planning() {
                                                     <div style={{ position: 'absolute', inset: 0, border: '2px dashed #1677ff', borderRadius: 4, pointerEvents: 'none', zIndex: 5 }} />
                                                 )}
                                                 {/* Events */}
-                                                {dayEvts.map((ev, idx) => {
+                                                {dayEvts.map((ev) => {
+                                                    const row = rowByEventId.get(ev.eventId) ?? 0;
                                                     const start = dayjs(ev.startTime);
                                                     const startHour = start.hour() + start.minute() / 60;
                                                     const baseDuration = ev.dureePlanifiee ?? ev.dureeEstimee ?? 1;
@@ -1217,17 +1255,20 @@ export default function Planning() {
                                                     );
 
                                                     const eventRow = allItems.find((r) => r.key === ev.eventId);
-                                                    const previousEv = idx > 0 ? dayEvts[idx - 1] : null;
-                                                    // Ligne de séparation visuelle entre deux groupes de techniciens
-                                                    // différents pour améliorer la lisibilité du planning.
-                                                    const showTechnicienSeparator = !!previousEv && previousEv.technicienId !== ev.technicienId;
+                                                    // Ligne de séparation visuelle entre deux couloirs de techniciens
+                                                    // différents pour améliorer la lisibilité du planning (affichée une
+                                                    // seule fois par ligne, même si plusieurs tâches y sont alignées).
+                                                    const showTechnicienSeparator = row > 0
+                                                        && rowTechnicien.get(row) !== rowTechnicien.get(row - 1)
+                                                        && !renderedSeparatorRows.has(row);
+                                                    if (showTechnicienSeparator) renderedSeparatorRows.add(row);
                                                     return (
                                                         <React.Fragment key={ev.eventId}>
                                                             {showTechnicienSeparator && (
                                                                 <div
                                                                     style={{
                                                                         position: 'absolute',
-                                                                        top: 4 + idx * 28 - 3,
+                                                                        top: 4 + row * 28 - 3,
                                                                         left: 0,
                                                                         right: 0,
                                                                         height: 2,
@@ -1256,7 +1297,7 @@ export default function Planning() {
                                                                 }}
                                                                 style={{
                                                                     position: 'absolute',
-                                                                    top: 4 + idx * 28,
+                                                                    top: 4 + row * 28,
                                                                     left: `${leftPct}%`,
                                                                     width: `${Math.max(widthPct, 2)}%`,
                                                                     height: 24,
