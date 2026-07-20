@@ -467,6 +467,19 @@ const FournisseurProduits = ({
               let prixAchatTTC = prixAchatHT + montantTVA;
               form.setFieldsValue({ montantTVA, prixAchatTTC });
             }
+            if ("tauxMarge" in changed) {
+              const tauxMarge = changed.tauxMarge ?? 0;
+              const tauxMarque = tauxMarge + 100 !== 0
+                ? Math.round(((tauxMarge / (100 + tauxMarge)) * 100 + Number.EPSILON) * 100) / 100
+                : 0;
+              form.setFieldsValue({ tauxMarque });
+            } else if ("tauxMarque" in changed) {
+              const tauxMarque = changed.tauxMarque ?? 0;
+              const tauxMarge = 100 - tauxMarque !== 0
+                ? Math.round(((tauxMarque / (100 - tauxMarque)) * 100 + Number.EPSILON) * 100) / 100
+                : 0;
+              form.setFieldsValue({ tauxMarge });
+            }
             if ("fournisseurId" in changed && isProduitMode && !(editing && editing.id)) {
               const selected = fournisseurs.find(f => f.id === changed.fournisseurId);
               if (selected) {
