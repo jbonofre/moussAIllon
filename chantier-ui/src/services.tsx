@@ -294,27 +294,37 @@ export default function Services() {
 
     const onValuesChange = (changedValues: Partial<ServiceFormValues>, allValues: ServiceFormValues) => {
         if (changedValues.mainOeuvres !== undefined) {
-            const currentLines = allValues.mainOeuvres || [];
+            let currentLines = (allValues.mainOeuvres || []).map((item: any) => (
+                item?.mainOeuvreId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentLines.length === 0) {
                 form.setFieldValue('mainOeuvres', [{}]);
                 return;
             }
             const lastLine = currentLines[currentLines.length - 1];
             if (!!lastLine?.mainOeuvreId && (lastLine?.quantite || 0) > 0) {
-                form.setFieldValue('mainOeuvres', [...currentLines, {}]);
+                currentLines = [...currentLines, {}];
             }
+            form.setFieldValue('mainOeuvres', currentLines);
         }
 
         if (changedValues.produits !== undefined) {
-            const currentLines = allValues.produits || [];
+            let currentLines = (allValues.produits || []).map((item: any) => (
+                item?.produitId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentLines.length === 0) {
                 form.setFieldValue('produits', [{}]);
                 return;
             }
             const lastLine = currentLines[currentLines.length - 1];
             if (!!lastLine?.produitId && (lastLine?.quantite || 0) > 0) {
-                form.setFieldValue('produits', [...currentLines, {}]);
+                currentLines = [...currentLines, {}];
             }
+            form.setFieldValue('produits', currentLines);
         }
 
         // Recalculate totals when lines change

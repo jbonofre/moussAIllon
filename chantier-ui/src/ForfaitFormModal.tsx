@@ -345,27 +345,37 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
         setFormDirty(true);
 
         if (changedValues.produits !== undefined) {
-            const lines = allValues.produits || [];
+            let lines = (allValues.produits || []).map((item: any) => (
+                item?.produitId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (lines.length === 0) {
-                form.setFieldValue('produits', [{}]);
+                lines = [{}];
             } else {
                 const last = lines[lines.length - 1];
                 if (!!last?.produitId && (last?.quantite || 0) > 0) {
-                    form.setFieldValue('produits', [...lines, {}]);
+                    lines = [...lines, {}];
                 }
             }
+            form.setFieldValue('produits', lines);
         }
 
         if (changedValues.mainOeuvres !== undefined) {
-            const lines = allValues.mainOeuvres || [];
+            let lines = (allValues.mainOeuvres || []).map((item: any) => (
+                item?.mainOeuvreId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (lines.length === 0) {
-                form.setFieldValue('mainOeuvres', [{}]);
+                lines = [{}];
             } else {
                 const last = lines[lines.length - 1];
                 if (!!last?.mainOeuvreId && (last?.quantite || 0) > 0) {
-                    form.setFieldValue('mainOeuvres', [...lines, {}]);
+                    lines = [...lines, {}];
                 }
             }
+            form.setFieldValue('mainOeuvres', lines);
         }
 
         if (changedValues.taches !== undefined) {

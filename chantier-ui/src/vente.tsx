@@ -1252,26 +1252,36 @@ export default function Vente() {
         setNewServiceFormDirty(true);
         // Auto-add new line when last line is complete
         if (changedValues.mainOeuvres !== undefined) {
-            const currentLines = newServiceForm.getFieldValue('mainOeuvres') || [];
+            let currentLines = (newServiceForm.getFieldValue('mainOeuvres') || []).map((item: any) => (
+                item?.mainOeuvreId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentLines.length === 0) {
                 newServiceForm.setFieldValue('mainOeuvres', [{}]);
                 return;
             }
             const lastLine = currentLines[currentLines.length - 1];
             if (!!lastLine?.mainOeuvreId && (lastLine?.quantite || 0) > 0) {
-                newServiceForm.setFieldValue('mainOeuvres', [...currentLines, {}]);
+                currentLines = [...currentLines, {}];
             }
+            newServiceForm.setFieldValue('mainOeuvres', currentLines);
         }
         if (changedValues.produits !== undefined) {
-            const currentLines = newServiceForm.getFieldValue('produits') || [];
+            let currentLines = (newServiceForm.getFieldValue('produits') || []).map((item: any) => (
+                item?.produitId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentLines.length === 0) {
                 newServiceForm.setFieldValue('produits', [{}]);
                 return;
             }
             const lastLine = currentLines[currentLines.length - 1];
             if (!!lastLine?.produitId && (lastLine?.quantite || 0) > 0) {
-                newServiceForm.setFieldValue('produits', [...currentLines, {}]);
+                currentLines = [...currentLines, {}];
             }
+            newServiceForm.setFieldValue('produits', currentLines);
         }
         if (changedValues.taches !== undefined) {
             const currentLines = newServiceForm.getFieldValue('taches') || [];
@@ -1406,26 +1416,36 @@ export default function Vente() {
         setNewForfaitFormDirty(true);
         // Auto-add new line when last line is complete
         if (changedValues.produits !== undefined) {
-            const currentLines = newForfaitForm.getFieldValue('produits') || [];
+            let currentLines = (newForfaitForm.getFieldValue('produits') || []).map((item: any) => (
+                item?.produitId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentLines.length === 0) {
-                newForfaitForm.setFieldValue('produits', [{}]);
+                currentLines = [{}];
             } else {
                 const lastLine = currentLines[currentLines.length - 1];
                 if (!!lastLine?.produitId && (lastLine?.quantite || 0) > 0) {
-                    newForfaitForm.setFieldValue('produits', [...currentLines, {}]);
+                    currentLines = [...currentLines, {}];
                 }
             }
+            newForfaitForm.setFieldValue('produits', currentLines);
         }
         if (changedValues.mainOeuvres !== undefined) {
-            const currentLines = newForfaitForm.getFieldValue('mainOeuvres') || [];
+            let currentLines = (newForfaitForm.getFieldValue('mainOeuvres') || []).map((item: any) => (
+                item?.mainOeuvreId && (item.quantite === undefined || item.quantite === null)
+                    ? { ...item, quantite: 1 }
+                    : item
+            ));
             if (currentLines.length === 0) {
-                newForfaitForm.setFieldValue('mainOeuvres', [{}]);
+                currentLines = [{}];
             } else {
                 const lastLine = currentLines[currentLines.length - 1];
                 if (!!lastLine?.mainOeuvreId && (lastLine?.quantite || 0) > 0) {
-                    newForfaitForm.setFieldValue('mainOeuvres', [...currentLines, {}]);
+                    currentLines = [...currentLines, {}];
                 }
             }
+            newForfaitForm.setFieldValue('mainOeuvres', currentLines);
         }
         if (changedValues.taches !== undefined) {
             const currentLines = newForfaitForm.getFieldValue('taches') || [];
