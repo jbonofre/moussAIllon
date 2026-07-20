@@ -4,6 +4,7 @@ import {
     AutoComplete,
     Button,
     Card,
+    Checkbox,
     Col,
     Descriptions,
     Divider,
@@ -28,6 +29,7 @@ import {
 import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
+import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
@@ -758,6 +760,8 @@ export default function Vente() {
     const [newRemorqueFormDirty, setNewRemorqueFormDirty] = useState(false);
     const [bpaModalVisible, setBpaModalVisible] = useState(false);
     const [bpaPendingCallback, setBpaPendingCallback] = useState<(() => void) | null>(null);
+    const [cgvAccepted, setCgvAccepted] = useState(false);
+    const [cgvModalOpen, setCgvModalOpen] = useState(false);
     const signatureCanvasRef = useRef<HTMLCanvasElement | null>(null);
     const signatureDrawingRef = useRef(false);
     const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
@@ -1795,12 +1799,17 @@ export default function Vente() {
 
     const requestBonPourAccord = (onConfirm: () => void) => {
         signatureDrawingRef.current = false;
+        setCgvAccepted(false);
         setBpaPendingCallback(() => onConfirm);
         setBpaModalVisible(true);
         initSignatureCanvas();
     };
 
     const handleBpaConfirm = () => {
+        if (!cgvAccepted) {
+            message.warning('Vous devez accepter les conditions générales de vente pour continuer');
+            return;
+        }
         if (!signatureDrawingRef.current) {
             message.warning('La signature est requise pour valider le bon pour accord');
             return;
@@ -4579,7 +4588,7 @@ export default function Vente() {
                     <Button key="cancel" onClick={handleBpaCancel}>
                         Fermer
                     </Button>,
-                    <Button key="confirm" type="primary" onClick={handleBpaConfirm}>
+                    <Button key="confirm" type="primary" disabled={!cgvAccepted} onClick={handleBpaConfirm}>
                         Valider le bon pour accord
                     </Button>
                 ]}
@@ -4636,6 +4645,33 @@ export default function Vente() {
                         touchAction: 'none',
                     }}
                 />
+                <div style={{ marginTop: 12 }}>
+                    <Checkbox checked={cgvAccepted} onChange={(e) => setCgvAccepted(e.target.checked)}>
+                        J'ai lu et j'accepte les{' '}
+                        <a onClick={(e) => { e.preventDefault(); setCgvModalOpen(true); }} href="#">
+                            conditions générales de vente
+                        </a>
+                    </Checkbox>
+                </div>
+            </Modal>
+
+            <Modal
+                title={CGV_TITLE}
+                open={cgvModalOpen}
+                onCancel={() => setCgvModalOpen(false)}
+                footer={[
+                    <Button key="close" type="primary" onClick={() => setCgvModalOpen(false)}>
+                        Fermer
+                    </Button>,
+                ]}
+                width={700}
+            >
+                {CGV_SECTIONS.map((section) => (
+                    <div key={section.titre} style={{ marginBottom: 12 }}>
+                        <div style={{ fontWeight: 500 }}>{section.titre}</div>
+                        <div>{section.texte}</div>
+                    </div>
+                ))}
             </Modal>
 
             {/* Modal génération avoir */}
