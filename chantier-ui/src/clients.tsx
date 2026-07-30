@@ -288,6 +288,13 @@ function Clients() {
       },
     },
     {
+      title: "Délai paiement moyen",
+      dataIndex: "delaiPaiementMoyenJours",
+      key: "delaiPaiementMoyenJours",
+      sorter: (a, b) => (a.delaiPaiementMoyenJours ?? -1) - (b.delaiPaiementMoyenJours ?? -1),
+      render: (val) => (val != null ? `${val.toFixed(1)} j` : <span style={{ color: "#bfbfbf" }}>-</span>),
+    },
+    {
       title: "Bateau(x)",
       dataIndex: "nombreBateaux",
       key: "nombreBateaux",

@@ -32,6 +32,7 @@ public class ClientResource {
             c.motDePasse = null;
             c.soldeDu = computeSoldeDu(c.id);
             c.nombreBateaux = computeNombreBateaux(c.id);
+            c.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(c.id);
         });
         return clients;
     }
@@ -53,6 +54,7 @@ public class ClientResource {
             c.motDePasse = null;
             c.soldeDu = computeSoldeDu(c.id);
             c.nombreBateaux = computeNombreBateaux(c.id);
+            c.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(c.id);
         });
         return clients;
     }
@@ -84,6 +86,7 @@ public class ClientResource {
         entity.motDePasse = null;
         entity.soldeDu = computeSoldeDu(id);
         entity.nombreBateaux = computeNombreBateaux(id);
+        entity.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(id);
         return entity;
     }
 
@@ -134,6 +137,7 @@ public class ClientResource {
         entity.motDePasse = null;
         entity.soldeDu = computeSoldeDu(id);
         entity.nombreBateaux = computeNombreBateaux(id);
+        entity.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(id);
         return entity;
     }
 
@@ -150,6 +154,29 @@ public class ClientResource {
             .createQuery("SELECT COUNT(b) FROM BateauClientEntity b JOIN b.proprietaires p WHERE p.id = :clientId", Long.class)
             .setParameter("clientId", clientId)
             .getSingleResult();
+    }
+
+    /**
+     * Délai moyen, en jours, entre l'émission d'une facture (dateFacturePrete) et son
+     * paiement (dateFacturePayee), sur les factures payées de ce client. Retourne null
+     * si le client n'a aucune facture payée avec ces deux dates renseignées.
+     */
+    private Double computeDelaiPaiementMoyenJours(long clientId) {
+        List<VenteEntity> payees = VenteEntity.list(
+            "client.id = ?1 and status = ?2 and dateFacturePrete is not null and dateFacturePayee is not null",
+            clientId, VenteEntity.Status.FACTURE_PAYEE
+        );
+        return averageDelaiPaiementJours(payees);
+    }
+
+    static Double averageDelaiPaiementJours(List<VenteEntity> ventesPayees) {
+        if (ventesPayees.isEmpty()) {
+            return null;
+        }
+        double totalJours = ventesPayees.stream()
+            .mapToDouble(v -> (v.dateFacturePayee.getTime() - v.dateFacturePrete.getTime()) / 86400000.0)
+            .sum();
+        return totalJours / ventesPayees.size();
     }
 
     @POST
