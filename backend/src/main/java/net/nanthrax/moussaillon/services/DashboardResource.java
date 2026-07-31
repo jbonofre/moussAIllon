@@ -168,6 +168,12 @@ public class DashboardResource {
                 + servicesDuMois.stream().filter(vs -> vs.status == VenteServiceEntity.Status.TERMINEE).count();
         data.contratsMaintenancePct = itemsTotal > 0 ? (int) Math.round((double) itemsTermines / itemsTotal * 100) : 0;
 
+        // Délai de paiement moyen (tous clients), en jours, entre émission et paiement de facture
+        List<VenteEntity> facturesPayees = VenteEntity.list(
+                "status = ?1 and dateFacturePrete is not null and dateFacturePayee is not null",
+                VenteEntity.Status.FACTURE_PAYEE);
+        data.delaiPaiementMoyenJours = ClientResource.averageDelaiPaiementJours(facturesPayees);
+
         return data;
     }
 
@@ -194,6 +200,7 @@ public class DashboardResource {
         public int bateauxDansLeChantier;
         public int bateauxEntreesSemaine;
         public int bateauxEnAttenteIntervention;
+        public Double delaiPaiementMoyenJours;
     }
 
     public static class InterventionRow {

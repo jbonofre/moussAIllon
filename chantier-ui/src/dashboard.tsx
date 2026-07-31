@@ -37,6 +37,7 @@ type DashboardData = {
     bateauxDansLeChantier: number;
     bateauxEntreesSemaine: number;
     bateauxEnAttenteIntervention: number;
+    delaiPaiementMoyenJours: number | null;
 };
 
 type PlanningWarning = {
@@ -412,7 +413,7 @@ export default function Dashboard({ user }: { user?: string }) {
             </Row>
 
             <Row gutter={[16, 16]}>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={12} lg={6}>
                     <Card hoverable onClick={() => navigate('/clients/bateaux')} style={{ borderTop: '3px solid #722ed1', cursor: 'pointer' }}>
                         <Statistic
                             title="Bateaux dans le chantier"
@@ -422,7 +423,7 @@ export default function Dashboard({ user }: { user?: string }) {
                         />
                     </Card>
                 </Col>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={12} lg={6}>
                     <Card hoverable onClick={() => navigate('/clients/bateaux')} style={{ borderTop: '3px solid #13c2c2', cursor: 'pointer' }}>
                         <Statistic
                             title="Entrées cette semaine"
@@ -431,12 +432,24 @@ export default function Dashboard({ user }: { user?: string }) {
                         />
                     </Card>
                 </Col>
-                <Col xs={24} sm={8}>
+                <Col xs={24} sm={12} lg={6}>
                     <Card hoverable onClick={() => navigate('/prestations')} style={{ borderTop: '3px solid #fa8c16', cursor: 'pointer' }}>
                         <Statistic
                             title="En attente d'intervention"
                             value={data.bateauxEnAttenteIntervention}
                             valueStyle={{ color: '#d46b08', fontWeight: 700 }}
+                        />
+                    </Card>
+                </Col>
+                <Col xs={24} sm={12} lg={6}>
+                    <Card hoverable onClick={() => navigate('/clients')} style={{ borderTop: '3px solid #eb2f96', cursor: 'pointer' }}>
+                        <Statistic
+                            title="Délai de paiement moyen"
+                            value={data.delaiPaiementMoyenJours ?? undefined}
+                            precision={1}
+                            suffix="j"
+                            valueStyle={{ color: '#c41d7f', fontWeight: 700 }}
+                            formatter={data.delaiPaiementMoyenJours == null ? () => '-' : undefined}
                         />
                     </Card>
                 </Col>

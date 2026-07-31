@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
 public class ClientResourceTest {
@@ -111,5 +112,66 @@ public class ClientResourceTest {
             .when().get("/clients/" + id)
             .then()
             .statusCode(404);
+    }
+
+    @Test
+    void testDelaiPaiementMoyenSansFacturePayee() {
+        int clientId = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"SansFacturePayee\",\"type\":\"Particulier\"}")
+            .when().post("/clients")
+            .then()
+            .statusCode(200)
+            .extract().path("id");
+
+        given()
+            .when().get("/clients/" + clientId)
+            .then()
+            .statusCode(200)
+            .body("delaiPaiementMoyenJours", nullValue());
+    }
+
+    @Test
+    void testDelaiPaiementMoyenAvecFacturesPayees() {
+        int clientId = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"AvecFacturesPayees\",\"type\":\"Particulier\"}")
+            .when().post("/clients")
+            .then()
+            .statusCode(200)
+            .extract().path("id");
+
+        // Facture emise le 01/01, payee le 05/01 : delai de 4 jours.
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PAYEE\",\"client\":{\"id\":" + clientId + "},"
+                + "\"dateFacturePrete\":\"2026-01-01\",\"dateFacturePayee\":\"2026-01-05\",\"prixVenteTTC\":100.0}")
+            .when().post("/ventes")
+            .then()
+            .statusCode(201);
+
+        // Facture emise le 01/02, payee le 09/02 : delai de 8 jours.
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PAYEE\",\"client\":{\"id\":" + clientId + "},"
+                + "\"dateFacturePrete\":\"2026-02-01\",\"dateFacturePayee\":\"2026-02-09\",\"prixVenteTTC\":200.0}")
+            .when().post("/ventes")
+            .then()
+            .statusCode(201);
+
+        // Facture payee mais sans date d'emission : ne doit pas entrer dans la moyenne.
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PAYEE\",\"client\":{\"id\":" + clientId + "},\"prixVenteTTC\":50.0}")
+            .when().post("/ventes")
+            .then()
+            .statusCode(201);
+
+        Number delai = given()
+            .when().get("/clients/" + clientId)
+            .then()
+            .statusCode(200)
+            .extract().path("delaiPaiementMoyenJours");
+        assertEquals(6.0, delai.doubleValue(), 0.01); // (4 + 8) / 2
     }
 }

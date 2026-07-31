@@ -58,4 +58,9 @@ public class ClientEntity extends PanacheEntity {
     @jakarta.persistence.Transient
     public Long nombreBateaux;
 
+    // Délai moyen (en jours) entre la date d'émission de la facture (dateFacturePrete)
+    // et sa date de paiement (dateFacturePayee), sur les factures payées de ce client.
+    @jakarta.persistence.Transient
+    public Double delaiPaiementMoyenJours;
+
 }
