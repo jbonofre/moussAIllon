@@ -3,6 +3,8 @@ package net.nanthrax.moussaillon.services;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -173,5 +175,59 @@ public class ClientResourceTest {
             .statusCode(200)
             .extract().path("delaiPaiementMoyenJours");
         assertEquals(6.0, delai.doubleValue(), 0.01); // (4 + 8) / 2
+    }
+
+    @Test
+    void testImporterClientsCsv() {
+        String csv = "Code (tiers);Nom;E-mail (facturation);Adresse 1 (facturation);Code postal (facturation);Ville (facturation);Code Pays (facturation);Téléphone fixe (facturation);Téléphone portable (facturation);Fax (facturation)\r\n"
+            + "TST001;Client Import Test;import@test.com;1 rue du Test;29000;QUIMPER;FR;0298000000;;\r\n";
+
+        given()
+            .multiPart("file", "clients.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(200)
+            .body("total", is(1))
+            .body("created", is(1))
+            .body("updated", is(0))
+            .body("errors", is(0));
+
+        given()
+            .queryParam("q", "Client Import Test")
+            .when().get("/clients/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].nom", is("Client Import Test"))
+            .body("[0].email", is("import@test.com"))
+            .body("[0].adresse", is("1 rue du Test\n29000 QUIMPER"));
+
+        // Ré-importer le même fichier met à jour le client existant (retrouvé par Code tiers)
+        // au lieu d'en créer un doublon.
+        given()
+            .multiPart("file", "clients.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(0))
+            .body("updated", is(1));
+
+        given()
+            .queryParam("q", "Client Import Test")
+            .when().get("/clients/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1));
+    }
+
+    @Test
+    void testImporterClientsCsvColonneManquante() {
+        String csv = "Colonne;Autre\r\nValeur;Valeur2\r\n";
+
+        given()
+            .multiPart("file", "invalide.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(400);
     }
 }

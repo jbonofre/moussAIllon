@@ -3,9 +3,12 @@ package net.nanthrax.moussaillon.services;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItem;
 
 @QuarkusTest
 public class ProduitCatalogueResourceTest {
@@ -167,5 +170,95 @@ public class ProduitCatalogueResourceTest {
             .when().get("/catalogue/produits/" + id)
             .then()
             .statusCode(404);
+    }
+
+    @Test
+    void testImporterProduitsCsv() {
+        String csv = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n"
+            + "IMP001,Produit Import Test,Bien,\"100,00000\",,\"120,00000\",1234567890123,\"5,00\",\"5,00\",Actif,Coché\r\n"
+            + "IMP002,Produit Bloqué,Bien,\"10,00000\",,\"12,00000\",,\"0,00\",\"0,00\",Bloqué,Coché\r\n";
+
+        given()
+            .multiPart("file", "produits.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("total", is(2))
+            .body("created", is(1))
+            .body("skipped", is(1))
+            .body("errors", is(0));
+
+        given()
+            .queryParam("q", "Produit Import Test")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].nom", is("Produit Import Test"))
+            .body("[0].ref", is("IMP001"))
+            .body("[0].prixVenteHT", is(100.0f))
+            .body("[0].prixVenteTTC", is(120.0f))
+            .body("[0].tva", is(20.0f))
+            .body("[0].stock", is(5))
+            .body("[0].refs", hasItem("1234567890123"));
+
+        given()
+            .queryParam("q", "Produit Bloqu")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(0));
+
+        // Ré-importer met à jour le produit existant (retrouvé par Code article) sans le dupliquer.
+        String csvMaj = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n"
+            + "IMP001,Produit Import Test,Bien,\"90,00000\",,\"108,00000\",1234567890123,\"3,00\",\"3,00\",Actif,Coché\r\n";
+        given()
+            .multiPart("file", "produits.csv", csvMaj.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(0))
+            .body("updated", is(1));
+
+        given()
+            .queryParam("q", "Produit Import Test")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].stock", is(3));
+    }
+
+    @Test
+    void testImporterProduitsCsvLibellesEnDoublon() {
+        String csv = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n"
+            + "DUP001,VIS,Bien,\"1,00000\",,\"1,20000\",,\"0,00\",\"0,00\",Actif,Coché\r\n"
+            + "DUP002,VIS,Bien,\"2,00000\",,\"2,40000\",,\"0,00\",\"0,00\",Actif,Coché\r\n";
+
+        given()
+            .multiPart("file", "produits.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(2))
+            .body("errors", is(0));
+
+        given()
+            .queryParam("q", "VIS")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(2));
+    }
+
+    @Test
+    void testImporterProduitsCsvColonneManquante() {
+        String csv = "Colonne;Autre\r\nValeur;Valeur2\r\n";
+
+        given()
+            .multiPart("file", "invalide.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(400);
     }
 }

@@ -17,6 +17,9 @@ public class ClientEntity extends PanacheEntity {
     @Column(nullable = false)
     public String nom;
 
+    // Code tiers dans le logiciel source (ex. EBP), utilisé pour retrouver le client lors d'un ré-import.
+    public String codeTiers;
+
     @Column(nullable = false)
     public String type;
 

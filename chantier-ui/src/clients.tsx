@@ -43,6 +43,7 @@ import ClientsAvoirs from "./clients-avoirs.tsx";
 import DocumentUpload from "./DocumentUpload.tsx";
 import PrestationsList from "./PrestationsList.tsx";
 import HistoriqueOperations from "./historique-operations.tsx";
+import ImportCsvButton from "./ImportCsvButton.tsx";
 
 const { Option } = Select;
 const { Search } = Input;
@@ -354,6 +355,7 @@ function Clients() {
           }}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
+        <ImportCsvButton endpoint="/clients/import" label="Importer des clients (CSV)" onImported={() => fetchClients()} />
       </Space>
       <Spin spinning={loading}>
         <Table

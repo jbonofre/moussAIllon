@@ -12,9 +12,15 @@ import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.sql.Timestamp;
 import java.util.List;
+import java.util.Map;
 
 @Path("/clients")
 @ApplicationScoped
@@ -74,6 +80,99 @@ public class ClientResource {
         client.motDePasse = null;
         client.soldeDu = 0.0;
         return client;
+    }
+
+    @POST
+    @Path("/import")
+    @Transactional
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    public ImportResult importCsv(@RestForm("file") FileUpload file) throws IOException {
+        ImportResult result = new ImportResult();
+        if (file == null) {
+            throw new WebApplicationException("Aucun fichier reçu", 400);
+        }
+
+        List<String> lines = Files.readAllLines(file.uploadedFile(), StandardCharsets.ISO_8859_1);
+        if (lines.isEmpty()) {
+            return result;
+        }
+
+        Map<String, Integer> headers = CsvUtils.indexHeaders(CsvUtils.parseLine(lines.get(0), ';'));
+        if (!headers.containsKey("Nom")) {
+            throw new WebApplicationException("Fichier CSV invalide : colonne 'Nom' manquante", 400);
+        }
+
+        for (int i = 1; i < lines.size(); i++) {
+            String line = lines.get(i);
+            if (line.isBlank()) {
+                continue;
+            }
+            result.total++;
+            try {
+                String[] cols = CsvUtils.parseLine(line, ';');
+                String nom = CsvUtils.get(cols, headers, "Nom");
+                if (nom == null) {
+                    throw new IllegalArgumentException("Nom manquant");
+                }
+                String codeTiers = CsvUtils.get(cols, headers, "Code (tiers)");
+
+                ClientEntity entity = null;
+                if (codeTiers != null) {
+                    entity = ClientEntity.find("codeTiers = ?1", codeTiers).firstResult();
+                }
+                boolean isNew = entity == null;
+                if (isNew) {
+                    entity = new ClientEntity();
+                    entity.type = "PARTICULIER";
+                    entity.dateCreation = new Timestamp(System.currentTimeMillis());
+                    entity.codeTiers = codeTiers;
+                }
+                entity.nom = nom;
+
+                String email = CsvUtils.get(cols, headers, "E-mail (facturation)");
+                if (email != null) {
+                    entity.email = email;
+                }
+
+                String adresse1 = CsvUtils.get(cols, headers, "Adresse 1 (facturation)");
+                String codePostal = CsvUtils.get(cols, headers, "Code postal (facturation)");
+                String ville = CsvUtils.get(cols, headers, "Ville (facturation)");
+                StringBuilder adresse = new StringBuilder();
+                if (adresse1 != null) {
+                    adresse.append(adresse1);
+                }
+                String codePostalVille = ((codePostal != null ? codePostal : "") + " " + (ville != null ? ville : "")).trim();
+                if (!codePostalVille.isEmpty()) {
+                    if (adresse.length() > 0) {
+                        adresse.append("\n");
+                    }
+                    adresse.append(codePostalVille);
+                }
+                if (adresse.length() > 0) {
+                    entity.adresse = adresse.toString();
+                }
+
+                String telephoneFixe = CsvUtils.get(cols, headers, "Téléphone fixe (facturation)");
+                String telephonePortable = CsvUtils.get(cols, headers, "Téléphone portable (facturation)");
+                if (telephoneFixe != null) {
+                    entity.telephone = telephoneFixe;
+                } else if (telephonePortable != null) {
+                    entity.telephone = telephonePortable;
+                }
+
+                if (isNew) {
+                    entity.persist();
+                    result.created++;
+                } else {
+                    result.updated++;
+                }
+            } catch (Exception e) {
+                result.errors++;
+                result.errorDetails.add("Ligne " + (i + 1) + " : " + e.getMessage());
+            }
+        }
+
+        return result;
     }
 
     @GET
