@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.Matchers.empty;
 
 @QuarkusTest
 public class ClientPortalResourceTest {
@@ -59,6 +60,24 @@ public class ClientPortalResourceTest {
             .statusCode(200)
             .body("nom", is("Dupont"))
             .body("motDePasse", nullValue());
+    }
+
+    @Test
+    void testObtenirSociete() {
+        // Le portail client ne doit exposer que les champs nécessaires à l'impression
+        // des devis/factures, pas le RIB d'abonnement ni les liens de paiement Stripe/Payplug.
+        given()
+            .when().get("/portal/societe")
+            .then()
+            .statusCode(200)
+            .body("nom", is("MS Plaisance"))
+            .body("siren", is("123456789"))
+            .body("adresse", is("10 quai du Port"))
+            .body("paiements", empty())
+            .body("stripePaymentLinkMensuel", nullValue())
+            .body("stripePaymentLinkAnnuel", nullValue())
+            .body("payplugPaymentLinkMensuel", nullValue())
+            .body("payplugPaymentLinkAnnuel", nullValue());
     }
 
     @Test

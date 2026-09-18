@@ -21,6 +21,7 @@ import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.MoteurClientEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueClientEntity;
+import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 
 @Path("/portal")
@@ -151,6 +152,31 @@ public class ClientPortalResource {
         }
         entity.motDePasse = null;
         return entity;
+    }
+
+    // Ne renvoie que les champs nécessaires à l'impression des devis/factures
+    // (pas le RIB d'abonnement, les liens Stripe/Payplug ni l'historique de paiement de la société).
+    @GET
+    @Path("/societe")
+    public SocieteEntity getSociete() {
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null) {
+            throw new WebApplicationException("La société n'est pas trouvée", Response.Status.NOT_FOUND);
+        }
+        SocieteEntity impression = new SocieteEntity();
+        impression.nom = entity.nom;
+        impression.siren = entity.siren;
+        impression.siret = entity.siret;
+        impression.ape = entity.ape;
+        impression.rcs = entity.rcs;
+        impression.forme = entity.forme;
+        impression.capital = entity.capital;
+        impression.numerotva = entity.numerotva;
+        impression.adresse = entity.adresse;
+        impression.telephone = entity.telephone;
+        impression.email = entity.email;
+        impression.bancaire = entity.bancaire;
+        return impression;
     }
 
     @GET

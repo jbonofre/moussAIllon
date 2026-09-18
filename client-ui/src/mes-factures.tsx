@@ -245,7 +245,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
 
     useEffect(() => {
         api.get<ClientData>(`/portal/clients/${clientId}`).then((res) => setClient(res.data)).catch(() => undefined);
-        api.get<SocieteData>('/societe').then((res) => setSociete(res.data)).catch(() => undefined);
+        api.get<SocieteData>('/portal/societe').then((res) => setSociete(res.data)).catch(() => undefined);
     }, [clientId]);
 
     const initSignatureCanvas = useCallback(() => {
