@@ -4,9 +4,9 @@ import { CheckCircleOutlined, CreditCardOutlined, EyeOutlined, PrinterOutlined }
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
 
-interface ForfaitRef { id: number; nom: string; reference?: string; prixTTC?: number; tva?: number }
-interface ProduitRef { id: number; nom: string; marque?: string; prixVenteTTC?: number; tva?: number }
-interface ServiceRef { id: number; nom: string; prixTTC?: number; tva?: number }
+interface ForfaitRef { id: number; nom: string; reference?: string; prixTTC?: number }
+interface ProduitRef { id: number; nom: string; marque?: string; prixVenteTTC?: number }
+interface ServiceRef { id: number; nom: string; prixTTC?: number }
 
 interface VenteForfaitEntry {
     id?: number;
@@ -141,7 +141,6 @@ interface DocLine {
     designation: string;
     quantite: number;
     prixUnitaire: number;
-    tvaRate?: number;
     remise: number;
     remisePct: number;
     totalTTC: number;
@@ -149,7 +148,11 @@ interface DocLine {
 
 const remisePourcentFacture = (remise: number, puTTC: number, quantite: number) => {
     const brut = puTTC * quantite;
-    return brut > 0 ? Math.round(((remise / brut) * 100 + Number.EPSILON) * 100) / 100 : 0;
+    if (brut <= 0) {
+        return 0;
+    }
+    const pct = Math.round(((remise / brut) * 100 + Number.EPSILON) * 100) / 100;
+    return Math.min(100, Math.max(0, pct));
 };
 
 const buildLines = (vente: VenteEntity): DocLine[] => {
@@ -163,7 +166,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         const remise = vf.remise || 0;
         lines.push({
             key: `vf-${vf.id}`, type: 'Forfait', designation: vf.forfait.nom, quantite: qty,
-            prixUnitaire: pu, tvaRate: vf.forfait.tva,
+            prixUnitaire: pu,
             remise, remisePct: vf.remisePourcentage ?? remisePourcentFacture(remise, pu, qty),
             totalTTC: Math.max(0, pu * qty - remise),
         });
@@ -177,7 +180,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         const remise = vs.remise || 0;
         lines.push({
             key: `vs-${vs.id}`, type: 'Service', designation: vs.service.nom, quantite: qty,
-            prixUnitaire: pu, tvaRate: vs.service.tva,
+            prixUnitaire: pu,
             remise, remisePct: vs.remisePourcentage ?? remisePourcentFacture(remise, pu, qty),
             totalTTC: Math.max(0, pu * qty - remise),
         });
@@ -188,7 +191,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         const pu = f.prixTTC || 0;
         lines.push({
             key: `f-${f.id}-${i}`, type: 'Forfait', designation: f.reference ? `${f.reference} - ${f.nom}` : f.nom,
-            quantite: 1, prixUnitaire: pu, tvaRate: f.tva, remise: 0, remisePct: 0, totalTTC: pu,
+            quantite: 1, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu,
         });
     });
 
@@ -197,7 +200,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         const pu = s.prixTTC || 0;
         lines.push({
             key: `s-${s.id}-${i}`, type: 'Service', designation: s.nom,
-            quantite: 1, prixUnitaire: pu, tvaRate: s.tva, remise: 0, remisePct: 0, totalTTC: pu,
+            quantite: 1, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu,
         });
     });
 
@@ -211,7 +214,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         const pu = produit.prixVenteTTC || 0;
         lines.push({
             key: `p-${id}`, type: 'Produit', designation: produit.marque ? `${produit.nom} (${produit.marque})` : produit.nom,
-            quantite, prixUnitaire: pu, tvaRate: produit.tva, remise: 0, remisePct: 0, totalTTC: pu * quantite,
+            quantite, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu * quantite,
         });
     });
 
@@ -375,15 +378,18 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                     <th class="num">Qté</th>
                     ${showPrices ? '<th class="num">% Rem</th><th class="num">TVA</th><th class="num">P.U. TTC</th><th class="num">Montant TTC</th>' : ''}
                 </tr></thead>
-                <tbody>${lines.map((line) => `
+                <tbody>${lines.map((line) => {
+                    const remisePct = Math.min(100, Math.max(0, line.remisePct));
+                    return `
                     <tr>
                         <td>${escapeHtml(line.type)} — ${escapeHtml(line.designation)}</td>
                         <td class="num">${line.quantite}</td>
-                        ${showPrices ? `<td class="num">${line.remisePct > 0 ? line.remisePct.toFixed(2) : '-'}</td>` : ''}
-                        ${showPrices ? `<td class="num">${line.tvaRate != null ? line.tvaRate.toFixed(2) : (vente.tva != null ? vente.tva.toFixed(2) : '-')}</td>` : ''}
+                        ${showPrices ? `<td class="num">${remisePct > 0 ? remisePct.toFixed(2) : '-'}</td>` : ''}
+                        ${showPrices ? `<td class="num">${vente.tva != null ? vente.tva.toFixed(2) : '-'}</td>` : ''}
                         ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.prixUnitaire))}</td>` : ''}
                         ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.totalTTC))}</td>` : ''}
-                    </tr>`).join('')}
+                    </tr>`;
+                }).join('')}
                 </tbody>
               </table>`
             : '<p>Aucun élément</p>';
@@ -447,6 +453,8 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
             : '';
 
         const legalLine = societe ? [
+            societe.forme || '',
+            societe.siren ? `SIREN : ${societe.siren}` : '',
             societe.siret ? `Siret : ${societe.siret}` : '',
             societe.ape ? `APE : ${societe.ape}` : '',
             societe.rcs ? `RCS : ${societe.rcs}` : '',
