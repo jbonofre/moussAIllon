@@ -1308,7 +1308,10 @@ export default function Comptoir() {
             </div>` : '';
 
         const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
-        const soldeDu = Math.max(0, (vente.prixVenteTTC || 0) - totalPaye);
+        // Une facture déjà marquée payée est considérée soldée même si le détail des
+        // règlements ne couvre pas (encore) le montant total (ex. mode de paiement
+        // renseigné sans ligne de paiement détaillée).
+        const soldeDu = vente.status === 'FACTURE_PAYEE' ? 0 : Math.max(0, (vente.prixVenteTTC || 0) - totalPaye);
         const totalsHtml = buildTotalsHtml({
             remise: vente.remise, montantHT: vente.montantHT, montantTVA: vente.montantTVA,
             montantTTC: vente.montantTTC, prixVenteTTC: vente.prixVenteTTC, soldeDu, isFacture,
