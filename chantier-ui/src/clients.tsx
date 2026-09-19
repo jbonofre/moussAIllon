@@ -19,6 +19,7 @@ import {
   Alert,
   Tabs,
   Collapse,
+  Tooltip,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -239,7 +240,7 @@ function Clients() {
   };
 
   const columns = [
-    { title: "Nom", dataIndex: "nom", key: "nom", sorter: (a, b) => a.nom.localeCompare(b.nom) },
+    { title: "Nom", dataIndex: "nom", key: "nom", width: 250, sorter: (a, b) => a.nom.localeCompare(b.nom) },
     {
       title: "Type",
       dataIndex: "type",
@@ -264,7 +265,7 @@ function Clients() {
       onFilter: (value, record) => record.canalAcquisition === value,
       render: (val) => {
         const opt = canalAcquisitionOptions.find((o) => o.value === val);
-        return opt ? <Space>{opt.icon} {opt.label}</Space> : null;
+        return opt ? <Tooltip title={opt.label}>{opt.icon}</Tooltip> : null;
       },
     },
     { title: "Téléphone", dataIndex: "telephone", key: "telephone", sorter: (a, b) => (a.telephone || '').localeCompare(b.telephone || '') },
@@ -424,13 +425,9 @@ function Clients() {
               </Form.Item>
             </Col>
           </Row>
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
+            <Input />
+          </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="Email" name="email">
