@@ -1,5 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    buildClientBoxHtml,
+    buildDocBoxHtml,
+    buildInvoiceTableHtml,
+    buildLegalLine,
+    buildSocieteBlockHtml,
+    buildTotalsHtml,
+    buildTvaBreakdownHtml,
+    computeRemisePct,
+    INVOICE_PRINT_STYLES,
+    InvoicePrintLine,
+} from './printing/invoiceTemplate.ts';
+import {
     Alert,
     AutoComplete,
     Button,
@@ -40,6 +52,10 @@ interface ClientEntity {
     prenom?: string;
     nom: string;
     email?: string;
+    telephone?: string;
+    adresse?: string;
+    siret?: string;
+    tva?: string;
 }
 
 interface CatalogueMoteurEntity {
@@ -310,6 +326,7 @@ interface SocieteData {
     nom?: string;
     siren?: string;
     siret?: string;
+    ape?: string;
     rcs?: string;
     forme?: string;
     capital?: number;
@@ -2354,47 +2371,62 @@ export default function Vente() {
         }
     };
 
-    const buildDocumentLines = (vente: VenteEntity) => {
+    const buildDocumentLines = (vente: VenteEntity): InvoicePrintLine[] => {
         const lineFromForfait = (vf: VenteForfaitEntity) => {
-            const brut = (vf.forfait?.prixTTC || 0) * (vf.quantite || 1);
+            const puTTC = vf.forfait?.prixTTC || 0;
+            const quantite = vf.quantite || 1;
+            const remise = vf.remise || 0;
+            const brut = puTTC * quantite;
             return {
-                type: 'Forfait', label: vf.forfait?.nom || '', quantite: vf.quantite || 1,
-                remise: vf.remise || 0,
-                totalPrixTTC: Math.max(0, brut - (vf.remise || 0)),
+                type: 'Forfait', label: vf.forfait?.nom || '', quantite,
+                puTTC,
+                remise, remisePct: vf.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
+                totalPrixTTC: Math.max(0, brut - remise),
             };
         };
         const lineFromService = (vs: VenteServiceEntity) => {
-            const brut = (vs.service?.prixTTC || 0) * (vs.quantite || 1);
+            const puTTC = vs.service?.prixTTC || 0;
+            const quantite = vs.quantite || 1;
+            const remise = vs.remise || 0;
+            const brut = puTTC * quantite;
             return {
-                type: 'Service', label: vs.service?.nom || '', quantite: vs.quantite || 1,
-                remise: vs.remise || 0,
-                totalPrixTTC: Math.max(0, brut - (vs.remise || 0)),
+                type: 'Service', label: vs.service?.nom || '', quantite,
+                puTTC,
+                remise, remisePct: vs.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
+                totalPrixTTC: Math.max(0, brut - remise),
             };
         };
         const lineFromProduit = (vp: VenteProduitLigne) => {
             const label = vp.produit ? `${vp.produit.nom}${vp.produit.marque ? ` (${vp.produit.marque})` : ''}` : '';
-            const brut = (vp.produit?.prixVenteTTC || 0) * (vp.quantite || 1);
+            const puTTC = vp.produit?.prixVenteTTC || 0;
+            const quantite = vp.quantite || 1;
+            const remise = vp.remise || 0;
+            const brut = puTTC * quantite;
             return {
-                type: 'Produit', label, quantite: vp.quantite || 1,
-                remise: vp.remise || 0,
-                totalPrixTTC: Math.max(0, brut - (vp.remise || 0)),
+                type: 'Produit', label, quantite,
+                puTTC,
+                remise, remisePct: vp.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
+                totalPrixTTC: Math.max(0, brut - remise),
             };
         };
-        const lineFromCatalogue = (item: { marque?: string; modele?: string; prixVenteTTC?: number } | undefined, typeLabel: string, qty: number, remise: number) => {
-            const brut = (item?.prixVenteTTC || 0) * (qty || 1);
+        const lineFromCatalogue = (item: { marque?: string; modele?: string; prixVenteTTC?: number } | undefined, typeLabel: string, qty: number, remise: number, remisePourcentage?: number) => {
+            const puTTC = item?.prixVenteTTC || 0;
+            const quantite = qty || 1;
+            const brut = puTTC * quantite;
             return {
-                type: typeLabel, label: item ? `${item.marque || ''} ${item.modele || ''}`.trim() : '', quantite: qty || 1,
-                remise: remise || 0,
+                type: typeLabel, label: item ? `${item.marque || ''} ${item.modele || ''}`.trim() : '', quantite,
+                puTTC,
+                remise: remise || 0, remisePct: remisePourcentage ?? computeRemisePct(remise || 0, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - (remise || 0)),
             };
         };
         const forfaitLines = (vente.venteForfaits || []).map(lineFromForfait);
         const produitLines = (vente.venteProduits || []).map(lineFromProduit);
         const serviceLines = (vente.venteServices || []).map(lineFromService);
-        const bateauLines = (vente.venteBateauxCatalogue || []).map((vb) => lineFromCatalogue(vb.bateau, 'Bateau', vb.quantite, vb.remise || 0));
-        const moteurCatLines = (vente.venteMoteursCatalogue || []).map((vm) => lineFromCatalogue(vm.moteur, 'Moteur', vm.quantite, vm.remise || 0));
-        const heliceLines = (vente.venteHelicesCatalogue || []).map((vh) => lineFromCatalogue(vh.helice, 'Hélice', vh.quantite, vh.remise || 0));
-        const remorqueCatLines = (vente.venteRemorquesCatalogue || []).map((vr) => lineFromCatalogue(vr.remorque, 'Remorque', vr.quantite, vr.remise || 0));
+        const bateauLines = (vente.venteBateauxCatalogue || []).map((vb) => lineFromCatalogue(vb.bateau, 'Bateau', vb.quantite, vb.remise || 0, vb.remisePourcentage));
+        const moteurCatLines = (vente.venteMoteursCatalogue || []).map((vm) => lineFromCatalogue(vm.moteur, 'Moteur', vm.quantite, vm.remise || 0, vm.remisePourcentage));
+        const heliceLines = (vente.venteHelicesCatalogue || []).map((vh) => lineFromCatalogue(vh.helice, 'Hélice', vh.quantite, vh.remise || 0, vh.remisePourcentage));
+        const remorqueCatLines = (vente.venteRemorquesCatalogue || []).map((vr) => lineFromCatalogue(vr.remorque, 'Remorque', vr.quantite, vr.remise || 0, vr.remisePourcentage));
         return [...forfaitLines, ...produitLines, ...bateauLines, ...moteurCatLines, ...heliceLines, ...remorqueCatLines, ...serviceLines];
     };
 
@@ -2408,56 +2440,57 @@ export default function Vente() {
     const buildDocumentHtml = (vente: VenteEntity, societe?: SocieteData) => {
         const docType = getDocumentType(vente);
         const showPrices = docType !== 'ordre_reparation';
+        const isFacture = docType === 'facture';
         const lines = buildDocumentLines(vente);
 
         const docTitle = docType === 'devis' ? 'Devis'
             : docType === 'ordre_reparation' ? 'Ordre de Réparation'
             : 'Facture';
-        const title = vente.numeroFacture
-            ? `${docTitle} n° ${vente.numeroFacture}`
-            : `${docTitle} #${vente.id || '-'}`;
+        const docRef = vente.numeroFacture || (vente.id ? `#${vente.id}` : '-');
+        const title = `${docTitle} ${vente.numeroFacture ? 'n° ' : ''}${docRef}`;
 
-        const societeHtml = societe ? `
-            <div class="societe-header">
-                ${societe.nom ? `<div class="societe-nom">${escapeHtml(societe.nom)}</div>` : ''}
-                ${(societe.forme || societe.capital != null) ? `<div>${[societe.forme, societe.capital != null ? `Capital ${societe.capital} €` : ''].filter(Boolean).map(escapeHtml).join(' — ')}</div>` : ''}
-                ${(societe.siren || societe.siret) ? `<div>SIREN : ${escapeHtml(societe.siren || '-')}${societe.siret ? ` — SIRET : ${escapeHtml(societe.siret)}` : ''}</div>` : ''}
-                ${societe.rcs ? `<div>RCS : ${escapeHtml(societe.rcs)}</div>` : ''}
-                ${societe.numerotva ? `<div>N° TVA intracommunautaire : ${escapeHtml(societe.numerotva)}</div>` : ''}
-                ${societe.adresse ? `<div style="white-space:pre-line">${escapeHtml(societe.adresse)}</div>` : ''}
-                ${societe.telephone ? `<div>Tél : ${escapeHtml(societe.telephone)}</div>` : ''}
-                ${societe.email ? `<div>Email : ${escapeHtml(societe.email)}</div>` : ''}
-            </div>` : '';
-
-        const remiseColumn = showPrices ? '<th>Remise</th>' : '';
-        const priceColumn = showPrices ? '<th>Prix total TTC</th>' : '';
-        const tableHtml = lines.length > 0
-            ? `<table class="invoice-table">
-                <thead><tr><th>Type</th><th>Désignation</th><th>Qté</th>${remiseColumn}${priceColumn}</tr></thead>
-                <tbody>${lines.map((line) => `
-                    <tr>
-                        <td>${escapeHtml(line.type)}</td>
-                        <td>${escapeHtml(line.label)}</td>
-                        <td>${line.quantite}</td>
-                        ${showPrices ? `<td>${line.remise > 0 ? escapeHtml(formatEuro(line.remise)) : '-'}</td>` : ''}
-                        ${showPrices ? `<td>${escapeHtml(formatEuro(line.totalPrixTTC))}</td>` : ''}
-                    </tr>`).join('')}
-                </tbody>
-              </table>`
-            : '<p>Aucun élément</p>';
-
-        const totalsHtml = showPrices ? `
-            <div class="section">
-                ${vente.montantHT != null ? `<div class="row"><strong>Montant HT :</strong> ${escapeHtml(formatEuro(vente.montantHT))}</div>` : ''}
-                ${vente.tva != null ? `<div class="row"><strong>TVA (${vente.tva} %) :</strong> ${escapeHtml(formatEuro(vente.montantTVA))}</div>` : ''}
-                <div class="row"><strong>Montant TTC :</strong> ${escapeHtml(formatEuro(vente.montantTTC))}</div>
-                ${(vente.remise || 0) > 0 ? `<div class="row"><strong>Remise :</strong> ${escapeHtml(formatEuro(vente.remise))}</div>` : ''}
-                <div class="row"><strong>Prix vente TTC :</strong> ${escapeHtml(formatEuro(vente.prixVenteTTC))}</div>
-            </div>` : '';
+        const societeHtml = buildSocieteBlockHtml(societe);
 
         const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+        const client = vente.client;
+
+        const docBoxRows: Array<[string, string]> = [
+            ['Numéro', escapeHtml(docRef)],
+            ['Date', escapeHtml(formatDate(vente.date))],
+            ...(isFacture && vente.dateEcheance ? [["Date d'échéance", escapeHtml(formatDate(vente.dateEcheance))] as [string, string]] : []),
+            ...(isFacture && vente.modePaiement ? [['Mode de règlement', escapeHtml(modeLabels[vente.modePaiement] ?? vente.modePaiement)] as [string, string]] : []),
+            ...(client?.tva ? [['N° TVA Intracom.', escapeHtml(client.tva)] as [string, string]] : []),
+        ];
+        const docBoxHtml = buildDocBoxHtml(docTitle, docBoxRows);
+
+        const clientBoxHtml = buildClientBoxHtml(client, getClientLabel(client));
+
+        const tableHtml = buildInvoiceTableHtml(lines, { showPrices, tva: vente.tva });
+
+        const tvaBreakdownHtml = showPrices
+            ? buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA })
+            : '';
+
+        const bancaireHtml = isFacture && societe?.bancaire ? `
+            <div class="bancaire-box">
+                <div class="bancaire-title">Coordonnées bancaires société :</div>
+                <div style="white-space:pre-line">${escapeHtml(societe.bancaire)}</div>
+            </div>` : '';
+
+        const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
+        // Une facture déjà marquée payée est considérée soldée même si le détail des
+        // règlements ne couvre pas (encore) le montant total (ex. mode de paiement
+        // renseigné sans ligne de paiement détaillée).
+        const soldeDu = vente.status === 'FACTURE_PAYEE' ? 0 : Math.max(0, (vente.prixVenteTTC || 0) - totalPaye);
+        const totalsHtml = showPrices
+            ? buildTotalsHtml({
+                remise: vente.remise, montantHT: vente.montantHT, montantTVA: vente.montantTVA,
+                montantTTC: vente.montantTTC, prixVenteTTC: vente.prixVenteTTC, soldeDu, isFacture,
+            })
+            : '';
+
         const paiementsHtml = (() => {
-            if (!showPrices) return '';
+            if (!isFacture) return '';
             const ps = vente.paiements ?? [];
             if (ps.length > 0) {
                 return ps.map(p => {
@@ -2466,58 +2499,55 @@ export default function Vente() {
                     return `<div class="row">${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
                 }).join('');
             }
-            if (vente.modePaiement) return `<div class="row"><strong>Mode de paiement :</strong> ${escapeHtml(vente.modePaiement)}</div>`;
             return '';
         })();
-        const paymentHtml = docType === 'facture' && paiementsHtml
+        const paymentHtml = paiementsHtml
             ? `<div class="section"><strong>Règlements :</strong>${paiementsHtml}</div>` : '';
 
-        const conditionsLegalesHtml = docType === 'facture' ? `
+        const conditionsLegalesHtml = isFacture ? `
             <div class="section legal">
-                ${vente.dateEcheance ? `<div class="row"><strong>Date d'échéance :</strong> ${escapeHtml(formatDate(vente.dateEcheance))}</div>` : ''}
                 ${vente.conditionsPaiement ? `<div class="row"><strong>Conditions de paiement :</strong> ${escapeHtml(vente.conditionsPaiement)}</div>` : ''}
                 ${vente.penalitesRetard ? `<div class="row"><strong>Pénalités de retard :</strong> ${escapeHtml(vente.penalitesRetard)}</div>` : ''}
                 <div class="row"><strong>Indemnité forfaitaire de recouvrement :</strong> ${escapeHtml(formatEuro(vente.indemniteForfaitaire ?? 40))}</div>
-                ${societe?.bancaire ? `<div class="row"><strong>Coordonnées bancaires :</strong> <span style="white-space:pre-line">${escapeHtml(societe.bancaire)}</span></div>` : ''}
             </div>` : '';
 
-        const signatureHtml = docType !== 'facture' && vente.signatureBonPourAccord
+        const signatureHtml = !isFacture && vente.signatureBonPourAccord
             ? `<div class="section"><h3>Signature client</h3><img src="${vente.signatureBonPourAccord}" style="max-width:300px;border:1px solid #d9d9d9;border-radius:4px;" /></div>` : '';
 
         const noteHtml = vente.note
             ? `<div class="section"><h3>Note</h3><div class="row" style="white-space:pre-wrap;">${escapeHtml(vente.note)}</div></div>` : '';
 
+        const legalLine = buildLegalLine(societe);
+
         return `<html>
             <head>
                 <title>${escapeHtml(title)}</title>
-                <style>
-                    body { font-family: Arial, sans-serif; margin: 24px; color: #1f1f1f; }
-                    h1 { margin-bottom: 8px; }
-                    .meta { margin-bottom: 20px; color: #595959; }
-                    .row { margin-bottom: 8px; }
-                    .section { margin-top: 20px; }
-                    .invoice-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-                    .invoice-table th, .invoice-table td { border: 1px solid #d9d9d9; padding: 6px 8px; }
-                    .invoice-table th { background: #fafafa; text-align: left; }
-                    .societe-header { border-bottom: 2px solid #1f1f1f; padding-bottom: 12px; margin-bottom: 20px; font-size: 13px; }
-                    .societe-nom { font-size: 18px; font-weight: bold; margin-bottom: 4px; }
-                    .legal { font-size: 12px; border-top: 1px solid #d9d9d9; padding-top: 12px; color: #595959; }
-                </style>
+                <style>${INVOICE_PRINT_STYLES}</style>
             </head>
             <body>
-                ${societeHtml}
-                <h1>${escapeHtml(title)}</h1>
-                <div class="meta">Date : ${escapeHtml(formatDate(vente.date))}</div>
-                <div class="row"><strong>Client :</strong> ${escapeHtml(getClientLabel(vente.client))}</div>
+                <div class="header-row">
+                    ${societeHtml}
+                </div>
+                <div class="info-row">
+                    ${docBoxHtml}
+                    ${clientBoxHtml}
+                </div>
                 ${paymentHtml}
                 <div class="section">
-                    <h3>Détails</h3>
                     ${tableHtml}
                 </div>
-                ${totalsHtml}
+                ${showPrices ? `
+                <div class="footer-row">
+                    <div class="footer-left">
+                        ${tvaBreakdownHtml}
+                        ${bancaireHtml}
+                    </div>
+                    ${totalsHtml}
+                </div>` : ''}
                 ${noteHtml}
                 ${conditionsLegalesHtml}
                 ${signatureHtml}
+                ${legalLine ? `<div class="page-footer">${escapeHtml(legalLine)}</div>` : ''}
             </body>
         </html>`;
     };

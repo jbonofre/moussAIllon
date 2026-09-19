@@ -1,5 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+    buildClientBoxHtml,
+    buildDocBoxHtml,
+    buildInvoiceTableHtml,
+    buildLegalLine,
+    buildSocieteBlockHtml,
+    buildTotalsHtml,
+    buildTvaBreakdownHtml,
+    computeRemisePct,
+    INVOICE_PRINT_STYLES,
+    InvoicePrintLine,
+} from './printing/invoiceTemplate.ts';
+import {
     AutoComplete,
     Button,
     Card,
@@ -33,6 +45,26 @@ interface ClientEntity {
     id: number;
     prenom?: string;
     nom: string;
+    email?: string;
+    telephone?: string;
+    adresse?: string;
+    siret?: string;
+    tva?: string;
+}
+
+interface SocieteData {
+    nom?: string;
+    siren?: string;
+    siret?: string;
+    ape?: string;
+    rcs?: string;
+    forme?: string;
+    capital?: number;
+    numerotva?: string;
+    adresse?: string;
+    telephone?: string;
+    email?: string;
+    bancaire?: string;
 }
 
 interface BateauClientEntity {
@@ -211,6 +243,7 @@ interface VenteRemorqueCatalogueLigne {
 interface VenteEntity {
     id?: number;
     status: VenteStatus;
+    numeroFacture?: string;
     bonPourAccord?: boolean;
     comptoir?: boolean;
     signatureBonPourAccord?: string;
@@ -1198,69 +1231,116 @@ export default function Comptoir() {
                 return `<div class="row">${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
             }).join('');
         }
-        if (vente.modePaiement) return `<div class="row"><strong>Mode de paiement:</strong> ${escapeHtml(vente.modePaiement)}</div>`;
         return '';
     };
 
-    const handlePrintInvoice = (vente: VenteEntity) => {
-        const title = `Facture #${vente.id || '-'}`;
-        const produitRows = getProduitLines(vente)
-            .map((item) => {
-                const pu = item.prixVenteTTC || 0;
-                const brut = pu * item.quantite;
-                const total = Math.max(0, brut - item.remise);
-                return `
-                <tr>
-                    <td>${escapeHtml(item.nom)}</td>
-                    <td style="text-align:right;">${escapeHtml(formatEuro(pu))}</td>
-                    <td style="text-align:right;">${item.quantite}</td>
-                    <td style="text-align:right;">${escapeHtml(formatEuro(item.remise))}</td>
-                    <td style="text-align:right;">${escapeHtml(formatEuro(total))}</td>
-                </tr>`;
-            })
-            .join('');
+    const getDocType = (vente: VenteEntity): 'devis' | 'facture' => (vente.status === 'DEVIS' ? 'devis' : 'facture');
+
+    const buildInvoiceLines = (vente: VenteEntity): InvoicePrintLine[] => {
+        const lines: InvoicePrintLine[] = [];
+        (vente.forfaits || []).forEach((f) => {
+            if (!f?.id) return;
+            const puTTC = f.prixTTC || 0;
+            lines.push({ type: 'Forfait', label: f.reference ? `${f.reference} - ${f.nom}` : f.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
+        });
+        (vente.services || []).forEach((s) => {
+            if (!s?.id) return;
+            const puTTC = s.prixTTC || 0;
+            lines.push({ type: 'Service', label: s.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
+        });
+        const fromCatalogue = (item: { marque?: string; modele?: string; nom?: string; prixVenteTTC?: number } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
+            const puTTC = item?.prixVenteTTC || 0;
+            const brut = puTTC * quantite;
+            const label = item?.nom ? `${item.nom}${item.marque ? ` (${item.marque})` : ''}` : `${item?.marque || ''} ${item?.modele || ''}`.trim();
+            lines.push({
+                type: typeLabel, label, quantite,
+                puTTC,
+                remise, remisePct: remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
+                totalPrixTTC: Math.max(0, brut - remise),
+            });
+        };
+        (vente.venteProduits || []).forEach((l) => l.produit && fromCatalogue(l.produit, 'Produit', l.quantite || 1, l.remise || 0, l.remisePourcentage));
+        (vente.venteBateauxCatalogue || []).forEach((l) => l.bateau && fromCatalogue(l.bateau, 'Bateau', l.quantite || 1, l.remise || 0, l.remisePourcentage));
+        (vente.venteMoteursCatalogue || []).forEach((l) => l.moteur && fromCatalogue(l.moteur, 'Moteur', l.quantite || 1, l.remise || 0, l.remisePourcentage));
+        (vente.venteHelicesCatalogue || []).forEach((l) => l.helice && fromCatalogue(l.helice, 'Hélice', l.quantite || 1, l.remise || 0, l.remisePourcentage));
+        (vente.venteRemorquesCatalogue || []).forEach((l) => l.remorque && fromCatalogue(l.remorque, 'Remorque', l.quantite || 1, l.remise || 0, l.remisePourcentage));
+        return lines;
+    };
+
+    const handlePrintInvoice = async (vente: VenteEntity) => {
+        let societe: SocieteData | undefined;
+        try {
+            const societeRes = await api.get<SocieteData>('/societe');
+            societe = societeRes.data;
+        } catch {
+            // document sans entête société en cas d'erreur
+        }
+
+        const docType = getDocType(vente);
+        const isFacture = docType === 'facture';
+        const docTitle = isFacture ? 'Facture' : 'Devis';
+        const docRef = vente.numeroFacture || (vente.id ? `#${vente.id}` : '-');
+        const title = `${docTitle} ${vente.numeroFacture ? 'n° ' : ''}${docRef}`;
+        const lines = buildInvoiceLines(vente);
+        const client = vente.client;
+
+        const societeHtml = buildSocieteBlockHtml(societe);
+
+        const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+        const docBoxRows: Array<[string, string]> = [
+            ['Numéro', escapeHtml(docRef)],
+            ['Date', escapeHtml(formatDate(vente.date))],
+            ...(isFacture && vente.modePaiement ? [['Mode de règlement', escapeHtml(modeLabels[vente.modePaiement] ?? vente.modePaiement)] as [string, string]] : []),
+            ...(client?.tva ? [['N° TVA Intracom.', escapeHtml(client.tva)] as [string, string]] : []),
+        ];
+        const docBoxHtml = buildDocBoxHtml(docTitle, docBoxRows);
+
+        const clientBoxHtml = buildClientBoxHtml(client, getClientLabel(client));
+
+        const tableHtml = buildInvoiceTableHtml(lines, { showPrices: true, tva: vente.tva });
+
+        const tvaBreakdownHtml = buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA });
+
+        const bancaireHtml = isFacture && societe?.bancaire ? `
+            <div class="bancaire-box">
+                <div class="bancaire-title">Coordonnées bancaires société :</div>
+                <div style="white-space:pre-line">${escapeHtml(societe.bancaire)}</div>
+            </div>` : '';
+
+        const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
+        // Une facture déjà marquée payée est considérée soldée même si le détail des
+        // règlements ne couvre pas (encore) le montant total (ex. mode de paiement
+        // renseigné sans ligne de paiement détaillée).
+        const soldeDu = vente.status === 'FACTURE_PAYEE' ? 0 : Math.max(0, (vente.prixVenteTTC || 0) - totalPaye);
+        const totalsHtml = buildTotalsHtml({
+            remise: vente.remise, montantHT: vente.montantHT, montantTVA: vente.montantTVA,
+            montantTTC: vente.montantTTC, prixVenteTTC: vente.prixVenteTTC, soldeDu, isFacture,
+        });
+
+        const paiementsHtml = isFacture ? renderPaiementsHtml(vente) : '';
+        const paymentHtml = paiementsHtml
+            ? `<div class="section"><strong>Règlements :</strong>${paiementsHtml}</div>` : '';
+
+        const legalLine = buildLegalLine(societe);
 
         openPrintDocument(
             title,
-            `
-                <html>
+            `<html>
                 <head>
                     <title>${escapeHtml(title)}</title>
-                    <style>
-                        body { font-family: Arial, sans-serif; margin: 24px; color: #1f1f1f; }
-                        h1 { margin-bottom: 8px; }
-                        .meta { margin-bottom: 16px; color: #595959; }
-                        .row { margin-bottom: 6px; }
-                        table { width: 100%; border-collapse: collapse; margin-top: 16px; }
-                        th, td { border: 1px solid #d9d9d9; padding: 8px; }
-                        th { background: #fafafa; text-align: left; }
-                    </style>
+                    <style>${INVOICE_PRINT_STYLES}</style>
                 </head>
                 <body>
-                    <h1>${escapeHtml(title)}</h1>
-                    <div class="meta">Date: ${escapeHtml(formatDate(vente.date))}</div>
-                    <div class="row"><strong>Client:</strong> ${escapeHtml(getClientLabel(vente.client))}</div>
-                    ${renderPaiementsHtml(vente) ? `<div><strong>Règlements :</strong>${renderPaiementsHtml(vente)}</div>` : ''}
-                    <div class="row"><strong>Montant HT:</strong> ${escapeHtml(formatEuro(vente.montantHT))}</div>
-                    <div class="row"><strong>Montant TVA:</strong> ${escapeHtml(formatEuro(vente.montantTVA))}</div>
-                    <div class="row"><strong>Montant TTC:</strong> ${escapeHtml(formatEuro(vente.montantTTC))}</div>
-                    <div class="row"><strong>Remise:</strong> ${escapeHtml(formatEuro(vente.remise))}</div>
-                    <div class="row"><strong>Total a payer:</strong> ${escapeHtml(formatEuro(vente.prixVenteTTC))}</div>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Produit</th>
-                                <th style="text-align:right;">P.U. TTC</th>
-                                <th style="text-align:right;">Qté</th>
-                                <th style="text-align:right;">Remise</th>
-                                <th style="text-align:right;">Total TTC</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${produitRows || '<tr><td colspan="5">Aucun produit</td></tr>'}
-                        </tbody>
-                    </table>
-                    ${vente.note ? `<div style="margin-top:16px;"><strong>Note:</strong><div style="white-space:pre-wrap;margin-top:4px;">${escapeHtml(vente.note)}</div></div>` : ''}
+                    <div class="header-row">${societeHtml}</div>
+                    <div class="info-row">${docBoxHtml}${clientBoxHtml}</div>
+                    ${paymentHtml}
+                    <div class="section">${tableHtml}</div>
+                    <div class="footer-row">
+                        <div class="footer-left">${tvaBreakdownHtml}${bancaireHtml}</div>
+                        ${totalsHtml}
+                    </div>
+                    ${vente.note ? `<div class="section"><strong>Note :</strong><div style="white-space:pre-wrap;margin-top:4px;">${escapeHtml(vente.note)}</div></div>` : ''}
+                    ${legalLine ? `<div class="page-footer">${escapeHtml(legalLine)}</div>` : ''}
                 </body>
                 </html>
             `
