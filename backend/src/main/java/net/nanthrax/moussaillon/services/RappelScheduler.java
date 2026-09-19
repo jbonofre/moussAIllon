@@ -59,7 +59,7 @@ public class RappelScheduler {
     public void envoyerRappel(VenteEntity vente, int numeroRappel) {
         SocieteEntity societe = SocieteEntity.findById(1L);
         String societeNom = societe != null ? societe.nom : "moussAIllon";
-        String clientName = vente.client.prenom != null ? vente.client.prenom : vente.client.nom;
+        String clientName = vente.client.nom;
 
         String typeLabel = "prestation";
 

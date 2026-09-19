@@ -10,7 +10,6 @@ type PlanningStatus = 'EN_ATTENTE' | 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'IN
 
 interface ClientEntity {
     id: number;
-    prenom?: string;
     nom: string;
 }
 
@@ -219,8 +218,7 @@ const getClientLabel = (client?: ClientEntity) => {
     if (!client) {
         return '-';
     }
-    const fullName = `${client.prenom || ''} ${client.nom || ''}`.trim();
-    return fullName || `Client #${client.id}`;
+    return client.nom || `Client #${client.id}`;
 };
 
 const toIsoDay = (value?: string) => {
@@ -257,7 +255,7 @@ const getTechnicienColor = (techniciens?: TechnicienEntity[]) => {
 const buildPlanningItems = (ventes: VenteEntity[]): PlanningItemRow[] => {
     const rows: PlanningItemRow[] = [];
     for (const vente of ventes) {
-        const clientNom = vente.client ? `${vente.client.prenom || ''} ${vente.client.nom}`.trim() : '';
+        const clientNom = vente.client ? vente.client.nom : '';
         const bateauNom = vente.bateau?.name;
         const bateauImmatriculation = vente.bateau?.immatriculation;
 
@@ -726,7 +724,7 @@ export default function Planning() {
             const savedList = savedVente[listKey] || [];
             const savedEntry = savedList[itemToUpdateIndex] || latestList[itemToUpdateIndex];
 
-            const clientNom = savedVente.client ? `${savedVente.client.prenom || ''} ${savedVente.client.nom}`.trim() : '';
+            const clientNom = savedVente.client ? savedVente.client.nom : '';
             const bateauNom = savedVente.bateau?.name;
             const bateauImmatriculation = savedVente.bateau?.immatriculation;
             const savedItem: PlanningItem = currentRow.itemType === 'forfait'

@@ -28,8 +28,7 @@ public class ClientResourceTest {
             .when().get("/clients/100")
             .then()
             .statusCode(200)
-            .body("nom", is("Dupont"))
-            .body("prenom", is("Jean"))
+            .body("nom", is("Jean Dupont"))
             .body("type", is("Particulier"))
             .body("email", is("jean.dupont@test.com"));
     }
@@ -46,12 +45,11 @@ public class ClientResourceTest {
     void testCreerClient() {
         given()
             .contentType("application/json")
-            .body("{\"nom\":\"Nouveau\",\"prenom\":\"Client\",\"type\":\"Particulier\",\"email\":\"nouveau@test.com\"}")
+            .body("{\"nom\":\"Nouveau Client\",\"type\":\"Particulier\",\"email\":\"nouveau@test.com\"}")
             .when().post("/clients")
             .then()
             .statusCode(200)
-            .body("nom", is("Nouveau"))
-            .body("prenom", is("Client"))
+            .body("nom", is("Nouveau Client"))
             .body("id", notNullValue());
     }
 
@@ -60,7 +58,7 @@ public class ClientResourceTest {
         // Creer une entite dediee pour le test de modification
         int id = given()
             .contentType("application/json")
-            .body("{\"nom\":\"AvantUpdate\",\"prenom\":\"Test\",\"type\":\"Particulier\"}")
+            .body("{\"nom\":\"AvantUpdate\",\"type\":\"Particulier\"}")
             .when().post("/clients")
             .then()
             .statusCode(200)
@@ -68,7 +66,7 @@ public class ClientResourceTest {
 
         given()
             .contentType("application/json")
-            .body("{\"nom\":\"ApresUpdate\",\"prenom\":\"Test\",\"type\":\"Particulier\",\"email\":\"update@test.com\"}")
+            .body("{\"nom\":\"ApresUpdate\",\"type\":\"Particulier\",\"email\":\"update@test.com\"}")
             .when().put("/clients/" + id)
             .then()
             .statusCode(200)
@@ -99,7 +97,7 @@ public class ClientResourceTest {
         // Creer un client a supprimer
         int id = given()
             .contentType("application/json")
-            .body("{\"nom\":\"ASupprimer\",\"prenom\":\"Test\",\"type\":\"Particulier\"}")
+            .body("{\"nom\":\"ASupprimer\",\"type\":\"Particulier\"}")
             .when().post("/clients")
             .then()
             .statusCode(200)

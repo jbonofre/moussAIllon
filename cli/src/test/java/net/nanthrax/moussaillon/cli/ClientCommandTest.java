@@ -35,7 +35,7 @@ class ClientCommandTest {
     @Test
     void testListerClientsViaCommande() {
         wireMock.stubFor(get(urlEqualTo("/clients"))
-                .willReturn(okJson("[{\"id\":1,\"nom\":\"Dupont\",\"prenom\":\"Jean\",\"type\":\"Particulier\"}]")));
+                .willReturn(okJson("[{\"id\":1,\"nom\":\"Jean Dupont\",\"type\":\"Particulier\"}]")));
 
         int exitCode = new CommandLine(ClientCommand.List.class, factory).execute();
         assertEquals(0, exitCode);
@@ -114,9 +114,9 @@ class ClientCommandTest {
     @Test
     void testModifierClientViaCommande() {
         wireMock.stubFor(get(urlEqualTo("/clients/1"))
-                .willReturn(okJson("{\"id\":1,\"nom\":\"Dupont\",\"prenom\":\"Jean\",\"type\":\"Particulier\",\"email\":\"old@test.com\"}")));
+                .willReturn(okJson("{\"id\":1,\"nom\":\"Jean Dupont\",\"type\":\"Particulier\",\"email\":\"old@test.com\"}")));
         wireMock.stubFor(put(urlEqualTo("/clients/1"))
-                .willReturn(okJson("{\"id\":1,\"nom\":\"Modifie\",\"prenom\":\"Jean\",\"type\":\"Particulier\",\"email\":\"new@test.com\"}")));
+                .willReturn(okJson("{\"id\":1,\"nom\":\"Modifie\",\"type\":\"Particulier\",\"email\":\"new@test.com\"}")));
 
         int exitCode = new CommandLine(ClientCommand.Update.class, factory)
                 .execute("1", "--nom", "Modifie", "--email", "new@test.com");
@@ -124,8 +124,7 @@ class ClientCommandTest {
         wireMock.verify(getRequestedFor(urlEqualTo("/clients/1")));
         wireMock.verify(putRequestedFor(urlEqualTo("/clients/1"))
                 .withRequestBody(containing("\"nom\":\"Modifie\""))
-                .withRequestBody(containing("\"email\":\"new@test.com\""))
-                .withRequestBody(containing("\"prenom\":\"Jean\"")));
+                .withRequestBody(containing("\"email\":\"new@test.com\"")));
     }
 
     @Test

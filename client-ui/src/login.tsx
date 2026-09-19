@@ -7,7 +7,6 @@ const { Title, Text } = Typography;
 
 interface Client {
     id: number;
-    prenom?: string;
     nom: string;
     type: string;
     email?: string;

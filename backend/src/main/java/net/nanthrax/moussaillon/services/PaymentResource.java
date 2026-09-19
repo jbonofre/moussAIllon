@@ -127,9 +127,6 @@ public class PaymentResource {
             if (vente.client != null) {
                 customerEmail = vente.client.email;
                 customerName = vente.client.nom;
-                if (vente.client.prenom != null && !vente.client.prenom.isBlank()) {
-                    customerName = vente.client.prenom + " " + vente.client.nom;
-                }
             }
 
             jakarta.json.JsonObjectBuilder paymentBuilder = Json.createObjectBuilder()

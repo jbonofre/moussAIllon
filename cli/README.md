@@ -74,7 +74,7 @@ moussaillon clients search "Dupont"
 moussaillon clients get 1
 
 # Créer un client
-moussaillon clients create --nom Dupont --prenom Jean --type particulier --email jean@dupont.fr --telephone 0601020304
+moussaillon clients create --nom "Jean Dupont" --type particulier --email jean@dupont.fr --telephone 0601020304
 
 # Mettre à jour un client
 moussaillon clients update 1 --email nouveau@email.fr

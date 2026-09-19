@@ -53,7 +53,7 @@ public class ClientResource {
         } else {
             String likePattern = "%" + q.toLowerCase() + "%";
             clients = ClientEntity.list(
-                "LOWER(nom) LIKE ?1 OR LOWER(prenom) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(email) LIKE ?1 OR LOWER(telephone) LIKE ?1 OR LOWER(adresse) LIKE ?1",
+                "LOWER(nom) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(email) LIKE ?1 OR LOWER(telephone) LIKE ?1 OR LOWER(adresse) LIKE ?1",
                 likePattern
             );
         }
@@ -212,7 +212,6 @@ public class ClientResource {
             throw new WebApplicationException("Le client (" + id + ") n'est pas trouvé", 404);
         }
 
-        entity.prenom = client.prenom;
         entity.nom = client.nom;
         entity.type = client.type;
         entity.email = client.email;
@@ -301,7 +300,7 @@ public class ClientResource {
         String societeNom = societe != null ? societe.nom : "moussAIllon";
 
         String subject = "Votre mot de passe - Espace Client " + societeNom;
-        String body = "Bonjour " + (client.prenom != null ? client.prenom : client.nom) + ",\n\n"
+        String body = "Bonjour " + client.nom + ",\n\n"
                 + "Votre mot de passe pour accéder à l'Espace Client " + societeNom + " :\n\n"
                 + "    " + request.password + "\n\n"
                 + "Connectez-vous avec votre email : " + client.email + "\n\n"

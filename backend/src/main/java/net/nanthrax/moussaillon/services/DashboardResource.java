@@ -71,9 +71,7 @@ public class DashboardResource {
                 if (matchesToday && addedForfaitIds.add(vf.id)) {
                     InterventionRow row = new InterventionRow();
                     row.key = "f-" + vf.id;
-                    row.client = vente.client != null
-                            ? (vente.client.prenom != null ? vente.client.prenom + " " : "") + vente.client.nom
-                            : "";
+                    row.client = vente.client != null ? vente.client.nom : "";
                     row.unite = vente.bateau != null ? vente.bateau.name : (vente.moteur != null ? "Moteur" : "");
                     row.type = vf.forfait != null ? vf.forfait.nom : "";
                     row.technicien = vf.techniciens != null && !vf.techniciens.isEmpty()
@@ -99,9 +97,7 @@ public class DashboardResource {
                 if (matchesToday && addedServiceIds.add(vs.id)) {
                     InterventionRow row = new InterventionRow();
                     row.key = "s-" + vs.id;
-                    row.client = vente.client != null
-                            ? (vente.client.prenom != null ? vente.client.prenom + " " : "") + vente.client.nom
-                            : "";
+                    row.client = vente.client != null ? vente.client.nom : "";
                     row.unite = vente.bateau != null ? vente.bateau.name : (vente.moteur != null ? "Moteur" : "");
                     row.type = vs.service != null ? vs.service.nom : "";
                     row.technicien = vs.techniciens != null && !vs.techniciens.isEmpty()

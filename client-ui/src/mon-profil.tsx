@@ -5,7 +5,6 @@ import api from './api.ts';
 
 interface Client {
     id: number;
-    prenom?: string;
     nom: string;
     type: string;
     email?: string;
@@ -72,7 +71,6 @@ export default function MonProfil({ clientId }: MonProfilProps) {
                 {client && (
                     <Descriptions bordered column={2}>
                         <Descriptions.Item label="Nom">{client.nom}</Descriptions.Item>
-                        <Descriptions.Item label="Prenom">{client.prenom || '-'}</Descriptions.Item>
                         <Descriptions.Item label="Type">
                             <Tag>{typeLabel[client.type] || client.type}</Tag>
                         </Descriptions.Item>

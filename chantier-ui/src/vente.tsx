@@ -49,7 +49,6 @@ import DocumentUpload from './DocumentUpload.tsx';
 
 interface ClientEntity {
     id: number;
-    prenom?: string;
     nom: string;
     email?: string;
     telephone?: string;
@@ -601,8 +600,7 @@ const getClientLabel = (client?: ClientEntity) => {
     if (!client) {
         return '-';
     }
-    const fullName = `${client.prenom || ''} ${client.nom || ''}`.trim();
-    return fullName || `Client #${client.id}`;
+    return client.nom || `Client #${client.id}`;
 };
 
 const formatEuroCatalogue = (v?: number) => v != null ? v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-';
@@ -1575,7 +1573,7 @@ export default function Vente() {
 
     const openNewClientModal = () => {
         newClientForm.resetFields();
-        newClientForm.setFieldsValue({ nom: '', prenom: '', type: 'PARTICULIER', email: '', telephone: '', adresse: '', siren: '', siret: '', tva: '', naf: '', remise: 0, evaluation: 0, notes: '' });
+        newClientForm.setFieldsValue({ nom: '', type: 'PARTICULIER', email: '', telephone: '', adresse: '', siren: '', siret: '', tva: '', naf: '', remise: 0, evaluation: 0, notes: '' });
         setNewClientFormDirty(false);
         setNewClientModalVisible(true);
     };
@@ -4268,17 +4266,6 @@ export default function Vente() {
                         </Col>
                     </Row>
                     <Row gutter={16}>
-                        <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
-                            {({ getFieldValue }) =>
-                                getFieldValue('type') === 'PARTICULIER' && (
-                                    <Col span={12}>
-                                        <Form.Item name="prenom" label="Prénom">
-                                            <Input allowClear />
-                                        </Form.Item>
-                                    </Col>
-                                )
-                            }
-                        </Form.Item>
                         <Col span={12}>
                             <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
                                 <Input allowClear />

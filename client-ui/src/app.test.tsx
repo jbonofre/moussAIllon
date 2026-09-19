@@ -8,7 +8,7 @@ jest.mock('./login.tsx', () => {
     return function MockLogin({ setUser }: any) {
         return (
             <div data-testid="login-component">
-                <button onClick={() => setUser({ id: 1, nom: 'Dupont', prenom: 'Jean', type: 'Particulier' })}>
+                <button onClick={() => setUser({ id: 1, nom: 'Jean Dupont', type: 'Particulier' })}>
                     Se connecter
                 </button>
             </div>

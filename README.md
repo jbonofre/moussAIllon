@@ -266,7 +266,7 @@ curl -s http://localhost:8080/mcp \
 ```bash
 curl -s http://localhost:8080/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"moussaillon_call_api_resource","arguments":{"method":"POST","path":"/clients","body":{"prenom":"Jean","nom":"Dupont","type":"PARTICULIER","email":"jean.dupont@example.com"}}}}'
+  -d '{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"moussaillon_call_api_resource","arguments":{"method":"POST","path":"/clients","body":{"nom":"Jean Dupont","type":"PARTICULIER","email":"jean.dupont@example.com"}}}}'
 ```
 
 ## Chat IA

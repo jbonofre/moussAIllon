@@ -18,7 +18,7 @@ public class ClientPortalResourceTest {
             .when().post("/portal/login")
             .then()
             .statusCode(200)
-            .body("nom", is("Dupont"))
+            .body("nom", is("Jean Dupont"))
             .body("token", notNullValue());
     }
 
@@ -58,7 +58,7 @@ public class ClientPortalResourceTest {
             .when().get("/portal/clients/100")
             .then()
             .statusCode(200)
-            .body("nom", is("Dupont"))
+            .body("nom", is("Jean Dupont"))
             .body("motDePasse", nullValue());
     }
 
@@ -144,7 +144,7 @@ public class ClientPortalResourceTest {
             .when().post("/portal/login")
             .then()
             .statusCode(200)
-            .body("nom", is("Dupont"))
+            .body("nom", is("Jean Dupont"))
             .body("token", notNullValue());
     }
 

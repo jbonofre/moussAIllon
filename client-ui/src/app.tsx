@@ -31,7 +31,6 @@ const { Header, Content, Sider, Footer } = Layout;
 
 interface Client {
     id: number;
-    prenom?: string;
     nom: string;
     type: string;
     email?: string;
@@ -68,7 +67,7 @@ export default function App() {
         return <MobileApp user={user} onLogout={handleLogout} />;
     }
 
-    const clientName = `${user.prenom || ''} ${user.nom}`.trim();
+    const clientName = user.nom;
 
     const menuItems = [
         { key: 'dashboard', icon: <DashboardOutlined />, label: 'Tableau de bord' },

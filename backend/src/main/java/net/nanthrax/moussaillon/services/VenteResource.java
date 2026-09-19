@@ -108,7 +108,7 @@ public class VenteResource {
 
         SocieteEntity societe = SocieteEntity.findById(1L);
         String societeNom = societe != null ? societe.nom : "moussAIllon";
-        String clientName = entity.client.prenom != null ? entity.client.prenom : entity.client.nom;
+        String clientName = entity.client.nom;
         String dateStr = entity.date != null
                 ? new Timestamp(entity.date.getTime()).toLocalDateTime().toLocalDate().toString()
                 : "-";
@@ -952,7 +952,7 @@ public class VenteResource {
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {
         SocieteEntity societe = SocieteEntity.findById(1L);
         String societeNom = societe != null ? societe.nom : "moussAIllon";
-        String clientName = vente.client.prenom != null ? vente.client.prenom : vente.client.nom;
+        String clientName = vente.client.nom;
 
         String detailsBlock = "";
         if (incidentDetails != null && !incidentDetails.isBlank()) {

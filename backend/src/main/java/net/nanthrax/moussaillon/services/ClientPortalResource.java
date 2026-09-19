@@ -41,7 +41,6 @@ public class ClientPortalResource {
     public static class AuthResponse {
         public String token;
         public long id;
-        public String prenom;
         public String nom;
         public String type;
         public String email;
@@ -90,7 +89,6 @@ public class ClientPortalResource {
         AuthResponse auth = new AuthResponse();
         auth.token = tokenService.generateToken(String.valueOf(client.id), "client", client.email, client.id);
         auth.id = client.id;
-        auth.prenom = client.prenom;
         auth.nom = client.nom;
         auth.type = client.type;
         auth.email = client.email;

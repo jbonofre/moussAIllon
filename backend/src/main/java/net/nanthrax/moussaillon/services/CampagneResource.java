@@ -230,8 +230,7 @@ public class CampagneResource {
                 if (!client.consentement) continue;
                 String contact = canal == CampagneEntity.Canal.EMAIL ? client.email : client.telephone;
                 if (contact != null && !contact.isBlank()) {
-                    String nom = ((client.prenom != null ? client.prenom + " " : "") + client.nom).trim();
-                    result.add(new Destinataire(nom, contact));
+                    result.add(new Destinataire(client.nom, contact));
                 }
             }
         } else {
@@ -311,8 +310,7 @@ public class CampagneResource {
                 if (client != null && client.consentement) {
                     String contact = canal == CampagneEntity.Canal.EMAIL ? client.email : client.telephone;
                     if (contact != null && !contact.isBlank()) {
-                        String nom = ((client.prenom != null ? client.prenom + " " : "") + client.nom).trim();
-                        result.add(new Destinataire(nom, contact));
+                        result.add(new Destinataire(client.nom, contact));
                     }
                 }
             }

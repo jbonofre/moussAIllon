@@ -31,7 +31,7 @@ const categories: SearchCategory[] = [
         endpoint: '/clients/search',
         color: '#1677ff',
         route: '/clients',
-        renderItem: (item) => `${item.prenom || ''} ${item.nom}`.trim() + (item.email ? ` - ${item.email}` : ''),
+        renderItem: (item) => item.nom + (item.email ? ` - ${item.email}` : ''),
     },
     {
         key: 'produits',

@@ -12,8 +12,6 @@ import java.util.List;
 @Entity
 public class ClientEntity extends PanacheEntity {
 
-    public String prenom;
-
     @Column(nullable = false)
     public String nom;
 

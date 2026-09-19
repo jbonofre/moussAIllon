@@ -220,7 +220,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     [moteursCatalogue]
   );
   const proprietaireSelectOptions = useMemo(
-    () => clients.map((c: any) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+    () => clients.map((c: any) => ({ value: c.id, label: c.nom })),
     [clients]
   );
 
@@ -424,9 +424,9 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     { title: "Nom", dataIndex: "name", key: "name", sorter: (a, b) => a.name.localeCompare(b.name) },
     { title: "Immatriculation", dataIndex: "immatriculation", key: "immatriculation", sorter: (a, b) => a.immatriculation.localeCompare(b.immatriculation) },
     { title: "Propriétaires", dataIndex: "proprietaires", key: "proprietaires",
-      render: (proprietaires: any[]) => (proprietaires && proprietaires.length ? proprietaires.map(p => (p.prenom + " " + p.nom)).join(", ") : ""),
+      render: (proprietaires: any[]) => (proprietaires && proprietaires.length ? proprietaires.map(p => p.nom).join(", ") : ""),
       sorter: (a, b) => (a.proprietaires?.[0]?.nom || '').localeCompare(b.proprietaires?.[0]?.nom || ''),
-      filters: clients.map((client: any) => ({ text: `${client.prenom} ${client.nom}`, value: client.id })),
+      filters: clients.map((client: any) => ({ text: client.nom, value: client.id })),
       onFilter: (value, record) => record.proprietaires?.some((p: any) => p.id === value),
     },
     { title: "Modèle", dataIndex: "modele", key: "modele",
@@ -1129,17 +1129,6 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
-              {({ getFieldValue }) =>
-                getFieldValue("type") === "PARTICULIER" && (
-                  <Col span={12}>
-                    <Form.Item label="Prénom" name="prenom">
-                      <Input />
-                    </Form.Item>
-                  </Col>
-                )
-              }
-            </Form.Item>
             <Col span={12}>
               <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
                 <Input />

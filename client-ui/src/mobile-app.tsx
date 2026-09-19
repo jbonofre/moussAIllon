@@ -36,7 +36,6 @@ import api from './api.ts';
 
 interface Client {
     id: number;
-    prenom?: string;
     nom: string;
     type: string;
     email?: string;
@@ -166,7 +165,7 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
     const [profile, setProfile] = useState<Client | null>(null);
     const [detailTask, setDetailTask] = useState<TaskEntity | null>(null);
 
-    const clientName = `${user.prenom || ''} ${user.nom}`.trim();
+    const clientName = user.nom;
     const clientId = user.id;
 
     const fetchData = async (p: Page) => {
@@ -585,7 +584,6 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
             {profile && (
                 <div>
                     <p><strong>Nom:</strong> {profile.nom}</p>
-                    <p><strong>Prenom:</strong> {profile.prenom || '-'}</p>
                     <p><strong>Type:</strong> <Tag>{typeLabel[profile.type] || profile.type}</Tag></p>
                     <p><strong>Email:</strong> {profile.email || '-'}</p>
                     <p><strong>Telephone:</strong> {profile.telephone || '-'}</p>

@@ -50,7 +50,6 @@ const { Search } = Input;
 
 interface Client {
   id?: number;
-  prenom?: string;
   nom: string;
   type: string;
   email?: string;
@@ -72,7 +71,6 @@ interface Client {
 }
 
 const defaultClient = {
-  prenom: "",
   nom: "",
   type: "PARTICULIER",
   email: "",
@@ -241,7 +239,6 @@ function Clients() {
   };
 
   const columns = [
-    { title: "Prénom", dataIndex: "prenom", key: "prenom", sorter: (a, b) => a.prenom?.localeCompare(b.prenom || "") },
     { title: "Nom", dataIndex: "nom", key: "nom", sorter: (a, b) => a.nom.localeCompare(b.nom) },
     {
       title: "Type",
@@ -428,17 +425,6 @@ function Clients() {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
-              {({ getFieldValue }) =>
-                getFieldValue("type") === "PARTICULIER" && (
-                  <Col span={12}>
-                    <Form.Item label="Prénom" name="prenom">
-                      <Input />
-                    </Form.Item>
-                  </Col>
-                )
-              }
-            </Form.Item>
             <Col span={12}>
               <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
                 <Input />

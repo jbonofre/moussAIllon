@@ -20,7 +20,6 @@ import { useNavigation } from './navigation-context.tsx';
 
 interface ClientEntity {
     id: number;
-    prenom?: string;
     nom: string;
     email?: string;
     telephone?: string;
@@ -246,7 +245,7 @@ export default function Annonces() {
 
     const clientLabel = (c?: ClientEntity) => {
         if (!c) return '-';
-        return `${c.prenom || ''} ${c.nom}`.trim();
+        return c.nom;
     };
 
     const bateauLabel = (b?: BateauClientEntity) => {
@@ -355,7 +354,7 @@ export default function Annonces() {
         return annonces.filter((a) => {
             const titre = (a.titre ?? '').toLowerCase();
             const description = (a.description ?? '').toLowerCase();
-            const clientLabel = a.client ? `${a.client.prenom ?? ''} ${a.client.nom ?? ''}`.toLowerCase() : '';
+            const clientLabel = a.client ? (a.client.nom ?? '').toLowerCase() : '';
             return titre.includes(q) || description.includes(q) || clientLabel.includes(q);
         });
     })();
