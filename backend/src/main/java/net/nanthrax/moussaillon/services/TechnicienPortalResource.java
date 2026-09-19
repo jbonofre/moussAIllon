@@ -148,7 +148,7 @@ public class TechnicienPortalResource {
             item.incidentDetails = vf.incidentDetails;
             item.quantite = vf.quantite;
             if (vente.client != null) {
-                item.clientNom = (vente.client.prenom != null ? vente.client.prenom + " " : "") + vente.client.nom;
+                item.clientNom = vente.client.nom;
             }
             item.venteType = vente.status != null ? vente.status.name() : null;
             if (vente.bateau != null) {
@@ -225,7 +225,7 @@ public class TechnicienPortalResource {
             item.incidentDetails = vs.incidentDetails;
             item.quantite = vs.quantite;
             if (vente.client != null) {
-                item.clientNom = (vente.client.prenom != null ? vente.client.prenom + " " : "") + vente.client.nom;
+                item.clientNom = vente.client.nom;
             }
             item.venteType = vente.status != null ? vente.status.name() : null;
             if (vente.bateau != null) {
@@ -781,7 +781,7 @@ public class TechnicienPortalResource {
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {
         SocieteEntity societe = SocieteEntity.findById(1L);
         String societeNom = societe != null ? societe.nom : "moussAIllon";
-        String clientName = vente.client.prenom != null ? vente.client.prenom : vente.client.nom;
+        String clientName = vente.client.nom;
 
         String subject = "Incident sur votre intervention - " + societeNom;
         String body = "Bonjour " + clientName + ",\n\n"

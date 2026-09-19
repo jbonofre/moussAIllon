@@ -12,10 +12,11 @@ import java.util.List;
 @Entity
 public class ClientEntity extends PanacheEntity {
 
-    public String prenom;
-
     @Column(nullable = false)
     public String nom;
+
+    // Code tiers dans le logiciel source (ex. EBP), utilisé pour retrouver le client lors d'un ré-import.
+    public String codeTiers;
 
     @Column(nullable = false)
     public String type;

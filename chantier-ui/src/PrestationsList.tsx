@@ -10,7 +10,7 @@ interface Vente {
     dateDevis?: string;
     status: string;
     montantTTC: number;
-    client?: { id: number; prenom?: string; nom?: string };
+    client?: { id: number; nom?: string };
 }
 
 interface PrestationsListProps {

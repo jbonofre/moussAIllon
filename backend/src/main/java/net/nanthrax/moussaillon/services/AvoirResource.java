@@ -340,7 +340,7 @@ public class AvoirResource {
 
         SocieteEntity societe = SocieteEntity.findById(1L);
         String societeNom = societe != null ? societe.nom : "moussAIllon";
-        String clientName = entity.client.prenom != null ? entity.client.prenom : entity.client.nom;
+        String clientName = entity.client.nom;
         String dateStr = entity.dateEmission != null
                 ? new Timestamp(entity.dateEmission.getTime()).toLocalDateTime().toLocalDate().toString()
                 : "-";

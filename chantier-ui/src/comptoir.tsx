@@ -43,7 +43,6 @@ import ImageUpload from './ImageUpload.tsx';
 
 interface ClientEntity {
     id: number;
-    prenom?: string;
     nom: string;
     email?: string;
     telephone?: string;
@@ -376,8 +375,7 @@ const getClientLabel = (client?: ClientEntity) => {
     if (!client) {
         return '-';
     }
-    const fullName = `${client.prenom || ''} ${client.nom || ''}`.trim();
-    return fullName || `Client #${client.id}`;
+    return client.nom || `Client #${client.id}`;
 };
 
 const formatEuroCatalogue = (v?: number) => v != null ? v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-';

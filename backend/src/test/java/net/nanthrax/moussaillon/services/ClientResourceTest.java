@@ -3,6 +3,8 @@ package net.nanthrax.moussaillon.services;
 import io.quarkus.test.junit.QuarkusTest;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
@@ -26,8 +28,7 @@ public class ClientResourceTest {
             .when().get("/clients/100")
             .then()
             .statusCode(200)
-            .body("nom", is("Dupont"))
-            .body("prenom", is("Jean"))
+            .body("nom", is("Jean Dupont"))
             .body("type", is("Particulier"))
             .body("email", is("jean.dupont@test.com"));
     }
@@ -44,12 +45,11 @@ public class ClientResourceTest {
     void testCreerClient() {
         given()
             .contentType("application/json")
-            .body("{\"nom\":\"Nouveau\",\"prenom\":\"Client\",\"type\":\"Particulier\",\"email\":\"nouveau@test.com\"}")
+            .body("{\"nom\":\"Nouveau Client\",\"type\":\"Particulier\",\"email\":\"nouveau@test.com\"}")
             .when().post("/clients")
             .then()
             .statusCode(200)
-            .body("nom", is("Nouveau"))
-            .body("prenom", is("Client"))
+            .body("nom", is("Nouveau Client"))
             .body("id", notNullValue());
     }
 
@@ -58,7 +58,7 @@ public class ClientResourceTest {
         // Creer une entite dediee pour le test de modification
         int id = given()
             .contentType("application/json")
-            .body("{\"nom\":\"AvantUpdate\",\"prenom\":\"Test\",\"type\":\"Particulier\"}")
+            .body("{\"nom\":\"AvantUpdate\",\"type\":\"Particulier\"}")
             .when().post("/clients")
             .then()
             .statusCode(200)
@@ -66,7 +66,7 @@ public class ClientResourceTest {
 
         given()
             .contentType("application/json")
-            .body("{\"nom\":\"ApresUpdate\",\"prenom\":\"Test\",\"type\":\"Particulier\",\"email\":\"update@test.com\"}")
+            .body("{\"nom\":\"ApresUpdate\",\"type\":\"Particulier\",\"email\":\"update@test.com\"}")
             .when().put("/clients/" + id)
             .then()
             .statusCode(200)
@@ -97,7 +97,7 @@ public class ClientResourceTest {
         // Creer un client a supprimer
         int id = given()
             .contentType("application/json")
-            .body("{\"nom\":\"ASupprimer\",\"prenom\":\"Test\",\"type\":\"Particulier\"}")
+            .body("{\"nom\":\"ASupprimer\",\"type\":\"Particulier\"}")
             .when().post("/clients")
             .then()
             .statusCode(200)
@@ -173,5 +173,59 @@ public class ClientResourceTest {
             .statusCode(200)
             .extract().path("delaiPaiementMoyenJours");
         assertEquals(6.0, delai.doubleValue(), 0.01); // (4 + 8) / 2
+    }
+
+    @Test
+    void testImporterClientsCsv() {
+        String csv = "Code (tiers);Nom;E-mail (facturation);Adresse 1 (facturation);Code postal (facturation);Ville (facturation);Code Pays (facturation);Téléphone fixe (facturation);Téléphone portable (facturation);Fax (facturation)\r\n"
+            + "TST001;Client Import Test;import@test.com;1 rue du Test;29000;QUIMPER;FR;0298000000;;\r\n";
+
+        given()
+            .multiPart("file", "clients.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(200)
+            .body("total", is(1))
+            .body("created", is(1))
+            .body("updated", is(0))
+            .body("errors", is(0));
+
+        given()
+            .queryParam("q", "Client Import Test")
+            .when().get("/clients/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].nom", is("Client Import Test"))
+            .body("[0].email", is("import@test.com"))
+            .body("[0].adresse", is("1 rue du Test\n29000 QUIMPER"));
+
+        // Ré-importer le même fichier met à jour le client existant (retrouvé par Code tiers)
+        // au lieu d'en créer un doublon.
+        given()
+            .multiPart("file", "clients.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(0))
+            .body("updated", is(1));
+
+        given()
+            .queryParam("q", "Client Import Test")
+            .when().get("/clients/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1));
+    }
+
+    @Test
+    void testImporterClientsCsvColonneManquante() {
+        String csv = "Colonne;Autre\r\nValeur;Valeur2\r\n";
+
+        given()
+            .multiPart("file", "invalide.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(400);
     }
 }

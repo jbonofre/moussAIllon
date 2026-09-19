@@ -30,8 +30,7 @@ import MonProfil from './mon-profil.tsx';
 
 const mockClient = {
     id: 1,
-    nom: 'Dupont',
-    prenom: 'Jean',
+    nom: 'Jean Dupont',
     type: 'PARTICULIER',
     email: 'jean@test.com',
     telephone: '0612345678',
@@ -47,9 +46,8 @@ describe('MonProfil', () => {
     it('affiche les informations du profil', async () => {
         render(<MonProfil clientId={1} />);
         await waitFor(() => {
-            expect(screen.getByText('Dupont')).toBeInTheDocument();
+            expect(screen.getByText('Jean Dupont')).toBeInTheDocument();
         });
-        expect(screen.getByText('Jean')).toBeInTheDocument();
         expect(screen.getByText('jean@test.com')).toBeInTheDocument();
     });
 
@@ -69,7 +67,7 @@ describe('MonProfil', () => {
         render(<MonProfil clientId={1} />);
 
         await waitFor(() => {
-            expect(screen.getByText('Dupont')).toBeInTheDocument();
+            expect(screen.getByText('Jean Dupont')).toBeInTheDocument();
         });
 
         await user.type(screen.getByPlaceholderText('Mot de passe actuel'), 'oldpass');
@@ -93,7 +91,7 @@ describe('MonProfil', () => {
         render(<MonProfil clientId={1} />);
 
         await waitFor(() => {
-            expect(screen.getByText('Dupont')).toBeInTheDocument();
+            expect(screen.getByText('Jean Dupont')).toBeInTheDocument();
         });
 
         await user.type(screen.getByPlaceholderText('Mot de passe actuel'), 'wrong');

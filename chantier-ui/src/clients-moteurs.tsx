@@ -197,7 +197,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
     [catalogueMoteurs]
   );
   const proprietaireSelectOptions = useMemo(
-    () => clients.map((c: any) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+    () => clients.map((c: any) => ({ value: c.id, label: c.nom })),
     [clients]
   );
 
@@ -349,9 +349,9 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       title: "Propriétaire",
       dataIndex: "proprietaire",
       key: "proprietaire",
-      render: (proprietaire: any) => proprietaire ? `${proprietaire.prenom ?? ""} ${proprietaire.nom ?? ""}` : "",
+      render: (proprietaire: any) => proprietaire?.nom ?? "",
       sorter: (a, b) => (a.proprietaire?.nom || '').localeCompare(b.proprietaire?.nom || ''),
-      filters: clients.map((client: any) => ({ text: `${client.prenom} ${client.nom}`, value: client.id })),
+      filters: clients.map((client: any) => ({ text: client.nom, value: client.id })),
       onFilter: (value, record) => record.proprietaire?.id === value,
     },
     {
@@ -762,17 +762,6 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
-              {({ getFieldValue }) =>
-                getFieldValue("type") === "PARTICULIER" && (
-                  <Col span={12}>
-                    <Form.Item label="Prénom" name="prenom">
-                      <Input />
-                    </Form.Item>
-                  </Col>
-                )
-              }
-            </Form.Item>
             <Col span={12}>
               <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
                 <Input />

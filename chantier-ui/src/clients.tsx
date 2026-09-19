@@ -19,6 +19,7 @@ import {
   Alert,
   Tabs,
   Collapse,
+  Tooltip,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -43,13 +44,13 @@ import ClientsAvoirs from "./clients-avoirs.tsx";
 import DocumentUpload from "./DocumentUpload.tsx";
 import PrestationsList from "./PrestationsList.tsx";
 import HistoriqueOperations from "./historique-operations.tsx";
+import ImportCsvButton from "./ImportCsvButton.tsx";
 
 const { Option } = Select;
 const { Search } = Input;
 
 interface Client {
   id?: number;
-  prenom?: string;
   nom: string;
   type: string;
   email?: string;
@@ -71,7 +72,6 @@ interface Client {
 }
 
 const defaultClient = {
-  prenom: "",
   nom: "",
   type: "PARTICULIER",
   email: "",
@@ -240,8 +240,7 @@ function Clients() {
   };
 
   const columns = [
-    { title: "Prénom", dataIndex: "prenom", key: "prenom", sorter: (a, b) => a.prenom?.localeCompare(b.prenom || "") },
-    { title: "Nom", dataIndex: "nom", key: "nom", sorter: (a, b) => a.nom.localeCompare(b.nom) },
+    { title: "Nom", dataIndex: "nom", key: "nom", width: 250, sorter: (a, b) => a.nom.localeCompare(b.nom) },
     {
       title: "Type",
       dataIndex: "type",
@@ -266,7 +265,7 @@ function Clients() {
       onFilter: (value, record) => record.canalAcquisition === value,
       render: (val) => {
         const opt = canalAcquisitionOptions.find((o) => o.value === val);
-        return opt ? <Space>{opt.icon} {opt.label}</Space> : null;
+        return opt ? <Tooltip title={opt.label}>{opt.icon}</Tooltip> : null;
       },
     },
     { title: "Téléphone", dataIndex: "telephone", key: "telephone", sorter: (a, b) => (a.telephone || '').localeCompare(b.telephone || '') },
@@ -354,6 +353,7 @@ function Clients() {
           }}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
+        <ImportCsvButton endpoint="/clients/import" label="Importer des clients (CSV)" onImported={() => fetchClients()} />
       </Space>
       <Spin spinning={loading}>
         <Table
@@ -425,24 +425,9 @@ function Clients() {
               </Form.Item>
             </Col>
           </Row>
-          <Row gutter={16}>
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
-              {({ getFieldValue }) =>
-                getFieldValue("type") === "PARTICULIER" && (
-                  <Col span={12}>
-                    <Form.Item label="Prénom" name="prenom">
-                      <Input />
-                    </Form.Item>
-                  </Col>
-                )
-              }
-            </Form.Item>
-            <Col span={12}>
-              <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
+            <Input />
+          </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="Email" name="email">

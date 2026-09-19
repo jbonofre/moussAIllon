@@ -3,7 +3,7 @@ import { Button, Card, Divider, Modal, Space, Spin, Table, Tag, message } from '
 import { EyeOutlined, PrinterOutlined } from '@ant-design/icons';
 import api from './api.ts';
 
-interface ClientRef { id: number; prenom?: string; nom: string }
+interface ClientRef { id: number; nom: string }
 interface VenteRef { id: number; status?: string }
 
 interface AvoirLigne {

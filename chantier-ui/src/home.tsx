@@ -510,7 +510,7 @@ export default function ChatbotWidget({ currentPage }: { currentPage?: string })
         if (isCreate) {
             const jsonBlock = extractJsonBlock(input);
             if (!jsonBlock) {
-                throw new Error("Pour une création, ajoutez un JSON, ex: crée un client {\"prenom\":\"Jean\"}");
+                throw new Error("Pour une création, ajoutez un JSON, ex: crée un client {\"nom\":\"Jean Dupont\"}");
             }
             return {
                 method: 'POST',
@@ -643,7 +643,7 @@ export default function ChatbotWidget({ currentPage }: { currentPage?: string })
                 "- resources\n" +
                 "- GET /clients\n" +
                 "- GET /clients/search {\"q\":\"dupont\"}\n" +
-                "- POST /clients {\"prenom\":\"Jean\",\"nom\":\"Dupont\"}\n" +
+                "- POST /clients {\"nom\":\"Jean Dupont\"}\n" +
                 "- liste les clients\n" +
                 "- cherche dupont dans les clients\n" +
                 "- supprime le client 12"
@@ -989,14 +989,14 @@ export default function ChatbotWidget({ currentPage }: { currentPage?: string })
                     {"Commandes directes:\n" +
                         "- resources\n" +
                         "- GET /clients/search {\"q\":\"dupont\"}\n" +
-                        "- POST /clients {\"prenom\":\"Jean\",\"nom\":\"Dupont\"}\n" +
+                        "- POST /clients {\"nom\":\"Jean Dupont\"}\n" +
                         "- PUT /clients/1 {...}\n" +
                         "- DELETE /clients/1\n\n" +
                         "Langage naturel (FR):\n" +
                         "- liste les clients\n" +
                         "- cherche dupont dans les clients\n" +
                         "- supprime le client 12\n" +
-                        "- crée un client {\"prenom\":\"Jean\",\"nom\":\"Dupont\"}\n\n" +
+                        "- crée un client {\"nom\":\"Jean Dupont\"}\n\n" +
                         "Conseil: utilisez Shift+Entrée pour un retour à la ligne et Entrée pour envoyer."}
                 </Paragraph>
             </Modal>

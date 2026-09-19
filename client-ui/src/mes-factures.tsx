@@ -41,7 +41,6 @@ interface SocieteData {
 
 interface ClientData {
     id: number;
-    prenom?: string;
     nom: string;
     email?: string;
     telephone?: string;
@@ -364,7 +363,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
 
         const clientBoxHtml = `
             <div class="client-box">
-                <div class="client-name">${escapeHtml(client ? `${client.prenom || ''} ${client.nom || ''}`.trim() : '-')}</div>
+                <div class="client-name">${escapeHtml(client?.nom || '-')}</div>
                 ${client?.adresse ? `<div style="white-space:pre-line">${escapeHtml(client.adresse)}</div>` : ''}
                 ${client?.telephone ? `<div>Tél : ${escapeHtml(client.telephone)}</div>` : ''}
                 ${client?.email ? `<div>Email : ${escapeHtml(client.email)}</div>` : ''}

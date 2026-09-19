@@ -193,7 +193,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
     [remorquesCatalogue]
   );
   const proprietaireSelectOptions = useMemo(
-    () => clients.map((c: any) => ({ value: c.id, label: `${c.prenom} ${c.nom}` })),
+    () => clients.map((c: any) => ({ value: c.id, label: c.nom })),
     [clients]
   );
 
@@ -324,9 +324,8 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
     { title: "Immatriculation", dataIndex: "immatriculation", key: "immatriculation", sorter: (a, b) => a.immatriculation.localeCompare(b.immatriculation) },
     {
       title: "Propriétaire", dataIndex: "proprietaire", key: "proprietaire",
-      render: (proprietaire: any) =>
-        proprietaire ? `${proprietaire.prenom || ""} ${proprietaire.nom || ""}`.trim() : "",
-      sorter: (a, b) => a.proprietaire?.prenom.localeCompare(b.proprietaire?.prenom || "") || a.proprietaire?.nom.localeCompare(b.proprietaire?.nom || ""),
+      render: (proprietaire: any) => proprietaire?.nom || "",
+      sorter: (a, b) => (a.proprietaire?.nom || "").localeCompare(b.proprietaire?.nom || ""),
     },
     {
       title: "Modèle", dataIndex: "modele", key: "modele",
@@ -694,17 +693,6 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
             </Col>
           </Row>
           <Row gutter={16}>
-            <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
-              {({ getFieldValue }) =>
-                getFieldValue("type") === "PARTICULIER" && (
-                  <Col span={12}>
-                    <Form.Item label="Prénom" name="prenom">
-                      <Input />
-                    </Form.Item>
-                  </Col>
-                )
-              }
-            </Form.Item>
             <Col span={12}>
               <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
                 <Input />

@@ -8,8 +8,8 @@ INSERT INTO UserEntity (name, password, email, roles, theme) VALUES ('technicien
 INSERT INTO SocieteEntity (id, nom, siren, adresse, siret, email, telephone, capital, abonnementResilie) VALUES (1, 'MS Plaisance', '123456789', '10 quai du Port', '12345678900010', 'contact@msplaisance.com', '0400000000', 10000, false);
 
 -- Clients (use high IDs to avoid sequence conflicts)
-INSERT INTO ClientEntity (id, nom, prenom, type, email, telephone, adresse, consentement, evaluation, remise, date, motDePasse) VALUES (100, 'Dupont', 'Jean', 'Particulier', 'jean.dupont@test.com', '0612345678', '1 rue du Port', true, 4.5, 0.0, '2025-01-15', 'client123');
-INSERT INTO ClientEntity (id, nom, prenom, type, email, telephone, adresse, consentement, evaluation, remise, date) VALUES (101, 'Martin', 'Sophie', 'Professionnel', 'sophie.martin@test.com', '0698765432', '2 avenue de la Mer', true, 3.0, 10.0, '2025-02-20');
+INSERT INTO ClientEntity (id, nom, type, email, telephone, adresse, consentement, evaluation, remise, date, motDePasse) VALUES (100, 'Jean Dupont', 'Particulier', 'jean.dupont@test.com', '0612345678', '1 rue du Port', true, 4.5, 0.0, '2025-01-15', 'client123');
+INSERT INTO ClientEntity (id, nom, type, email, telephone, adresse, consentement, evaluation, remise, date) VALUES (101, 'Sophie Martin', 'Professionnel', 'sophie.martin@test.com', '0698765432', '2 avenue de la Mer', true, 3.0, 10.0, '2025-02-20');
 
 -- Techniciens
 INSERT INTO TechnicienEntity (id, nom, prenom, email, telephone, couleur, motDePasse) VALUES (100, 'Leclerc', 'Pierre', 'pierre.leclerc@test.com', '0611223344', '#FF5733', 'tech456');

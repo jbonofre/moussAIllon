@@ -66,7 +66,7 @@ public class EmailSequenceScheduler {
         for (ClientEntity client : clients) {
             if (client.email == null || client.email.isBlank()) continue;
             LocalDate dateCreation = client.dateCreation.toLocalDateTime().toLocalDate();
-            String clientName = client.prenom != null && !client.prenom.isBlank() ? client.prenom : client.nom;
+            String clientName = client.nom;
 
             for (EmailSequenceEtapeEntity etape : etapes) {
                 long jours = ChronoUnit.DAYS.between(dateCreation, today);
@@ -97,7 +97,7 @@ public class EmailSequenceScheduler {
         for (ClientEntity proprietaire : bateau.proprietaires) {
             if (!proprietaire.consentement) continue;
             if (proprietaire.email == null || proprietaire.email.isBlank()) continue;
-            String clientName = proprietaire.prenom != null && !proprietaire.prenom.isBlank() ? proprietaire.prenom : proprietaire.nom;
+            String clientName = proprietaire.nom;
             String bateauNom = bateau.name != null ? bateau.name : (bateau.immatriculation != null ? bateau.immatriculation : String.valueOf(bateau.id));
 
             for (EmailSequenceEtapeEntity etape : etapes) {
@@ -119,7 +119,7 @@ public class EmailSequenceScheduler {
         for (MoteurClientEntity moteur : moteurs) {
             if (moteur.proprietaire == null || !moteur.proprietaire.consentement || moteur.proprietaire.email == null || moteur.proprietaire.email.isBlank()) continue;
             LocalDate dateCreation = moteur.dateCreation.toLocalDateTime().toLocalDate();
-            String clientName = moteur.proprietaire.prenom != null && !moteur.proprietaire.prenom.isBlank() ? moteur.proprietaire.prenom : moteur.proprietaire.nom;
+            String clientName = moteur.proprietaire.nom;
             String moteurNom = moteur.numeroSerie != null ? moteur.numeroSerie : String.valueOf(moteur.id);
 
             for (EmailSequenceEtapeEntity etape : etapes) {
@@ -141,7 +141,7 @@ public class EmailSequenceScheduler {
         for (RemorqueClientEntity remorque : remorques) {
             if (remorque.proprietaire == null || !remorque.proprietaire.consentement || remorque.proprietaire.email == null || remorque.proprietaire.email.isBlank()) continue;
             LocalDate dateCreation = remorque.dateCreation.toLocalDateTime().toLocalDate();
-            String clientName = remorque.proprietaire.prenom != null && !remorque.proprietaire.prenom.isBlank() ? remorque.proprietaire.prenom : remorque.proprietaire.nom;
+            String clientName = remorque.proprietaire.nom;
             String remorqueNom = remorque.immatriculation != null ? remorque.immatriculation : String.valueOf(remorque.id);
 
             for (EmailSequenceEtapeEntity etape : etapes) {

@@ -1,5 +1,6 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
@@ -8,15 +9,27 @@ import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.FournisseurProduitEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
+import net.nanthrax.moussaillon.persistence.ReferenceValeurEntity;
+import org.jboss.resteasy.reactive.RestForm;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 @Path("/catalogue/produits")
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class ProduitCatalogueResource {
+
+    private static final String CATEGORIE_IMPORT_DEFAUT = "Non classé";
 
     @GET
     public List<ProduitCatalogueEntity> list() {
@@ -54,6 +67,120 @@ public class ProduitCatalogueResource {
     public ProduitCatalogueEntity create(ProduitCatalogueEntity produit) {
         produit.persist();
         return produit;
+    }
+
+    @POST
+    @Path("/import")
+    @Transactional
+    @TransactionConfiguration(timeout = 300)
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    public ImportResult importCsv(@RestForm("file") FileUpload file) throws IOException {
+        ImportResult result = new ImportResult();
+        if (file == null) {
+            throw new WebApplicationException("Aucun fichier reçu", 400);
+        }
+
+        List<String> lines = Files.readAllLines(file.uploadedFile(), StandardCharsets.ISO_8859_1);
+        if (lines.isEmpty()) {
+            return result;
+        }
+
+        Map<String, Integer> headers = CsvUtils.indexHeaders(CsvUtils.parseLine(lines.get(0), ','));
+        if (!headers.containsKey("Code article") || !headers.containsKey("Libellé")) {
+            throw new WebApplicationException("Fichier CSV invalide : colonnes 'Code article'/'Libellé' manquantes", 400);
+        }
+
+        if (ReferenceValeurEntity.count("type = ?1 and valeur = ?2", "CATEGORIE_PRODUIT", CATEGORIE_IMPORT_DEFAUT) == 0) {
+            ReferenceValeurEntity categorie = new ReferenceValeurEntity();
+            categorie.type = "CATEGORIE_PRODUIT";
+            categorie.valeur = CATEGORIE_IMPORT_DEFAUT;
+            categorie.ordre = 999;
+            categorie.persist();
+        }
+
+        // Evite les collisions avec la contrainte d'unicité sur 'nom' (EBP autorise les libellés
+        // en double, ex. "VIS" x14) en désambiguïsant avec le code article, garanti unique.
+        Set<String> nomsUtilisesDansImport = new HashSet<>();
+
+        for (int i = 1; i < lines.size(); i++) {
+            String line = lines.get(i);
+            if (line.isBlank()) {
+                continue;
+            }
+            result.total++;
+            try {
+                String[] cols = CsvUtils.parseLine(line, ',');
+                String ref = CsvUtils.get(cols, headers, "Code article");
+                String libelle = CsvUtils.get(cols, headers, "Libellé");
+                if (ref == null || libelle == null) {
+                    throw new IllegalArgumentException("Code article ou Libellé manquant");
+                }
+
+                String statut = CsvUtils.get(cols, headers, "Statut");
+                if (statut != null && !"Actif".equalsIgnoreCase(statut)) {
+                    result.skipped++;
+                    continue;
+                }
+
+                ProduitCatalogueEntity entity = ProduitCatalogueEntity.find("ref = ?1", ref).firstResult();
+                boolean isNew = entity == null;
+                if (isNew) {
+                    entity = new ProduitCatalogueEntity();
+                    entity.ref = ref;
+                    entity.categorie = CATEGORIE_IMPORT_DEFAUT;
+                }
+
+                String nom = libelle;
+                boolean conflit = nomsUtilisesDansImport.contains(nom)
+                        || ProduitCatalogueEntity.count("nom = ?1 and ref != ?2", nom, ref) > 0;
+                if (conflit) {
+                    nom = libelle + " (" + ref + ")";
+                }
+                nomsUtilisesDansImport.add(nom);
+                entity.nom = nom;
+
+                double prixVenteHT = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV HT"));
+                double prixVenteTTC = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV TTC"));
+                entity.prixVenteHT = prixVenteHT;
+                entity.prixVenteTTC = prixVenteTTC;
+                if (prixVenteHT > 0) {
+                    entity.montantTVA = Math.round((prixVenteTTC - prixVenteHT) * 100) / 100.0;
+                    entity.tva = Math.round((prixVenteTTC / prixVenteHT - 1) * 100 * 100) / 100.0;
+                } else {
+                    entity.montantTVA = 0;
+                    if (isNew) {
+                        entity.tva = 20;
+                    }
+                }
+
+                String stockReel = CsvUtils.get(cols, headers, "Stock réel");
+                if (stockReel != null) {
+                    entity.stock = (int) Math.round(CsvUtils.parseFrenchDecimal(stockReel));
+                }
+
+                String codeBarre = CsvUtils.get(cols, headers, "Code barre");
+                if (codeBarre != null) {
+                    if (entity.refs == null) {
+                        entity.refs = new ArrayList<>();
+                    }
+                    if (!entity.refs.contains(codeBarre)) {
+                        entity.refs.add(codeBarre);
+                    }
+                }
+
+                if (isNew) {
+                    entity.persist();
+                    result.created++;
+                } else {
+                    result.updated++;
+                }
+            } catch (Exception e) {
+                result.errors++;
+                result.errorDetails.add("Ligne " + (i + 1) + " : " + e.getMessage());
+            }
+        }
+
+        return result;
     }
 
     @GET

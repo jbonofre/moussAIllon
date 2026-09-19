@@ -7,6 +7,7 @@ import FournisseurProduits from './fournisseur-produits.tsx';
 import ProduitHistorique from './produit-historique.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
+import ImportCsvButton from './ImportCsvButton.tsx';
 
 // --- Types ---
 
@@ -277,6 +278,7 @@ const CatalogueProduits: React.FC = () => {
                                 }}
                             />
                             <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                            <ImportCsvButton endpoint="/catalogue/produits/import" label="Importer des produits (CSV)" onImported={fetchProduits} />
                         </Space>
                     </Col>
                 </Row>

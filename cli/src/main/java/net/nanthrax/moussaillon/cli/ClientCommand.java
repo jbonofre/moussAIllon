@@ -34,7 +34,7 @@ public class ClientCommand {
                 if (json) {
                     System.out.println(api.prettyPrint(response));
                 } else {
-                    System.out.println(api.formatTable(response, "id", "type", "nom", "prenom", "email", "telephone"));
+                    System.out.println(api.formatTable(response, "id", "type", "nom", "email", "telephone"));
                 }
             } catch (Exception e) {
                 System.err.println("Erreur : " + e.getMessage());
@@ -76,7 +76,7 @@ public class ClientCommand {
                 if (json) {
                     System.out.println(api.prettyPrint(response));
                 } else {
-                    System.out.println(api.formatTable(response, "id", "type", "nom", "prenom", "email", "telephone"));
+                    System.out.println(api.formatTable(response, "id", "type", "nom", "email", "telephone"));
                 }
             } catch (Exception e) {
                 System.err.println("Erreur : " + e.getMessage());
@@ -90,9 +90,6 @@ public class ClientCommand {
 
         @CommandLine.Option(names = "--nom", required = true, description = "Nom du client")
         String nom;
-
-        @CommandLine.Option(names = "--prenom", description = "Prénom du client")
-        String prenom;
 
         @CommandLine.Option(names = "--type", required = true, description = "Type (particulier, professionnel)")
         String type;
@@ -112,7 +109,6 @@ public class ClientCommand {
                 JsonObjectBuilder builder = Json.createObjectBuilder()
                         .add("nom", nom)
                         .add("type", type);
-                if (prenom != null) builder.add("prenom", prenom);
                 if (email != null) builder.add("email", email);
                 if (telephone != null) builder.add("telephone", telephone);
                 if (adresse != null) builder.add("adresse", adresse);
@@ -135,9 +131,6 @@ public class ClientCommand {
         @CommandLine.Option(names = "--nom", description = "Nom du client")
         String nom;
 
-        @CommandLine.Option(names = "--prenom", description = "Prénom du client")
-        String prenom;
-
         @CommandLine.Option(names = "--type", description = "Type (particulier, professionnel)")
         String type;
 
@@ -155,7 +148,6 @@ public class ClientCommand {
             try {
                 JsonObjectBuilder builder = Json.createObjectBuilder();
                 if (nom != null) builder.add("nom", nom);
-                if (prenom != null) builder.add("prenom", prenom);
                 if (type != null) builder.add("type", type);
                 if (email != null) builder.add("email", email);
                 if (telephone != null) builder.add("telephone", telephone);

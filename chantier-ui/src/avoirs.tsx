@@ -33,7 +33,6 @@ const { TextArea } = Input;
 
 interface ClientRef {
     id: number;
-    prenom?: string;
     nom: string;
     email?: string;
 }
@@ -421,7 +420,7 @@ export default function Avoirs() {
         const q = searchQuery.trim().toLowerCase();
         if (!q) return avoirs;
         return avoirs.filter((a) => {
-            const clientLabel = a.client ? `${a.client.prenom ?? ''} ${a.client.nom ?? ''}`.toLowerCase() : '';
+            const clientLabel = a.client ? (a.client.nom ?? '').toLowerCase() : '';
             const motif = (a.motif ?? '').toLowerCase();
             const idStr = a.id !== undefined ? `#${a.id}` : '';
             const venteStr = a.vente ? `#${a.vente.id}` : '';
@@ -436,7 +435,7 @@ export default function Avoirs() {
 
     const clientFilters = Array.from(
         new Map(avoirs.filter((a) => a.client).map((a) => [a.client!.id, a.client!])).values()
-    ).map((c) => ({ text: `${c.prenom ?? ''} ${c.nom}`.trim(), value: c.id }));
+    ).map((c) => ({ text: c.nom, value: c.id }));
 
     const columns = [
         {
@@ -453,8 +452,7 @@ export default function Avoirs() {
             filters: clientFilters,
             filterSearch: true,
             onFilter: (value: unknown, r: AvoirEntity) => r.client?.id === value,
-            render: (_: unknown, r: AvoirEntity) =>
-                r.client ? `${r.client.prenom ?? ''} ${r.client.nom}`.trim() : '-',
+            render: (_: unknown, r: AvoirEntity) => r.client?.nom ?? '-',
         },
         {
             title: 'Facture liée',
@@ -673,7 +671,7 @@ export default function Avoirs() {
                         }
                         options={clients.map((c) => ({
                             value: c.id,
-                            label: `${c.prenom ?? ''} ${c.nom}`.trim(),
+                            label: c.nom,
                         }))}
                     />
                 </Col>
@@ -730,7 +728,7 @@ export default function Avoirs() {
                                     notFoundContent={null}
                                     options={clients.map((c) => ({
                                         value: c.id,
-                                        label: `${c.prenom ?? ''} ${c.nom}`.trim(),
+                                        label: c.nom,
                                     }))}
                                     style={{ width: '100%' }}
                                 />

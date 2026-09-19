@@ -96,8 +96,8 @@ public class FacturXService {
                 y -= 14;
                 y = drawText(cs, fontGras, 11, "Destinataire :", margin, y);
                 if (vente.client != null) {
-                    String nomClient = safe(vente.client.prenom, "") + (vente.client.prenom != null ? " " : "") + safe(vente.client.nom, "Client");
-                    y = drawText(cs, fontNormal, 10, nomClient.trim(), margin + 10, y - 4);
+                    String nomClient = safe(vente.client.nom, "Client");
+                    y = drawText(cs, fontNormal, 10, nomClient, margin + 10, y - 4);
                     if (vente.client.adresse != null && !vente.client.adresse.isBlank()) {
                         y = drawText(cs, fontNormal, 9, vente.client.adresse.replace("\n", " — "), margin + 10, y - 2);
                     }
@@ -208,7 +208,7 @@ public class FacturXService {
 
         // Destinataire
         String nomClient = vente.client != null
-            ? (safe(vente.client.prenom, "") + " " + safe(vente.client.nom, "Client")).trim()
+            ? safe(vente.client.nom, "Client")
             : "Client";
         TradeParty destinataire = new TradeParty(
             nomClient,
