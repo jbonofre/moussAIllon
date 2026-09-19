@@ -2,6 +2,7 @@ package net.nanthrax.moussaillon.services;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
+import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -85,6 +86,7 @@ public class ClientResource {
     @POST
     @Path("/import")
     @Transactional
+    @TransactionConfiguration(timeout = 300)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public ImportResult importCsv(@RestForm("file") FileUpload file) throws IOException {
         ImportResult result = new ImportResult();

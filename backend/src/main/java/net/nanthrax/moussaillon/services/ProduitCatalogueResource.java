@@ -1,5 +1,6 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
@@ -71,6 +72,7 @@ public class ProduitCatalogueResource {
     @POST
     @Path("/import")
     @Transactional
+    @TransactionConfiguration(timeout = 300)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public ImportResult importCsv(@RestForm("file") FileUpload file) throws IOException {
         ImportResult result = new ImportResult();
