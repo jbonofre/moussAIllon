@@ -114,7 +114,7 @@ Chaque composant dispose d'un `Dockerfile` multi-stage :
 | `client-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
 | `technicien-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
 
-Les frontends utilisent nginx pour servir le SPA et proxifier `/api/` vers le backend (le préfixe `/api` est strippé avant transmission). Un service `gateway` (nginx) unifie les 3 UIs sur le port 80 (`/`, `/client/`, `/technicien/`).
+Les frontends utilisent nginx pour servir le SPA et proxifier `/api/` vers le backend (le préfixe `/api` est strippé avant transmission). Un service `gateway` (nginx) unifie les 3 UIs sur le port 80 (`/chantier/`, `/client/`, `/technicien/`), la racine `/` redirigeant vers `/chantier/`.
 
 ### Docker Compose
 
@@ -127,7 +127,7 @@ docker compose up --build
 | Service | URL |
 |---|---|
 | Backend API | `http://localhost:8080` |
-| Chantier UI | `http://localhost/` |
+| Chantier UI | `http://localhost/chantier/` |
 | Client UI | `http://localhost/client/` |
 | Technicien UI | `http://localhost/technicien/` |
 
@@ -414,19 +414,23 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
+    location ^~ /chantier/ {
+        alias /home/ec2-user/moussAIllon/chantier-ui/target/classes/META-INF/resources/;
+        try_files $uri $uri/ /chantier/index.html;
+    }
+
     location ^~ /client/ {
-        alias /home/ec2-user/moussAIllon/client-ui/build/;
+        alias /home/ec2-user/moussAIllon/client-ui/target/classes/META-INF/resources/;
         try_files $uri $uri/ /client/index.html;
     }
 
     location ^~ /technicien/ {
-        alias /home/ec2-user/moussAIllon/technicien-ui/build/;
+        alias /home/ec2-user/moussAIllon/technicien-ui/target/classes/META-INF/resources/;
         try_files $uri $uri/ /technicien/index.html;
     }
 
-    location / {
-        root /home/ec2-user/moussAIllon/chantier-ui/build;
-        try_files $uri $uri/ /index.html;
+    location = / {
+        return 301 /chantier/;
     }
 }
 ```
