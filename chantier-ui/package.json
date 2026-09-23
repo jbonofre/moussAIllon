@@ -1,6 +1,7 @@
 {
   "name": "moussaillon-chantier-ui",
   "version": "0.9-SNAPSHOT",
+  "homepage": "/chantier",
   "main": "/index.tsx",
   "dependencies": {
     "@ant-design/charts": "^2.6.7",
