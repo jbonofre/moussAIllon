@@ -40,7 +40,7 @@ const categories: SearchCategory[] = [
         endpoint: '/catalogue/produits/search',
         color: '#52c41a',
         route: '/catalogue/produits',
-        renderItem: (item) => `${item.nom || ''}` + (item.marque ? ` (${item.marque})` : '') + (item.ref ? ` - Ref: ${item.ref}` : ''),
+        renderItem: (item) => `${item.designation || ''}` + (item.ref ? ` - Ref: ${item.ref}` : ''),
     },
     {
         key: 'bateaux',
@@ -49,7 +49,7 @@ const categories: SearchCategory[] = [
         endpoint: '/catalogue/bateaux/search',
         color: '#13c2c2',
         route: '/catalogue/bateaux',
-        renderItem: (item) => `${item.nom || item.modele || ''}` + (item.marque ? ` - ${item.marque}` : ''),
+        renderItem: (item) => item.designation || '',
     },
     {
         key: 'moteurs',
@@ -58,7 +58,7 @@ const categories: SearchCategory[] = [
         endpoint: '/catalogue/moteurs/search',
         color: '#722ed1',
         route: '/catalogue/moteurs',
-        renderItem: (item) => `${item.nom || item.modele || ''}` + (item.marque ? ` - ${item.marque}` : ''),
+        renderItem: (item) => item.designation || '',
     },
     {
         key: 'remorques',
@@ -67,7 +67,7 @@ const categories: SearchCategory[] = [
         endpoint: '/catalogue/remorques/search',
         color: '#fa8c16',
         route: '/catalogue/remorques',
-        renderItem: (item) => `${item.modele || ''}` + (item.marque ? ` - ${item.marque}` : ''),
+        renderItem: (item) => item.designation || '',
     },
     {
         key: 'fournisseurs',

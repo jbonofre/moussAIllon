@@ -39,27 +39,23 @@ type Fournisseur = {
 
 type Produit = {
   id: number;
-  nom: string;
-  marque?: string;
+  designation: string;
   categorie?: string;
 };
 
 type Bateau = {
   id: number;
-  marque: string;
-  modele: string;
+  designation: string;
 };
 
 type Moteur = {
   id: number;
-  marque: string;
-  modele: string;
+  designation: string;
 };
 
 type Helice = {
   id: number;
-  marque: string;
-  modele: string;
+  designation: string;
 };
 
 type FournisseurProduit = {
@@ -213,7 +209,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           key: `produit-${fp.produit.id}`,
           type: "produit" as ArticleType,
           id: fp.produit.id,
-          label: `${fp.produit.nom}${fp.produit.marque ? ` (${fp.produit.marque})` : ""}${fp.reference ? ` — Réf: ${fp.reference}` : ""}`,
+          label: `${fp.produit.designation}${fp.reference ? ` — Réf: ${fp.reference}` : ""}`,
           reference: fp.reference,
           prixAchatHT: fp.prixAchatHT,
           tva: fp.tva,
@@ -222,7 +218,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           key: `bateau-${fb.bateau.id}`,
           type: "bateau" as ArticleType,
           id: fb.bateau.id,
-          label: `${fb.bateau.marque} ${fb.bateau.modele}`,
+          label: fb.bateau.designation,
           prixAchatHT: fb.prixAchatHT,
           tva: fb.tva,
         })),
@@ -230,7 +226,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           key: `moteur-${fm.moteur.id}`,
           type: "moteur" as ArticleType,
           id: fm.moteur.id,
-          label: `${fm.moteur.marque} ${fm.moteur.modele}`,
+          label: fm.moteur.designation,
           prixAchatHT: fm.prixAchatHT,
           tva: fm.tva,
         })),
@@ -238,7 +234,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           key: `helice-${fh.helice.id}`,
           type: "helice" as ArticleType,
           id: fh.helice.id,
-          label: `${fh.helice.marque} ${fh.helice.modele}`,
+          label: fh.helice.designation,
           prixAchatHT: fh.prixAchatHT,
           tva: fh.tva,
         })),
@@ -431,10 +427,10 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
         ligne.bateau = undefined;
         ligne.moteur = undefined;
         ligne.helice = undefined;
-        if (article.type === "produit") ligne.produit = { id: article.id, nom: article.label };
-        else if (article.type === "bateau") ligne.bateau = { id: article.id, marque: "", modele: article.label };
-        else if (article.type === "moteur") ligne.moteur = { id: article.id, marque: "", modele: article.label };
-        else if (article.type === "helice") ligne.helice = { id: article.id, marque: "", modele: article.label };
+        if (article.type === "produit") ligne.produit = { id: article.id, designation: article.label };
+        else if (article.type === "bateau") ligne.bateau = { id: article.id, designation: article.label };
+        else if (article.type === "moteur") ligne.moteur = { id: article.id, designation: article.label };
+        else if (article.type === "helice") ligne.helice = { id: article.id, designation: article.label };
         ligne.prixUnitaireHT = article.prixAchatHT;
         ligne.tva = article.tva;
       }

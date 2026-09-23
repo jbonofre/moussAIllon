@@ -34,7 +34,7 @@ public class BateauCommand {
                 if (json) {
                     System.out.println(api.prettyPrint(response));
                 } else {
-                    System.out.println(api.formatTable(response, "id", "marque", "modele", "type", "anneeDebut", "anneeFin", "prixPublic", "stock"));
+                    System.out.println(api.formatTable(response, "id", "designation", "type", "anneeDebut", "anneeFin", "prixPublic", "stock"));
                 }
             } catch (Exception e) {
                 System.err.println("Erreur : " + e.getMessage());
@@ -76,7 +76,7 @@ public class BateauCommand {
                 if (json) {
                     System.out.println(api.prettyPrint(response));
                 } else {
-                    System.out.println(api.formatTable(response, "id", "marque", "modele", "type", "anneeDebut", "anneeFin", "prixPublic", "stock"));
+                    System.out.println(api.formatTable(response, "id", "designation", "type", "anneeDebut", "anneeFin", "prixPublic", "stock"));
                 }
             } catch (Exception e) {
                 System.err.println("Erreur : " + e.getMessage());
@@ -88,11 +88,8 @@ public class BateauCommand {
     static class Create implements Runnable {
         @Inject ApiClient api;
 
-        @CommandLine.Option(names = "--marque", required = true, description = "Marque")
-        String marque;
-
-        @CommandLine.Option(names = "--modele", required = true, description = "Modèle")
-        String modele;
+        @CommandLine.Option(names = "--designation", required = true, description = "Désignation")
+        String designation;
 
         @CommandLine.Option(names = "--type", required = true, description = "Type de bateau")
         String type;
@@ -116,8 +113,7 @@ public class BateauCommand {
         public void run() {
             try {
                 JsonObjectBuilder builder = Json.createObjectBuilder()
-                        .add("marque", marque)
-                        .add("modele", modele)
+                        .add("designation", designation)
                         .add("type", type);
                 if (anneeDebut != null) builder.add("anneeDebut", anneeDebut);
                 if (anneeFin != null) builder.add("anneeFin", anneeFin);
@@ -140,11 +136,8 @@ public class BateauCommand {
         @CommandLine.Parameters(index = "0", description = "ID du bateau")
         long id;
 
-        @CommandLine.Option(names = "--marque", description = "Marque")
-        String marque;
-
-        @CommandLine.Option(names = "--modele", description = "Modèle")
-        String modele;
+        @CommandLine.Option(names = "--designation", description = "Désignation")
+        String designation;
 
         @CommandLine.Option(names = "--type", description = "Type de bateau")
         String type;
@@ -168,8 +161,7 @@ public class BateauCommand {
         public void run() {
             try {
                 JsonObjectBuilder builder = Json.createObjectBuilder();
-                if (marque != null) builder.add("marque", marque);
-                if (modele != null) builder.add("modele", modele);
+                if (designation != null) builder.add("designation", designation);
                 if (type != null) builder.add("type", type);
                 if (anneeDebut != null) builder.add("anneeDebut", anneeDebut);
                 if (anneeFin != null) builder.add("anneeFin", anneeFin);

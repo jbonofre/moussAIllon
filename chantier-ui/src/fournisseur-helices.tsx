@@ -33,8 +33,7 @@ import ImageUpload from './ImageUpload.tsx';
 const { Option } = Select;
 
 const defaultHeliceCatalogue = {
-  modele: '',
-  marque: '',
+  designation: '',
   description: '',
   images: [],
   evaluation: 0,
@@ -56,8 +55,7 @@ type Fournisseur = {
 
 type Helice = {
   id: number;
-  modele: string;
-  marque: string;
+  designation: string;
 };
 
 type FournisseurHelice = {
@@ -221,7 +219,7 @@ const FournisseurHelices = ({
     setEditing({
       ...defaultFournisseurHelice,
       fournisseur: isFournisseurMode ? { id: fournisseurId!, nom: "" } : undefined,
-      helice: isHeliceMode ? { id: heliceId!, marque: "", modele: "" } : undefined,
+      helice: isHeliceMode ? { id: heliceId!, designation: "" } : undefined,
     });
     setFormDirty(false);
     setModalVisible(true);
@@ -273,7 +271,7 @@ const FournisseurHelices = ({
           ...editing,
           ...values,
           fournisseur: selectedFournisseur!,
-          helice: { id: heliceId!, marque: "", modele: "" },
+          helice: { id: heliceId!, designation: "" },
         };
       } else {
         let selectedHelice = helicesCatalogue.find(h => h.id === values.heliceId);
@@ -324,19 +322,15 @@ const FournisseurHelices = ({
           {
             title: "Hélice",
             key: "helice",
-            sorter: (a, b) => {
-              let marque = (a.helice?.marque || "").localeCompare(b.helice?.marque || "");
-              let modele = (a.helice?.modele || "").localeCompare(b.helice?.modele || "");
-              return marque !== 0 ? marque : modele;
-            },
+            sorter: (a, b) => (a.helice?.designation || "").localeCompare(b.helice?.designation || ""),
             filters: helicesCatalogue.map((h) => ({
-              text: `${h.marque} ${h.modele}`,
+              text: h.designation,
               value: h.id,
             })),
             onFilter: (value, record) => record.helice?.id === value,
             render: (_: any, record: FournisseurHelice) => (
               <span>
-                {record.helice?.marque || "-"} {record.helice?.modele || ""}
+                {record.helice?.designation || "-"}
               </span>
             ),
           },
@@ -471,7 +465,7 @@ const FournisseurHelices = ({
                   >
                     {helicesCatalogue.map((h) => (
                       <Option key={h.id} value={h.id}>
-                        {h.marque} {h.modele}
+                        {h.designation}
                       </Option>
                     ))}
                   </Select>
@@ -678,18 +672,9 @@ const FournisseurHelices = ({
             }
           }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="marque" label="Marque" rules={[{ required: true, message: "Champ obligatoire" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="modele" label="Modèle" rules={[{ required: true, message: "Champ obligatoire" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "Champ obligatoire" }]}>
+            <Input />
+          </Form.Item>
           <Form.Item name="description" label="Description">
             <TextArea rows={2} />
           </Form.Item>

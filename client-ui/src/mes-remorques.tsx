@@ -13,7 +13,7 @@ interface RemorqueClientEntity {
     dateFinDeGuarantie?: string;
     images?: string[];
     documents?: string[];
-    modele?: { id: number; nom?: string; marque?: string };
+    modele?: { id: number; designation?: string };
 }
 
 interface MesRemorquesProps {
@@ -92,7 +92,7 @@ export default function MesRemorques({ clientId, onCreateAnnonce }: MesRemorques
             title: 'Modele',
             key: 'modele',
             render: (_: unknown, record: RemorqueClientEntity) =>
-                record.modele ? `${record.modele.marque || ''} ${record.modele.nom || ''}`.trim() || '-' : '-',
+                record.modele?.designation || '-',
         },
         {
             title: 'Date achat',

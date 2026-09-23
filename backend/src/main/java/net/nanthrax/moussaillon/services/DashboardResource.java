@@ -138,7 +138,7 @@ public class DashboardResource {
         data.stockAlerts = new ArrayList<>();
         for (ProduitCatalogueEntity produit : produitsEnAlerte) {
             StockAlert alert = new StockAlert();
-            alert.produit = produit.nom;
+            alert.produit = produit.designation;
             alert.niveau = produit.stock == 0 ? "Critique" : "Bas";
             alert.color = produit.stock == 0 ? "red" : "orange";
             data.stockAlerts.add(alert);

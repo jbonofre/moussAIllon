@@ -39,8 +39,7 @@ const rouesList = [
 ];
 
 const defaultRemorqueCatalogue = {
-  modele: "",
-  marque: "",
+  designation: "",
   description: "",
   evaluation: 0,
   ptac: 0,
@@ -70,8 +69,7 @@ type Fournisseur = {
 
 type Remorque = {
   id: number;
-  marque: string;
-  modele: string;
+  designation: string;
 };
 
 type FournisseurRemorque = {
@@ -232,7 +230,7 @@ const FournisseurRemorques = ({
     setEditing({
       ...defaultFournisseurRemorque,
       fournisseur: isFournisseurMode ? { id: fournisseurId!, nom: "" } : undefined,
-      remorque: isRemorqueMode ? { id: remorqueId!, marque: "", modele: "" } : undefined,
+      remorque: isRemorqueMode ? { id: remorqueId!, designation: "" } : undefined,
     });
     setFormDirty(false);
     setModalVisible(true);
@@ -281,7 +279,7 @@ const FournisseurRemorques = ({
           ...editing,
           ...values,
           fournisseur: selectedFournisseur!,
-          remorque: { id: remorqueId!, marque: "", modele: "" },
+          remorque: { id: remorqueId!, designation: "" },
         };
       } else {
         const selectedRemorque = remorquesCatalogue.find((r) => r.id === values.remorqueId);
@@ -332,17 +330,15 @@ const FournisseurRemorques = ({
             title: "Remorque",
             key: "remorque",
             sorter: (a: FournisseurRemorque, b: FournisseurRemorque) =>
-              ((a.remorque?.marque || "") + " " + (a.remorque?.modele || "")).localeCompare(
-                (b.remorque?.marque || "") + " " + (b.remorque?.modele || "")
-              ),
+              (a.remorque?.designation || "").localeCompare(b.remorque?.designation || ""),
             filters: remorquesCatalogue.map((r) => ({
-              text: r.marque + " " + r.modele,
+              text: r.designation,
               value: r.id,
             })),
             onFilter: (value: any, record: FournisseurRemorque) => record.remorque?.id === value,
             render: (_: any, record: FournisseurRemorque) => (
               <span>
-                {record.remorque?.marque || "-"} {record.remorque?.modele || ""}
+                {record.remorque?.designation || "-"}
               </span>
             ),
           },
@@ -472,7 +468,7 @@ const FournisseurRemorques = ({
                   >
                     {remorquesCatalogue.map((r) => (
                       <Option key={r.id} value={r.id}>
-                        {r.marque} {r.modele}
+                        {r.designation}
                       </Option>
                     ))}
                   </Select>
@@ -674,18 +670,9 @@ const FournisseurRemorques = ({
             }
           }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="marque" label="Marque" rules={[{ required: true, message: "Champ requis" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="modele" label="Modèle" rules={[{ required: true, message: "Champ requis" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "Champ requis" }]}>
+            <Input />
+          </Form.Item>
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} />
           </Form.Item>

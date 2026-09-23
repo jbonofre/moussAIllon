@@ -15,7 +15,6 @@ import {
   Col,
   Spin,
   Rate,
-  AutoComplete,
   Image,
 } from "antd";
 
@@ -33,8 +32,7 @@ import ImageUpload from './ImageUpload.tsx';
 const { Option } = Select;
 
 const defaultMoteurCatalogue = {
-  modele: '',
-  marque: '',
+  designation: '',
   type: '',
   description: '',
   evaluation: 0,
@@ -66,8 +64,7 @@ type Fournisseur = {
 
 type Moteur = {
   id: number;
-  marque: string;
-  modele: string;
+  designation: string;
 };
 
 type FournisseurMoteur = {
@@ -237,7 +234,7 @@ const FournisseurMoteurs = ({
     setEditing({
       ...defaultFournisseurMoteur,
       fournisseur: isFournisseurMode ? { id: fournisseurId!, nom: "" } : undefined,
-      moteur: isMoteurMode ? { id: moteurId!, marque: "", modele: "" } : undefined,
+      moteur: isMoteurMode ? { id: moteurId!, designation: "" } : undefined,
     });
     setFormDirty(false);
     setModalVisible(true);
@@ -285,7 +282,7 @@ const FournisseurMoteurs = ({
           ...editing,
           ...values,
           fournisseur: selectedFournisseur!,
-          moteur: { id: moteurId!, marque: "", modele: "" },
+          moteur: { id: moteurId!, designation: "" },
         };
       } else {
         let selectedMoteur = moteursCatalogue.find((m) => m.id === values.moteurId);
@@ -337,17 +334,15 @@ const FournisseurMoteurs = ({
             title: "Moteur",
             key: "moteur",
             sorter: (a, b) =>
-              ((a.moteur?.marque || "") + (a.moteur?.modele || "")).localeCompare(
-                (b.moteur?.marque || "") + (b.moteur?.modele || "")
-              ),
+              (a.moteur?.designation || "").localeCompare(b.moteur?.designation || ""),
             filters: moteursCatalogue.map((m) => ({
-              text: `${m.marque} ${m.modele}`,
+              text: m.designation,
               value: m.id,
             })),
             onFilter: (value, record) => record.moteur?.id === value,
             render: (_: any, record: FournisseurMoteur) => (
               <span>
-                {record.moteur?.marque || "-"} {record.moteur?.modele || ""}
+                {record.moteur?.designation || "-"}
               </span>
             ),
           },
@@ -531,7 +526,7 @@ const FournisseurMoteurs = ({
                   >
                     {moteursCatalogue.map((m) => (
                       <Option key={m.id} value={m.id}>
-                        {m.marque} {m.modele}
+                        {m.designation}
                       </Option>
                     ))}
                   </Select>
@@ -751,21 +746,10 @@ const FournisseurMoteurs = ({
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="marque" label="Marque" rules={[{ required: true }]}>
-                <AutoComplete
-                  allowClear
-                  options={moteursCatalogue.map(m => ({ value: m.marque })).filter((v, i, a) => a.findIndex(t => t.value === v.value) === i)}
-                  placeholder="Saisir ou sélectionner une marque"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="modele" label="Modèle" rules={[{ required: true }]}>
+              <Form.Item name="designation" label="Désignation" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="type" label="Type" rules={[{ required: true }]}>
                 <Select options={moteurTypes.map((t) => ({ label: t.text, value: t.value }))} />

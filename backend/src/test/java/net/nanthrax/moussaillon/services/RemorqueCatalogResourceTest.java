@@ -25,8 +25,7 @@ public class RemorqueCatalogResourceTest {
             .when().get("/catalogue/remorques/100")
             .then()
             .statusCode(200)
-            .body("modele", is("Sun Way 500"))
-            .body("marque", is("Sun Way"));
+            .body("designation", is("Sun Way 500"));
     }
 
     @Test
@@ -41,11 +40,11 @@ public class RemorqueCatalogResourceTest {
     void testCreerRemorque() {
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"Test Remorque\",\"marque\":\"TestBrand\",\"description\":\"Test\",\"ptac\":500,\"stock\":1,\"prixVenteTTC\":1500.0}")
+            .body("{\"designation\":\"TestBrand Test Remorque\",\"description\":\"Test\",\"ptac\":500,\"stock\":1,\"prixVenteTTC\":1500.0}")
             .when().post("/catalogue/remorques")
             .then()
             .statusCode(200)
-            .body("modele", is("Test Remorque"))
+            .body("designation", is("TestBrand Test Remorque"))
             .body("id", notNullValue());
     }
 
@@ -53,23 +52,23 @@ public class RemorqueCatalogResourceTest {
     void testModifierRemorque() {
         int id = given()
             .contentType("application/json")
-            .body("{\"modele\":\"AvantUpdate\",\"marque\":\"Test\",\"description\":\"Test\"}")
+            .body("{\"designation\":\"Test AvantUpdate\",\"description\":\"Test\"}")
             .when().post("/catalogue/remorques")
             .then().statusCode(200).extract().path("id");
 
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"ApresUpdate\",\"marque\":\"Test\",\"description\":\"Updated\"}")
+            .body("{\"designation\":\"Test ApresUpdate\",\"description\":\"Updated\"}")
             .when().put("/catalogue/remorques/" + id)
             .then()
             .statusCode(200)
-            .body("modele", is("ApresUpdate"));
+            .body("designation", is("Test ApresUpdate"));
     }
 
     @Test
     void testRechercherRemorques() {
         given()
-            .queryParam("modele", "sun")
+            .queryParam("designation", "sun")
             .when().get("/catalogue/remorques/search")
             .then()
             .statusCode(200)
@@ -80,7 +79,7 @@ public class RemorqueCatalogResourceTest {
     void testSupprimerRemorque() {
         int id = given()
             .contentType("application/json")
-            .body("{\"modele\":\"ToDelete\",\"marque\":\"Test\",\"description\":\"Test\"}")
+            .body("{\"designation\":\"Test ToDelete\",\"description\":\"Test\"}")
             .when().post("/catalogue/remorques")
             .then().statusCode(200).extract().path("id");
 

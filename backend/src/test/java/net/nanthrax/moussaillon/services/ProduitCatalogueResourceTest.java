@@ -28,8 +28,7 @@ public class ProduitCatalogueResourceTest {
             .when().get("/catalogue/produits/100")
             .then()
             .statusCode(200)
-            .body("nom", is("Huile moteur 4T"))
-            .body("marque", is("Motul"));
+            .body("designation", is("Motul Huile moteur 4T"));
     }
 
     @Test
@@ -44,11 +43,11 @@ public class ProduitCatalogueResourceTest {
     void testCreerProduit() {
         given()
             .contentType("application/json")
-            .body("{\"nom\":\"Antifouling\",\"marque\":\"International\",\"categorie\":\"Peinture\",\"stock\":10,\"prixVenteTTC\":45.0}")
+            .body("{\"designation\":\"International Antifouling\",\"categorie\":\"Peinture\",\"stock\":10,\"prixVenteTTC\":45.0}")
             .when().post("/catalogue/produits")
             .then()
             .statusCode(200)
-            .body("nom", is("Antifouling"))
+            .body("designation", is("International Antifouling"))
             .body("id", notNullValue());
     }
 
@@ -56,17 +55,17 @@ public class ProduitCatalogueResourceTest {
     void testModifierProduit() {
         int id = given()
             .contentType("application/json")
-            .body("{\"nom\":\"AvantUpdate\",\"marque\":\"Test\",\"categorie\":\"Test\"}")
+            .body("{\"designation\":\"Test AvantUpdate\",\"categorie\":\"Test\"}")
             .when().post("/catalogue/produits")
             .then().statusCode(200).extract().path("id");
 
         given()
             .contentType("application/json")
-            .body("{\"nom\":\"ApresUpdate\",\"marque\":\"Test\",\"categorie\":\"Test\"}")
+            .body("{\"designation\":\"Test ApresUpdate\",\"categorie\":\"Test\"}")
             .when().put("/catalogue/produits/" + id)
             .then()
             .statusCode(200)
-            .body("nom", is("ApresUpdate"));
+            .body("designation", is("Test ApresUpdate"));
     }
 
     @Test
@@ -91,13 +90,13 @@ public class ProduitCatalogueResourceTest {
     void testAjustementManuelStockCreeMouvement() {
         int id = given()
             .contentType("application/json")
-            .body("{\"nom\":\"ProduitAjustement\",\"marque\":\"Test\",\"categorie\":\"Test\",\"stock\":10}")
+            .body("{\"designation\":\"Test ProduitAjustement\",\"categorie\":\"Test\",\"stock\":10}")
             .when().post("/catalogue/produits")
             .then().statusCode(200).extract().path("id");
 
         given()
             .contentType("application/json")
-            .body("{\"nom\":\"ProduitAjustement\",\"marque\":\"Test\",\"categorie\":\"Test\",\"stock\":7}")
+            .body("{\"designation\":\"Test ProduitAjustement\",\"categorie\":\"Test\",\"stock\":7}")
             .when().put("/catalogue/produits/" + id)
             .then().statusCode(200);
 
@@ -115,7 +114,7 @@ public class ProduitCatalogueResourceTest {
     void testStatistiquesApresVente() {
         int id = given()
             .contentType("application/json")
-            .body("{\"nom\":\"ProduitStats\",\"marque\":\"Test\",\"categorie\":\"Test\",\"stock\":10,\"prixVenteTTC\":20.0}")
+            .body("{\"designation\":\"Test ProduitStats\",\"categorie\":\"Test\",\"stock\":10,\"prixVenteTTC\":20.0}")
             .when().post("/catalogue/produits")
             .then().statusCode(200).extract().path("id");
 
@@ -157,7 +156,7 @@ public class ProduitCatalogueResourceTest {
     void testSupprimerProduit() {
         int id = given()
             .contentType("application/json")
-            .body("{\"nom\":\"ToDelete\",\"marque\":\"Test\",\"categorie\":\"Test\"}")
+            .body("{\"designation\":\"Test ToDelete\",\"categorie\":\"Test\"}")
             .when().post("/catalogue/produits")
             .then().statusCode(200).extract().path("id");
 
@@ -194,7 +193,7 @@ public class ProduitCatalogueResourceTest {
             .then()
             .statusCode(200)
             .body("size()", is(1))
-            .body("[0].nom", is("Produit Import Test"))
+            .body("[0].designation", is("Produit Import Test"))
             .body("[0].ref", is("IMP001"))
             .body("[0].prixVenteHT", is(100.0f))
             .body("[0].prixVenteTTC", is(120.0f))

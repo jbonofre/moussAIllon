@@ -15,7 +15,6 @@ import {
   Col,
   Spin,
   Rate,
-  AutoComplete,
   Image,
 } from "antd";
 import {
@@ -35,8 +34,7 @@ import ImageUpload from './ImageUpload.tsx';
 const { Option } = Select;
 
 const defaultBateauCatalogue = {
-  modele: '',
-  marque: '',
+  designation: '',
   annee: 2025,
   images: [],
   type: '',
@@ -73,8 +71,7 @@ type Fournisseur = {
 
 type Bateau = {
   id: number;
-  marque: string;
-  modele: string;
+  designation: string;
 };
 
 type FournisseurBateau = {
@@ -232,7 +229,7 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
     setEditing({
       ...defaultFournisseurBateau,
       fournisseur: isFournisseurMode ? { id: fournisseurId!, nom: "" } : undefined,
-      bateau: isBateauMode ? { id: bateauId!, marque: "", modele: "" } : undefined,
+      bateau: isBateauMode ? { id: bateauId!, designation: "" } : undefined,
     });
     setFormDirty(false);
     setModalVisible(true);
@@ -280,7 +277,7 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
           ...editing,
           ...values,
           fournisseur: selectedFournisseur!,
-          bateau: { id: bateauId!, marque: "", modele: "" },
+          bateau: { id: bateauId!, designation: "" },
         };
       } else {
         let selectedBateau = bateauxCatalogue.find((b) => b.id === values.bateauId);
@@ -327,11 +324,11 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
     }] : [{
       title: "Bateau",
       key: "bateau",
-      sorter: (a, b) => (a.bateau?.marque || "").localeCompare(b.bateau?.marque || "") || (a.bateau?.modele || "").localeCompare(b.bateau?.modele || ""),
-      filters: bateauxCatalogue.map(b => ({ text: b.marque + " " + b.modele, value: b.id })),
+      sorter: (a, b) => (a.bateau?.designation || "").localeCompare(b.bateau?.designation || ""),
+      filters: bateauxCatalogue.map(b => ({ text: b.designation, value: b.id })),
       onFilter: (value, record) => record.bateau?.id === value,
       render: (_: any, record: FournisseurBateau) =>
-        <span>{record.bateau?.marque || "-"} {record.bateau?.modele || ""}</span>
+        <span>{record.bateau?.designation || "-"}</span>
     }]),
     { title: "Prix Achat HT", dataIndex: "prixAchatHT", key: "prixAchatHT", sorter: (a, b) => a.prixAchatHT - b.prixAchatHT },
     { title: "TVA (%)", dataIndex: "tva", key: "tva", sorter: (a, b) => a.tva - b.tva },
@@ -451,7 +448,7 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
                   >
                     {bateauxCatalogue.map(b => (
                       <Option key={b.id} value={b.id}>
-                        {b.marque} {b.modele}
+                        {b.designation}
                       </Option>
                     ))}
                   </Select>
@@ -651,26 +648,17 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="marque" label="Marque" rules={[{ required: true }]}>
-                <AutoComplete
-                  allowClear
-                  options={bateauxCatalogue.map(b => ({ value: b.marque })).filter((v, i, a) => a.findIndex(t => t.value === v.value) === i)}
-                  placeholder="Saisir ou sélectionner une marque"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="modele" label="Modèle" rules={[{ required: true }]}>
+              <Form.Item name="designation" label="Désignation" rules={[{ required: true }]}>
                 <Input />
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="type" label="Type" rules={[{ required: true }]}>
                 <Select options={bateauTypes} />
               </Form.Item>
             </Col>
+          </Row>
+          <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="annee" label="Année">
                 <InputNumber min={1900} max={new Date().getFullYear()} step={1} style={{ width: '100%' }} />

@@ -180,9 +180,7 @@ public class AvoirResource {
             for (VenteProduitEntity vp : vente.venteProduits) {
                 if (vp.produit == null) continue;
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
-                String nom = vp.produit.nom != null ? vp.produit.nom : "Produit";
-                if (vp.produit.marque != null && !vp.produit.marque.isBlank()) nom += " (" + vp.produit.marque + ")";
-                ligne.designation = nom;
+                ligne.designation = vp.produit.designation != null ? vp.produit.designation : "Produit";
                 ligne.quantite = Math.max(1, vp.quantite);
                 ligne.prixUnitaireHT = vp.produit.prixVenteHT;
                 ligne.tva = vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;

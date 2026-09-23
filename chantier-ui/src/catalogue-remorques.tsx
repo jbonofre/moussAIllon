@@ -27,8 +27,7 @@ const { Search } = Input;
 
 // Defaults for a Remorque
 const defaultRemorque = {
-  modele: "",
-  marque: "",
+  designation: "",
   description: "",
   anneeDebut: new Date().getFullYear(),
   anneeFin: new Date().getFullYear(),
@@ -236,13 +235,7 @@ const RemorqueCatalogue: React.FC = () => {
     setLoading(true);
     try {
       const response = await api.get("/catalogue/remorques/search", {
-        params: value
-          ? {
-              modele: value,
-              marque: value,
-              description: value,
-            }
-          : {},
+        params: value ? { q: value } : {},
       });
       setRemorques(response.data);
     } catch {
@@ -254,15 +247,11 @@ const RemorqueCatalogue: React.FC = () => {
 
   const columns = [
     {
-      title: "Marque",
-      dataIndex: "marque",
-      key: "marque",
-      sorter: (a: any, b: any) => (a.marque || '').localeCompare(b.marque || ''),
-      filters: [...new Set(remorques.map((r: any) => r.marque).filter(Boolean))].map((m) => ({ text: m, value: m })),
-      onFilter: (value: any, record: any) => record.marque === value,
-      filterSearch: true,
+      title: "Désignation",
+      dataIndex: "designation",
+      key: "designation",
+      sorter: (a: any, b: any) => (a.designation || '').localeCompare(b.designation || ''),
     },
-    { title: "Modèle", dataIndex: "modele", key: "modele", sorter: (a: any, b: any) => (a.modele || '').localeCompare(b.modele || '') },
     {
       title: "Évaluation",
       dataIndex: "evaluation",
@@ -356,26 +345,13 @@ const RemorqueCatalogue: React.FC = () => {
           initialValues={defaultRemorque}
           onValuesChange={onValuesChange}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item
-                name="marque"
-                label="Marque"
-                rules={[{ required: true, message: "Champ requis" }]}
-              >
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item
-                name="modele"
-                label="Modèle"
-                rules={[{ required: true, message: "Champ requis" }]}
-              >
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item
+            name="designation"
+            label="Désignation"
+            rules={[{ required: true, message: "Champ requis" }]}
+          >
+            <Input />
+          </Form.Item>
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} />
           </Form.Item>

@@ -7,7 +7,6 @@ import {
   Input,
   InputNumber,
   Select,
-  AutoComplete,
   Image,
   Space,
   message,
@@ -208,14 +207,14 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const modeleSelectOptions = useMemo(
     () => bateauxCatalogue.map((b: any) => ({
       value: b.id,
-      label: `${b.marque} ${b.modele}${formatAnnee(b.anneeDebut, b.anneeFin) ? ` (${formatAnnee(b.anneeDebut, b.anneeFin)})` : ''}`,
+      label: `${b.designation}${formatAnnee(b.anneeDebut, b.anneeFin) ? ` (${formatAnnee(b.anneeDebut, b.anneeFin)})` : ''}`,
     })),
     [bateauxCatalogue]
   );
   const moteurSelectOptions = useMemo(
     () => moteursCatalogue.map((m: any) => ({
       value: m.id,
-      label: `${m.marque} ${m.modele}${formatAnnee(m.anneeDebut, m.anneeFin) ? ` (${formatAnnee(m.anneeDebut, m.anneeFin)})` : ''}`,
+      label: `${m.designation}${formatAnnee(m.anneeDebut, m.anneeFin) ? ` (${formatAnnee(m.anneeDebut, m.anneeFin)})` : ''}`,
     })),
     [moteursCatalogue]
   );
@@ -334,16 +333,15 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
 
   const handleAiIdentify = (result: IdentifyResult) => {
     const updates: Record<string, any> = {};
-    if (!form.getFieldValue('name') && (result.marque || result.modele)) {
-      updates.name = [result.marque, result.modele].filter(Boolean).join(' ');
+    if (!form.getFieldValue('name') && result.designation) {
+      updates.name = result.designation;
     }
     if (result.immatriculation && !form.getFieldValue('immatriculation')) {
       updates.immatriculation = result.immatriculation;
     }
     const matching = bateauxCatalogue.find((b: any) =>
-      result.marque && result.modele &&
-      b.marque?.toLowerCase() === result.marque.toLowerCase() &&
-      b.modele?.toLowerCase() === result.modele.toLowerCase()
+      result.designation &&
+      b.designation?.toLowerCase() === result.designation.toLowerCase()
     );
     if (matching) {
       updates.modeleId = matching.id;
@@ -430,9 +428,9 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       onFilter: (value, record) => record.proprietaires?.some((p: any) => p.id === value),
     },
     { title: "Modèle", dataIndex: "modele", key: "modele",
-      render: (modele: any) => { if (!modele) return ""; const a = formatAnnee(modele.anneeDebut, modele.anneeFin); return `${modele.marque} ${modele.modele}${a ? ` (${a})` : ''}`; },
-      sorter: (a, b) => (a.modele?.marque || '').localeCompare(b.modele?.marque || '') || (a.modele?.modele || '').localeCompare(b.modele?.modele || ''),
-      filters: bateauxCatalogue.map((bateau) => { const a = formatAnnee(bateau.anneeDebut, bateau.anneeFin); return { text: `${bateau.marque} ${bateau.modele}${a ? ` (${a})` : ''}`, value: bateau.id }; }),
+      render: (modele: any) => { if (!modele) return ""; const a = formatAnnee(modele.anneeDebut, modele.anneeFin); return `${modele.designation}${a ? ` (${a})` : ''}`; },
+      sorter: (a, b) => (a.modele?.designation || '').localeCompare(b.modele?.designation || ''),
+      filters: bateauxCatalogue.map((bateau) => { const a = formatAnnee(bateau.anneeDebut, bateau.anneeFin); return { text: `${bateau.designation}${a ? ` (${a})` : ''}`, value: bateau.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
     },
     {
@@ -590,7 +588,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               <Form.Item name="modeleId" noStyle>
                 <Select
                   showSearch
-                  placeholder="Rechercher un modèle par marque, modèle ou type"
+                  placeholder="Rechercher un modèle par désignation ou type"
                   optionFilterProp="label"
                   allowClear
                   style={{ width: "100%" }}
@@ -634,7 +632,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                 <Select
                   mode="multiple"
                   style={{ width: '100%' }}
-                  placeholder="Rechercher un moteur par marque, modèle ou type"
+                  placeholder="Rechercher un moteur par désignation ou type"
                   optionFilterProp="label"
                   showSearch
                   allowClear
@@ -725,26 +723,17 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="marque" label="Marque" rules={[{ required: true, message: "La marque est requise" }]}>
-                <AutoComplete
-                  allowClear
-                  options={bateauxCatalogue.map((b) => ({ value: b.marque })).filter((v, i, a) => a.findIndex((t) => t.value === v.value) === i)}
-                  placeholder="Saisir ou sélectionner une marque"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="modele" label="Modèle" rules={[{ required: true, message: "Le modèle est requis" }]}>
+              <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "La désignation est requise" }]}>
                 <Input />
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="type" label="Type" rules={[{ required: true, message: "Le type est requis" }]}>
                 <Select options={bateauTypes} />
               </Form.Item>
             </Col>
+          </Row>
+          <Row gutter={16}>
             <Col span={12}>
               <Form.Item label="Années">
                 <Row gutter={8}>
@@ -955,26 +944,17 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="marque" label="Marque" rules={[{ required: true, message: "La marque est requise" }]}>
-                <AutoComplete
-                  allowClear
-                  options={moteursCatalogue.map((m) => ({ value: m.marque })).filter((v, i, a) => a.findIndex((t) => t.value === v.value) === i)}
-                  placeholder="Saisir ou sélectionner une marque"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="modele" label="Modèle" rules={[{ required: true, message: "Le modèle est requis" }]}>
+              <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "La désignation est requise" }]}>
                 <Input />
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="type" label="Type" rules={[{ required: true, message: "Le type est requis" }]}>
                 <Select options={moteurTypes} />
               </Form.Item>
             </Col>
+          </Row>
+          <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="evaluation" label="Évaluation">
                 <Rate allowHalf />

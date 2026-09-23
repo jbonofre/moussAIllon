@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, AutoComplete, Input, InputNumber, Select, Space, Popconfirm, message, Divider } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, Input, InputNumber, Select, Space, Popconfirm, message, Divider } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -26,8 +26,7 @@ interface BateauOption {
 
 interface BateauCatalogueEntity {
     id?: number;
-    modele: string;
-    marque: string;
+    designation: string;
     anneeDebut: number;
     anneeFin: number;
     images: string[];
@@ -51,8 +50,7 @@ interface BateauCatalogueEntity {
 }
 
 const defaultBateau: BateauCatalogueEntity = {
-    modele: '',
-    marque: '',
+    designation: '',
     anneeDebut: new Date().getFullYear(),
     anneeFin: new Date().getFullYear(),
     images: [],
@@ -97,11 +95,6 @@ const CatalogueBateaux: React.FC = () => {
     const [form] = Form.useForm();
     const [formDirty, setFormDirty] = useState(false);
     const [forfaitModalVisible, setForfaitModalVisible] = useState(false);
-
-    const marqueOptions = useMemo(() => {
-        const uniqueMarques = Array.from(new Set(bateaux.map((bateau) => bateau.marque))).filter(Boolean) as string[];
-        return uniqueMarques.map((marque) => ({ value: marque }));
-    }, [bateaux]);
 
     const fetchBateaux = async () => {
         setLoading(true);
@@ -253,24 +246,17 @@ const CatalogueBateaux: React.FC = () => {
 
     const columns = [
         {
-            title: 'Marque',
-            dataIndex: 'marque',
-            sorter: (a,b) => a.marque.localeCompare(b.marque),
-            filters: marqueOptions.map(m => ({ text: m.value, value: m.value })),
-            onFilter: (value, record) => record.marque === value,
-        },
-        {
-            title: 'Modèle',
-            dataIndex: 'modele',
+            title: 'Désignation',
+            dataIndex: 'designation',
             render: (_,record) => (
                 <Space>
                     {record.images && record.images[0] && (
                         <Image width={32} height={32} style={{ objectFit: 'cover' }} src={record.images[0]} />
                     )}
-                    {record.modele}
+                    {record.designation}
                 </Space>
             ),
-            sorter: (a,b) => a.modele.localeCompare(b.modele),
+            sorter: (a,b) => a.designation.localeCompare(b.designation),
         },
         {
             title: 'Type',
@@ -415,21 +401,10 @@ const CatalogueBateaux: React.FC = () => {
                         >
                             <Row gutter={16}>
                                 <Col span={12}>
-                                    <Form.Item name="marque" label="Marque" rules={[{ required: true }]}>
-                                        <AutoComplete
-                                            allowClear
-                                            options={marqueOptions}
-                                            placeholder="Saisir ou sélectionner une marque"
-                                        />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item name="modele" label="Modèle" rules={[{ required: true }]}>
+                                    <Form.Item name="designation" label="Désignation" rules={[{ required: true }]}>
                                         <Input />
                                     </Form.Item>
                                 </Col>
-                            </Row>
-                            <Row gutter={16}>
                                 <Col span={12}>
                                     <Form.Item name="type" label="Type" rules={[{ required: true }]}>
                                         <Select options={bateauTypes} />

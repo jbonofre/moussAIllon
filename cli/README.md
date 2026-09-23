@@ -93,7 +93,7 @@ moussaillon bateaux list
 moussaillon bateaux search "Bénéteau"
 
 # Ajouter un bateau au catalogue
-moussaillon bateaux create --marque Bénéteau --modele "Flyer 7" --type moteur --annee 2025 --prix-public 45000 --stock 3
+moussaillon bateaux create --designation "Bénéteau Flyer 7" --type moteur --annee 2025 --prix-public 45000 --stock 3
 ```
 
 ### Moteurs (catalogue)
@@ -103,7 +103,7 @@ moussaillon bateaux create --marque Bénéteau --modele "Flyer 7" --type moteur 
 moussaillon moteurs list
 
 # Ajouter un moteur
-moussaillon moteurs create --marque Yamaha --modele F150 --type hors-bord --puissance 150cv
+moussaillon moteurs create --designation "Yamaha F150" --type hors-bord --puissance 150cv
 ```
 
 ### Techniciens

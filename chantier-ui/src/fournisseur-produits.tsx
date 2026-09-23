@@ -15,7 +15,6 @@ import {
   Col,
   Spin,
   Rate,
-  AutoComplete,
   Image,
 } from "antd";
 
@@ -36,8 +35,7 @@ import ImageUpload from './ImageUpload.tsx';
 const { Option } = Select;
 
 const defaultProduitCatalogue = {
-  nom: '',
-  marque: '',
+  designation: '',
   categorie: '',
   ref: '',
   refs: [],
@@ -65,8 +63,7 @@ type Fournisseur = {
 
 type Produit = {
   id: number;
-  nom: string;
-  marque?: string;
+  designation: string;
   categorie?: string;
 };
 
@@ -248,7 +245,7 @@ const FournisseurProduits = ({
       ...defaultFournisseurProduit,
       ...defaults,
       fournisseur: isFournisseurMode ? { id: fournisseurId!, nom: "" } : undefined,
-      produit: isProduitMode ? { id: produitId!, nom: "" } : undefined,
+      produit: isProduitMode ? { id: produitId!, designation: "" } : undefined,
     });
     setFormDirty(false);
     setModalVisible(true);
@@ -296,7 +293,7 @@ const FournisseurProduits = ({
           ...editing,
           ...values,
           fournisseur: selectedFournisseur!,
-          produit: { id: produitId!, nom: "" },
+          produit: { id: produitId!, designation: "" },
         };
       } else {
         let selectedProduit = produits.find((p) => p.id === values.produitId);
@@ -361,7 +358,7 @@ const FournisseurProduits = ({
 
     try {
       await api.post("/commandes-fournisseur", body);
-      message.success(`Commande brouillon créée pour ${record.produit.nom} (x${qte})`);
+      message.success(`Commande brouillon créée pour ${record.produit.designation} (x${qte})`);
     } catch {
       message.error("Erreur lors de la création de la commande");
     }
@@ -383,13 +380,12 @@ const FournisseurProduits = ({
           {
             title: "Produit",
             key: "produit",
-            sorter: (a, b) => (a.produit?.nom || "").localeCompare(b.produit?.nom || ""),
-            filters: produits.map((p) => ({ text: p.nom, value: p.id })),
+            sorter: (a, b) => (a.produit?.designation || "").localeCompare(b.produit?.designation || ""),
+            filters: produits.map((p) => ({ text: p.designation, value: p.id })),
             onFilter: (value, record) => record.produit?.id === value,
             render: (_: any, record: FournisseurProduit) => (
               <span>
-                {record.produit?.nom || "-"}
-                {record.produit?.marque ? ` (${record.produit.marque})` : ""}
+                {record.produit?.designation || "-"}
               </span>
             ),
           },
@@ -540,8 +536,7 @@ const FournisseurProduits = ({
                   >
                     {produits.map((p) => (
                       <Option key={p.id} value={p.id}>
-                        {p.nom}
-                        {p.marque ? ` (${p.marque})` : ""}
+                        {p.designation}
                       </Option>
                     ))}
                   </Select>
@@ -747,22 +742,9 @@ const FournisseurProduits = ({
             }
           }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="marque" label="Marque">
-                <AutoComplete
-                  allowClear
-                  options={produits.map(p => ({ value: p.marque })).filter((v, i, a) => v.value && a.findIndex(t => t.value === v.value) === i)}
-                  placeholder="Saisir/select. une marque"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="nom" label="Nom" rules={[{ required: true, message: "Le nom est requis" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "La désignation est requise" }]}>
+            <Input />
+          </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: "La catégorie est requise" }]}>

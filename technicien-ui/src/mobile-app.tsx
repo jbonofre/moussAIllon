@@ -58,8 +58,7 @@ interface ChecklistItem {
 
 interface ProduitItem {
     id?: number;
-    nom?: string;
-    marque?: string;
+    designation?: string;
     categorie?: string;
     ref?: string;
     emplacement?: string;
@@ -423,7 +422,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                                 }
                                 options={catalogue.map((p) => ({
                                     value: p.id,
-                                    label: `${p.nom || ''}${p.marque ? ` - ${p.marque}` : ''}${p.ref ? ` (${p.ref})` : ''}`,
+                                    label: `${p.designation || ''}${p.ref ? ` (${p.ref})` : ''}`,
                                 }))}
                                 style={{ width: '100%' }}
                             />
@@ -512,11 +511,9 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                             {currentItem.produits.map((p) => (
                                 <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                                     <div>
-                                        <div style={{ fontWeight: 500 }}>{p.nom || '-'}</div>
+                                        <div style={{ fontWeight: 500 }}>{p.designation || '-'}</div>
                                         <div style={{ fontSize: 11, color: '#888' }}>
                                             {p.ref && <span>Ref: {p.ref}</span>}
-                                            {p.ref && p.marque && <span> - </span>}
-                                            {p.marque && <span>{p.marque}</span>}
                                         </div>
                                         {p.emplacement && <div style={{ fontSize: 11, color: '#888' }}>Emplacement: {p.emplacement}</div>}
                                     </div>
@@ -537,11 +534,9 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                             produitsExtra.map((p) => (
                                 <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                                     <div>
-                                        <div style={{ fontWeight: 500 }}>{p.nom || '-'}</div>
+                                        <div style={{ fontWeight: 500 }}>{p.designation || '-'}</div>
                                         <div style={{ fontSize: 11, color: '#888' }}>
                                             {p.ref && <span>Ref: {p.ref}</span>}
-                                            {p.ref && p.marque && <span> - </span>}
-                                            {p.marque && <span>{p.marque}</span>}
                                         </div>
                                         {p.emplacement && <div style={{ fontSize: 11, color: '#888' }}>Emplacement: {p.emplacement}</div>}
                                     </div>

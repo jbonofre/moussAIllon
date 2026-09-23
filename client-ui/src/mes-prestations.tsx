@@ -59,7 +59,7 @@ interface VenteEntity {
     bonPourAccord?: boolean;
     date?: string;
     bateau?: { name?: string; immatriculation?: string };
-    moteur?: { numeroSerie?: string; modele?: { nom?: string; marque?: string } };
+    moteur?: { numeroSerie?: string; modele?: { designation?: string } };
     remorque?: { immatriculation?: string };
     venteForfaits?: VenteForfaitEntity[];
     venteServices?: VenteServiceEntity[];
@@ -141,7 +141,7 @@ function assetLabel(vente: VenteEntity): string {
     if (vente.bateau) return vente.bateau.name || vente.bateau.immatriculation || '';
     if (vente.moteur) {
         const m = vente.moteur;
-        return m.modele ? `${m.modele.marque || ''} ${m.modele.nom || ''}`.trim() : m.numeroSerie || '';
+        return m.modele?.designation || m.numeroSerie || '';
     }
     if (vente.remorque) return vente.remorque.immatriculation || '';
     return '';

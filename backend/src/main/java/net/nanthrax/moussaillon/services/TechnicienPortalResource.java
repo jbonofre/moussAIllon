@@ -97,8 +97,7 @@ public class TechnicienPortalResource {
 
     public static class ProduitItem {
         public Long id;
-        public String nom;
-        public String marque;
+        public String designation;
         public String categorie;
         public String ref;
         public String emplacement;
@@ -171,8 +170,7 @@ public class TechnicienPortalResource {
                     if (fp.produit != null) {
                         ProduitItem pi = new ProduitItem();
                         pi.id = fp.produit.id;
-                        pi.nom = fp.produit.nom;
-                        pi.marque = fp.produit.marque;
+                        pi.designation = fp.produit.designation;
                         pi.categorie = fp.produit.categorie;
                         pi.ref = fp.produit.ref;
                         pi.emplacement = fp.produit.emplacement;
@@ -248,8 +246,7 @@ public class TechnicienPortalResource {
                     if (sp.produit != null) {
                         ProduitItem pi = new ProduitItem();
                         pi.id = sp.produit.id;
-                        pi.nom = sp.produit.nom;
-                        pi.marque = sp.produit.marque;
+                        pi.designation = sp.produit.designation;
                         pi.categorie = sp.produit.categorie;
                         pi.ref = sp.produit.ref;
                         pi.emplacement = sp.produit.emplacement;
@@ -544,8 +541,7 @@ public class TechnicienPortalResource {
         for (ProduitCatalogueEntity p : all) {
             ProduitItem pi = new ProduitItem();
             pi.id = p.id;
-            pi.nom = p.nom;
-            pi.marque = p.marque;
+            pi.designation = p.designation;
             pi.categorie = p.categorie;
             pi.ref = p.ref;
             pi.emplacement = p.emplacement;
@@ -766,8 +762,7 @@ public class TechnicienPortalResource {
             if (vp.ajouteParTechnicien && vp.produit != null) {
                 ProduitItem pi = new ProduitItem();
                 pi.id = vp.id;
-                pi.nom = vp.produit.nom;
-                pi.marque = vp.produit.marque;
+                pi.designation = vp.produit.designation;
                 pi.categorie = vp.produit.categorie;
                 pi.ref = vp.produit.ref;
                 pi.emplacement = vp.produit.emplacement;

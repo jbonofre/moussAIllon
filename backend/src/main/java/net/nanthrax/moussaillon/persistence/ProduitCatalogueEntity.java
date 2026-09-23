@@ -11,9 +11,7 @@ import java.util.List;
 public class ProduitCatalogueEntity extends PanacheEntity {
 
     @Column(nullable = false, unique = true)
-    public String nom;
-
-    public String marque;
+    public String designation;
 
     @Column(nullable = false)
     public String categorie;

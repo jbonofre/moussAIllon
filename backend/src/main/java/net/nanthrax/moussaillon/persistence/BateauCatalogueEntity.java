@@ -16,10 +16,7 @@ import java.util.List;
 public class BateauCatalogueEntity extends PanacheEntity {
 
     @Column(nullable = false)
-    public String modele;
-
-    @Column(nullable = false)
-    public String marque;
+    public String designation;
 
     public List<String> images = new ArrayList<>();
 

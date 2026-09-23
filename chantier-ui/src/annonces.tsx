@@ -29,7 +29,7 @@ interface BateauClientEntity {
     id: number;
     name?: string;
     immatriculation?: string;
-    modele?: { id: number; nom?: string; marque?: string };
+    modele?: { id: number; designation?: string };
 }
 
 interface Annonce {
@@ -250,7 +250,7 @@ export default function Annonces() {
 
     const bateauLabel = (b?: BateauClientEntity) => {
         if (!b) return '-';
-        const model = b.modele ? `${b.modele.marque || ''} ${b.modele.nom || ''}`.trim() : '';
+        const model = b.modele?.designation || '';
         return b.name || model || b.immatriculation || `Bateau #${b.id}`;
     };
 

@@ -32,7 +32,7 @@ class MoteurCommandTest {
     @Test
     void testListerMoteursViaCommande() {
         wireMock.stubFor(get(urlEqualTo("/catalogue/moteurs"))
-                .willReturn(okJson("[{\"id\":1,\"marque\":\"Yamaha\",\"modele\":\"F150\",\"type\":\"Hors-bord\"}]")));
+                .willReturn(okJson("[{\"id\":1,\"designation\":\"Yamaha F150\",\"type\":\"Hors-bord\"}]")));
 
         int exitCode = new CommandLine(MoteurCommand.List.class, factory).execute();
         assertEquals(0, exitCode);
@@ -41,7 +41,7 @@ class MoteurCommandTest {
     @Test
     void testListerMoteursJson() {
         wireMock.stubFor(get(urlEqualTo("/catalogue/moteurs"))
-                .willReturn(okJson("[{\"id\":1,\"marque\":\"Yamaha\"}]")));
+                .willReturn(okJson("[{\"id\":1,\"designation\":\"Yamaha\"}]")));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream original = System.out;
@@ -51,13 +51,13 @@ class MoteurCommandTest {
         } finally {
             System.setOut(original);
         }
-        assertTrue(out.toString().contains("\"marque\""));
+        assertTrue(out.toString().contains("\"designation\""));
     }
 
     @Test
     void testObtenirMoteurViaCommande() {
         wireMock.stubFor(get(urlEqualTo("/catalogue/moteurs/1"))
-                .willReturn(okJson("{\"id\":1,\"marque\":\"Yamaha\",\"modele\":\"F150\"}")));
+                .willReturn(okJson("{\"id\":1,\"designation\":\"Yamaha F150\"}")));
 
         int exitCode = new CommandLine(MoteurCommand.Get.class, factory).execute("1");
         assertEquals(0, exitCode);
@@ -66,7 +66,7 @@ class MoteurCommandTest {
     @Test
     void testRechercherMoteursViaCommande() {
         wireMock.stubFor(get(urlPathEqualTo("/catalogue/moteurs/search"))
-                .willReturn(okJson("[{\"id\":1,\"marque\":\"Yamaha\"}]")));
+                .willReturn(okJson("[{\"id\":1,\"designation\":\"Yamaha\"}]")));
 
         int exitCode = new CommandLine(MoteurCommand.Search.class, factory).execute("yamaha");
         assertEquals(0, exitCode);
@@ -79,10 +79,10 @@ class MoteurCommandTest {
         wireMock.stubFor(post(urlEqualTo("/catalogue/moteurs"))
                 .willReturn(aResponse().withStatus(201)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("{\"id\":5,\"marque\":\"Mercury\",\"modele\":\"Verado 300\",\"type\":\"Hors-bord\"}")));
+                        .withBody("{\"id\":5,\"designation\":\"Mercury Verado 300\",\"type\":\"Hors-bord\"}")));
 
         int exitCode = new CommandLine(MoteurCommand.Create.class, factory)
-                .execute("--marque", "Mercury", "--modele", "Verado 300", "--type", "Hors-bord", "--puissance", "300cv");
+                .execute("--designation", "Mercury Verado 300", "--type", "Hors-bord", "--puissance", "300cv");
         assertEquals(0, exitCode);
         wireMock.verify(postRequestedFor(urlEqualTo("/catalogue/moteurs"))
                 .withRequestBody(containing("\"puissance\":\"300cv\"")));
@@ -91,18 +91,17 @@ class MoteurCommandTest {
     @Test
     void testModifierMoteurViaCommande() {
         wireMock.stubFor(get(urlEqualTo("/catalogue/moteurs/1"))
-                .willReturn(okJson("{\"id\":1,\"marque\":\"Yamaha\",\"modele\":\"F150\",\"type\":\"Hors-bord\",\"puissance\":\"150cv\"}")));
+                .willReturn(okJson("{\"id\":1,\"designation\":\"Yamaha F150\",\"type\":\"Hors-bord\",\"puissance\":\"150cv\"}")));
         wireMock.stubFor(put(urlEqualTo("/catalogue/moteurs/1"))
-                .willReturn(okJson("{\"id\":1,\"marque\":\"Yamaha\",\"modele\":\"F200\",\"type\":\"Hors-bord\",\"puissance\":\"150cv\",\"prixPublic\":20000,\"stock\":2}")));
+                .willReturn(okJson("{\"id\":1,\"designation\":\"Yamaha F200\",\"type\":\"Hors-bord\",\"puissance\":\"150cv\",\"prixPublic\":20000,\"stock\":2}")));
 
         int exitCode = new CommandLine(MoteurCommand.Update.class, factory)
-                .execute("1", "--modele", "F200", "--prix-public", "20000", "--stock", "2");
+                .execute("1", "--designation", "Yamaha F200", "--prix-public", "20000", "--stock", "2");
         assertEquals(0, exitCode);
         wireMock.verify(getRequestedFor(urlEqualTo("/catalogue/moteurs/1")));
         wireMock.verify(putRequestedFor(urlEqualTo("/catalogue/moteurs/1"))
-                .withRequestBody(containing("\"modele\":\"F200\""))
-                .withRequestBody(containing("\"puissance\":\"150cv\""))
-                .withRequestBody(containing("\"marque\":\"Yamaha\"")));
+                .withRequestBody(containing("\"designation\":\"Yamaha F200\""))
+                .withRequestBody(containing("\"puissance\":\"150cv\"")));
     }
 
     @Test

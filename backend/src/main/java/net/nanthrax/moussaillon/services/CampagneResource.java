@@ -243,19 +243,10 @@ public class CampagneResource {
                         clientIds.add(c.id);
                     }
                 }
-            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_BATEAU_MARQUE) {
+            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_BATEAU_DESIGNATION) {
                 List<BateauClientEntity> bateaux = BateauClientEntity.listAll();
                 for (BateauClientEntity b : bateaux) {
-                    if (b.modele != null && b.modele.marque != null && b.modele.marque.equals(cibleFiltre)) {
-                        for (ClientEntity c : b.proprietaires) {
-                            clientIds.add(c.id);
-                        }
-                    }
-                }
-            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_BATEAU_MODELE) {
-                List<BateauClientEntity> bateaux = BateauClientEntity.listAll();
-                for (BateauClientEntity b : bateaux) {
-                    if (b.modele != null && b.modele.modele != null && b.modele.modele.equals(cibleFiltre)) {
+                    if (b.modele != null && b.modele.designation != null && b.modele.designation.equals(cibleFiltre)) {
                         for (ClientEntity c : b.proprietaires) {
                             clientIds.add(c.id);
                         }
@@ -268,17 +259,10 @@ public class CampagneResource {
                         clientIds.add(m.proprietaire.id);
                     }
                 }
-            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_MOTEUR_MARQUE) {
+            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_MOTEUR_DESIGNATION) {
                 List<MoteurClientEntity> moteurs = MoteurClientEntity.listAll();
                 for (MoteurClientEntity m : moteurs) {
-                    if (m.proprietaire != null && m.modele != null && m.modele.marque != null && m.modele.marque.equals(cibleFiltre)) {
-                        clientIds.add(m.proprietaire.id);
-                    }
-                }
-            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_MOTEUR_MODELE) {
-                List<MoteurClientEntity> moteurs = MoteurClientEntity.listAll();
-                for (MoteurClientEntity m : moteurs) {
-                    if (m.proprietaire != null && m.modele != null && m.modele.modele != null && m.modele.modele.equals(cibleFiltre)) {
+                    if (m.proprietaire != null && m.modele != null && m.modele.designation != null && m.modele.designation.equals(cibleFiltre)) {
                         clientIds.add(m.proprietaire.id);
                     }
                 }
@@ -289,17 +273,10 @@ public class CampagneResource {
                         clientIds.add(r.proprietaire.id);
                     }
                 }
-            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_REMORQUE_MARQUE) {
+            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_REMORQUE_DESIGNATION) {
                 List<RemorqueClientEntity> remorques = RemorqueClientEntity.listAll();
                 for (RemorqueClientEntity r : remorques) {
-                    if (r.proprietaire != null && r.modele != null && r.modele.marque != null && r.modele.marque.equals(cibleFiltre)) {
-                        clientIds.add(r.proprietaire.id);
-                    }
-                }
-            } else if (cible == CampagneEntity.Cible.PROPRIETAIRE_REMORQUE_MODELE) {
-                List<RemorqueClientEntity> remorques = RemorqueClientEntity.listAll();
-                for (RemorqueClientEntity r : remorques) {
-                    if (r.proprietaire != null && r.modele != null && r.modele.modele != null && r.modele.modele.equals(cibleFiltre)) {
+                    if (r.proprietaire != null && r.modele != null && r.modele.designation != null && r.modele.designation.equals(cibleFiltre)) {
                         clientIds.add(r.proprietaire.id);
                     }
                 }

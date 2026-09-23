@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Row, Col, AutoComplete, Table, Button, Modal, Form, Input, InputNumber, Rate, Space, Popconfirm, message, Select, Image, Card } from 'antd';
+import { Row, Col, Table, Button, Modal, Form, Input, InputNumber, Rate, Space, Popconfirm, message, Select, Image, Card } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -15,18 +15,16 @@ type CatalogueImage = string;
 
 interface Helice {
   id?: number;
-  modele: string;
-  marque: string;
+  designation: string;
   description: string;
   evaluation: number;
   diametre: number;
-  moteursCompatibles?: Array<Pick<Moteur, 'id' | 'modele' | 'marque' | 'type'>>;
+  moteursCompatibles?: Array<Pick<Moteur, 'id' | 'designation' | 'type'>>;
 }
 
 interface Moteur {
   id?: number;
-  modele: string;
-  marque: string;
+  designation: string;
   type: string;
   description: string;
   evaluation: number;
@@ -54,8 +52,7 @@ interface Moteur {
 }
 
 const defaultMoteur: Moteur = {
-  modele: '',
-  marque: '',
+  designation: '',
   type: '',
   description: '',
   evaluation: 0,
@@ -85,8 +82,7 @@ const defaultMoteur: Moteur = {
 
 const summarizeMoteur = (moteur: Moteur) => ({
   id: moteur.id,
-  modele: moteur.modele,
-  marque: moteur.marque,
+  designation: moteur.designation,
   type: moteur.type,
 });
 
@@ -299,24 +295,17 @@ const MoteurCatalogue = () => {
 
   const columns = [
     {
-      title: 'Marque',
-      dataIndex: 'marque',
-      sorter: (a, b) => a.marque.localeCompare(b.marque),
-      filters: Array.from(new Set(moteurs.map((m) => m.marque).filter(Boolean))).map((marque) => ({ text: marque, value: marque })),
-      onFilter: (value, record) => record.marque === value,
-    },
-    {
-      title: 'Modèle',
-      dataIndex: 'modele',
+      title: 'Désignation',
+      dataIndex: 'designation',
       render: (_: any, record: any) => (
         <Space>
           {record.images && record.images[0] && (
             <Image width={32} height={32} style={{ objectFit: 'cover' }} src={record.images[0]} />
           )}
-          {record.modele}
+          {record.designation}
         </Space>
       ),
-      sorter: (a, b) => a.modele.localeCompare(b.modele),
+      sorter: (a, b) => a.designation.localeCompare(b.designation),
     },
     {
       title: 'Type',
@@ -452,30 +441,17 @@ const MoteurCatalogue = () => {
             >
               <Row gutter={16}>
                 <Col span={12}>
-                  <Form.Item name="marque" label="Marque" rules={[{ required: true }]}>
-                    <AutoComplete
-                      allowClear
-                      options={
-                        Array.from(
-                          new Set(moteurs.map((m: any) => m.marque).filter((m: any) => !!m))
-                        ).map((marque: string) => ({ value: marque }))
-                      }
-                      placeholder="Saisir ou sélectionner une marque"
-                    />
-                  </Form.Item>
-                </Col>
-                <Col span={12}>
-                  <Form.Item name="modele" label="Modèle" rules={[{ required: true }]}>
+                  <Form.Item name="designation" label="Désignation" rules={[{ required: true }]}>
                     <Input />
                   </Form.Item>
                 </Col>
-              </Row>
-              <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item name="type" label="Type" rules={[{ required: true }]}>
                     <Select options={moteurTypes.map((t) => ({ label: t.text, value: t.value }))} />
                   </Form.Item>
                 </Col>
+              </Row>
+              <Row gutter={16}>
                 <Col span={12}>
                   <Form.Item name="evaluation" label="Évaluation">
                     <Rate allowHalf />
@@ -573,7 +549,7 @@ const MoteurCatalogue = () => {
                 <Select mode="multiple" optionFilterProp="children" showSearch>
                   {helices.map(h => (
                     <Select.Option key={h.id} value={h.id}>
-                    {h.marque + " " + h.modele}
+                    {h.designation}
                     </Select.Option>
                   ))}
                 </Select>

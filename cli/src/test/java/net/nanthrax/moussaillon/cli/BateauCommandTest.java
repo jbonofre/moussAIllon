@@ -35,7 +35,7 @@ class BateauCommandTest {
     @Test
     void testListerBateauxViaCommande() {
         wireMock.stubFor(get(urlEqualTo("/catalogue/bateaux"))
-                .willReturn(okJson("[{\"id\":1,\"marque\":\"Bénéteau\",\"modele\":\"Flyer 7\",\"type\":\"Moteur\"}]")));
+                .willReturn(okJson("[{\"id\":1,\"designation\":\"Bénéteau Flyer 7\",\"type\":\"Moteur\"}]")));
 
         int exitCode = new CommandLine(BateauCommand.List.class, factory).execute();
         assertEquals(0, exitCode);
@@ -45,7 +45,7 @@ class BateauCommandTest {
     @Test
     void testListerBateauxJson() {
         wireMock.stubFor(get(urlEqualTo("/catalogue/bateaux"))
-                .willReturn(okJson("[{\"id\":1,\"marque\":\"Bénéteau\"}]")));
+                .willReturn(okJson("[{\"id\":1,\"designation\":\"Bénéteau\"}]")));
 
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         PrintStream original = System.out;
@@ -55,14 +55,14 @@ class BateauCommandTest {
         } finally {
             System.setOut(original);
         }
-        assertTrue(out.toString().contains("\"marque\""));
+        assertTrue(out.toString().contains("\"designation\""));
         assertTrue(out.toString().contains("Bénéteau"));
     }
 
     @Test
     void testObtenirBateauViaCommande() {
         wireMock.stubFor(get(urlEqualTo("/catalogue/bateaux/1"))
-                .willReturn(okJson("{\"id\":1,\"marque\":\"Bénéteau\",\"modele\":\"Flyer 7\"}")));
+                .willReturn(okJson("{\"id\":1,\"designation\":\"Bénéteau Flyer 7\"}")));
 
         int exitCode = new CommandLine(BateauCommand.Get.class, factory).execute("1");
         assertEquals(0, exitCode);
@@ -71,7 +71,7 @@ class BateauCommandTest {
     @Test
     void testRechercherBateauxViaCommande() {
         wireMock.stubFor(get(urlPathEqualTo("/catalogue/bateaux/search"))
-                .willReturn(okJson("[{\"id\":1,\"marque\":\"Bénéteau\"}]")));
+                .willReturn(okJson("[{\"id\":1,\"designation\":\"Bénéteau\"}]")));
 
         int exitCode = new CommandLine(BateauCommand.Search.class, factory).execute("beneteau");
         assertEquals(0, exitCode);
@@ -84,13 +84,13 @@ class BateauCommandTest {
         wireMock.stubFor(post(urlEqualTo("/catalogue/bateaux"))
                 .willReturn(aResponse().withStatus(201)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("{\"id\":5,\"marque\":\"Jeanneau\",\"modele\":\"Cap Camarat\",\"type\":\"Moteur\",\"annee\":2025,\"stock\":3}")));
+                        .withBody("{\"id\":5,\"designation\":\"Jeanneau Cap Camarat\",\"type\":\"Moteur\",\"annee\":2025,\"stock\":3}")));
 
         int exitCode = new CommandLine(BateauCommand.Create.class, factory)
-                .execute("--marque", "Jeanneau", "--modele", "Cap Camarat", "--type", "Moteur", "--annee", "2025", "--stock", "3");
+                .execute("--designation", "Jeanneau Cap Camarat", "--type", "Moteur", "--annee", "2025", "--stock", "3");
         assertEquals(0, exitCode);
         wireMock.verify(postRequestedFor(urlEqualTo("/catalogue/bateaux"))
-                .withRequestBody(containing("\"marque\":\"Jeanneau\""))
+                .withRequestBody(containing("\"designation\":\"Jeanneau Cap Camarat\""))
                 .withRequestBody(containing("\"annee\":2025"))
                 .withRequestBody(containing("\"stock\":3")));
     }
@@ -100,10 +100,10 @@ class BateauCommandTest {
         wireMock.stubFor(post(urlEqualTo("/catalogue/bateaux"))
                 .willReturn(aResponse().withStatus(201)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("{\"id\":6,\"marque\":\"Test\",\"modele\":\"M1\",\"type\":\"Voile\",\"stock\":0}")));
+                        .withBody("{\"id\":6,\"designation\":\"Test M1\",\"type\":\"Voile\",\"stock\":0}")));
 
         int exitCode = new CommandLine(BateauCommand.Create.class, factory)
-                .execute("--marque", "Test", "--modele", "M1", "--type", "Voile", "--stock", "0");
+                .execute("--designation", "Test M1", "--type", "Voile", "--stock", "0");
         assertEquals(0, exitCode);
         wireMock.verify(postRequestedFor(urlEqualTo("/catalogue/bateaux"))
                 .withRequestBody(containing("\"stock\":0")));
@@ -112,18 +112,17 @@ class BateauCommandTest {
     @Test
     void testModifierBateauViaCommande() {
         wireMock.stubFor(get(urlEqualTo("/catalogue/bateaux/1"))
-                .willReturn(okJson("{\"id\":1,\"marque\":\"Bénéteau\",\"modele\":\"Flyer 7\",\"type\":\"Moteur\",\"stock\":5}")));
+                .willReturn(okJson("{\"id\":1,\"designation\":\"Bénéteau Flyer 7\",\"type\":\"Moteur\",\"stock\":5}")));
         wireMock.stubFor(put(urlEqualTo("/catalogue/bateaux/1"))
-                .willReturn(okJson("{\"id\":1,\"marque\":\"Bénéteau\",\"modele\":\"Flyer 8\",\"type\":\"Moteur\",\"stock\":0}")));
+                .willReturn(okJson("{\"id\":1,\"designation\":\"Bénéteau Flyer 8\",\"type\":\"Moteur\",\"stock\":0}")));
 
         int exitCode = new CommandLine(BateauCommand.Update.class, factory)
-                .execute("1", "--modele", "Flyer 8", "--stock", "0");
+                .execute("1", "--designation", "Bénéteau Flyer 8", "--stock", "0");
         assertEquals(0, exitCode);
         wireMock.verify(getRequestedFor(urlEqualTo("/catalogue/bateaux/1")));
         wireMock.verify(putRequestedFor(urlEqualTo("/catalogue/bateaux/1"))
-                .withRequestBody(containing("\"modele\":\"Flyer 8\""))
-                .withRequestBody(containing("\"stock\":0"))
-                .withRequestBody(containing("\"marque\":\"Bénéteau\"")));
+                .withRequestBody(containing("\"designation\":\"Bénéteau Flyer 8\""))
+                .withRequestBody(containing("\"stock\":0")));
     }
 
     @Test

@@ -13,7 +13,6 @@ import {
 } from './printing/invoiceTemplate.ts';
 import {
     Alert,
-    AutoComplete,
     Button,
     Card,
     Checkbox,
@@ -59,8 +58,7 @@ interface ClientEntity {
 
 interface CatalogueMoteurEntity {
     id: number;
-    marque?: string;
-    modele?: string;
+    designation?: string;
 }
 
 interface BateauClientEntity {
@@ -183,8 +181,7 @@ const defaultNewForfait = {
 
 interface ProduitCatalogueEntity {
     id: number;
-    nom: string;
-    marque?: string;
+    designation: string;
     categorie?: string;
     ref?: string;
     refs?: string[];
@@ -202,40 +199,35 @@ interface ProduitCatalogueEntity {
 
 interface CatalogueBateauEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     prixVenteTTC?: number;
     stock?: number;
 }
 
 interface CatalogueMoteurEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     prixVenteTTC?: number;
     stock?: number;
 }
 
 interface CatalogueHeliceEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     prixVenteTTC?: number;
     stock?: number;
 }
 
 interface CatalogueRemorqueEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     prixVenteTTC?: number;
     stock?: number;
 }
 
 
 const defaultNewProduit = {
-    nom: '',
-    marque: '',
+    designation: '',
     categorie: '',
     ref: '',
     refs: [],
@@ -625,10 +617,9 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
     if (type === 'produit') {
         const p = produits.find((x) => x.id === itemId);
         if (!p) return null;
-        titre = p.nom;
+        titre = p.designation;
         catalogueRoute = '/catalogue/produits';
         items = [
-            { label: 'Marque', value: p.marque || '-' },
             { label: 'Référence', value: p.ref || '-' },
             { label: 'Catégorie', value: p.categorie || '-' },
             { label: 'Stock', value: p.stock != null ? p.stock : '-' },
@@ -639,41 +630,37 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
     } else if (type === 'bateau') {
         const b = catalogueBateaux.find((x) => x.id === itemId);
         if (!b) return null;
-        titre = `${b.marque} ${b.modele}`;
+        titre = b.designation;
         catalogueRoute = '/catalogue/bateaux';
         items = [
-            { label: 'Marque', value: b.marque },
-            { label: 'Modèle', value: b.modele },
+            { label: 'Désignation', value: b.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(b.prixVenteTTC) },
         ];
     } else if (type === 'moteur') {
         const m = catalogueMoteurs.find((x) => x.id === itemId);
         if (!m) return null;
-        titre = `${m.marque} ${m.modele}`;
+        titre = m.designation;
         catalogueRoute = '/catalogue/moteurs';
         items = [
-            { label: 'Marque', value: m.marque },
-            { label: 'Modèle', value: m.modele },
+            { label: 'Désignation', value: m.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(m.prixVenteTTC) },
         ];
     } else if (type === 'helice') {
         const h = catalogueHelices.find((x) => x.id === itemId);
         if (!h) return null;
-        titre = `${h.marque} ${h.modele}`;
+        titre = h.designation;
         catalogueRoute = '/catalogue/helices';
         items = [
-            { label: 'Marque', value: h.marque },
-            { label: 'Modèle', value: h.modele },
+            { label: 'Désignation', value: h.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(h.prixVenteTTC) },
         ];
     } else if (type === 'remorque') {
         const r = catalogueRemorques.find((x) => x.id === itemId);
         if (!r) return null;
-        titre = `${r.marque} ${r.modele}`;
+        titre = r.designation;
         catalogueRoute = '/catalogue/remorques';
         items = [
-            { label: 'Marque', value: r.marque },
-            { label: 'Modèle', value: r.modele },
+            { label: 'Désignation', value: r.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(r.prixVenteTTC) },
         ];
     } else if (type === 'forfait') {
@@ -838,11 +825,6 @@ export default function Vente() {
     const [genAvoirNotes, setGenAvoirNotes] = useState('');
     const [generatingAvoir, setGeneratingAvoir] = useState(false);
 
-    const marqueOptions = useMemo(() => {
-        const unique = Array.from(new Set(produits.map((p) => p.marque).filter(Boolean))) as string[];
-        return unique.map((marque) => ({ value: marque }));
-    }, [produits]);
-
     const clientOptions = useMemo(
         () => clients.map((client) => ({ value: client.id, label: getClientLabel(client) })),
         [clients]
@@ -885,7 +867,7 @@ export default function Vente() {
     );
 
     const produitOptions = useMemo(
-        () => produits.map((produit) => ({ value: produit.id, label: `${produit.nom}${produit.marque ? ` (${produit.marque})` : ''}` })),
+        () => produits.map((produit) => ({ value: produit.id, label: produit.designation })),
         [produits]
     );
 
@@ -908,40 +890,40 @@ export default function Vente() {
                 label: 'Produits',
                 options: produits.map((p) => ({
                     value: `produit:${p.id}`,
-                    label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}`,
-                    searchText: `${p.nom} ${p.marque || ''}`.toLowerCase(),
+                    label: p.designation,
+                    searchText: p.designation.toLowerCase(),
                 })),
             },
             {
                 label: 'Bateaux',
                 options: catalogueBateaux.map((b) => ({
                     value: `bateau:${b.id}`,
-                    label: `${b.marque} ${b.modele}`,
-                    searchText: `${b.marque} ${b.modele}`.toLowerCase(),
+                    label: b.designation,
+                    searchText: b.designation.toLowerCase(),
                 })),
             },
             {
                 label: 'Moteurs',
                 options: catalogueMoteurs.map((m) => ({
                     value: `moteur:${m.id}`,
-                    label: `${m.marque} ${m.modele}`,
-                    searchText: `${m.marque} ${m.modele}`.toLowerCase(),
+                    label: m.designation,
+                    searchText: m.designation.toLowerCase(),
                 })),
             },
             {
                 label: 'Hélices',
                 options: catalogueHelices.map((h) => ({
                     value: `helice:${h.id}`,
-                    label: `${h.marque} ${h.modele}`,
-                    searchText: `${h.marque} ${h.modele}`.toLowerCase(),
+                    label: h.designation,
+                    searchText: h.designation.toLowerCase(),
                 })),
             },
             {
                 label: 'Remorques',
                 options: catalogueRemorques.map((r) => ({
                     value: `remorque:${r.id}`,
-                    label: `${r.marque} ${r.modele}`,
-                    searchText: `${r.marque} ${r.modele}`.toLowerCase(),
+                    label: r.designation,
+                    searchText: r.designation.toLowerCase(),
                 })),
             },
         ],
@@ -967,7 +949,7 @@ export default function Vente() {
     );
 
     const produitOptionsForService = useMemo(
-        () => produits.map((p) => ({ value: p.id, label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}` })),
+        () => produits.map((p) => ({ value: p.id, label: p.designation })),
         [produits]
     );
 
@@ -1777,19 +1759,19 @@ export default function Vente() {
                 if (s) lines.push({ type: 'Service', nom: s.nom, quantite, prixTTC: (s.prixTTC || 0) * quantite });
             } else if (line.type === 'produit') {
                 const p = produits.find((item) => item.id === line.itemId);
-                if (p) lines.push({ type: 'Produit', nom: p.nom, quantite, prixTTC: (p.prixVenteTTC || 0) * quantite });
+                if (p) lines.push({ type: 'Produit', nom: p.designation, quantite, prixTTC: (p.prixVenteTTC || 0) * quantite });
             } else if (line.type === 'bateau') {
                 const b = catalogueBateaux.find((item) => item.id === line.itemId);
-                if (b) lines.push({ type: 'Bateau', nom: `${b.marque} ${b.modele}`, quantite, prixTTC: (b.prixVenteTTC || 0) * quantite });
+                if (b) lines.push({ type: 'Bateau', nom: b.designation, quantite, prixTTC: (b.prixVenteTTC || 0) * quantite });
             } else if (line.type === 'moteur') {
                 const m = catalogueMoteurs.find((item) => item.id === line.itemId);
-                if (m) lines.push({ type: 'Moteur', nom: `${m.marque} ${m.modele}`, quantite, prixTTC: (m.prixVenteTTC || 0) * quantite });
+                if (m) lines.push({ type: 'Moteur', nom: m.designation, quantite, prixTTC: (m.prixVenteTTC || 0) * quantite });
             } else if (line.type === 'helice') {
                 const h = catalogueHelices.find((item) => item.id === line.itemId);
-                if (h) lines.push({ type: 'Hélice', nom: `${h.marque} ${h.modele}`, quantite, prixTTC: (h.prixVenteTTC || 0) * quantite });
+                if (h) lines.push({ type: 'Hélice', nom: h.designation, quantite, prixTTC: (h.prixVenteTTC || 0) * quantite });
             } else if (line.type === 'remorque') {
                 const r = catalogueRemorques.find((item) => item.id === line.itemId);
-                if (r) lines.push({ type: 'Remorque', nom: `${r.marque} ${r.modele}`, quantite, prixTTC: (r.prixVenteTTC || 0) * quantite });
+                if (r) lines.push({ type: 'Remorque', nom: r.designation, quantite, prixTTC: (r.prixVenteTTC || 0) * quantite });
             }
         });
         return lines;
@@ -2395,7 +2377,7 @@ export default function Vente() {
             };
         };
         const lineFromProduit = (vp: VenteProduitLigne) => {
-            const label = vp.produit ? `${vp.produit.nom}${vp.produit.marque ? ` (${vp.produit.marque})` : ''}` : '';
+            const label = vp.produit?.designation || '';
             const puTTC = vp.produit?.prixVenteTTC || 0;
             const quantite = vp.quantite || 1;
             const remise = vp.remise || 0;
@@ -2407,12 +2389,12 @@ export default function Vente() {
                 totalPrixTTC: Math.max(0, brut - remise),
             };
         };
-        const lineFromCatalogue = (item: { marque?: string; modele?: string; prixVenteTTC?: number } | undefined, typeLabel: string, qty: number, remise: number, remisePourcentage?: number) => {
+        const lineFromCatalogue = (item: { designation?: string; prixVenteTTC?: number } | undefined, typeLabel: string, qty: number, remise: number, remisePourcentage?: number) => {
             const puTTC = item?.prixVenteTTC || 0;
             const quantite = qty || 1;
             const brut = puTTC * quantite;
             return {
-                type: typeLabel, label: item ? `${item.marque || ''} ${item.modele || ''}`.trim() : '', quantite,
+                type: typeLabel, label: item?.designation || '', quantite,
                 puTTC,
                 remise: remise || 0, remisePct: remisePourcentage ?? computeRemisePct(remise || 0, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - (remise || 0)),
@@ -3786,18 +3768,9 @@ export default function Vente() {
                         initialValues={defaultNewProduit}
                         onValuesChange={onNewProduitValuesChange}
                     >
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="marque" label="Marque">
-                                    <AutoComplete allowClear options={marqueOptions} placeholder="Saisir/select. une marque" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
-                                    <Input />
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                        <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
+                            <Input />
+                        </Form.Item>
                         <Row gutter={16}>
                             <Col span={12}>
                                 <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: 'La catégorie est requise' }]}>
@@ -3978,7 +3951,7 @@ export default function Vente() {
                                                                     <Select
                                                                         showSearch
                                                                         allowClear
-                                                                        placeholder="Rechercher un produit par nom, marque, catégorie ou réf."
+                                                                        placeholder="Rechercher un produit par désignation, catégorie ou réf."
                                                                         options={produitOptionsForService}
                                                                         filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
                                                                         onSearch={handleProduitSearch}
@@ -4124,7 +4097,7 @@ export default function Vente() {
                                                                             filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
                                                                             onSearch={handleProduitSearch}
                                                                             notFoundContent={null}
-                                                                            placeholder="Rechercher un produit par nom, marque, catégorie ou réf."
+                                                                            placeholder="Rechercher un produit par désignation, catégorie ou réf."
                                                                         />
                                                                     </Form.Item>
                                                                     <Form.Item
@@ -4409,7 +4382,7 @@ export default function Vente() {
                                 allowClear
                                 placeholder="Associer à un modèle du catalogue"
                                 filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                                options={catalogueBateaux.map((b) => ({ value: b.id, label: `${b.marque || ''} ${b.modele || ''}`.trim() }))}
+                                options={catalogueBateaux.map((b) => ({ value: b.id, label: b.designation }))}
                                 onChange={(value) => newBateauForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
@@ -4441,7 +4414,7 @@ export default function Vente() {
                                 allowClear
                                 placeholder="Sélectionner les moteurs à associer"
                                 filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                                options={catalogueMoteurs.map((m) => ({ value: m.id, label: `${m.marque || ''} ${m.modele || ''}`.trim() }))}
+                                options={catalogueMoteurs.map((m) => ({ value: m.id, label: m.designation }))}
                                 onChange={(values) => newBateauForm.setFieldValue('moteurs', (values || []).map((id: number) => ({ id })))}
                                 style={{ width: '100%' }}
                             />
@@ -4505,7 +4478,7 @@ export default function Vente() {
                                 allowClear
                                 placeholder="Associer à un modèle du catalogue"
                                 filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                                options={catalogueMoteurs.map((m) => ({ value: m.id, label: `${m.marque || ''} ${m.modele || ''}`.trim() }))}
+                                options={catalogueMoteurs.map((m) => ({ value: m.id, label: m.designation }))}
                                 onChange={(value) => newMoteurForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
@@ -4580,7 +4553,7 @@ export default function Vente() {
                                 allowClear
                                 placeholder="Associer à un modèle du catalogue"
                                 filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                                options={catalogueRemorques.map((r) => ({ value: r.id, label: `${r.marque || ''} ${r.modele || ''}`.trim() }))}
+                                options={catalogueRemorques.map((r) => ({ value: r.id, label: r.designation }))}
                                 onChange={(value) => newRemorqueForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
