@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, AutoComplete, Input, InputNumber, Select, Space, Popconfirm, message } from 'antd';
+import React, { useEffect, useState } from 'react';
+import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, Input, InputNumber, Select, Space, Popconfirm, message } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -13,8 +13,7 @@ import ImportCsvButton from './ImportCsvButton.tsx';
 
 interface ProduitCatalogueEntity {
     id?: number;
-    nom: string;
-    marque: string;
+    designation: string;
     categorie: string;
     ref: string;
     refs?: string[];
@@ -34,8 +33,7 @@ interface ProduitCatalogueEntity {
 }
 
 const defaultProduit: ProduitCatalogueEntity = {
-    nom: '',
-    marque: '',
+    designation: '',
     categorie: '',
     ref: '',
     refs: [],
@@ -65,12 +63,6 @@ const CatalogueProduits: React.FC = () => {
     const [currentProduit, setCurrentProduit] = useState<ProduitCatalogueEntity | null>(null);
     const [form] = Form.useForm();
     const [formDirty, setFormDirty] = useState(false);
-
-    // Unique marque options
-    const marqueOptions = useMemo(() => {
-        const unique = Array.from(new Set(produits.map(p => p.marque))).filter(Boolean) as string[];
-        return unique.map(marque => ({ value: marque }));
-    }, [produits]);
 
     // Get all produits
     const fetchProduits = async () => {
@@ -164,24 +156,17 @@ const CatalogueProduits: React.FC = () => {
     // Columns
     const columns = [
         {
-            title: 'Marque',
-            dataIndex: 'marque',
-            filters: marqueOptions.map(o => ({ text: o.value, value: o.value })),
-            onFilter: (value, record) => record.marque === value,
-            sorter: (a: ProduitCatalogueEntity, b: ProduitCatalogueEntity) => (a.marque || '').localeCompare(b.marque || ''),
-        },
-        {
-            title: 'Nom',
-            dataIndex: 'nom',
+            title: 'Désignation',
+            dataIndex: 'designation',
             render: (_: string, record: ProduitCatalogueEntity) => (
                 <Space>
                     {record.images && record.images[0] && (
                         <Image src={record.images[0]} width={40} />
                     )}
-                    {record.nom}
+                    {record.designation}
                 </Space>
             ),
-            sorter: (a: ProduitCatalogueEntity, b: ProduitCatalogueEntity) => a.nom.localeCompare(b.nom),
+            sorter: (a: ProduitCatalogueEntity, b: ProduitCatalogueEntity) => a.designation.localeCompare(b.designation),
         },
         {
             title: 'Catégorie',
@@ -316,18 +301,9 @@ const CatalogueProduits: React.FC = () => {
                                 initialValues={defaultProduit}
                                 onValuesChange={onValuesChange}
                             >
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <Form.Item name="marque" label="Marque">
-                                            <AutoComplete allowClear options={marqueOptions} placeholder="Saisir/select. une marque" />
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={12}>
-                                        <Form.Item name="nom" label="Nom" rules={[{ required: true, message: "Le nom est requis" }]}>
-                                            <Input />
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
+                                <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "La désignation est requise" }]}>
+                                    <Input />
+                                </Form.Item>
                                 <Row gutter={16}>
                                     <Col span={12}>
                                         <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: "La catégorie est requise" }]}>

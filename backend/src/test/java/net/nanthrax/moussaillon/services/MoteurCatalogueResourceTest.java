@@ -25,8 +25,7 @@ public class MoteurCatalogueResourceTest {
             .when().get("/catalogue/moteurs/100")
             .then()
             .statusCode(200)
-            .body("modele", is("Mercury 115 EFI"))
-            .body("marque", is("Mercury"));
+            .body("designation", is("Mercury 115 EFI"));
     }
 
     @Test
@@ -41,11 +40,11 @@ public class MoteurCatalogueResourceTest {
     void testCreerMoteur() {
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"Yamaha F90\",\"marque\":\"Yamaha\",\"type\":\"Hors-bord\",\"puissanceCv\":90,\"stock\":3,\"prixVenteTTC\":9000.0}")
+            .body("{\"designation\":\"Yamaha F90\",\"type\":\"Hors-bord\",\"puissanceCv\":90,\"stock\":3,\"prixVenteTTC\":9000.0}")
             .when().post("/catalogue/moteurs")
             .then()
             .statusCode(200)
-            .body("modele", is("Yamaha F90"))
+            .body("designation", is("Yamaha F90"))
             .body("id", notNullValue());
     }
 
@@ -53,17 +52,17 @@ public class MoteurCatalogueResourceTest {
     void testModifierMoteur() {
         int id = given()
             .contentType("application/json")
-            .body("{\"modele\":\"AvantUpdate\",\"marque\":\"Test\",\"type\":\"Hors-bord\"}")
+            .body("{\"designation\":\"Test AvantUpdate\",\"type\":\"Hors-bord\"}")
             .when().post("/catalogue/moteurs")
             .then().statusCode(200).extract().path("id");
 
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"ApresUpdate\",\"marque\":\"Test\",\"type\":\"Hors-bord\"}")
+            .body("{\"designation\":\"Test ApresUpdate\",\"type\":\"Hors-bord\"}")
             .when().put("/catalogue/moteurs/" + id)
             .then()
             .statusCode(200)
-            .body("modele", is("ApresUpdate"));
+            .body("designation", is("Test ApresUpdate"));
     }
 
     @Test
@@ -80,7 +79,7 @@ public class MoteurCatalogueResourceTest {
     void testSupprimerMoteur() {
         int id = given()
             .contentType("application/json")
-            .body("{\"modele\":\"ToDelete\",\"marque\":\"Test\",\"type\":\"Hors-bord\"}")
+            .body("{\"designation\":\"Test ToDelete\",\"type\":\"Hors-bord\"}")
             .when().post("/catalogue/moteurs")
             .then().statusCode(200).extract().path("id");
 

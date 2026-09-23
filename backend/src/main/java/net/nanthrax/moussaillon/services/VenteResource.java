@@ -153,7 +153,7 @@ public class VenteResource {
         if (entity.venteProduits != null) {
             for (VenteProduitEntity vp : entity.venteProduits) {
                 if (vp.produit == null) continue;
-                String nom = vp.produit.nom + (vp.produit.marque != null ? " (" + vp.produit.marque + ")" : "");
+                String nom = vp.produit.designation;
                 lignes.append("- Produit : ").append(nom).append(" x").append(vp.quantite);
                 if (showPrices) {
                     double base = vp.produit.prixVenteTTC * vp.quantite;
@@ -184,7 +184,7 @@ public class VenteResource {
         if (entity.venteBateauxCatalogue != null) {
             for (VenteBateauCatalogueEntity vb : entity.venteBateauxCatalogue) {
                 if (vb.bateau == null) continue;
-                String nom = vb.bateau.marque + " " + vb.bateau.modele;
+                String nom = vb.bateau.designation;
                 lignes.append("- Bateau : ").append(nom).append(" x").append(vb.quantite);
                 if (showPrices) {
                     double base = vb.bateau.prixVenteTTC * vb.quantite;
@@ -200,7 +200,7 @@ public class VenteResource {
         if (entity.venteMoteursCatalogue != null) {
             for (VenteMoteurCatalogueEntity vm : entity.venteMoteursCatalogue) {
                 if (vm.moteur == null) continue;
-                String nom = vm.moteur.marque + " " + vm.moteur.modele;
+                String nom = vm.moteur.designation;
                 lignes.append("- Moteur : ").append(nom).append(" x").append(vm.quantite);
                 if (showPrices) {
                     double base = vm.moteur.prixVenteTTC * vm.quantite;
@@ -216,7 +216,7 @@ public class VenteResource {
         if (entity.venteHelicesCatalogue != null) {
             for (VenteHeliceCatalogueEntity vh : entity.venteHelicesCatalogue) {
                 if (vh.helice == null) continue;
-                String nom = vh.helice.marque + " " + vh.helice.modele;
+                String nom = vh.helice.designation;
                 lignes.append("- Hélice : ").append(nom).append(" x").append(vh.quantite);
                 if (showPrices) {
                     double base = vh.helice.prixVenteTTC * vh.quantite;
@@ -232,7 +232,7 @@ public class VenteResource {
         if (entity.venteRemorquesCatalogue != null) {
             for (VenteRemorqueCatalogueEntity vr : entity.venteRemorquesCatalogue) {
                 if (vr.remorque == null) continue;
-                String nom = vr.remorque.marque + " " + vr.remorque.modele;
+                String nom = vr.remorque.designation;
                 lignes.append("- Remorque : ").append(nom).append(" x").append(vr.quantite);
                 if (showPrices) {
                     double base = vr.remorque.prixVenteTTC * vr.quantite;

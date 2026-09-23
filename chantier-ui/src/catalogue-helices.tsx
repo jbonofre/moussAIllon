@@ -12,16 +12,14 @@ const { TextArea } = Input;
 
 interface MoteurCatalogueEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     type: string;
     helicesCompatibles?: HeliceCatalogueEntity[];
 }
 
 interface HeliceCatalogueEntity {
     id?: number;
-    modele: string;
-    marque: string;
+    designation: string;
     description?: string;
     images: string[];
     documents?: string[];
@@ -40,8 +38,7 @@ interface HeliceCatalogueEntity {
 }
 
 const defaultHelice: HeliceCatalogueEntity = {
-    modele: '',
-    marque: '',
+    designation: '',
     description: '',
     images: [],
     documents: [],
@@ -98,8 +95,7 @@ const deleteHelice = async (id: number) => {
 
 const summarizeMoteur = (moteur: MoteurCatalogueEntity) => ({
     id: moteur.id,
-    modele: moteur.modele,
-    marque: moteur.marque,
+    designation: moteur.designation,
     type: moteur.type,
 });
 
@@ -288,21 +284,16 @@ const HeliceCatalogueView: React.FC = () => {
     };
 
     const columns = [
-        { title: 'Marque', dataIndex: 'marque', key: 'marque',
-            sorter: (a, b) => a.marque.localeCompare(b.marque),
-            filters: [...new Set(helices.map(h => h.marque))].map(marque => ({ text: marque, value: marque })),
-            onFilter: (value, record) => record.marque === value,
-        },
-        { title: 'Modèle', dataIndex: 'modele', key: 'modele',
+        { title: 'Désignation', dataIndex: 'designation', key: 'designation',
             render: (_, record) => (
                 <Space>
                     {record.images && record.images[0] && (
                         <Image width={32} height={32} style={{ objectFit: 'cover' }} src={record.images[0]} />
                     )}
-                    {record.modele}
+                    {record.designation}
                 </Space>
             ),
-            sorter: (a, b) => a.modele.localeCompare(b.modele),
+            sorter: (a, b) => a.designation.localeCompare(b.designation),
          },
         { title: 'Évaluation', dataIndex: 'evaluation', key: 'evaluation',
             render: (_, record) => (
@@ -412,26 +403,13 @@ const HeliceCatalogueView: React.FC = () => {
                             initialValues={defaultHelice}
                             onValuesChange={onValuesChange}
                         >
-                            <Row gutter={16}>
-                                <Col span={12}>
-                                    <Form.Item
-                                        name="marque"
-                                        label="Marque"
-                                        rules={[{ required: true, message: "Champ obligatoire" }]}
-                                    >
-                                        <Input />
-                                    </Form.Item>
-                                </Col>
-                                <Col span={12}>
-                                    <Form.Item
-                                        name="modele"
-                                        label="Modèle"
-                                        rules={[{ required: true, message: "Champ obligatoire" }]}
-                                    >
-                                        <Input />
-                                    </Form.Item>
-                                </Col>
-                            </Row>
+                            <Form.Item
+                                name="designation"
+                                label="Désignation"
+                                rules={[{ required: true, message: "Champ obligatoire" }]}
+                            >
+                                <Input />
+                            </Form.Item>
                             <Form.Item name="description" label="Description">
                                 <TextArea rows={2} />
                             </Form.Item>
@@ -490,7 +468,7 @@ const HeliceCatalogueView: React.FC = () => {
                                 <Select mode="multiple" optionFilterProp="children" showSearch>
                                     {moteurs.map(m => (
                                         <Select.Option key={m.id} value={m.id}>
-                                            {m.marque + " " + m.modele}
+                                            {m.designation}
                                         </Select.Option>
                                     ))}
                                 </Select>

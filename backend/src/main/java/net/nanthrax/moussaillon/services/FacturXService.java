@@ -274,7 +274,7 @@ public class FacturXService {
                 if (vp.produit == null) continue;
                 double tva = vp.produit.tva > 0 ? vp.produit.tva : tvaGlobale;
                 double prixHT = vp.produit.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(safe(vp.produit.nom, "Produit"), vp.quantite, prixHT, vp.produit.prixVenteTTC, tva, vp.remise));
+                lignes.add(new LignePdf(safe(vp.produit.designation, "Produit"), vp.quantite, prixHT, vp.produit.prixVenteTTC, tva, vp.remise));
             }
         }
 
@@ -283,7 +283,7 @@ public class FacturXService {
                 if (vb.bateau == null) continue;
                 double tva = vb.bateau.tva > 0 ? vb.bateau.tva : tvaGlobale;
                 double prixHT = vb.bateau.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(safe(vb.bateau.marque, "") + " " + safe(vb.bateau.modele, "Bateau"), vb.quantite, prixHT, vb.bateau.prixVenteTTC, tva, vb.remise));
+                lignes.add(new LignePdf(safe(vb.bateau.designation, "Bateau"), vb.quantite, prixHT, vb.bateau.prixVenteTTC, tva, vb.remise));
             }
         }
 
@@ -292,7 +292,7 @@ public class FacturXService {
                 if (vm.moteur == null) continue;
                 double tva = vm.moteur.tva > 0 ? vm.moteur.tva : tvaGlobale;
                 double prixHT = vm.moteur.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(safe(vm.moteur.marque, "") + " " + safe(vm.moteur.modele, "Moteur"), vm.quantite, prixHT, vm.moteur.prixVenteTTC, tva, vm.remise));
+                lignes.add(new LignePdf(safe(vm.moteur.designation, "Moteur"), vm.quantite, prixHT, vm.moteur.prixVenteTTC, tva, vm.remise));
             }
         }
 
@@ -301,7 +301,7 @@ public class FacturXService {
                 if (vh.helice == null) continue;
                 double tva = vh.helice.tva > 0 ? vh.helice.tva : tvaGlobale;
                 double prixHT = vh.helice.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(safe(vh.helice.marque, "") + " " + safe(vh.helice.modele, "Hélice"), vh.quantite, prixHT, vh.helice.prixVenteTTC, tva, vh.remise));
+                lignes.add(new LignePdf(safe(vh.helice.designation, "Hélice"), vh.quantite, prixHT, vh.helice.prixVenteTTC, tva, vh.remise));
             }
         }
 
@@ -310,7 +310,7 @@ public class FacturXService {
                 if (vr.remorque == null) continue;
                 double tva = vr.remorque.tva > 0 ? vr.remorque.tva : tvaGlobale;
                 double prixHT = vr.remorque.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(safe(vr.remorque.marque, "") + " " + safe(vr.remorque.modele, "Remorque"), vr.quantite, prixHT, vr.remorque.prixVenteTTC, tva, vr.remise));
+                lignes.add(new LignePdf(safe(vr.remorque.designation, "Remorque"), vr.quantite, prixHT, vr.remorque.prixVenteTTC, tva, vr.remise));
             }
         }
 

@@ -15,10 +15,7 @@ import jakarta.persistence.ManyToMany;
 public class MoteurCatalogueEntity extends PanacheEntity {
 
     @Column(nullable = false)
-    public String modele;
-
-    @Column(nullable = false)
-    public String marque;
+    public String designation;
 
     @Column(nullable = false)
     public String type;

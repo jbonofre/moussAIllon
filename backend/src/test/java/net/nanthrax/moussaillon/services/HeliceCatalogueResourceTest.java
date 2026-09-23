@@ -25,8 +25,7 @@ public class HeliceCatalogueResourceTest {
             .when().get("/catalogue/helices/100")
             .then()
             .statusCode(200)
-            .body("modele", is("Vengeance 14x19"))
-            .body("marque", is("Mercury"));
+            .body("designation", is("Mercury Vengeance 14x19"));
     }
 
     @Test
@@ -41,11 +40,11 @@ public class HeliceCatalogueResourceTest {
     void testCreerHelice() {
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"Test Helice\",\"marque\":\"TestBrand\",\"description\":\"Test\",\"diametre\":12,\"pas\":17,\"pales\":3,\"prixVenteTTC\":200.0}")
+            .body("{\"designation\":\"TestBrand Test Helice\",\"description\":\"Test\",\"diametre\":12,\"pas\":17,\"pales\":3,\"prixVenteTTC\":200.0}")
             .when().post("/catalogue/helices")
             .then()
             .statusCode(200)
-            .body("modele", is("Test Helice"))
+            .body("designation", is("TestBrand Test Helice"))
             .body("id", notNullValue());
     }
 
@@ -53,23 +52,23 @@ public class HeliceCatalogueResourceTest {
     void testModifierHelice() {
         int id = given()
             .contentType("application/json")
-            .body("{\"modele\":\"AvantUpdate\",\"marque\":\"Test\",\"description\":\"Test\"}")
+            .body("{\"designation\":\"Test AvantUpdate\",\"description\":\"Test\"}")
             .when().post("/catalogue/helices")
             .then().statusCode(200).extract().path("id");
 
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"ApresUpdate\",\"marque\":\"Test\",\"description\":\"Updated\"}")
+            .body("{\"designation\":\"Test ApresUpdate\",\"description\":\"Updated\"}")
             .when().put("/catalogue/helices/" + id)
             .then()
             .statusCode(200)
-            .body("modele", is("ApresUpdate"));
+            .body("designation", is("Test ApresUpdate"));
     }
 
     @Test
     void testRechercherHelices() {
         given()
-            .queryParam("modele", "vengeance")
+            .queryParam("designation", "vengeance")
             .when().get("/catalogue/helices/search")
             .then()
             .statusCode(200)
@@ -80,7 +79,7 @@ public class HeliceCatalogueResourceTest {
     void testSupprimerHelice() {
         int id = given()
             .contentType("application/json")
-            .body("{\"modele\":\"ToDelete\",\"marque\":\"Test\",\"description\":\"Test\"}")
+            .body("{\"designation\":\"Test ToDelete\",\"description\":\"Test\"}")
             .when().post("/catalogue/helices")
             .then().statusCode(200).extract().path("id");
 

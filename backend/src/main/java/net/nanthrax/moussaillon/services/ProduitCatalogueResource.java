@@ -43,9 +43,9 @@ public class ProduitCatalogueResource {
             return ProduitCatalogueEntity.listAll();
         }
         String likePattern = "%" + q.toLowerCase() + "%";
-        // Search in 'nom', 'marque', 'categorie', 'ref', 'description'
+        // Search in 'designation', 'categorie', 'ref', 'description'
         return ProduitCatalogueEntity.list(
-            "LOWER(nom) LIKE ?1 OR LOWER(marque) LIKE ?1 OR LOWER(categorie) LIKE ?1 OR LOWER(ref) LIKE ?1 OR LOWER(description) LIKE ?1",
+            "LOWER(designation) LIKE ?1 OR LOWER(categorie) LIKE ?1 OR LOWER(ref) LIKE ?1 OR LOWER(description) LIKE ?1",
             likePattern
         );
     }
@@ -98,9 +98,9 @@ public class ProduitCatalogueResource {
             categorie.persist();
         }
 
-        // Evite les collisions avec la contrainte d'unicité sur 'nom' (EBP autorise les libellés
+        // Evite les collisions avec la contrainte d'unicité sur 'designation' (EBP autorise les libellés
         // en double, ex. "VIS" x14) en désambiguïsant avec le code article, garanti unique.
-        Set<String> nomsUtilisesDansImport = new HashSet<>();
+        Set<String> designationsUtiliseesDansImport = new HashSet<>();
 
         for (int i = 1; i < lines.size(); i++) {
             String line = lines.get(i);
@@ -130,14 +130,14 @@ public class ProduitCatalogueResource {
                     entity.categorie = CATEGORIE_IMPORT_DEFAUT;
                 }
 
-                String nom = libelle;
-                boolean conflit = nomsUtilisesDansImport.contains(nom)
-                        || ProduitCatalogueEntity.count("nom = ?1 and ref != ?2", nom, ref) > 0;
+                String designation = libelle;
+                boolean conflit = designationsUtiliseesDansImport.contains(designation)
+                        || ProduitCatalogueEntity.count("designation = ?1 and ref != ?2", designation, ref) > 0;
                 if (conflit) {
-                    nom = libelle + " (" + ref + ")";
+                    designation = libelle + " (" + ref + ")";
                 }
-                nomsUtilisesDansImport.add(nom);
-                entity.nom = nom;
+                designationsUtiliseesDansImport.add(designation);
+                entity.designation = designation;
 
                 double prixVenteHT = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV HT"));
                 double prixVenteTTC = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV TTC"));
@@ -266,8 +266,7 @@ public class ProduitCatalogueResource {
             throw new WebApplicationException("Le produit (" + id + ") n'est pas trouvé", 404);
         }
 
-        entity.nom = produit.nom;
-        entity.marque = produit.marque;
+        entity.designation = produit.designation;
         entity.categorie = produit.categorie;
         entity.ref = produit.ref;
         entity.refs = produit.refs;

@@ -14,10 +14,7 @@ import jakarta.persistence.Entity;
 public class HeliceCatalogueEntity extends PanacheEntity {
 
     @Column(nullable = false)
-    public String modele;
-
-    @Column(nullable = false)
-    public String marque;
+    public String designation;
 
     public String description;
 

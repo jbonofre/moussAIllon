@@ -16,8 +16,8 @@ interface BateauClientEntity {
     localisation?: string;
     images?: string[];
     documents?: string[];
-    modele?: { id: number; nom?: string; marque?: string };
-    moteurs?: Array<{ id: number; nom?: string; marque?: string }>;
+    modele?: { id: number; designation?: string };
+    moteurs?: Array<{ id: number; designation?: string }>;
     equipements?: string[];
 }
 
@@ -98,7 +98,7 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
             title: 'Modele',
             key: 'modele',
             render: (_: unknown, record: BateauClientEntity) =>
-                record.modele ? `${record.modele.marque || ''} ${record.modele.nom || ''}`.trim() || '-' : '-',
+                record.modele?.designation || '-',
         },
         { title: 'N/S', dataIndex: 'numeroSerie', key: 'numeroSerie' },
         { title: 'Localisation', dataIndex: 'localisation', key: 'localisation' },
@@ -124,7 +124,7 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
             key: 'moteurs',
             render: (_: unknown, record: BateauClientEntity) =>
                 (record.moteurs || []).map((m) => (
-                    <Tag key={m.id}>{m.marque ? `${m.marque} ${m.nom || ''}` : m.nom || `#${m.id}`}</Tag>
+                    <Tag key={m.id}>{m.designation || `#${m.id}`}</Tag>
                 )),
         },
         {

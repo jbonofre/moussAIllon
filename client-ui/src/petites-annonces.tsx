@@ -27,7 +27,7 @@ interface BateauClientEntity {
     id: number;
     name?: string;
     immatriculation?: string;
-    modele?: { nom?: string; marque?: string };
+    modele?: { designation?: string };
 }
 
 interface Annonce {
@@ -194,7 +194,7 @@ export default function PetitesAnnonces({ clientId, initialPhotos, initialBateau
 
     const bateauLabel = (b?: BateauClientEntity) => {
         if (!b) return '-';
-        const model = b.modele ? `${b.modele.marque || ''} ${b.modele.nom || ''}`.trim() : '';
+        const model = b.modele?.designation || '';
         return b.name || model || b.immatriculation || `Bateau #${b.id}`;
     };
 

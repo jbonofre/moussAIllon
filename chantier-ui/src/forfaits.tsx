@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    AutoComplete,
     Button,
     Card,
     Col,
@@ -24,20 +23,17 @@ import ImageUpload from './ImageUpload.tsx';
 
 interface MoteurCatalogueEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
 }
 
 interface BateauCatalogueEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
 }
 
 interface ProduitCatalogueEntity {
     id: number;
-    nom: string;
-    marque?: string;
+    designation: string;
     categorie?: string;
     ref?: string;
     refs?: string[];
@@ -66,7 +62,7 @@ interface MainOeuvreEntity {
 
 
 const defaultNewProduit = {
-    nom: '', marque: '', categorie: '', ref: '', refs: [], images: [], description: '',
+    designation: '', categorie: '', ref: '', refs: [], images: [], description: '',
     evaluation: 0, stock: 0, stockMini: 0, emplacement: '',
     prixVenteHT: 0, tva: 20, montantTVA: 0, prixVenteTTC: 0,
 };
@@ -179,23 +175,18 @@ export default function Forfaits() {
     const [newMainOeuvreForm] = Form.useForm();
     const [newMainOeuvreFormDirty, setNewMainOeuvreFormDirty] = useState(false);
 
-    const marqueOptions = useMemo(() => {
-        const unique = Array.from(new Set(produits.map((p) => p.marque).filter(Boolean))) as string[];
-        return unique.map((marque) => ({ value: marque }));
-    }, [produits]);
-
     const moteurOptions = useMemo(
-        () => moteurs.map((moteur) => ({ value: moteur.id, label: `${moteur.marque} ${moteur.modele}` })),
+        () => moteurs.map((moteur) => ({ value: moteur.id, label: moteur.designation })),
         [moteurs]
     );
 
     const bateauOptions = useMemo(
-        () => bateaux.map((bateau) => ({ value: bateau.id, label: `${bateau.marque} ${bateau.modele}` })),
+        () => bateaux.map((bateau) => ({ value: bateau.id, label: bateau.designation })),
         [bateaux]
     );
 
     const produitOptions = useMemo(
-        () => produits.map((produit) => ({ value: produit.id, label: `${produit.nom}${produit.marque ? ` (${produit.marque})` : ''}` })),
+        () => produits.map((produit) => ({ value: produit.id, label: produit.designation })),
         [produits]
     );
 
@@ -1044,18 +1035,9 @@ export default function Forfaits() {
                     destroyOnHidden
                 >
                     <Form form={newProduitForm} layout="vertical" initialValues={defaultNewProduit} onValuesChange={(...args) => { setNewProduitFormDirty(true); onNewProduitValuesChange(...args); }}>
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="marque" label="Marque">
-                                    <AutoComplete allowClear options={marqueOptions} placeholder="Saisir/select. une marque" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
-                                    <Input />
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                        <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
+                            <Input />
+                        </Form.Item>
                         <Row gutter={16}>
                             <Col span={12}>
                                 <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: 'La catégorie est requise' }]}>

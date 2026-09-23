@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
     Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber,
-    Popconfirm, message, Tabs, Select, AutoComplete
+    Popconfirm, message, Tabs, Select
 } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import api from './api.ts';
@@ -19,8 +19,7 @@ interface MainOeuvreEntity {
 
 interface ProduitCatalogueEntity {
     id: number;
-    nom: string;
-    marque?: string;
+    designation: string;
     prixVenteHT?: number;
     tva?: number;
     montantTVA?: number;
@@ -81,7 +80,7 @@ const defaultNewMainOeuvre = {
 };
 
 const defaultNewProduit = {
-    nom: '', marque: '', categorie: '', ref: '', refs: [], images: [], description: '',
+    designation: '', categorie: '', ref: '', refs: [], images: [], description: '',
     evaluation: 0, stock: 0, stockMini: 0, emplacement: '',
     prixVenteHT: 0, tva: 20, montantTVA: 0, prixVenteTTC: 0,
 };
@@ -117,7 +116,7 @@ export default function Services() {
     );
 
     const produitOptions = useMemo(
-        () => allProduits.map((p) => ({ value: p.id, label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}` })),
+        () => allProduits.map((p) => ({ value: p.id, label: p.designation })),
         [allProduits]
     );
 
@@ -847,10 +846,7 @@ export default function Services() {
                 width="95vw"
             >
                 <Form form={newProduitForm} layout="vertical" initialValues={defaultNewProduit} onValuesChange={(...args) => { setNewProduitFormDirty(true); onNewProduitValuesChange(...args); }}>
-                    <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
-                        <Input allowClear />
-                    </Form.Item>
-                    <Form.Item name="marque" label="Marque">
+                    <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
                         <Input allowClear />
                     </Form.Item>
                     <Form.Item name="description" label="Description">

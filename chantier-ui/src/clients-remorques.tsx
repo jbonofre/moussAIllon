@@ -188,7 +188,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
   const modeleSelectOptions = useMemo(
     () => remorquesCatalogue.map((r: any) => ({
       value: r.id,
-      label: `${r.marque} ${r.modele}${formatAnnee(r.anneeDebut, r.anneeFin) ? ` (${formatAnnee(r.anneeDebut, r.anneeFin)})` : ''}`,
+      label: `${r.designation}${formatAnnee(r.anneeDebut, r.anneeFin) ? ` (${formatAnnee(r.anneeDebut, r.anneeFin)})` : ''}`,
     })),
     [remorquesCatalogue]
   );
@@ -330,9 +330,9 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
     {
       title: "Modèle", dataIndex: "modele", key: "modele",
       render: (modele: any) =>
-        modele ? [modele?.marque, modele?.modele, formatAnnee(modele?.anneeDebut, modele?.anneeFin) ? `(${formatAnnee(modele?.anneeDebut, modele?.anneeFin)})` : ""].filter(Boolean).join(" ") : "",
-      sorter: (a, b) => a.modele?.marque.localeCompare(b.modele?.marque || "") || a.modele?.modele.localeCompare(b.modele?.modele || ""),
-      filters: remorquesCatalogue.map((remorque) => { const a = formatAnnee(remorque.anneeDebut, remorque.anneeFin); return { text: `${remorque.marque} ${remorque.modele}${a ? ` (${a})` : ''}`, value: remorque.id }; }),
+        modele ? [modele?.designation, formatAnnee(modele?.anneeDebut, modele?.anneeFin) ? `(${formatAnnee(modele?.anneeDebut, modele?.anneeFin)})` : ""].filter(Boolean).join(" ") : "",
+      sorter: (a, b) => (a.modele?.designation || "").localeCompare(b.modele?.designation || ""),
+      filters: remorquesCatalogue.map((remorque) => { const a = formatAnnee(remorque.anneeDebut, remorque.anneeFin); return { text: `${remorque.designation}${a ? ` (${a})` : ''}`, value: remorque.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
     },
     { title: "Date achat", dataIndex: "dateAchat", key: "dateAchat", sorter: (a, b) => a.dateAchat.localeCompare(b.dateAchat) },
@@ -430,7 +430,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
               <Form.Item name="modeleId" noStyle>
                 <Select
                   showSearch
-                  placeholder="Rechercher un modèle par marque, modèle ou description"
+                  placeholder="Rechercher un modèle par désignation ou description"
                   optionFilterProp="label"
                   allowClear
                   style={{ width: "100%" }}
@@ -518,18 +518,9 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
             }
           }}
         >
-          <Row gutter={16}>
-            <Col span={12}>
-              <Form.Item name="marque" label="Marque" rules={[{ required: true, message: "Champ requis" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="modele" label="Modèle" rules={[{ required: true, message: "Champ requis" }]}>
-                <Input />
-              </Form.Item>
-            </Col>
-          </Row>
+          <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "Champ requis" }]}>
+            <Input />
+          </Form.Item>
           <Form.Item name="description" label="Description">
             <Input.TextArea rows={3} />
           </Form.Item>

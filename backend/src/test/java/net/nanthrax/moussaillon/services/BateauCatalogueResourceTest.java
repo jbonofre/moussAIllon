@@ -25,8 +25,7 @@ public class BateauCatalogueResourceTest {
             .when().get("/catalogue/bateaux/100")
             .then()
             .statusCode(200)
-            .body("modele", is("Quicksilver 505"))
-            .body("marque", is("Quicksilver"))
+            .body("designation", is("Quicksilver 505"))
             .body("type", is("Open"));
     }
 
@@ -42,12 +41,11 @@ public class BateauCatalogueResourceTest {
     void testCreerBateau() {
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"Test 300\",\"marque\":\"TestBrand\",\"type\":\"Cabin\",\"description\":\"Test boat\",\"annee\":2025,\"stock\":5,\"prixVenteTTC\":30000.0}")
+            .body("{\"designation\":\"TestBrand Test 300\",\"type\":\"Cabin\",\"description\":\"Test boat\",\"annee\":2025,\"stock\":5,\"prixVenteTTC\":30000.0}")
             .when().post("/catalogue/bateaux")
             .then()
             .statusCode(201)
-            .body("modele", is("Test 300"))
-            .body("marque", is("TestBrand"))
+            .body("designation", is("TestBrand Test 300"))
             .body("id", notNullValue());
     }
 
@@ -56,7 +54,7 @@ public class BateauCatalogueResourceTest {
         // Creer une entite dediee pour le test de modification
         int id = given()
             .contentType("application/json")
-            .body("{\"modele\":\"AvantUpdate\",\"marque\":\"TestBrand\",\"type\":\"Open\"}")
+            .body("{\"designation\":\"TestBrand AvantUpdate\",\"type\":\"Open\"}")
             .when().post("/catalogue/bateaux")
             .then()
             .statusCode(201)
@@ -64,11 +62,11 @@ public class BateauCatalogueResourceTest {
 
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"ApresUpdate\",\"marque\":\"TestBrand\",\"type\":\"Open\",\"description\":\"Updated\",\"annee\":2025}")
+            .body("{\"designation\":\"TestBrand ApresUpdate\",\"type\":\"Open\",\"description\":\"Updated\",\"annee\":2025}")
             .when().put("/catalogue/bateaux/" + id)
             .then()
             .statusCode(200)
-            .body("modele", is("ApresUpdate"));
+            .body("designation", is("TestBrand ApresUpdate"));
     }
 
     @Test
@@ -94,7 +92,7 @@ public class BateauCatalogueResourceTest {
     void testCreerBateauAvecOptions() {
         given()
             .contentType("application/json")
-            .body("{\"modele\":\"Options 400\",\"marque\":\"TestBrand\",\"type\":\"Open\",\"options\":[{\"nom\":\"GPS chartplotter\",\"description\":\"Navigation GPS\",\"prixHT\":800.0,\"tva\":20.0,\"montantTVA\":160.0,\"prixTTC\":960.0}]}")
+            .body("{\"designation\":\"TestBrand Options 400\",\"type\":\"Open\",\"options\":[{\"nom\":\"GPS chartplotter\",\"description\":\"Navigation GPS\",\"prixHT\":800.0,\"tva\":20.0,\"montantTVA\":160.0,\"prixTTC\":960.0}]}")
             .when().post("/catalogue/bateaux")
             .then()
             .statusCode(201)
@@ -106,7 +104,7 @@ public class BateauCatalogueResourceTest {
         // Creer un bateau a supprimer
         int id = given()
             .contentType("application/json")
-            .body("{\"modele\":\"ToDelete\",\"marque\":\"TestBrand\",\"type\":\"Open\"}")
+            .body("{\"designation\":\"TestBrand ToDelete\",\"type\":\"Open\"}")
             .when().post("/catalogue/bateaux")
             .then()
             .statusCode(201)

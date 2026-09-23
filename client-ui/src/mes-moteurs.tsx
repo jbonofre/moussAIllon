@@ -13,7 +13,7 @@ interface MoteurClientEntity {
     dateFinDeGuarantie?: string;
     images?: string[];
     documents?: string[];
-    modele?: { id: number; nom?: string; marque?: string };
+    modele?: { id: number; designation?: string };
 }
 
 interface MesMoteursProps {
@@ -92,7 +92,7 @@ export default function MesMoteurs({ clientId, onCreateAnnonce }: MesMoteursProp
             title: 'Modele',
             key: 'modele',
             render: (_: unknown, record: MoteurClientEntity) =>
-                record.modele ? `${record.modele.marque || ''} ${record.modele.nom || ''}`.trim() || '-' : '-',
+                record.modele?.designation || '-',
         },
         {
             title: 'Date achat',

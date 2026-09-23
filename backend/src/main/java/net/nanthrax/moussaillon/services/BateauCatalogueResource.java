@@ -25,9 +25,9 @@ public class BateauCatalogueResource {
             return BateauCatalogueEntity.listAll();
         }
         String likePattern = "%" + q.toLowerCase() + "%";
-        // Search in modele, marque, type, description
+        // Search in designation, type, description
         return BateauCatalogueEntity.list(
-            "LOWER(modele) LIKE ?1 OR LOWER(marque) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(description) LIKE ?1",
+            "LOWER(designation) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(description) LIKE ?1",
             likePattern
         );
     }
@@ -58,8 +58,7 @@ public class BateauCatalogueResource {
         if (entity == null) {
             throw new NotFoundException();
         }
-        entity.modele = updatedBateauCatalogue.modele;
-        entity.marque = updatedBateauCatalogue.marque;
+        entity.designation = updatedBateauCatalogue.designation;
         entity.images = updatedBateauCatalogue.images;
         entity.documents = updatedBateauCatalogue.documents;
         entity.type = updatedBateauCatalogue.type;

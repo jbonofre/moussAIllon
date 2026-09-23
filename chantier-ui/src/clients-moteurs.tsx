@@ -9,7 +9,6 @@ import {
   Input,
   InputNumber,
   Select,
-  AutoComplete,
   Image,
   Space,
   message,
@@ -192,7 +191,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const modeleSelectOptions = useMemo(
     () => catalogueMoteurs.map((m: any) => ({
       value: m.id,
-      label: `${m.marque} ${m.modele}${formatAnnee(m.anneeDebut, m.anneeFin) ? ` (${formatAnnee(m.anneeDebut, m.anneeFin)})` : ''}`,
+      label: `${m.designation}${formatAnnee(m.anneeDebut, m.anneeFin) ? ` (${formatAnnee(m.anneeDebut, m.anneeFin)})` : ''}`,
     })),
     [catalogueMoteurs]
   );
@@ -274,9 +273,8 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const handleAiIdentify = (result: IdentifyResult) => {
     const updates: Record<string, any> = {};
     const matching = catalogueMoteurs.find((m: any) =>
-      result.marque && result.modele &&
-      m.marque?.toLowerCase() === result.marque.toLowerCase() &&
-      m.modele?.toLowerCase() === result.modele.toLowerCase()
+      result.designation &&
+      m.designation?.toLowerCase() === result.designation.toLowerCase()
     );
     if (matching) {
       updates.modeleId = matching.id;
@@ -361,13 +359,12 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       render: (modele: any) =>
         modele
           ? [
-              modele.marque,
-              modele.modele,
+              modele.designation,
               formatAnnee(modele.anneeDebut, modele.anneeFin) && `(${formatAnnee(modele.anneeDebut, modele.anneeFin)})`
             ].filter(Boolean).join(" ")
           : "",
-      sorter: (a, b) => (a.modele?.marque || '').localeCompare(b.modele?.marque || '') || (a.modele?.modele || '').localeCompare(b.modele?.modele || ''),
-      filters: catalogueMoteurs.map((modele) => { const a = formatAnnee(modele.anneeDebut, modele.anneeFin); return { text: `${modele.marque} ${modele.modele}${a ? ` (${a})` : ''}`, value: modele.id }; }),
+      sorter: (a, b) => (a.modele?.designation || '').localeCompare(b.modele?.designation || ''),
+      filters: catalogueMoteurs.map((modele) => { const a = formatAnnee(modele.anneeDebut, modele.anneeFin); return { text: `${modele.designation}${a ? ` (${a})` : ''}`, value: modele.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
     },
     {
@@ -474,7 +471,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
               <Form.Item name="modeleId" noStyle>
                 <Select
                   showSearch
-                  placeholder="Rechercher un modèle par marque, modèle ou type"
+                  placeholder="Rechercher un modèle par désignation ou type"
                   optionFilterProp="label"
                   allowClear
                   style={{ width: "100%" }}
@@ -585,26 +582,17 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
         >
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item name="marque" label="Marque" rules={[{ required: true, message: "La marque est requise" }]}>
-                <AutoComplete
-                  allowClear
-                  options={catalogueMoteurs.map((m) => ({ value: m.marque })).filter((v, i, a) => a.findIndex((t) => t.value === v.value) === i)}
-                  placeholder="Saisir ou sélectionner une marque"
-                />
-              </Form.Item>
-            </Col>
-            <Col span={12}>
-              <Form.Item name="modele" label="Modèle" rules={[{ required: true, message: "Le modèle est requis" }]}>
+              <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "La désignation est requise" }]}>
                 <Input />
               </Form.Item>
             </Col>
-          </Row>
-          <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="type" label="Type" rules={[{ required: true, message: "Le type est requis" }]}>
                 <Select options={moteurTypes} />
               </Form.Item>
             </Col>
+          </Row>
+          <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="evaluation" label="Évaluation">
                 <Rate allowHalf />

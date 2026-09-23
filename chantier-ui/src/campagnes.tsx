@@ -36,8 +36,7 @@ interface Campagne {
 
 interface CatalogueItem {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
 }
 
 interface Destinataire {
@@ -61,14 +60,11 @@ const canalOptions = [
 const cibleOptions = [
     { value: 'TOUS_LES_CLIENTS', label: 'Tous les clients' },
     { value: 'PROPRIETAIRE_BATEAU', label: 'Propriétaires de bateaux' },
-    { value: 'PROPRIETAIRE_BATEAU_MARQUE', label: 'Propriétaires de bateaux (par marque)' },
-    { value: 'PROPRIETAIRE_BATEAU_MODELE', label: 'Propriétaires de bateaux (par modèle)' },
+    { value: 'PROPRIETAIRE_BATEAU_DESIGNATION', label: 'Propriétaires de bateaux (par désignation)' },
     { value: 'PROPRIETAIRE_MOTEUR', label: 'Propriétaires de moteurs' },
-    { value: 'PROPRIETAIRE_MOTEUR_MARQUE', label: 'Propriétaires de moteurs (par marque)' },
-    { value: 'PROPRIETAIRE_MOTEUR_MODELE', label: 'Propriétaires de moteurs (par modèle)' },
+    { value: 'PROPRIETAIRE_MOTEUR_DESIGNATION', label: 'Propriétaires de moteurs (par désignation)' },
     { value: 'PROPRIETAIRE_REMORQUE', label: 'Propriétaires de remorques' },
-    { value: 'PROPRIETAIRE_REMORQUE_MARQUE', label: 'Propriétaires de remorques (par marque)' },
-    { value: 'PROPRIETAIRE_REMORQUE_MODELE', label: 'Propriétaires de remorques (par modèle)' },
+    { value: 'PROPRIETAIRE_REMORQUE_DESIGNATION', label: 'Propriétaires de remorques (par désignation)' },
     { value: 'FOURNISSEUR', label: 'Fournisseurs' },
 ];
 
@@ -78,14 +74,11 @@ const canalLabel: Record<string, string> = { EMAIL: 'Email', SMS: 'SMS' };
 const cibleLabel: Record<string, string> = {
     TOUS_LES_CLIENTS: 'Tous les clients',
     PROPRIETAIRE_BATEAU: 'Propriétaires de bateaux',
-    PROPRIETAIRE_BATEAU_MARQUE: 'Propriétaires de bateaux (par marque)',
-    PROPRIETAIRE_BATEAU_MODELE: 'Propriétaires de bateaux (par modèle)',
+    PROPRIETAIRE_BATEAU_DESIGNATION: 'Propriétaires de bateaux (par désignation)',
     PROPRIETAIRE_MOTEUR: 'Propriétaires de moteurs',
-    PROPRIETAIRE_MOTEUR_MARQUE: 'Propriétaires de moteurs (par marque)',
-    PROPRIETAIRE_MOTEUR_MODELE: 'Propriétaires de moteurs (par modèle)',
+    PROPRIETAIRE_MOTEUR_DESIGNATION: 'Propriétaires de moteurs (par désignation)',
     PROPRIETAIRE_REMORQUE: 'Propriétaires de remorques',
-    PROPRIETAIRE_REMORQUE_MARQUE: 'Propriétaires de remorques (par marque)',
-    PROPRIETAIRE_REMORQUE_MODELE: 'Propriétaires de remorques (par modèle)',
+    PROPRIETAIRE_REMORQUE_DESIGNATION: 'Propriétaires de remorques (par désignation)',
     FOURNISSEUR: 'Fournisseurs',
 };
 
@@ -455,57 +448,30 @@ export default function Campagnes() {
                     <Form.Item name="cible" label="Cible" rules={[{ required: true, message: 'La cible est requise' }]}>
                         <Select options={cibleOptions} />
                     </Form.Item>
-                    {selectedCible === 'PROPRIETAIRE_BATEAU_MARQUE' && (
-                        <Form.Item name="cibleFiltre" label="Marque" rules={[{ required: true, message: 'La marque est requise' }]}>
+                    {selectedCible === 'PROPRIETAIRE_BATEAU_DESIGNATION' && (
+                        <Form.Item name="cibleFiltre" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
                             <Select
                                 showSearch
-                                placeholder="Sélectionner une marque"
-                                options={[...new Set(bateauxCatalogue.map((b) => b.marque))].sort().map((m) => ({ value: m, label: m }))}
+                                placeholder="Sélectionner une désignation"
+                                options={[...new Set(bateauxCatalogue.map((b) => b.designation))].sort().map((d) => ({ value: d, label: d }))}
                             />
                         </Form.Item>
                     )}
-                    {selectedCible === 'PROPRIETAIRE_BATEAU_MODELE' && (
-                        <Form.Item name="cibleFiltre" label="Modèle" rules={[{ required: true, message: 'Le modèle est requis' }]}>
+                    {selectedCible === 'PROPRIETAIRE_MOTEUR_DESIGNATION' && (
+                        <Form.Item name="cibleFiltre" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
                             <Select
                                 showSearch
-                                placeholder="Sélectionner un modèle"
-                                options={bateauxCatalogue.map((b) => ({ value: b.modele, label: `${b.marque} - ${b.modele}` })).sort((a, b) => a.label.localeCompare(b.label))}
+                                placeholder="Sélectionner une désignation"
+                                options={[...new Set(moteursCatalogue.map((m) => m.designation))].sort().map((d) => ({ value: d, label: d }))}
                             />
                         </Form.Item>
                     )}
-                    {selectedCible === 'PROPRIETAIRE_MOTEUR_MARQUE' && (
-                        <Form.Item name="cibleFiltre" label="Marque" rules={[{ required: true, message: 'La marque est requise' }]}>
+                    {selectedCible === 'PROPRIETAIRE_REMORQUE_DESIGNATION' && (
+                        <Form.Item name="cibleFiltre" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
                             <Select
                                 showSearch
-                                placeholder="Sélectionner une marque"
-                                options={[...new Set(moteursCatalogue.map((m) => m.marque))].sort().map((m) => ({ value: m, label: m }))}
-                            />
-                        </Form.Item>
-                    )}
-                    {selectedCible === 'PROPRIETAIRE_MOTEUR_MODELE' && (
-                        <Form.Item name="cibleFiltre" label="Modèle" rules={[{ required: true, message: 'Le modèle est requis' }]}>
-                            <Select
-                                showSearch
-                                placeholder="Sélectionner un modèle"
-                                options={moteursCatalogue.map((m) => ({ value: m.modele, label: `${m.marque} - ${m.modele}` })).sort((a, b) => a.label.localeCompare(b.label))}
-                            />
-                        </Form.Item>
-                    )}
-                    {selectedCible === 'PROPRIETAIRE_REMORQUE_MARQUE' && (
-                        <Form.Item name="cibleFiltre" label="Marque" rules={[{ required: true, message: 'La marque est requise' }]}>
-                            <Select
-                                showSearch
-                                placeholder="Sélectionner une marque"
-                                options={[...new Set(remorquesCatalogue.map((r) => r.marque))].sort().map((m) => ({ value: m, label: m }))}
-                            />
-                        </Form.Item>
-                    )}
-                    {selectedCible === 'PROPRIETAIRE_REMORQUE_MODELE' && (
-                        <Form.Item name="cibleFiltre" label="Modèle" rules={[{ required: true, message: 'Le modèle est requis' }]}>
-                            <Select
-                                showSearch
-                                placeholder="Sélectionner un modèle"
-                                options={remorquesCatalogue.map((r) => ({ value: r.modele, label: `${r.marque} - ${r.modele}` })).sort((a, b) => a.label.localeCompare(b.label))}
+                                placeholder="Sélectionner une désignation"
+                                options={[...new Set(remorquesCatalogue.map((r) => r.designation))].sort().map((d) => ({ value: d, label: d }))}
                             />
                         </Form.Item>
                     )}

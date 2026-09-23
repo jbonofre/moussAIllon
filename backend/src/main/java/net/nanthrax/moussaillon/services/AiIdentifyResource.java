@@ -146,18 +146,18 @@ public class AiIdentifyResource {
 
         if ("bateau".equals(type)) {
             entityLabel = "bateau";
-            fields = "\"marque\", \"modele\", \"type\" (type de bateau, ex: Open, Semi-rigide, Voilier), \"anneeDebut\" (entier ou null), \"description\", \"confidence\" (haute/moyenne/faible)";
+            fields = "\"designation\" (marque et modèle), \"type\" (type de bateau, ex: Open, Semi-rigide, Voilier), \"anneeDebut\" (entier ou null), \"description\", \"confidence\" (haute/moyenne/faible)";
         } else if ("moteur".equals(type)) {
             entityLabel = "moteur hors-bord ou inboard";
-            fields = "\"marque\", \"modele\", \"type\" (Hors-bord/Inboard/In-Out), \"anneeDebut\" (entier ou null), \"puissanceCv\" (entier ou null), \"description\", \"confidence\" (haute/moyenne/faible)";
+            fields = "\"designation\" (marque et modèle), \"type\" (Hors-bord/Inboard/In-Out), \"anneeDebut\" (entier ou null), \"puissanceCv\" (entier ou null), \"description\", \"confidence\" (haute/moyenne/faible)";
         } else if ("remorque".equals(type)) {
             entityLabel = "remorque nautique";
-            fields = "\"marque\", \"modele\", \"type\", \"anneeDebut\" (entier ou null), \"description\", \"confidence\" (haute/moyenne/faible)";
+            fields = "\"designation\" (marque et modèle), \"type\", \"anneeDebut\" (entier ou null), \"description\", \"confidence\" (haute/moyenne/faible)";
         } else if ("helice".equals(type)) {
             entityLabel = "hélice de bateau";
-            fields = "\"marque\", \"modele\", \"materiau\", \"pas\" (ex: 19), \"diametre\" (en pouces, ex: 14.5), \"description\", \"confidence\" (haute/moyenne/faible)";
+            fields = "\"designation\" (marque et modèle), \"materiau\", \"pas\" (ex: 19), \"diametre\" (en pouces, ex: 14.5), \"description\", \"confidence\" (haute/moyenne/faible)";
         } else {
-            fields = "\"marque\", \"modele\", \"type\", \"anneeDebut\" (entier ou null), \"description\", \"confidence\" (haute/moyenne/faible)";
+            fields = "\"designation\" (marque et nom), \"type\", \"anneeDebut\" (entier ou null), \"description\", \"confidence\" (haute/moyenne/faible)";
         }
 
         return "À partir de cette/ces photo(s), identifie ce " + entityLabel + ". "

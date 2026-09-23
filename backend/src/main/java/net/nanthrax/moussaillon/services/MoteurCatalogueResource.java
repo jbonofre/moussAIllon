@@ -38,7 +38,7 @@ public class MoteurCatalogueResource {
         }
         String q = "%" + query.toLowerCase() + "%";
         return MoteurCatalogueEntity.find(
-            "lower(modele) like ?1 or lower(marque) like ?1 or lower(type) like ?1",
+            "lower(designation) like ?1 or lower(type) like ?1",
             q
         ).list();
     }
@@ -60,8 +60,7 @@ public class MoteurCatalogueResource {
         }
 
         // update the relevant fields
-        entity.modele = moteur.modele;
-        entity.marque = moteur.marque;
+        entity.designation = moteur.designation;
         entity.type = moteur.type;
         entity.description = moteur.description;
         entity.anneeDebut = moteur.anneeDebut;

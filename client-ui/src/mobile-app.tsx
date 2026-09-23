@@ -53,21 +53,21 @@ interface BateauClientEntity {
     immatriculation?: string;
     dateFinDeGuarantie?: string;
     localisation?: string;
-    modele?: { nom?: string; marque?: string };
+    modele?: { designation?: string };
 }
 
 interface MoteurClientEntity {
     id: number;
     numeroSerie?: string;
     dateFinDeGuarantie?: string;
-    modele?: { nom?: string; marque?: string };
+    modele?: { designation?: string };
 }
 
 interface RemorqueClientEntity {
     id: number;
     immatriculation?: string;
     dateFinDeGuarantie?: string;
-    modele?: { nom?: string; marque?: string };
+    modele?: { designation?: string };
 }
 
 interface TaskEntity {
@@ -97,11 +97,11 @@ interface VenteEntity {
     remise?: number;
     modePaiement?: string;
     forfaits?: Array<{ id: number; nom: string; reference?: string; prixTTC?: number }>;
-    produits?: Array<{ id: number; nom: string; marque?: string; prixVenteTTC?: number }>;
+    produits?: Array<{ id: number; designation: string; prixVenteTTC?: number }>;
     services?: Array<{ id: number; nom: string; prixTTC?: number }>;
     taches?: TaskEntity[];
     bateau?: { name?: string; immatriculation?: string };
-    moteur?: { numeroSerie?: string; modele?: { nom?: string; marque?: string } };
+    moteur?: { numeroSerie?: string; modele?: { designation?: string } };
     remorque?: { immatriculation?: string };
 }
 
@@ -148,8 +148,8 @@ const warrantyTag = (date?: string) => {
     return <Tag color={isExpired ? 'red' : 'green'}>{formatDate(date)}</Tag>;
 };
 
-const modelLabel = (modele?: { nom?: string; marque?: string }) =>
-    modele ? `${modele.marque || ''} ${modele.nom || ''}`.trim() || '-' : '-';
+const modelLabel = (modele?: { designation?: string }) =>
+    modele?.designation || '-';
 
 export default function MobileApp({ user, onLogout }: MobileAppProps) {
     const [page, setPage] = useState<Page>('dashboard');
@@ -332,7 +332,7 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
                         ))}
                         {(detailVente.produits || []).map((p, i) => (
                             <Card size="small" key={`p-${p.id}-${i}`} style={{ marginBottom: 4 }}>
-                                <span>Produit: {p.marque ? `${p.nom} (${p.marque})` : p.nom}</span>
+                                <span>Produit: {p.designation}</span>
                                 <span style={{ float: 'right' }}>{formatEuro(p.prixVenteTTC)}</span>
                             </Card>
                         ))}
@@ -476,9 +476,9 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
         }
     };
 
-    const bateauLabel = (b?: { name?: string; immatriculation?: string; modele?: { nom?: string; marque?: string }; id?: number }) => {
+    const bateauLabel = (b?: { name?: string; immatriculation?: string; modele?: { designation?: string }; id?: number }) => {
         if (!b) return '-';
-        const model = b.modele ? `${b.modele.marque || ''} ${b.modele.nom || ''}`.trim() : '';
+        const model = b.modele?.designation || '';
         return b.name || model || b.immatriculation || `Bateau #${b.id}`;
     };
 

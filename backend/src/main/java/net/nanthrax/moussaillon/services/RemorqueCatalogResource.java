@@ -28,26 +28,21 @@ public class RemorqueCatalogResource {
     @Path("/search")
     public List<RemorqueCatalogueEntity> search(
             @QueryParam("q") String q,
-            @QueryParam("modele") String modele,
-            @QueryParam("marque") String marque,
+            @QueryParam("designation") String designation,
             @QueryParam("description") String description
     ) {
         if (q != null && !q.trim().isEmpty()) {
             String likePattern = "%" + q.toLowerCase() + "%";
             return RemorqueCatalogueEntity.list(
-                "lower(modele) like ?1 or lower(marque) like ?1 or lower(description) like ?1",
+                "lower(designation) like ?1 or lower(description) like ?1",
                 likePattern
             );
         }
 
         String query = "";
         boolean first = true;
-        if (modele != null && !modele.isEmpty()) {
-            query += (first ? "" : " and ") + "lower(modele) like :modele";
-            first = false;
-        }
-        if (marque != null && !marque.isEmpty()) {
-            query += (first ? "" : " and ") + "lower(marque) like :marque";
+        if (designation != null && !designation.isEmpty()) {
+            query += (first ? "" : " and ") + "lower(designation) like :designation";
             first = false;
         }
         if (description != null && !description.isEmpty()) {
@@ -59,11 +54,8 @@ public class RemorqueCatalogResource {
         }
 
         Map<String, Object> params = new HashMap<>();
-        if (modele != null && !modele.isEmpty()) {
-            params.put("modele", "%" + modele.toLowerCase() + "%");
-        }
-        if (marque != null && !marque.isEmpty()) {
-            params.put("marque", "%" + marque.toLowerCase() + "%");
+        if (designation != null && !designation.isEmpty()) {
+            params.put("designation", "%" + designation.toLowerCase() + "%");
         }
         if (description != null && !description.isEmpty()) {
             params.put("description", "%" + description.toLowerCase() + "%");
@@ -99,8 +91,7 @@ public class RemorqueCatalogResource {
         if (entity == null) {
             throw new WebApplicationException("La remorque (" + id + ") n'est pas trouvée", 404);
         }
-        entity.modele = remorque.modele;
-        entity.marque = remorque.marque;
+        entity.designation = remorque.designation;
         entity.description = remorque.description;
         entity.anneeDebut = remorque.anneeDebut;
         entity.anneeFin = remorque.anneeFin;

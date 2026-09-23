@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-    AutoComplete,
     Button,
     Card,
     Col,
@@ -22,8 +21,7 @@ import ImageUpload from './ImageUpload.tsx';
 
 interface ProduitCatalogueEntity {
     id: number;
-    nom: string;
-    marque?: string;
+    designation: string;
     categorie?: string;
     ref?: string;
     refs?: string[];
@@ -51,7 +49,7 @@ interface MainOeuvreEntity {
 }
 
 const defaultNewProduit = {
-    nom: '', marque: '', categorie: '', ref: '', refs: [], images: [], description: '',
+    designation: '', categorie: '', ref: '', refs: [], images: [], description: '',
     evaluation: 0, stock: 0, stockMini: 0, emplacement: '',
     prixVenteHT: 0, tva: 20, montantTVA: 0, prixVenteTTC: 0,
 };
@@ -108,23 +106,18 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
     const [newMainOeuvreForm] = Form.useForm();
     const [newMainOeuvreFormDirty, setNewMainOeuvreFormDirty] = useState(false);
 
-    const marqueOptions = useMemo(() => {
-        const unique = Array.from(new Set(produits.map((p) => p.marque).filter(Boolean))) as string[];
-        return unique.map((marque) => ({ value: marque }));
-    }, [produits]);
-
     const moteurOptions = useMemo(
-        () => moteurs.map((m) => ({ value: m.id, label: `${m.marque} ${m.modele}` })),
+        () => moteurs.map((m) => ({ value: m.id, label: m.designation })),
         [moteurs]
     );
 
     const bateauOptions = useMemo(
-        () => bateaux.map((b) => ({ value: b.id, label: `${b.marque} ${b.modele}` })),
+        () => bateaux.map((b) => ({ value: b.id, label: b.designation })),
         [bateaux]
     );
 
     const produitOptions = useMemo(
-        () => produits.map((p) => ({ value: p.id, label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}` })),
+        () => produits.map((p) => ({ value: p.id, label: p.designation })),
         [produits]
     );
 
@@ -728,18 +721,9 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                 destroyOnHidden
             >
                 <Form form={newProduitForm} layout="vertical" initialValues={defaultNewProduit} onValuesChange={onNewProduitValuesChange}>
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="marque" label="Marque">
-                                <AutoComplete allowClear options={marqueOptions} placeholder="Saisir/select. une marque" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
-                                <Input />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
+                        <Input />
+                    </Form.Item>
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: 'La catégorie est requise' }]}>

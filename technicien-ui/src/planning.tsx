@@ -35,8 +35,7 @@ interface ChecklistItem {
 
 interface ProduitItem {
     id?: number;
-    nom?: string;
-    marque?: string;
+    designation?: string;
     categorie?: string;
     ref?: string;
     emplacement?: string;
@@ -737,7 +736,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                             }
                             options={catalogue.map((p) => ({
                                 value: p.id,
-                                label: `${p.nom || ''}${p.marque ? ` - ${p.marque}` : ''}${p.ref ? ` (${p.ref})` : ''}`,
+                                label: `${p.designation || ''}${p.ref ? ` (${p.ref})` : ''}`,
                             }))}
                             style={{ width: '100%' }}
                         />
@@ -840,7 +839,6 @@ export default function Planning({ technicienId }: PlanningProps) {
                                     <tr style={{ borderBottom: '1px solid #f0f0f0', textAlign: 'left' }}>
                                         <th style={{ padding: '4px 8px' }}>Produit</th>
                                         <th style={{ padding: '4px 8px' }}>Ref</th>
-                                        <th style={{ padding: '4px 8px' }}>Marque</th>
                                         <th style={{ padding: '4px 8px' }}>Emplacement</th>
                                         <th style={{ padding: '4px 8px', textAlign: 'right' }}>Qte</th>
                                     </tr>
@@ -848,9 +846,8 @@ export default function Planning({ technicienId }: PlanningProps) {
                                 <tbody>
                                     {currentItem.produits.map((p) => (
                                         <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                            <td style={{ padding: '4px 8px' }}>{p.nom || '-'}</td>
+                                            <td style={{ padding: '4px 8px' }}>{p.designation || '-'}</td>
                                             <td style={{ padding: '4px 8px', color: '#888' }}>{p.ref || '-'}</td>
-                                            <td style={{ padding: '4px 8px', color: '#888' }}>{p.marque || '-'}</td>
                                             <td style={{ padding: '4px 8px', color: '#888' }}>{p.emplacement || '-'}</td>
                                             <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 500 }}>{p.quantite ?? 0}</td>
                                         </tr>
@@ -871,11 +868,9 @@ export default function Planning({ technicienId }: PlanningProps) {
                             produitsExtra.map((p) => (
                                 <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
                                     <div>
-                                        <div style={{ fontWeight: 500 }}>{p.nom || '-'}</div>
+                                        <div style={{ fontWeight: 500 }}>{p.designation || '-'}</div>
                                         <div style={{ fontSize: 11, color: '#888' }}>
                                             {p.ref && <span>Ref: {p.ref}</span>}
-                                            {p.ref && p.marque && <span> - </span>}
-                                            {p.marque && <span>{p.marque}</span>}
                                         </div>
                                         {p.emplacement && <div style={{ fontSize: 11, color: '#888' }}>Emplacement: {p.emplacement}</div>}
                                     </div>

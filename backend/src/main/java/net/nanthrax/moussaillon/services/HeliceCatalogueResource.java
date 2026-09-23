@@ -27,18 +27,13 @@ public class HeliceCatalogueResource {
     @GET
     @Path("/search")
     public List<HeliceCatalogueEntity> search(
-            @QueryParam("modele") String modele,
-            @QueryParam("marque") String marque,
+            @QueryParam("designation") String designation,
             @QueryParam("description") String description
     ) {
         String query = "";
         boolean first = true;
-        if (modele != null && !modele.isEmpty()) {
-            query += (first ? "" : " and ") + "lower(modele) like :modele";
-            first = false;
-        }
-        if (marque != null && !marque.isEmpty()) {
-            query += (first ? "" : " and ") + "lower(marque) like :marque";
+        if (designation != null && !designation.isEmpty()) {
+            query += (first ? "" : " and ") + "lower(designation) like :designation";
             first = false;
         }
         if (description != null && !description.isEmpty()) {
@@ -50,11 +45,8 @@ public class HeliceCatalogueResource {
         }
 
         Map<String, Object> params = new HashMap<>();
-        if (modele != null && !modele.isEmpty()) {
-            params.put("modele", "%" + modele.toLowerCase() + "%");
-        }
-        if (marque != null && !marque.isEmpty()) {
-            params.put("marque", "%" + marque.toLowerCase() + "%");
+        if (designation != null && !designation.isEmpty()) {
+            params.put("designation", "%" + designation.toLowerCase() + "%");
         }
         if (description != null && !description.isEmpty()) {
             params.put("description", "%" + description.toLowerCase() + "%");
@@ -103,8 +95,7 @@ public class HeliceCatalogueResource {
             throw new WebApplicationException("L'hélice (" + id + ") n'est pas trouvée", 404);
         }
 
-        entity.modele = helice.modele;
-        entity.marque = helice.marque;
+        entity.designation = helice.designation;
         entity.description = helice.description;
         entity.anneeDebut = helice.anneeDebut;
         entity.anneeFin = helice.anneeFin;

@@ -5,7 +5,7 @@ import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
 
 interface ForfaitRef { id: number; nom: string; reference?: string; prixTTC?: number }
-interface ProduitRef { id: number; nom: string; marque?: string; prixVenteTTC?: number }
+interface ProduitRef { id: number; designation: string; prixVenteTTC?: number }
 interface ServiceRef { id: number; nom: string; prixTTC?: number }
 
 interface VenteForfaitEntry {
@@ -212,7 +212,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
     produitMap.forEach(({ produit, quantite }, id) => {
         const pu = produit.prixVenteTTC || 0;
         lines.push({
-            key: `p-${id}`, type: 'Produit', designation: produit.marque ? `${produit.nom} (${produit.marque})` : produit.nom,
+            key: `p-${id}`, type: 'Produit', designation: produit.designation,
             quantite, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu * quantite,
         });
     });

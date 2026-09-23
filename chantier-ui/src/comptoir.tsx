@@ -12,7 +12,6 @@ import {
     InvoicePrintLine,
 } from './printing/invoiceTemplate.ts';
 import {
-    AutoComplete,
     Button,
     Card,
     Col,
@@ -97,8 +96,7 @@ interface ForfaitEntity {
 
 interface ProduitCatalogueEntity {
     id: number;
-    nom: string;
-    marque?: string;
+    designation: string;
     categorie?: string;
     ref?: string;
     refs?: string[];
@@ -116,40 +114,35 @@ interface ProduitCatalogueEntity {
 
 interface CatalogueBateauEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     prixVenteTTC?: number;
     stock?: number;
 }
 
 interface CatalogueMoteurEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     prixVenteTTC?: number;
     stock?: number;
 }
 
 interface CatalogueHeliceEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     prixVenteTTC?: number;
     stock?: number;
 }
 
 interface CatalogueRemorqueEntity {
     id: number;
-    modele: string;
-    marque: string;
+    designation: string;
     prixVenteTTC?: number;
     stock?: number;
 }
 
 
 const defaultNewProduit = {
-    nom: '',
-    marque: '',
+    designation: '',
     categorie: '',
     ref: '',
     refs: [],
@@ -400,10 +393,9 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
     if (type === 'produit') {
         const p = produits.find((x) => x.id === itemId);
         if (!p) return null;
-        titre = p.nom;
+        titre = p.designation;
         catalogueRoute = '/catalogue/produits';
         items = [
-            { label: 'Marque', value: p.marque || '-' },
             { label: 'Référence', value: p.ref || '-' },
             { label: 'Catégorie', value: p.categorie || '-' },
             { label: 'Stock', value: p.stock != null ? p.stock : '-' },
@@ -414,41 +406,37 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
     } else if (type === 'bateau') {
         const b = catalogueBateaux.find((x) => x.id === itemId);
         if (!b) return null;
-        titre = `${b.marque} ${b.modele}`;
+        titre = b.designation;
         catalogueRoute = '/catalogue/bateaux';
         items = [
-            { label: 'Marque', value: b.marque },
-            { label: 'Modèle', value: b.modele },
+            { label: 'Désignation', value: b.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(b.prixVenteTTC) },
         ];
     } else if (type === 'moteur') {
         const m = catalogueMoteurs.find((x) => x.id === itemId);
         if (!m) return null;
-        titre = `${m.marque} ${m.modele}`;
+        titre = m.designation;
         catalogueRoute = '/catalogue/moteurs';
         items = [
-            { label: 'Marque', value: m.marque },
-            { label: 'Modèle', value: m.modele },
+            { label: 'Désignation', value: m.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(m.prixVenteTTC) },
         ];
     } else if (type === 'helice') {
         const h = catalogueHelices.find((x) => x.id === itemId);
         if (!h) return null;
-        titre = `${h.marque} ${h.modele}`;
+        titre = h.designation;
         catalogueRoute = '/catalogue/helices';
         items = [
-            { label: 'Marque', value: h.marque },
-            { label: 'Modèle', value: h.modele },
+            { label: 'Désignation', value: h.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(h.prixVenteTTC) },
         ];
     } else if (type === 'remorque') {
         const r = catalogueRemorques.find((x) => x.id === itemId);
         if (!r) return null;
-        titre = `${r.marque} ${r.modele}`;
+        titre = r.designation;
         catalogueRoute = '/catalogue/remorques';
         items = [
-            { label: 'Marque', value: r.marque },
-            { label: 'Modèle', value: r.modele },
+            { label: 'Désignation', value: r.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(r.prixVenteTTC) },
         ];
     } else if (type === 'forfait') {
@@ -577,11 +565,6 @@ export default function Comptoir() {
         setProduitSearchTimeout(timeout);
     };
 
-    const marqueOptions = useMemo(() => {
-        const unique = Array.from(new Set(produits.map((p) => p.marque).filter(Boolean))) as string[];
-        return unique.map((marque) => ({ value: marque }));
-    }, [produits]);
-
     const clientOptions = useMemo(
         () => clients.map((client) => ({ value: client.id, label: getClientLabel(client) })),
         [clients]
@@ -611,40 +594,40 @@ export default function Comptoir() {
             label: 'Produits',
             options: produits.map((p) => ({
                 value: `produit:${p.id}`,
-                label: `${p.nom}${p.marque ? ` (${p.marque})` : ''}`,
-                searchText: `${p.nom} ${p.marque || ''} ${p.ref || ''} ${(p.refs || []).join(' ')} ${p.emplacement || ''}`.toLowerCase(),
+                label: p.designation,
+                searchText: `${p.designation} ${p.ref || ''} ${(p.refs || []).join(' ')} ${p.emplacement || ''}`.toLowerCase(),
             })),
         },
         {
             label: 'Bateaux',
             options: catalogueBateaux.map((b) => ({
                 value: `bateau:${b.id}`,
-                label: `${b.marque} ${b.modele}`,
-                searchText: `${b.marque} ${b.modele}`.toLowerCase(),
+                label: b.designation,
+                searchText: b.designation.toLowerCase(),
             })),
         },
         {
             label: 'Moteurs',
             options: catalogueMoteurs.map((m) => ({
                 value: `moteur:${m.id}`,
-                label: `${m.marque} ${m.modele}`,
-                searchText: `${m.marque} ${m.modele}`.toLowerCase(),
+                label: m.designation,
+                searchText: m.designation.toLowerCase(),
             })),
         },
         {
             label: 'Hélices',
             options: catalogueHelices.map((h) => ({
                 value: `helice:${h.id}`,
-                label: `${h.marque} ${h.modele}`,
-                searchText: `${h.marque} ${h.modele}`.toLowerCase(),
+                label: h.designation,
+                searchText: h.designation.toLowerCase(),
             })),
         },
         {
             label: 'Remorques',
             options: catalogueRemorques.map((r) => ({
                 value: `remorque:${r.id}`,
-                label: `${r.marque} ${r.modele}`,
-                searchText: `${r.marque} ${r.modele}`.toLowerCase(),
+                label: r.designation,
+                searchText: r.designation.toLowerCase(),
             })),
         },
     ], [produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
@@ -1161,27 +1144,27 @@ export default function Comptoir() {
     };
 
     const getProduitLines = (vente: VenteEntity) => {
-        type LineItem = { id: number; nom: string; marque?: string; prixVenteTTC?: number; quantite: number; remise: number };
+        type LineItem = { id: number; nom: string; prixVenteTTC?: number; quantite: number; remise: number };
         const lines: LineItem[] = [];
         (vente.venteProduits || []).forEach((l) => {
             if (!l.produit?.id) return;
-            lines.push({ id: l.produit.id, nom: l.produit.nom, marque: l.produit.marque, prixVenteTTC: l.produit.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.produit.id, nom: l.produit.designation, prixVenteTTC: l.produit.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         (vente.venteBateauxCatalogue || []).forEach((l) => {
             if (!l.bateau?.id) return;
-            lines.push({ id: l.bateau.id, nom: `${l.bateau.marque} ${l.bateau.modele}`, marque: l.bateau.marque, prixVenteTTC: l.bateau.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.bateau.id, nom: l.bateau.designation, prixVenteTTC: l.bateau.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         (vente.venteMoteursCatalogue || []).forEach((l) => {
             if (!l.moteur?.id) return;
-            lines.push({ id: l.moteur.id, nom: `${l.moteur.marque} ${l.moteur.modele}`, marque: l.moteur.marque, prixVenteTTC: l.moteur.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.moteur.id, nom: l.moteur.designation, prixVenteTTC: l.moteur.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         (vente.venteHelicesCatalogue || []).forEach((l) => {
             if (!l.helice?.id) return;
-            lines.push({ id: l.helice.id, nom: `${l.helice.marque} ${l.helice.modele}`, marque: l.helice.marque, prixVenteTTC: l.helice.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.helice.id, nom: l.helice.designation, prixVenteTTC: l.helice.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         (vente.venteRemorquesCatalogue || []).forEach((l) => {
             if (!l.remorque?.id) return;
-            lines.push({ id: l.remorque.id, nom: `${l.remorque.marque} ${l.remorque.modele}`, marque: l.remorque.marque, prixVenteTTC: l.remorque.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.remorque.id, nom: l.remorque.designation, prixVenteTTC: l.remorque.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         return lines;
     };
@@ -1246,10 +1229,10 @@ export default function Comptoir() {
             const puTTC = s.prixTTC || 0;
             lines.push({ type: 'Service', label: s.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
         });
-        const fromCatalogue = (item: { marque?: string; modele?: string; nom?: string; prixVenteTTC?: number } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
+        const fromCatalogue = (item: { designation?: string; prixVenteTTC?: number } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
             const puTTC = item?.prixVenteTTC || 0;
             const brut = puTTC * quantite;
-            const label = item?.nom ? `${item.nom}${item.marque ? ` (${item.marque})` : ''}` : `${item?.marque || ''} ${item?.modele || ''}`.trim();
+            const label = item?.designation || '';
             lines.push({
                 type: typeLabel, label, quantite,
                 puTTC,
@@ -2113,18 +2096,9 @@ export default function Comptoir() {
                         initialValues={defaultNewProduit}
                         onValuesChange={(...args) => { setNewProduitFormDirty(true); onNewProduitValuesChange(...args); }}
                     >
-                        <Row gutter={16}>
-                            <Col span={12}>
-                                <Form.Item name="marque" label="Marque">
-                                    <AutoComplete allowClear options={marqueOptions} placeholder="Saisir/select. une marque" />
-                                </Form.Item>
-                            </Col>
-                            <Col span={12}>
-                                <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
-                                    <Input />
-                                </Form.Item>
-                            </Col>
-                        </Row>
+                        <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
+                            <Input />
+                        </Form.Item>
                         <Row gutter={16}>
                             <Col span={12}>
                                 <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: 'La catégorie est requise' }]}>

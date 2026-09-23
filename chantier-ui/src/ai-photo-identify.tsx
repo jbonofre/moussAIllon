@@ -6,8 +6,7 @@ import api from './api.ts';
 export type ProductType = 'bateau' | 'moteur' | 'remorque' | 'helice';
 
 export type IdentifyResult = {
-  marque?: string;
-  modele?: string;
+  designation?: string;
   type?: string;
   anneeDebut?: number;
   puissanceCv?: number;
@@ -95,8 +94,7 @@ const AiPhotoIdentify: React.FC<Props> = ({ productType, onApply }) => {
   const renderResult = () => {
     if (!result) return null;
     const items: { label: string; value: React.ReactNode }[] = [];
-    if (result.marque) items.push({ label: 'Marque', value: result.marque });
-    if (result.modele) items.push({ label: 'Modèle', value: result.modele });
+    if (result.designation) items.push({ label: 'Désignation', value: result.designation });
     if (result.type) items.push({ label: 'Type', value: result.type });
     if (result.anneeDebut) items.push({ label: 'Année', value: result.anneeDebut });
     if (result.puissanceCv) items.push({ label: 'Puissance (CV)', value: result.puissanceCv });
