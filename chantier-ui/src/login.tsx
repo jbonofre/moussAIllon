@@ -53,7 +53,7 @@ export default function Login(props) {
                     animation: 'fadeInUp 0.5s ease-out',
                 }}>
                     <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                        <Image src="/logo.png" preview={false} width={80} style={{ marginBottom: 16 }} />
+                        <Image src={process.env.PUBLIC_URL + '/logo.png'} preview={false} width={80} style={{ marginBottom: 16 }} />
                         <Title level={3} style={{ margin: 0, fontWeight: 700 }}>
                             mouss<span style={{ color: '#1668dc' }}>AI</span>llon
                         </Title>
