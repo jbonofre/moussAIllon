@@ -211,7 +211,7 @@ function Header(props) {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
         }}>
             <Row align="middle" justify="center" wrap={false} style={{ height: '100%' }}>
-                <Col span={3}><Image src="/logo.png" preview={false} width={75}/></Col>
+                <Col span={3}><Image src={process.env.PUBLIC_URL + '/logo.png'} preview={false} width={75}/></Col>
                 <Col span={19}><GlobalSearch /></Col>
                 <Col span={2}><Menu items={menuUser} onClick={(e) => {
                     if (e.key === 'deconnexion') {
