@@ -178,7 +178,7 @@ public class ClientResourceTest {
     @Test
     void testImporterClientsCsv() {
         String csv = "Code (tiers);Nom;E-mail (facturation);Adresse 1 (facturation);Code postal (facturation);Ville (facturation);Code Pays (facturation);Téléphone fixe (facturation);Téléphone portable (facturation);Fax (facturation)\r\n"
-            + "TST001;Client Import Test;import@test.com;1 rue du Test;29000;QUIMPER;FR;0298000000;;\r\n";
+            + "TST001;Martin Paul;import@test.com;1 rue du Test;29000;QUIMPER;FR;0298000000;;\r\n";
 
         given()
             .multiPart("file", "clients.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
@@ -191,14 +191,16 @@ public class ClientResourceTest {
             .body("errors", is(0));
 
         given()
-            .queryParam("q", "Client Import Test")
+            .queryParam("q", "Paul Martin")
             .when().get("/clients/search")
             .then()
             .statusCode(200)
             .body("size()", is(1))
-            .body("[0].nom", is("Client Import Test"))
+            // Le fichier exporte "Nom Prénom" ("Martin Paul") : l'import inverse en "Prénom Nom".
+            .body("[0].nom", is("Paul Martin"))
             .body("[0].email", is("import@test.com"))
-            .body("[0].adresse", is("1 rue du Test\n29000 QUIMPER"));
+            // "QUIMPER" (majuscules) est reformaté en "Quimper".
+            .body("[0].adresse", is("1 rue du Test\n29000 Quimper"));
 
         // Ré-importer le même fichier met à jour le client existant (retrouvé par Code tiers)
         // au lieu d'en créer un doublon.
@@ -211,11 +213,35 @@ public class ClientResourceTest {
             .body("updated", is(1));
 
         given()
-            .queryParam("q", "Client Import Test")
+            .queryParam("q", "Paul Martin")
             .when().get("/clients/search")
             .then()
             .statusCode(200)
             .body("size()", is(1));
+    }
+
+    @Test
+    void testImporterClientsCsvNomEnMajuscules() {
+        // Nom entièrement en majuscules dans le fichier exporté : doit être reformaté en casse
+        // "Titre" puis inversé ("Nom Prénom" -> "Prénom Nom").
+        String csv = "Code (tiers);Nom;E-mail (facturation);Adresse 1 (facturation);Code postal (facturation);Ville (facturation);Code Pays (facturation);Téléphone fixe (facturation);Téléphone portable (facturation);Fax (facturation)\r\n"
+            + "TST002;FOO BAR;majuscules@test.com;12 AVENUE DE LA MER;29000;BREST;FR;;;\r\n";
+
+        given()
+            .multiPart("file", "clients.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(1));
+
+        given()
+            .queryParam("q", "Bar Foo")
+            .when().get("/clients/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].nom", is("Bar Foo"))
+            .body("[0].adresse", is("12 Avenue De La Mer\n29000 Brest"));
     }
 
     @Test

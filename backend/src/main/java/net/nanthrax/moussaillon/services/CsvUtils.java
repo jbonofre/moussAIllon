@@ -3,6 +3,7 @@ package net.nanthrax.moussaillon.services;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -82,5 +83,70 @@ public final class CsvUtils {
         } catch (NumberFormatException e) {
             return 0;
         }
+    }
+
+    /**
+     * Indique si la valeur est entièrement en majuscules (au moins une lettre, aucune minuscule).
+     */
+    public static boolean isFullUpperCase(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+        return value.equals(value.toUpperCase(Locale.FRENCH)) && !value.equals(value.toLowerCase(Locale.FRENCH));
+    }
+
+    /**
+     * Reformate une chaîne en casse "Titre" (première lettre de chaque mot en majuscule, le reste
+     * en minuscule), les mots étant délimités par espace, tiret, apostrophe ou retour à la ligne.
+     */
+    public static String toTitleCase(String value) {
+        if (value == null) {
+            return null;
+        }
+        StringBuilder result = new StringBuilder(value.length());
+        boolean capitalizeNext = true;
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
+            if (Character.isLetter(c)) {
+                result.append(capitalizeNext ? Character.toUpperCase(c) : Character.toLowerCase(c));
+                capitalizeNext = false;
+            } else {
+                result.append(c);
+                capitalizeNext = c == ' ' || c == '-' || c == '\'' || c == '\n';
+            }
+        }
+        return result.toString();
+    }
+
+    /**
+     * Reformate une valeur importée entièrement en majuscules (ex. exports EBP) en casse "Titre" ;
+     * la laisse inchangée sinon, pour ne pas altérer une casse déjà correcte (ex. "McDonald").
+     */
+    public static String formatIfFullUpperCase(String value) {
+        return isFullUpperCase(value) ? toTitleCase(value) : value;
+    }
+
+    /**
+     * Convertit un nom exporté au format EBP "Nom Prénom" en "Prénom Nom" : le dernier mot est
+     * pris comme prénom, les mots précédents (nom composé éventuel) forment le nom de famille.
+     */
+    public static String swapNomPrenom(String nomPrenom) {
+        if (nomPrenom == null) {
+            return null;
+        }
+        String trimmed = nomPrenom.trim();
+        String[] parts = trimmed.split("\\s+");
+        if (parts.length < 2) {
+            return trimmed;
+        }
+        String prenom = parts[parts.length - 1];
+        StringBuilder nom = new StringBuilder();
+        for (int i = 0; i < parts.length - 1; i++) {
+            if (i > 0) {
+                nom.append(' ');
+            }
+            nom.append(parts[i]);
+        }
+        return prenom + " " + nom;
     }
 }

@@ -115,6 +115,8 @@ public class ProduitCatalogueResource {
                 if (ref == null || libelle == null) {
                     throw new IllegalArgumentException("Code article ou Libellé manquant");
                 }
+                // Le fichier exporte le libellé en majuscules (ex. EBP) : reformate en casse "Titre".
+                libelle = CsvUtils.formatIfFullUpperCase(libelle);
 
                 String statut = CsvUtils.get(cols, headers, "Statut");
                 if (statut != null && !"Actif".equalsIgnoreCase(statut)) {

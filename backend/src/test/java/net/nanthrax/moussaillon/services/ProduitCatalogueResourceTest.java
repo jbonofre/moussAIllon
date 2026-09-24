@@ -229,6 +229,29 @@ public class ProduitCatalogueResourceTest {
     }
 
     @Test
+    void testImporterProduitsCsvLibelleEnMajuscules() {
+        // Libellé entièrement en majuscules dans le fichier exporté (ex. EBP) : doit être
+        // reformaté en casse "Titre", comme pour l'import clients.
+        String csv = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n"
+            + "MAJ001,HUILE MOTEUR 4T,Bien,\"10,00000\",,\"12,00000\",,\"0,00\",\"0,00\",Actif,Coché\r\n";
+
+        given()
+            .multiPart("file", "produits.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(1));
+
+        given()
+            .queryParam("q", "MAJ001")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].designation", is("Huile Moteur 4t"));
+    }
+
+    @Test
     void testImporterProduitsCsvLibellesEnDoublon() {
         String csv = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n"
             + "DUP001,VIS,Bien,\"1,00000\",,\"1,20000\",,\"0,00\",\"0,00\",Actif,Coché\r\n"

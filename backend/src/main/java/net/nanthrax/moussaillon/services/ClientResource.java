@@ -116,6 +116,9 @@ public class ClientResource {
                 if (nom == null) {
                     throw new IllegalArgumentException("Nom manquant");
                 }
+                // Le fichier exporte le nom au format "Nom Prénom", en majuscules ; on reformate
+                // en casse normale puis on inverse l'ordre pour obtenir "Prénom Nom".
+                nom = CsvUtils.swapNomPrenom(CsvUtils.formatIfFullUpperCase(nom));
                 String codeTiers = CsvUtils.get(cols, headers, "Code (tiers)");
 
                 ClientEntity entity = null;
@@ -136,9 +139,9 @@ public class ClientResource {
                     entity.email = email;
                 }
 
-                String adresse1 = CsvUtils.get(cols, headers, "Adresse 1 (facturation)");
+                String adresse1 = CsvUtils.formatIfFullUpperCase(CsvUtils.get(cols, headers, "Adresse 1 (facturation)"));
                 String codePostal = CsvUtils.get(cols, headers, "Code postal (facturation)");
-                String ville = CsvUtils.get(cols, headers, "Ville (facturation)");
+                String ville = CsvUtils.formatIfFullUpperCase(CsvUtils.get(cols, headers, "Ville (facturation)"));
                 StringBuilder adresse = new StringBuilder();
                 if (adresse1 != null) {
                     adresse.append(adresse1);
