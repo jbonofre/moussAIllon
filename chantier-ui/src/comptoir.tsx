@@ -1660,8 +1660,8 @@ export default function Comptoir() {
             key: 'actions',
             render: (_: unknown, record: VenteEntity) => (
                 <Space>
-                    <Button title="Imprimer facture" icon={<FileTextOutlined />} disabled={record.status !== 'FACTURE_PAYEE'} onClick={() => handlePrintInvoice(record)} />
-                    <Button title="Imprimer ticket de caisse" icon={<PrinterOutlined />} disabled={record.status !== 'FACTURE_PAYEE'} onClick={() => handlePrintReceipt(record)} />
+                    <Button title="Imprimer facture" icon={<FileTextOutlined />} onClick={() => handlePrintInvoice(record)} />
+                    <Button title="Imprimer ticket de caisse" icon={<PrinterOutlined />} onClick={() => handlePrintReceipt(record)} />
                     <Dropdown menu={{ items: paymentMenuItems(record) }} placement="bottomRight">
                         <Button title="Lien de paiement" icon={<CreditCardOutlined />} />
                     </Dropdown>
@@ -1719,7 +1719,7 @@ export default function Comptoir() {
                     <Button
                         key="print-invoice"
                         icon={<FileTextOutlined />}
-                        disabled={!currentVente || watchedStatus !== 'FACTURE_PAYEE'}
+                        disabled={!currentVente}
                         onClick={() => currentVente && handlePrintInvoice(currentVente)}
                     >
                         Imprimer facture
@@ -1727,7 +1727,7 @@ export default function Comptoir() {
                     <Button
                         key="print-receipt"
                         icon={<PrinterOutlined />}
-                        disabled={!currentVente || watchedStatus !== 'FACTURE_PAYEE'}
+                        disabled={!currentVente}
                         onClick={() => currentVente && handlePrintReceipt(currentVente)}
                     >
                         Imprimer ticket
