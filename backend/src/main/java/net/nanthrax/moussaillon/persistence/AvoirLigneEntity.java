@@ -7,6 +7,8 @@ import jakarta.persistence.Entity;
 @Entity
 public class AvoirLigneEntity extends PanacheEntity {
 
+    public String reference;
+
     @Column(nullable = false)
     public String designation;
 

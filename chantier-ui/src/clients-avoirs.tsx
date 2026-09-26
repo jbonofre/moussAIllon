@@ -5,6 +5,7 @@ import api from "./api.ts";
 
 interface Avoir {
   id?: number;
+  reference?: string;
   status?: string;
   montantTTC?: number;
   dateCreation?: string;
@@ -65,6 +66,13 @@ function ClientsAvoirs({ clientId }: { clientId: number }) {
       width: 70,
       sorter: (a: Avoir, b: Avoir) => (a.id || 0) - (b.id || 0),
       render: (v: number) => `#${v}`,
+    },
+    {
+      title: "Référence",
+      dataIndex: "reference",
+      width: 120,
+      sorter: (a: Avoir, b: Avoir) => (a.reference || "").localeCompare(b.reference || ""),
+      render: (v: string) => v || "-",
     },
     {
       title: "Prix",
