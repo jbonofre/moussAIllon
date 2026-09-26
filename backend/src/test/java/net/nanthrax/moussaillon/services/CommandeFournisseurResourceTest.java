@@ -124,4 +124,56 @@ public class CommandeFournisseurResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void testPrepareFromVente() {
+        given()
+            .when().get("/commandes-fournisseur/prepare-from-vente/100")
+            .then()
+            .statusCode(200)
+            .body("venteId", is(100))
+            .body("articles", notNullValue())
+            .body("tousFournisseurs", notNullValue());
+    }
+
+    @Test
+    void testPrepareFromVenteNonTrouvee() {
+        given()
+            .when().get("/commandes-fournisseur/prepare-from-vente/9999")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
+    void testCreateFromVente() {
+        given()
+            .contentType("application/json")
+            .body("{\"fournisseurId\":100,\"reference\":\"CF-VTE-100\",\"notes\":\"Test commande depuis vente\",\"portTotal\":10.0,\"lignes\":[{\"type\":\"produit\",\"id\":100,\"quantite\":2,\"prixUnitaireHT\":15.0,\"tva\":20.0}]}")
+            .when().post("/commandes-fournisseur/from-vente/100")
+            .then()
+            .statusCode(201)
+            .body("reference", is("CF-VTE-100"))
+            .body("vente.id", is(100))
+            .body("fournisseur.id", is(100))
+            .body("status", is("EN_ATTENTE"))
+            .body("montantHT", is(30.0f))
+            .body("montantTVA", is(6.0f))
+            .body("montantTTC", is(46.0f))
+            .body("lignes.size()", is(1));
+
+        // Verifier la recherche par venteId
+        given()
+            .queryParam("venteId", 100)
+            .when().get("/commandes-fournisseur/search")
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThanOrEqualTo(1));
+
+        // Verifier l'obtention par venteId
+        given()
+            .when().get("/commandes-fournisseur/vente/100")
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThanOrEqualTo(1));
+    }
 }

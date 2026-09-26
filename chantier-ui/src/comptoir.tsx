@@ -12,6 +12,7 @@ import {
     InvoicePrintLine,
 } from './printing/invoiceTemplate.ts';
 import {
+    Alert,
     Button,
     Card,
     Col,
@@ -32,13 +33,14 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CreditCardOutlined, DeleteOutlined, EditOutlined, EnvironmentOutlined, InfoCircleOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined } from '@ant-design/icons';
+import { CreditCardOutlined, DeleteOutlined, EditOutlined, EnvironmentOutlined, InfoCircleOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
+import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 
 interface ClientEntity {
     id: number;
@@ -518,6 +520,41 @@ export default function Comptoir() {
     const [paiementAvoirId, setPaiementAvoirId] = useState<number | null>(null);
     const [avoirsDisponibles, setAvoirsDisponibles] = useState<AvoirDisponible[]>([]);
     const [addingPaiement, setAddingPaiement] = useState(false);
+    const [commandesFournisseur, setCommandesFournisseur] = useState<any[]>([]);
+    const [cfModalVisible, setCfModalVisible] = useState(false);
+    const [cfVente, setCfVente] = useState<VenteEntity | null>(null);
+    const [cfInitialArticleKey, setCfInitialArticleKey] = useState<string | undefined>(undefined);
+
+    const fetchCommandesFournisseur = async () => {
+        try {
+            const res = await api.get('/commandes-fournisseur');
+            setCommandesFournisseur(res.data || []);
+        } catch {
+            // ignore
+        }
+    };
+
+    const linkedCommandesByVente = useMemo(() => {
+        const map = new Map<number, any[]>();
+        for (const cf of commandesFournisseur) {
+            if (cf.vente?.id) {
+                const list = map.get(cf.vente.id) || [];
+                list.push(cf);
+                map.set(cf.vente.id, list);
+            }
+        }
+        return map;
+    }, [commandesFournisseur]);
+
+    const handleOpenCommandeFournisseur = (vente: VenteEntity, articleKey?: string) => {
+        if (!vente.id) {
+            message.warning("Veuillez d'abord enregistrer la vente avant de créer une commande fournisseur liée.");
+            return;
+        }
+        setCfVente(vente);
+        setCfInitialArticleKey(articleKey);
+        setCfModalVisible(true);
+    };
 
     const mergeById = <T extends { id: number }>(prev: T[], next: T[]): T[] => {
         const map = new Map<number, T>();
@@ -672,10 +709,12 @@ export default function Comptoir() {
     const fetchVentes = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/ventes/search', {
-                params: { comptoir: true }
-            });
-            setVentes(response.data || []);
+            const [ventesRes, cfRes] = await Promise.all([
+                api.get('/ventes/search', { params: { comptoir: true } }),
+                api.get('/commandes-fournisseur')
+            ]);
+            setVentes(ventesRes.data || []);
+            setCommandesFournisseur(cfRes.data || []);
         } catch {
             message.error('Erreur lors du chargement des ventes comptoir.');
         } finally {
@@ -1656,12 +1695,67 @@ export default function Comptoir() {
             render: (value: number) => formatEuro(value)
         },
         {
+            title: 'Fournisseur',
+            key: 'commandesFournisseur',
+            width: 170,
+            render: (_: unknown, record: VenteEntity) => {
+                const linked = record.id ? (linkedCommandesByVente.get(record.id) || []) : [];
+                if (linked.length === 0) {
+                    return (
+                        <Button
+                            size="small"
+                            icon={<ShoppingCartOutlined />}
+                            title="Créer une commande fournisseur liée à cette vente"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenCommandeFournisseur(record);
+                            }}
+                        >
+                            Commander
+                        </Button>
+                    );
+                }
+                return (
+                    <Space direction="vertical" size={2}>
+                        {linked.map((cf) => (
+                            <Tag
+                                key={cf.id}
+                                color="purple"
+                                icon={<ShoppingCartOutlined />}
+                                style={{ cursor: 'pointer' }}
+                                title={`Voir la commande fournisseur ${cf.reference} (${cf.fournisseur?.nom || ''})`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate('/commandes-fournisseur');
+                                }}
+                            >
+                                {cf.reference}
+                            </Tag>
+                        ))}
+                        <Button
+                            type="link"
+                            size="small"
+                            style={{ padding: 0, height: 'auto', fontSize: 12 }}
+                            icon={<PlusOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenCommandeFournisseur(record);
+                            }}
+                        >
+                            Autre commande
+                        </Button>
+                    </Space>
+                );
+            }
+        },
+        {
             title: 'Actions',
             key: 'actions',
             render: (_: unknown, record: VenteEntity) => (
                 <Space>
                     <Button title="Imprimer facture" icon={<FileTextOutlined />} onClick={() => handlePrintInvoice(record)} />
                     <Button title="Imprimer ticket de caisse" icon={<PrinterOutlined />} onClick={() => handlePrintReceipt(record)} />
+                    <Button title="Créer une commande fournisseur" icon={<ShoppingCartOutlined />} onClick={() => handleOpenCommandeFournisseur(record)} />
                     <Dropdown menu={{ items: paymentMenuItems(record) }} placement="bottomRight">
                         <Button title="Lien de paiement" icon={<CreditCardOutlined />} />
                     </Dropdown>
@@ -1750,6 +1844,13 @@ export default function Comptoir() {
                     >
                         Marquer comme payée
                     </Button>] : []),
+                    ...(currentVente?.id ? [<Button
+                        key="commande-fournisseur"
+                        icon={<ShoppingCartOutlined />}
+                        onClick={() => handleOpenCommandeFournisseur(currentVente)}
+                    >
+                        Commande fournisseur
+                    </Button>] : []),
                     <Button key="cancel" onClick={handleModalCancel}>
                         Fermer
                     </Button>,
@@ -1766,6 +1867,39 @@ export default function Comptoir() {
                     <Form.Item noStyle name="bonPourAccord"><input type="hidden" /></Form.Item>
                     {isReadOnly && (
                         <Tag color="green" style={{ marginBottom: 16, fontSize: 14, padding: '4px 12px' }}>Facture payée — consultation uniquement</Tag>
+                    )}
+                    {currentVente?.id && (linkedCommandesByVente.get(currentVente.id) || []).length > 0 && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                            message={
+                                <Space wrap align="center">
+                                    <strong>Commandes fournisseur associées :</strong>
+                                    {(linkedCommandesByVente.get(currentVente.id) || []).map((cf) => (
+                                        <Tag
+                                            key={cf.id}
+                                            color="purple"
+                                            icon={<ShoppingCartOutlined />}
+                                            style={{ cursor: 'pointer' }}
+                                            title={`Voir la commande fournisseur ${cf.reference}`}
+                                            onClick={() => navigate('/commandes-fournisseur')}
+                                        >
+                                            {cf.reference} — {cf.fournisseur?.nom || 'Fournisseur'} ({cf.status})
+                                        </Tag>
+                                    ))}
+                                </Space>
+                            }
+                            action={
+                                <Button
+                                    size="small"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => handleOpenCommandeFournisseur(currentVente)}
+                                >
+                                    Commander
+                                </Button>
+                            }
+                        />
                     )}
                     <Row gutter={16}>
                         <Col span={8}>
@@ -1939,6 +2073,20 @@ export default function Comptoir() {
                                                         <Popover content={emplacement} title="Emplacement" trigger="click">
                                                             <Button icon={<EnvironmentOutlined />} title="Emplacement de la pièce" />
                                                         </Popover>
+                                                    )}
+                                                    {!isEmptyLine && (
+                                                        <Button
+                                                            size="small"
+                                                            icon={<ShoppingCartOutlined />}
+                                                            title="Commander cet article auprès d'un fournisseur"
+                                                            onClick={() => {
+                                                                if (currentVente?.id) {
+                                                                    handleOpenCommandeFournisseur(currentVente, `${ligneType}-${ligneItemId}`);
+                                                                } else {
+                                                                    message.info("Veuillez d'abord enregistrer la vente avant de commander cet article.");
+                                                                }
+                                                            }}
+                                                        />
                                                     )}
                                                     <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
                                                 </Space>
@@ -2263,6 +2411,21 @@ export default function Comptoir() {
                     </Form>
                 </Modal>
             </Modal>
+
+            <CommandeFournisseurFromVenteModal
+                open={cfModalVisible}
+                venteId={cfVente?.id ?? null}
+                venteNumero={cfVente?.numeroFacture}
+                clientNom={getClientLabel(cfVente?.client)}
+                initialArticleKey={cfInitialArticleKey}
+                onClose={() => {
+                    setCfModalVisible(false);
+                    setCfInitialArticleKey(undefined);
+                }}
+                onSuccess={() => {
+                    fetchCommandesFournisseur();
+                }}
+            />
         </Card>
     );
 }

@@ -37,7 +37,7 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
@@ -45,6 +45,7 @@ import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
+import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 
 interface ClientEntity {
     id: number;
@@ -768,6 +769,41 @@ export default function Vente() {
     const signatureDrawingRef = useRef(false);
     const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
     const capturedSignatureRef = useRef<string | null>(null);
+    const [commandesFournisseur, setCommandesFournisseur] = useState<any[]>([]);
+    const [cfModalVisible, setCfModalVisible] = useState(false);
+    const [cfVente, setCfVente] = useState<VenteEntity | null>(null);
+    const [cfInitialArticleKey, setCfInitialArticleKey] = useState<string | undefined>(undefined);
+
+    const fetchCommandesFournisseur = async () => {
+        try {
+            const res = await api.get('/commandes-fournisseur');
+            setCommandesFournisseur(res.data || []);
+        } catch {
+            // ignore
+        }
+    };
+
+    const linkedCommandesByVente = useMemo(() => {
+        const map = new Map<number, any[]>();
+        for (const cf of commandesFournisseur) {
+            if (cf.vente?.id) {
+                const list = map.get(cf.vente.id) || [];
+                list.push(cf);
+                map.set(cf.vente.id, list);
+            }
+        }
+        return map;
+    }, [commandesFournisseur]);
+
+    const handleOpenCommandeFournisseur = (vente: VenteEntity, articleKey?: string) => {
+        if (!vente.id) {
+            message.warning("Veuillez d'abord enregistrer la vente avant de créer une commande fournisseur liée.");
+            return;
+        }
+        setCfVente(vente);
+        setCfInitialArticleKey(articleKey);
+        setCfModalVisible(true);
+    };
 
     const mergeById = <T extends { id?: number }>(prev: T[], next: T[]): T[] => {
         const map = new Map<number, T>();
@@ -965,8 +1001,12 @@ export default function Vente() {
     const fetchVentes = async () => {
         setLoading(true);
         try {
-            const response = await api.get('/ventes');
-            setVentes(response.data || []);
+            const [ventesRes, cfRes] = await Promise.all([
+                api.get('/ventes'),
+                api.get('/commandes-fournisseur')
+            ]);
+            setVentes(ventesRes.data || []);
+            setCommandesFournisseur(cfRes.data || []);
         } catch {
             message.error('Erreur lors du chargement des ventes.');
         } finally {
@@ -2917,6 +2957,60 @@ export default function Vente() {
             render: (value: ModePaiement) => value ? (modePaiementOptions.find(opt => opt.value === value)?.label || value) : '-'
         },
         {
+            title: 'Fournisseur',
+            key: 'commandesFournisseur',
+            width: 170,
+            render: (_: unknown, record: VenteEntity) => {
+                const linked = record.id ? (linkedCommandesByVente.get(record.id) || []) : [];
+                if (linked.length === 0) {
+                    return (
+                        <Button
+                            size="small"
+                            icon={<ShoppingCartOutlined />}
+                            title="Créer une commande fournisseur liée à cette vente"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenCommandeFournisseur(record);
+                            }}
+                        >
+                            Commander
+                        </Button>
+                    );
+                }
+                return (
+                    <Space direction="vertical" size={2}>
+                        {linked.map((cf) => (
+                            <Tag
+                                key={cf.id}
+                                color="purple"
+                                icon={<ShoppingCartOutlined />}
+                                style={{ cursor: 'pointer' }}
+                                title={`Voir la commande fournisseur ${cf.reference} (${cf.fournisseur?.nom || ''})`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate('/commandes-fournisseur');
+                                }}
+                            >
+                                {cf.reference}
+                            </Tag>
+                        ))}
+                        <Button
+                            type="link"
+                            size="small"
+                            style={{ padding: 0, height: 'auto', fontSize: 12 }}
+                            icon={<PlusOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenCommandeFournisseur(record);
+                            }}
+                        >
+                            Autre commande
+                        </Button>
+                    </Space>
+                );
+            }
+        },
+        {
             title: 'Actions',
             key: 'actions',
             render: (_: unknown, record: VenteEntity) => (
@@ -2926,6 +3020,7 @@ export default function Vente() {
                         <Button title="Télécharger Factur-X (PDF/A-3 + XML)" icon={<DownloadOutlined />} onClick={() => handleDownloadFacturX(record)} />
                     )}
                     <Button title="Envoyer par email" icon={<MailOutlined />} onClick={() => handleEmail(record)} />
+                    <Button title="Créer une commande fournisseur" icon={<ShoppingCartOutlined />} onClick={() => handleOpenCommandeFournisseur(record)} />
                     <Dropdown menu={{ items: paymentMenuItems(record) }} placement="bottomRight" disabled={record.status !== 'FACTURE_PRETE'}>
                         <Button title="Lien de paiement" icon={<CreditCardOutlined />} disabled={record.status !== 'FACTURE_PRETE'} />
                     </Dropdown>
@@ -3084,6 +3179,15 @@ export default function Vente() {
                     <Button key="cancel" onClick={handleModalCancel}>
                         Fermer
                     </Button>,
+                    ...(currentVente?.id ? [
+                        <Button
+                            key="commande-fournisseur"
+                            icon={<ShoppingCartOutlined />}
+                            onClick={() => handleOpenCommandeFournisseur(currentVente)}
+                        >
+                            Commande fournisseur
+                        </Button>
+                    ] : []),
                     ...(!isReadOnly ? [
                         <Button key="discard" onClick={() => { setFormDirty(false); setModalVisible(false); }}>
                             Annuler
@@ -3101,6 +3205,39 @@ export default function Vente() {
                     <Form.Item noStyle name="status"><input type="hidden" /></Form.Item>
                     <Form.Item noStyle name="bonPourAccord"><input type="hidden" /></Form.Item>
                     <Form.Item noStyle name="signatureBonPourAccord"><input type="hidden" /></Form.Item>
+                    {currentVente?.id && (linkedCommandesByVente.get(currentVente.id) || []).length > 0 && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                            message={
+                                <Space wrap align="center">
+                                    <strong>Commandes fournisseur associées :</strong>
+                                    {(linkedCommandesByVente.get(currentVente.id) || []).map((cf) => (
+                                        <Tag
+                                            key={cf.id}
+                                            color="purple"
+                                            icon={<ShoppingCartOutlined />}
+                                            style={{ cursor: 'pointer' }}
+                                            title={`Voir la commande fournisseur ${cf.reference}`}
+                                            onClick={() => navigate('/commandes-fournisseur')}
+                                        >
+                                            {cf.reference} — {cf.fournisseur?.nom || 'Fournisseur'} ({cf.status})
+                                        </Tag>
+                                    ))}
+                                </Space>
+                            }
+                            action={
+                                <Button
+                                    size="small"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => handleOpenCommandeFournisseur(currentVente)}
+                                >
+                                    Commander
+                                </Button>
+                            }
+                        />
+                    )}
                     <Steps
                         current={venteStepIndex(
                             watchedStatus || 'DEVIS',
@@ -4932,6 +5069,21 @@ export default function Vente() {
                     )}
                 </Form>
             </Modal>
+
+            <CommandeFournisseurFromVenteModal
+                open={cfModalVisible}
+                venteId={cfVente?.id ?? null}
+                venteNumero={cfVente?.numeroFacture}
+                clientNom={getClientLabel(cfVente?.client)}
+                initialArticleKey={cfInitialArticleKey}
+                onClose={() => {
+                    setCfModalVisible(false);
+                    setCfInitialArticleKey(undefined);
+                }}
+                onSuccess={() => {
+                    fetchCommandesFournisseur();
+                }}
+            />
         </Card>
     );
 }
