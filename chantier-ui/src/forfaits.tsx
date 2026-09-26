@@ -43,6 +43,7 @@ interface ProduitCatalogueEntity {
     stock?: number;
     stockMini?: number;
     emplacement?: string;
+    emplacementMagasin?: string;
     prixVenteHT?: number;
     tva?: number;
     montantTVA?: number;
@@ -63,7 +64,7 @@ interface MainOeuvreEntity {
 
 const defaultNewProduit = {
     designation: '', categorie: '', ref: '', refs: [], images: [], description: '',
-    evaluation: 0, stock: 0, stockMini: 0, emplacement: '',
+    evaluation: 0, stock: 0, stockMini: 0, emplacement: '', emplacementMagasin: '',
     prixVenteHT: 0, tva: 20, montantTVA: 0, prixVenteTTC: 0,
 };
 
@@ -1080,7 +1081,10 @@ export default function Forfaits() {
                             <Col span={12}><Form.Item name="stock" label="Stock"><InputNumber min={0} step={1} style={{ width: '100%' }} /></Form.Item></Col>
                             <Col span={12}><Form.Item name="stockMini" label="Stock minimal d'alerte"><InputNumber min={0} step={1} style={{ width: '100%' }} /></Form.Item></Col>
                         </Row>
-                        <Form.Item name="emplacement" label="Emplacement"><Input /></Form.Item>
+                        <Row gutter={16}>
+                            <Col span={12}><Form.Item name="emplacement" label="Emplacement atelier"><Input /></Form.Item></Col>
+                            <Col span={12}><Form.Item name="emplacementMagasin" label="Emplacement magasin"><Input /></Form.Item></Col>
+                        </Row>
                         <Row gutter={16}>
                             <Col span={12}><Form.Item name="prixVenteHT" label="Prix de vente HT"><InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" /></Form.Item></Col>
                             <Col span={12}><Form.Item name="tva" label="TVA (%)"><InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} addonAfter="%" /></Form.Item></Col>

@@ -101,6 +101,7 @@ public class TechnicienPortalResource {
         public String categorie;
         public String ref;
         public String emplacement;
+        public String emplacementMagasin;
         public int quantite;
     }
 
@@ -174,6 +175,7 @@ public class TechnicienPortalResource {
                         pi.categorie = fp.produit.categorie;
                         pi.ref = fp.produit.ref;
                         pi.emplacement = fp.produit.emplacement;
+                        pi.emplacementMagasin = fp.produit.emplacementMagasin;
                         pi.quantite = fp.quantite;
                         item.produits.add(pi);
                     }
@@ -250,6 +252,7 @@ public class TechnicienPortalResource {
                         pi.categorie = sp.produit.categorie;
                         pi.ref = sp.produit.ref;
                         pi.emplacement = sp.produit.emplacement;
+                        pi.emplacementMagasin = sp.produit.emplacementMagasin;
                         pi.quantite = sp.quantite;
                         item.produits.add(pi);
                     }
@@ -545,6 +548,7 @@ public class TechnicienPortalResource {
             pi.categorie = p.categorie;
             pi.ref = p.ref;
             pi.emplacement = p.emplacement;
+            pi.emplacementMagasin = p.emplacementMagasin;
             pi.quantite = p.stock;
             result.add(pi);
         }
@@ -766,6 +770,7 @@ public class TechnicienPortalResource {
                 pi.categorie = vp.produit.categorie;
                 pi.ref = vp.produit.ref;
                 pi.emplacement = vp.produit.emplacement;
+                pi.emplacementMagasin = vp.produit.emplacementMagasin;
                 pi.quantite = vp.quantite;
                 result.add(pi);
             }

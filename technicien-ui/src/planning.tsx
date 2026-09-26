@@ -39,6 +39,7 @@ interface ProduitItem {
     categorie?: string;
     ref?: string;
     emplacement?: string;
+    emplacementMagasin?: string;
     quantite?: number;
 }
 
@@ -848,7 +849,9 @@ export default function Planning({ technicienId }: PlanningProps) {
                                         <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
                                             <td style={{ padding: '4px 8px' }}>{p.designation || '-'}</td>
                                             <td style={{ padding: '4px 8px', color: '#888' }}>{p.ref || '-'}</td>
-                                            <td style={{ padding: '4px 8px', color: '#888' }}>{p.emplacement || '-'}</td>
+                                            <td style={{ padding: '4px 8px', color: '#888' }}>
+                                                {[p.emplacement ? `Atelier: ${p.emplacement}` : '', p.emplacementMagasin ? `Magasin: ${p.emplacementMagasin}` : ''].filter(Boolean).join(' / ') || '-'}
+                                            </td>
                                             <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 500 }}>{p.quantite ?? 0}</td>
                                         </tr>
                                     ))}
@@ -872,7 +875,12 @@ export default function Planning({ technicienId }: PlanningProps) {
                                         <div style={{ fontSize: 11, color: '#888' }}>
                                             {p.ref && <span>Ref: {p.ref}</span>}
                                         </div>
-                                        {p.emplacement && <div style={{ fontSize: 11, color: '#888' }}>Emplacement: {p.emplacement}</div>}
+                                        {(p.emplacement || p.emplacementMagasin) && (
+                                            <div style={{ fontSize: 11, color: '#888' }}>
+                                                {p.emplacement && <span>Empl. atelier: {p.emplacement} </span>}
+                                                {p.emplacementMagasin && <span>Empl. magasin: {p.emplacementMagasin}</span>}
+                                            </div>
+                                        )}
                                     </div>
                                     <Space>
                                         <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>x{p.quantite ?? 0}</span>
