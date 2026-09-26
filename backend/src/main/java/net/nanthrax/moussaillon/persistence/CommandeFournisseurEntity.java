@@ -32,6 +32,10 @@ public class CommandeFournisseurEntity extends PanacheEntity {
     @ManyToOne
     public FournisseurEntity fournisseur;
 
+    @ManyToOne
+    @JsonbTypeAdapter(VenteSummaryAdapter.class)
+    public VenteEntity vente;
+
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp date;
 

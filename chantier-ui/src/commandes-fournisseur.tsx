@@ -28,6 +28,7 @@ import {
 } from "@ant-design/icons";
 import api from "./api.ts";
 import dayjs from "dayjs";
+import { useNavigation } from "./navigation-context.tsx";
 
 const { Option } = Select;
 const { TextArea, Search } = Input;
@@ -137,6 +138,12 @@ type CommandeFournisseur = {
   portTotal: number;
   notes?: string;
   stockIncremented: boolean;
+  vente?: {
+    id: number;
+    numeroFacture?: string;
+    comptoir?: boolean;
+    clientNom?: string;
+  };
 };
 
 const statusColors: Record<CommandeFournisseurStatus, string> = {
@@ -158,6 +165,7 @@ const statusLabels: Record<CommandeFournisseurStatus, string> = {
 };
 
 const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => {
+  const { navigate, pageState } = useNavigation();
   const [commandes, setCommandes] = useState<CommandeFournisseur[]>([]);
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [articles, setArticles] = useState<ArticleItem[]>([]);
@@ -175,11 +183,20 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
   const fetchCommandes = async () => {
     setLoading(true);
     try {
-      const url = fournisseurId
-        ? `/commandes-fournisseur/search?fournisseurId=${fournisseurId}`
-        : "/commandes-fournisseur";
+      let url = "/commandes-fournisseur";
+      if (fournisseurId) {
+        url = `/commandes-fournisseur/search?fournisseurId=${fournisseurId}`;
+      } else if (pageState?.venteId) {
+        url = `/commandes-fournisseur/search?venteId=${pageState.venteId}`;
+      }
       const { data } = await api.get(url);
       setCommandes(data);
+      if (pageState?.commandeId) {
+        const found = (data as CommandeFournisseur[]).find((c) => c.id === pageState.commandeId);
+        if (found) {
+          handleEdit(found);
+        }
+      }
     } catch {
       message.error("Erreur lors du chargement des commandes fournisseur");
     } finally {
@@ -459,6 +476,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
       const body: any = {
         ...values,
         fournisseur: { id: fournisseurId || values.fournisseurId },
+        vente: editing?.vente ? { id: editing.vente.id } : undefined,
         date: values.date ? values.date.format("YYYY-MM-DD HH:mm:ss") : null,
         dateReception: values.dateReception ? values.dateReception.format("YYYY-MM-DD HH:mm:ss") : null,
         lignes: lignes.filter((l) => l.articleKey && l.quantite > 0).map((l) => ({
@@ -508,6 +526,28 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           onFilter: (value: any, record: CommandeFournisseur) => record.fournisseur?.id === value,
         }]
       : []),
+    {
+      title: "Vente liée",
+      key: "vente",
+      render: (_: any, record: CommandeFournisseur) =>
+        record.vente ? (
+          <Tag
+            color="purple"
+            style={{ cursor: "pointer" }}
+            onClick={() =>
+              navigate(record.vente?.comptoir ? "/comptoir" : "/prestations", {
+                venteId: record.vente?.id,
+              })
+            }
+            title="Accéder à la vente"
+          >
+            {record.vente.comptoir ? "Comptoir" : "Prestation"} #{record.vente.id}
+            {record.vente.numeroFacture ? ` (${record.vente.numeroFacture})` : ""}
+          </Tag>
+        ) : (
+          "-"
+        ),
+    },
     {
       title: "Date",
       dataIndex: "date",
@@ -602,6 +642,24 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
         confirmLoading={loading}
       >
         <Form form={form} layout="vertical" onValuesChange={() => setFormDirty(true)}>
+          {editing?.vente && (
+            <div style={{ marginBottom: 16 }}>
+              <Tag
+                color="purple"
+                style={{ cursor: "pointer", fontSize: 13, padding: "4px 8px" }}
+                onClick={() =>
+                  navigate(editing.vente?.comptoir ? "/comptoir" : "/prestations", {
+                    venteId: editing.vente?.id,
+                  })
+                }
+                title="Accéder à la vente liée"
+              >
+                Commande issue de la {editing.vente.comptoir ? "vente comptoir" : "prestation"} #{editing.vente.id}
+                {editing.vente.numeroFacture ? ` (${editing.vente.numeroFacture})` : ""}
+                {editing.vente.clientNom ? ` — Client : ${editing.vente.clientNom}` : ""}
+              </Tag>
+            </div>
+          )}
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item
