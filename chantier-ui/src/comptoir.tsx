@@ -106,6 +106,7 @@ interface ProduitCatalogueEntity {
     stock?: number;
     stockMini?: number;
     emplacement?: string;
+    emplacementMagasin?: string;
     prixVenteHT?: number;
     tva?: number;
     montantTVA?: number;
@@ -152,6 +153,7 @@ const defaultNewProduit = {
     stock: 0,
     stockMini: 0,
     emplacement: '',
+    emplacementMagasin: '',
     prixVenteHT: 0,
     tva: 20,
     montantTVA: 0,
@@ -399,7 +401,8 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
             { label: 'Référence', value: p.ref || '-' },
             { label: 'Catégorie', value: p.categorie || '-' },
             { label: 'Stock', value: p.stock != null ? p.stock : '-' },
-            { label: 'Emplacement', value: p.emplacement || '-' },
+            { label: 'Emplacement atelier', value: p.emplacement || '-' },
+            { label: 'Emplacement magasin', value: p.emplacementMagasin || '-' },
             { label: 'Prix TTC', value: formatEuroCatalogue(p.prixVenteTTC) },
         ];
         if (p.description) items.push({ label: 'Description', value: p.description });
@@ -595,7 +598,7 @@ export default function Comptoir() {
             options: produits.map((p) => ({
                 value: `produit:${p.id}`,
                 label: p.designation,
-                searchText: `${p.designation} ${p.ref || ''} ${(p.refs || []).join(' ')} ${p.emplacement || ''}`.toLowerCase(),
+                searchText: `${p.designation} ${p.ref || ''} ${(p.refs || []).join(' ')} ${p.emplacement || ''} ${p.emplacementMagasin || ''}`.toLowerCase(),
             })),
         },
         {
@@ -645,13 +648,20 @@ export default function Comptoir() {
         return 0;
     };
 
-    const getProduitEmplacement = (ref?: string): string | undefined => {
+    const getProduitEmplacement = (ref?: string): React.ReactNode | undefined => {
         if (!ref) return undefined;
         const [type, idStr] = ref.split(':');
         if (type !== 'produit') return undefined;
         const id = parseInt(idStr, 10);
         if (isNaN(id)) return undefined;
-        return produits.find((p) => p.id === id)?.emplacement || undefined;
+        const prod = produits.find((p) => p.id === id);
+        if (!prod || (!prod.emplacement && !prod.emplacementMagasin)) return undefined;
+        return (
+            <div>
+                {prod.emplacement && <div><strong>Atelier :</strong> {prod.emplacement}</div>}
+                {prod.emplacementMagasin && <div><strong>Magasin :</strong> {prod.emplacementMagasin}</div>}
+            </div>
+        );
     };
     const serviceOptions = useMemo(
         () => services.map((service) => ({ value: service.id, label: service.nom })),
@@ -1936,8 +1946,8 @@ export default function Comptoir() {
                                                         />
                                                     )}
                                                     {emplacement && (
-                                                        <Popover content={emplacement} title="Emplacement" trigger="click">
-                                                            <Button icon={<EnvironmentOutlined />} title="Emplacement de la pièce" />
+                                                        <Popover content={emplacement} title="Emplacements" trigger="click">
+                                                            <Button icon={<EnvironmentOutlined />} title="Emplacements de la pièce" />
                                                         </Popover>
                                                     )}
                                                     <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
@@ -2155,9 +2165,18 @@ export default function Comptoir() {
                                 </Form.Item>
                             </Col>
                         </Row>
-                        <Form.Item name="emplacement" label="Emplacement">
-                            <Input />
-                        </Form.Item>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Form.Item name="emplacement" label="Emplacement atelier">
+                                    <Input />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item name="emplacementMagasin" label="Emplacement magasin">
+                                    <Input />
+                                </Form.Item>
+                            </Col>
+                        </Row>
                         <Row gutter={16}>
                             <Col span={12}>
                                 <Form.Item name="prixVenteHT" label="Prix de vente HT">

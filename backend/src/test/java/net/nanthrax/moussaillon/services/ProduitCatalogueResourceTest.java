@@ -69,6 +69,49 @@ public class ProduitCatalogueResourceTest {
     }
 
     @Test
+    void testProduitEmplacementsAtelierEtMagasin() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Produit Double Emplacement\",\"categorie\":\"Pieces\",\"emplacement\":\"Atelier A-12\",\"emplacementMagasin\":\"Magasin Rayon 3\"}")
+            .when().post("/catalogue/produits")
+            .then()
+            .statusCode(200)
+            .body("emplacement", is("Atelier A-12"))
+            .body("emplacementMagasin", is("Magasin Rayon 3"))
+            .extract().path("id");
+
+        given()
+            .when().get("/catalogue/produits/" + id)
+            .then()
+            .statusCode(200)
+            .body("emplacement", is("Atelier A-12"))
+            .body("emplacementMagasin", is("Magasin Rayon 3"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Produit Double Emplacement\",\"categorie\":\"Pieces\",\"emplacement\":\"Atelier B-05\",\"emplacementMagasin\":\"Magasin Rayon 5\"}")
+            .when().put("/catalogue/produits/" + id)
+            .then()
+            .statusCode(200)
+            .body("emplacement", is("Atelier B-05"))
+            .body("emplacementMagasin", is("Magasin Rayon 5"));
+
+        given()
+            .queryParam("q", "Atelier B-05")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThanOrEqualTo(1));
+
+        given()
+            .queryParam("q", "Magasin Rayon 5")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", greaterThanOrEqualTo(1));
+    }
+
+    @Test
     void testRechercherProduits() {
         given()
             .queryParam("q", "huile")
