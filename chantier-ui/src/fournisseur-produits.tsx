@@ -45,6 +45,7 @@ const defaultProduitCatalogue = {
   stock: 0,
   stockMini: 0,
   emplacement: '',
+  emplacementMagasin: '',
   prixVenteHT: 0,
   tva: 20,
   montantTVA: 0,
@@ -802,9 +803,18 @@ const FournisseurProduits = ({
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item name="emplacement" label="Emplacement">
-            <Input />
-          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="emplacement" label="Emplacement atelier">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="emplacementMagasin" label="Emplacement magasin">
+                <Input />
+              </Form.Item>
+            </Col>
+          </Row>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item name="prixVenteHT" label="Prix de vente HT">

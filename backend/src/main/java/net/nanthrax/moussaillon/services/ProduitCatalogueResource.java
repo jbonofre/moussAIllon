@@ -43,9 +43,9 @@ public class ProduitCatalogueResource {
             return ProduitCatalogueEntity.listAll();
         }
         String likePattern = "%" + q.toLowerCase() + "%";
-        // Search in 'designation', 'categorie', 'ref', 'description'
+        // Search in 'designation', 'categorie', 'ref', 'description', 'emplacement', 'emplacementMagasin'
         return ProduitCatalogueEntity.list(
-            "LOWER(designation) LIKE ?1 OR LOWER(categorie) LIKE ?1 OR LOWER(ref) LIKE ?1 OR LOWER(description) LIKE ?1",
+            "LOWER(designation) LIKE ?1 OR LOWER(categorie) LIKE ?1 OR LOWER(ref) LIKE ?1 OR LOWER(description) LIKE ?1 OR LOWER(emplacement) LIKE ?1 OR LOWER(emplacementMagasin) LIKE ?1",
             likePattern
         );
     }
@@ -290,6 +290,7 @@ public class ProduitCatalogueResource {
         entity.stock = produit.stock;
         entity.stockMini = produit.stockMini;
         entity.emplacement = produit.emplacement;
+        entity.emplacementMagasin = produit.emplacementMagasin;
         entity.prixVenteHT = produit.prixVenteHT;
         entity.tva = produit.tva;
         entity.montantTVA = produit.montantTVA;

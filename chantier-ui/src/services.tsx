@@ -81,7 +81,7 @@ const defaultNewMainOeuvre = {
 
 const defaultNewProduit = {
     designation: '', categorie: '', ref: '', refs: [], images: [], description: '',
-    evaluation: 0, stock: 0, stockMini: 0, emplacement: '',
+    evaluation: 0, stock: 0, stockMini: 0, emplacement: '', emplacementMagasin: '',
     prixVenteHT: 0, tva: 20, montantTVA: 0, prixVenteTTC: 0,
 };
 
