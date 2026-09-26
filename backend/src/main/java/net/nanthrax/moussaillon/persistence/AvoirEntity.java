@@ -41,6 +41,9 @@ public class AvoirEntity extends PanacheEntity {
     @ManyToOne
     public VenteEntity vente;
 
+    @Column(length = 255)
+    public String reference;
+
     @Column(length = 1000)
     public String motif;
 

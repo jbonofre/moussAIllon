@@ -8,6 +8,7 @@ interface VenteRef { id: number; status?: string }
 
 interface AvoirLigne {
     id?: number;
+    reference?: string;
     designation: string;
     quantite: number;
     prixUnitaireHT: number;
@@ -18,6 +19,7 @@ interface AvoirLigne {
 
 interface AvoirEntity {
     id: number;
+    reference?: string;
     status: string;
     client?: ClientRef;
     vente?: VenteRef;
@@ -92,9 +94,11 @@ export default function MesAvoirs({ clientId }: MesAvoirsProps) {
     useEffect(() => { fetchAvoirs(); }, [fetchAvoirs]);
 
     const handlePrint = (avoir: AvoirEntity) => {
-        const title = `Avoir #${avoir.id}`;
+        const title = avoir.reference ? `Avoir #${avoir.id} (${avoir.reference})` : `Avoir #${avoir.id}`;
+        const hasAnyReference = (avoir.lignes ?? []).some((l) => !!l.reference);
         const tableRows = (avoir.lignes ?? []).map((ligne) =>
             `<tr>
+                ${hasAnyReference ? `<td>${escapeHtml(ligne.reference || '-')}</td>` : ''}
                 <td>${escapeHtml(ligne.designation)}</td>
                 <td style="text-align:center;">${ligne.quantite}</td>
                 <td style="text-align:right;">${escapeHtml(formatEuro(ligne.prixUnitaireHT))}</td>
@@ -115,6 +119,7 @@ export default function MesAvoirs({ clientId }: MesAvoirsProps) {
             </style></head><body>
             <h1>${escapeHtml(title)}</h1>
             <div class="meta">
+                ${avoir.reference ? `<p><strong>Référence :</strong> ${escapeHtml(avoir.reference)}</p>` : ''}
                 <p><strong>Date d'émission :</strong> ${escapeHtml(formatDate(avoir.dateEmission))}</p>
                 <p><strong>Motif :</strong> ${escapeHtml(avoir.motif ?? '-')}</p>
                 ${avoir.vente ? `<p><strong>Facture d'origine :</strong> #${avoir.vente.id}</p>` : ''}
@@ -122,12 +127,13 @@ export default function MesAvoirs({ clientId }: MesAvoirsProps) {
             </div>
             <table>
                 <thead><tr>
+                    ${hasAnyReference ? '<th>Référence</th>' : ''}
                     <th>Désignation</th>
                     <th style="text-align:center;">Qté</th>
                     <th style="text-align:right;">P.U. HT</th>
                     <th style="text-align:right;">Total TTC</th>
                 </tr></thead>
-                <tbody>${tableRows || '<tr><td colspan="4">Aucun élément</td></tr>'}</tbody>
+                <tbody>${tableRows || `<tr><td colspan="${hasAnyReference ? 5 : 4}">Aucun élément</td></tr>`}</tbody>
             </table>
             <div class="totals">
                 <p>Montant HT : ${escapeHtml(formatEuro(avoir.montantHT))}</p>
@@ -155,6 +161,12 @@ export default function MesAvoirs({ clientId }: MesAvoirsProps) {
             dataIndex: 'id',
             width: 60,
             render: (v: number) => `#${v}`,
+        },
+        {
+            title: 'Référence',
+            dataIndex: 'reference',
+            width: 120,
+            render: (v: string) => v || '-',
         },
         {
             title: 'Date d\'émission',
@@ -213,6 +225,7 @@ export default function MesAvoirs({ clientId }: MesAvoirsProps) {
     ];
 
     const detailColumns = [
+        { title: 'Référence', dataIndex: 'reference', width: 120, render: (v: string) => v || '-' },
         { title: 'Désignation', dataIndex: 'designation' },
         { title: 'Qté', dataIndex: 'quantite', width: 60, align: 'center' as const },
         { title: 'P.U. HT', dataIndex: 'prixUnitaireHT', width: 110, align: 'right' as const, render: (v: number) => formatEuro(v) },
@@ -234,7 +247,7 @@ export default function MesAvoirs({ clientId }: MesAvoirsProps) {
             </Spin>
 
             <Modal
-                title={detailAvoir ? `Avoir #${detailAvoir.id}` : ''}
+                title={detailAvoir ? (detailAvoir.reference ? `Avoir #${detailAvoir.id} (${detailAvoir.reference})` : `Avoir #${detailAvoir.id}`) : ''}
                 open={!!detailAvoir}
                 onCancel={() => setDetailAvoir(null)}
                 width={750}
@@ -252,6 +265,9 @@ export default function MesAvoirs({ clientId }: MesAvoirsProps) {
                                 {STATUS_LABEL[detailAvoir.status] ?? detailAvoir.status}
                             </Tag>
                         </p>
+                        {detailAvoir.reference && (
+                            <p><strong>Référence :</strong> {detailAvoir.reference}</p>
+                        )}
                         <p><strong>Date d'émission :</strong> {formatDate(detailAvoir.dateEmission)}</p>
                         {detailAvoir.dateRemboursement && (
                             <p><strong>Date de remboursement :</strong> {formatDate(detailAvoir.dateRemboursement)}</p>
