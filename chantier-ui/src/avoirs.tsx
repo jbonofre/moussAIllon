@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+    AutoComplete,
     Button,
     Card,
     Col,
@@ -19,6 +20,7 @@ import {
 import {
     CheckOutlined,
     DeleteOutlined,
+    DownloadOutlined,
     EditOutlined,
     LinkOutlined,
     MailOutlined,
@@ -44,8 +46,19 @@ interface VenteRef {
     prixVenteTTC?: number;
 }
 
+interface ProduitCatalogueEntity {
+    id: number;
+    designation: string;
+    ref?: string;
+    refs?: string[];
+    prixVenteHT?: number;
+    tva?: number;
+    prixVenteTTC?: number;
+}
+
 interface AvoirLigne {
     id?: number;
+    reference?: string;
     designation: string;
     quantite: number;
     prixUnitaireHT: number;
@@ -56,6 +69,7 @@ interface AvoirLigne {
 
 interface AvoirEntity {
     id?: number;
+    reference?: string;
     status?: string;
     client?: ClientRef;
     vente?: VenteRef;
@@ -133,6 +147,7 @@ function computeAvoirTotals(lignes: AvoirLigne[], tauxTva: number): Pick<AvoirEn
 }
 
 const defaultLigne = (): AvoirLigne => ({
+    reference: '',
     designation: '',
     quantite: 1,
     prixUnitaireHT: 0,
@@ -145,12 +160,14 @@ export default function Avoirs() {
     const [avoirs, setAvoirs] = useState<AvoirEntity[]>([]);
     const [clients, setClients] = useState<ClientRef[]>([]);
     const [ventes, setVentes] = useState<VenteRef[]>([]);
+    const [catalogueProduits, setCatalogueProduits] = useState<ProduitCatalogueEntity[]>([]);
     const [loading, setLoading] = useState(false);
 
     const [modalOpen, setModalOpen] = useState(false);
     const [editingAvoir, setEditingAvoir] = useState<AvoirEntity | null>(null);
     const [formClientId, setFormClientId] = useState<number | null>(null);
     const [formVenteId, setFormVenteId] = useState<number | null>(null);
+    const [formReference, setFormReference] = useState('');
     const [formMotif, setFormMotif] = useState('');
     const [formNotes, setFormNotes] = useState('');
     const [formModeRemboursement, setFormModeRemboursement] = useState<string | null>(null);
@@ -213,6 +230,13 @@ export default function Avoirs() {
             .catch(() => {});
     }, []);
 
+    const fetchCatalogueProduits = useCallback(() => {
+        fetchWithAuth('./catalogue/produits')
+            .then((res) => res.json())
+            .then((data) => setCatalogueProduits(Array.isArray(data) ? data : []))
+            .catch(() => {});
+    }, []);
+
     const fetchVentesForClient = useCallback((clientId: number) => {
         fetchWithAuth(`./ventes/search?clientId=${clientId}`)
             .then((res) => res.json())
@@ -228,10 +252,126 @@ export default function Avoirs() {
         fetchClients();
     }, [fetchClients]);
 
+    useEffect(() => {
+        fetchCatalogueProduits();
+    }, [fetchCatalogueProduits]);
+
+    const catalogueOptions = useMemo(() => {
+        return catalogueProduits.map((p) => {
+            const refText = p.ref ? `[${p.ref}] ` : '';
+            const allRefs = [p.ref, ...(p.refs || [])].filter(Boolean).join(' ');
+            return {
+                value: p.ref || p.designation,
+                label: `${refText}${p.designation} (${(p.prixVenteHT ?? 0).toFixed(2)} € HT)`,
+                searchText: `${allRefs} ${p.designation}`.toLowerCase(),
+                item: p,
+            };
+        });
+    }, [catalogueProduits]);
+
+    const handleSelectCatalogueProduit = (index: number, item?: ProduitCatalogueEntity) => {
+        if (!item) return;
+        setFormLignes((prev) => {
+            const updated = [...prev];
+            const tvaVal = item.tva !== undefined && item.tva !== null ? item.tva : (updated[index].tva ?? 20);
+            const puHT = item.prixVenteHT ?? updated[index].prixUnitaireHT ?? 0;
+            const updatedLigne = computeLigneTotals({
+                ...updated[index],
+                reference: item.ref || updated[index].reference || '',
+                designation: item.designation,
+                prixUnitaireHT: puHT,
+                tva: tvaVal,
+            }) as AvoirLigne;
+            updated[index] = updatedLigne;
+            return updated;
+        });
+    };
+
+    const handleImportFromVente = async () => {
+        if (!formVenteId) return;
+        try {
+            const res = await fetchWithAuth(`./ventes/${formVenteId}`);
+            if (!res.ok) throw new Error();
+            const venteData = await res.json();
+            const newLignes: AvoirLigne[] = [];
+            const tvaTaux = venteData.tva > 0 ? venteData.tva : 20;
+
+            (venteData.venteForfaits || []).forEach((vf: any) => {
+                if (!vf.forfait) return;
+                const quantite = Math.max(1, vf.quantite || 1);
+                const prixUnitaireHT = vf.forfait.prixHT || 0;
+                const tva = vf.forfait.tva > 0 ? vf.forfait.tva : tvaTaux;
+                const brutTTC = (vf.forfait.prixTTC || 0) * quantite;
+                const netTTC = Math.max(0, brutTTC - (vf.remise || 0));
+                const ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
+                const montantTVA = Math.round(prixUnitaireHT * quantite * (tva / 100) * ratio * 100) / 100;
+                newLignes.push({
+                    reference: vf.forfait.reference || '',
+                    designation: vf.forfait.nom || 'Forfait',
+                    quantite,
+                    prixUnitaireHT,
+                    tva,
+                    montantTVA,
+                    totalTTC: Math.round(netTTC * 100) / 100,
+                });
+            });
+
+            (venteData.venteServices || []).forEach((vs: any) => {
+                if (!vs.service) return;
+                const quantite = Math.max(1, vs.quantite || 1);
+                const prixUnitaireHT = vs.service.prixHT || 0;
+                const tva = vs.service.tva > 0 ? vs.service.tva : tvaTaux;
+                const brutTTC = (vs.service.prixTTC || 0) * quantite;
+                const netTTC = Math.max(0, brutTTC - (vs.remise || 0));
+                const ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
+                const montantTVA = Math.round(prixUnitaireHT * quantite * (tva / 100) * ratio * 100) / 100;
+                newLignes.push({
+                    reference: '',
+                    designation: vs.service.nom || 'Service',
+                    quantite,
+                    prixUnitaireHT,
+                    tva,
+                    montantTVA,
+                    totalTTC: Math.round(netTTC * 100) / 100,
+                });
+            });
+
+            (venteData.venteProduits || []).forEach((vp: any) => {
+                if (!vp.produit) return;
+                const quantite = Math.max(1, vp.quantite || 1);
+                const prixUnitaireHT = vp.produit.prixVenteHT || 0;
+                const tva = vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
+                const brutTTC = (vp.produit.prixVenteTTC || 0) * quantite;
+                const netTTC = Math.max(0, brutTTC - (vp.remise || 0));
+                const ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
+                const montantTVA = Math.round(prixUnitaireHT * quantite * (tva / 100) * ratio * 100) / 100;
+                newLignes.push({
+                    reference: vp.produit.ref || '',
+                    designation: vp.produit.designation || 'Produit',
+                    quantite,
+                    prixUnitaireHT,
+                    tva,
+                    montantTVA,
+                    totalTTC: Math.round(netTTC * 100) / 100,
+                });
+            });
+
+            if (newLignes.length > 0) {
+                setFormLignes(newLignes);
+                message.success(`${newLignes.length} ligne(s) importée(s) depuis la facture`);
+            } else {
+                message.info('Aucune ligne trouvée sur cette facture');
+            }
+        } catch {
+            message.error("Erreur lors de l'import des lignes de la facture");
+        }
+    };
+
     const openCreate = () => {
         setEditingAvoir(null);
         setFormClientId(null);
         setFormVenteId(null);
+        setFormReference('');
         setFormMotif('');
         setFormNotes('');
         setFormModeRemboursement(null);
@@ -244,6 +384,7 @@ export default function Avoirs() {
         setEditingAvoir(avoir);
         setFormClientId(avoir.client?.id ?? null);
         setFormVenteId(avoir.vente?.id ?? null);
+        setFormReference(avoir.reference ?? '');
         setFormMotif(avoir.motif ?? '');
         setFormNotes(avoir.notes ?? '');
         setFormModeRemboursement(avoir.modeRemboursement ?? null);
@@ -286,6 +427,7 @@ export default function Avoirs() {
         const payload: AvoirEntity = {
             client: { id: formClientId } as ClientRef,
             vente: formVenteId ? { id: formVenteId } as VenteRef : undefined,
+            reference: formReference.trim() || undefined,
             motif: formMotif,
             notes: formNotes,
             modeRemboursement: formModeRemboursement ?? undefined,
@@ -422,13 +564,20 @@ export default function Avoirs() {
         return avoirs.filter((a) => {
             const clientLabel = a.client ? (a.client.nom ?? '').toLowerCase() : '';
             const motif = (a.motif ?? '').toLowerCase();
+            const reference = (a.reference ?? '').toLowerCase();
             const idStr = a.id !== undefined ? `#${a.id}` : '';
             const venteStr = a.vente ? `#${a.vente.id}` : '';
+            const matchLignes = (a.lignes || []).some(
+                (l) => (l.reference && l.reference.toLowerCase().includes(q)) ||
+                       (l.designation && l.designation.toLowerCase().includes(q))
+            );
             return (
                 clientLabel.includes(q) ||
                 motif.includes(q) ||
+                reference.includes(q) ||
                 idStr.includes(q) ||
-                venteStr.includes(q)
+                venteStr.includes(q) ||
+                matchLignes
             );
         });
     })();
@@ -444,6 +593,13 @@ export default function Avoirs() {
             width: 60,
             sorter: (a: AvoirEntity, b: AvoirEntity) => (a.id || 0) - (b.id || 0),
             render: (v: number) => `#${v}`,
+        },
+        {
+            title: 'Référence',
+            dataIndex: 'reference',
+            width: 130,
+            sorter: (a: AvoirEntity, b: AvoirEntity) => (a.reference || '').localeCompare(b.reference || ''),
+            render: (v: string) => v || '-',
         },
         {
             title: 'Client',
@@ -565,6 +721,25 @@ export default function Avoirs() {
     ];
 
     const lignesColumns = [
+        {
+            title: 'Référence',
+            key: 'reference',
+            width: 220,
+            render: (_: unknown, _r: AvoirLigne, index: number) => (
+                <AutoComplete
+                    value={formLignes[index].reference || ''}
+                    onChange={(v) => updateLigne(index, 'reference', v)}
+                    onSelect={(_, option) => handleSelectCatalogueProduit(index, (option as any).item)}
+                    options={catalogueOptions}
+                    filterOption={(inputValue, option) =>
+                        ((option as any)?.searchText || '').includes(inputValue.toLowerCase())
+                    }
+                    placeholder="Référence / article"
+                    allowClear
+                    style={{ width: '100%' }}
+                />
+            ),
+        },
         {
             title: 'Désignation',
             key: 'designation',
@@ -716,7 +891,7 @@ export default function Avoirs() {
             >
                 <Form layout="vertical">
                     <Row gutter={16}>
-                        <Col span={12}>
+                        <Col span={8}>
                             <Form.Item label="Client" required>
                                 <Select
                                     showSearch
@@ -734,19 +909,39 @@ export default function Avoirs() {
                                 />
                             </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={8}>
                             <Form.Item label="Facture liée (optionnel)">
-                                <Select
-                                    allowClear
-                                    placeholder="Sélectionner une facture"
-                                    value={formVenteId ?? undefined}
-                                    onChange={(v) => setFormVenteId(v ?? null)}
-                                    disabled={!formClientId}
-                                    options={ventes.map((v) => ({
-                                        value: v.id,
-                                        label: `#${v.id} — ${v.status ?? ''} — ${formatEuro(v.prixVenteTTC ?? v.montantTTC)}`,
-                                    }))}
-                                    style={{ width: '100%' }}
+                                <Space.Compact style={{ width: '100%' }}>
+                                    <Select
+                                        allowClear
+                                        placeholder="Sélectionner une facture"
+                                        value={formVenteId ?? undefined}
+                                        onChange={(v) => setFormVenteId(v ?? null)}
+                                        disabled={!formClientId}
+                                        options={ventes.map((v) => ({
+                                            value: v.id,
+                                            label: `#${v.id} — ${v.status ?? ''} — ${formatEuro(v.prixVenteTTC ?? v.montantTTC)}`,
+                                        }))}
+                                        style={{ width: '100%' }}
+                                    />
+                                    {formVenteId && (
+                                        <Button
+                                            icon={<DownloadOutlined />}
+                                            onClick={handleImportFromVente}
+                                            title="Importer les lignes de la facture"
+                                        >
+                                            Importer
+                                        </Button>
+                                    )}
+                                </Space.Compact>
+                            </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                            <Form.Item label="Référence de l'avoir">
+                                <Input
+                                    value={formReference}
+                                    onChange={(e) => setFormReference(e.target.value)}
+                                    placeholder="Auto-généré si vide (ex: AV-2026-00001)"
                                 />
                             </Form.Item>
                         </Col>
