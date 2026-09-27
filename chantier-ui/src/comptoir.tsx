@@ -594,8 +594,8 @@ export default function Comptoir() {
             label: 'Produits',
             options: produits.map((p) => ({
                 value: `produit:${p.id}`,
-                label: p.designation,
-                searchText: `${p.designation} ${p.ref || ''} ${(p.refs || []).join(' ')} ${p.emplacement || ''}`.toLowerCase(),
+                label: p.ref ? `${p.ref} - ${p.designation}` : p.designation,
+                searchText: `${p.ref || ''} ${p.designation} ${(p.refs || []).join(' ')} ${p.emplacement || ''}`.toLowerCase(),
             })),
         },
         {
@@ -1222,19 +1222,20 @@ export default function Comptoir() {
         (vente.forfaits || []).forEach((f) => {
             if (!f?.id) return;
             const puTTC = f.prixTTC || 0;
-            lines.push({ type: 'Forfait', label: f.reference ? `${f.reference} - ${f.nom}` : f.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
+            lines.push({ type: 'Forfait', reference: f.reference || '', label: f.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
         });
         (vente.services || []).forEach((s) => {
             if (!s?.id) return;
             const puTTC = s.prixTTC || 0;
-            lines.push({ type: 'Service', label: s.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
+            lines.push({ type: 'Service', reference: '', label: s.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
         });
-        const fromCatalogue = (item: { designation?: string; prixVenteTTC?: number } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
+        const fromCatalogue = (item: { designation?: string; prixVenteTTC?: number; ref?: string } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
             const puTTC = item?.prixVenteTTC || 0;
             const brut = puTTC * quantite;
             const label = item?.designation || '';
+            const reference = item?.ref || '';
             lines.push({
-                type: typeLabel, label, quantite,
+                type: typeLabel, reference, label, quantite,
                 puTTC,
                 remise, remisePct: remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - remise),
@@ -1815,8 +1816,16 @@ export default function Comptoir() {
                                                 const moteurCatalogue = ligneType === 'moteur' ? catalogueMoteurs.find((m) => m.id === ligneItemId) : undefined;
                                                 const heliceCatalogue = ligneType === 'helice' ? catalogueHelices.find((h) => h.id === ligneItemId) : undefined;
                                                 const remorqueCatalogue = ligneType === 'remorque' ? catalogueRemorques.find((r) => r.id === ligneItemId) : undefined;
+                                                const reference = produitCatalogue?.ref || '';
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
+                                                    <Form.Item style={{ width: 120 }}>
+                                                        <Input
+                                                            disabled
+                                                            value={reference}
+                                                            placeholder="Référence"
+                                                        />
+                                                    </Form.Item>
                                                     <Form.Item
                                                         {...field}
                                                         name={[field.name, 'produitRef']}
