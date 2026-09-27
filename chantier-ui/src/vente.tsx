@@ -45,6 +45,7 @@ import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
+import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 
 interface ClientEntity {
     id: number;
@@ -595,115 +596,7 @@ const getClientLabel = (client?: ClientEntity) => {
     return client.nom || `Client #${client.id}`;
 };
 
-const formatEuroCatalogue = (v?: number) => v != null ? v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-';
 
-function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques, forfaits, services, navigate }: {
-    type?: string; itemId?: number;
-    produits: ProduitCatalogueEntity[];
-    catalogueBateaux: CatalogueBateauEntity[];
-    catalogueMoteurs: CatalogueMoteurEntity[];
-    catalogueHelices: CatalogueHeliceEntity[];
-    catalogueRemorques: CatalogueRemorqueEntity[];
-    forfaits: any[];
-    services: any[];
-    navigate: (route: string) => void;
-}) {
-    if (!type || !itemId) return null;
-
-    let items: { label: string; value: React.ReactNode }[] = [];
-    let catalogueRoute: string | null = null;
-    let titre = '';
-
-    if (type === 'produit') {
-        const p = produits.find((x) => x.id === itemId);
-        if (!p) return null;
-        titre = p.designation;
-        catalogueRoute = '/catalogue/produits';
-        items = [
-            { label: 'Référence', value: p.ref || '-' },
-            { label: 'Catégorie', value: p.categorie || '-' },
-            { label: 'Stock', value: p.stock != null ? p.stock : '-' },
-            { label: 'Emplacement', value: p.emplacement || '-' },
-            { label: 'Prix TTC', value: formatEuroCatalogue(p.prixVenteTTC) },
-        ];
-        if (p.description) items.push({ label: 'Description', value: p.description });
-    } else if (type === 'bateau') {
-        const b = catalogueBateaux.find((x) => x.id === itemId);
-        if (!b) return null;
-        titre = b.designation;
-        catalogueRoute = '/catalogue/bateaux';
-        items = [
-            { label: 'Désignation', value: b.designation },
-            { label: 'Prix TTC', value: formatEuroCatalogue(b.prixVenteTTC) },
-        ];
-    } else if (type === 'moteur') {
-        const m = catalogueMoteurs.find((x) => x.id === itemId);
-        if (!m) return null;
-        titre = m.designation;
-        catalogueRoute = '/catalogue/moteurs';
-        items = [
-            { label: 'Désignation', value: m.designation },
-            { label: 'Prix TTC', value: formatEuroCatalogue(m.prixVenteTTC) },
-        ];
-    } else if (type === 'helice') {
-        const h = catalogueHelices.find((x) => x.id === itemId);
-        if (!h) return null;
-        titre = h.designation;
-        catalogueRoute = '/catalogue/helices';
-        items = [
-            { label: 'Désignation', value: h.designation },
-            { label: 'Prix TTC', value: formatEuroCatalogue(h.prixVenteTTC) },
-        ];
-    } else if (type === 'remorque') {
-        const r = catalogueRemorques.find((x) => x.id === itemId);
-        if (!r) return null;
-        titre = r.designation;
-        catalogueRoute = '/catalogue/remorques';
-        items = [
-            { label: 'Désignation', value: r.designation },
-            { label: 'Prix TTC', value: formatEuroCatalogue(r.prixVenteTTC) },
-        ];
-    } else if (type === 'forfait') {
-        const f = forfaits.find((x: any) => x.id === itemId);
-        if (!f) return null;
-        titre = f.nom;
-        items = [
-            { label: 'Prix TTC', value: formatEuroCatalogue(f.prixTTC) },
-            { label: 'Durée estimée', value: f.dureeEstimee != null ? `${f.dureeEstimee}h` : '-' },
-        ];
-        if (f.description) items.push({ label: 'Description', value: f.description });
-    } else if (type === 'service') {
-        const s = services.find((x: any) => x.id === itemId);
-        if (!s) return null;
-        titre = s.nom;
-        items = [
-            { label: 'Prix TTC', value: formatEuroCatalogue(s.prixTTC) },
-            { label: 'Durée estimée', value: s.dureeEstimee != null ? `${s.dureeEstimee}h` : '-' },
-        ];
-        if (s.description) items.push({ label: 'Description', value: s.description });
-    } else {
-        return null;
-    }
-
-    const content = (
-        <div style={{ maxWidth: 280 }}>
-            <Descriptions column={1} size="small" items={items.map((it, i) => ({ key: i, label: it.label, children: it.value }))} />
-            {catalogueRoute && (
-                <div style={{ marginTop: 8, textAlign: 'right' }}>
-                    <Button type="link" size="small" onClick={() => navigate(catalogueRoute!)}>
-                        Voir dans le catalogue
-                    </Button>
-                </div>
-            )}
-        </div>
-    );
-
-    return (
-        <Popover title={titre} content={content} trigger="click" placement="right">
-            <Button icon={<InfoCircleOutlined />} title="Fiche produit" size="small" />
-        </Popover>
-    );
-}
 
 export default function Vente() {
     const PRODUIT_CATEGORIES = useReferenceValeurs('CATEGORIE_PRODUIT');
