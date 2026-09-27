@@ -139,7 +139,8 @@ public class VenteResource {
         if (entity.venteForfaits != null) {
             for (VenteForfaitEntity vf : entity.venteForfaits) {
                 String nom = vf.forfait != null ? vf.forfait.nom : "Forfait";
-                lignes.append("- Forfait : ").append(nom).append(" x").append(vf.quantite);
+                String ref = (vf.forfait != null && vf.forfait.reference != null && !vf.forfait.reference.isBlank()) ? " [Réf: " + vf.forfait.reference + "]" : "";
+                lignes.append("- Forfait : ").append(nom).append(ref).append(" x").append(vf.quantite);
                 if (showPrices) {
                     double base = vf.forfait != null ? vf.forfait.prixTTC * vf.quantite : 0;
                     double total = Math.max(0, base - vf.remise);
@@ -155,7 +156,8 @@ public class VenteResource {
             for (VenteProduitEntity vp : entity.venteProduits) {
                 if (vp.produit == null) continue;
                 String nom = vp.produit.designation;
-                lignes.append("- Produit : ").append(nom).append(" x").append(vp.quantite);
+                String ref = (vp.produit.ref != null && !vp.produit.ref.isBlank()) ? " [Réf: " + vp.produit.ref + "]" : "";
+                lignes.append("- Produit : ").append(nom).append(ref).append(" x").append(vp.quantite);
                 if (showPrices) {
                     double base = vp.produit.prixVenteTTC * vp.quantite;
                     double total = Math.max(0, base - vp.remise);
