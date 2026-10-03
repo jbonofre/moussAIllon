@@ -33,6 +33,12 @@
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
+  "jest": {
+    "moduleNameMapper": {
+      "^@rc-component/(pagination|picker)/(locale|generate)/(.*)$": "<rootDir>/node_modules/@rc-component/$1/lib/$2/$3.js",
+      "^@ant-design/colors/es/(.*)$": "<rootDir>/node_modules/@ant-design/colors/lib/$1.js"
+    }
+  },
   "browserslist": {
     "production": [
       ">0.2%",

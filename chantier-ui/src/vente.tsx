@@ -606,7 +606,7 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
     catalogueRemorques: CatalogueRemorqueEntity[];
     forfaits: any[];
     services: any[];
-    navigate: (route: string) => void;
+    navigate: (route: string, state?: any) => void;
 }) {
     if (!type || !itemId) return null;
 
@@ -631,7 +631,7 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
         const b = catalogueBateaux.find((x) => x.id === itemId);
         if (!b) return null;
         titre = b.designation;
-        catalogueRoute = '/catalogue/bateaux';
+        catalogueRoute = '/catalogue/produits';
         items = [
             { label: 'Désignation', value: b.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(b.prixVenteTTC) },
@@ -640,7 +640,7 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
         const m = catalogueMoteurs.find((x) => x.id === itemId);
         if (!m) return null;
         titre = m.designation;
-        catalogueRoute = '/catalogue/moteurs';
+        catalogueRoute = '/catalogue/produits';
         items = [
             { label: 'Désignation', value: m.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(m.prixVenteTTC) },
@@ -649,7 +649,7 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
         const h = catalogueHelices.find((x) => x.id === itemId);
         if (!h) return null;
         titre = h.designation;
-        catalogueRoute = '/catalogue/helices';
+        catalogueRoute = '/catalogue/produits';
         items = [
             { label: 'Désignation', value: h.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(h.prixVenteTTC) },
@@ -658,7 +658,7 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
         const r = catalogueRemorques.find((x) => x.id === itemId);
         if (!r) return null;
         titre = r.designation;
-        catalogueRoute = '/catalogue/remorques';
+        catalogueRoute = '/catalogue/produits';
         items = [
             { label: 'Désignation', value: r.designation },
             { label: 'Prix TTC', value: formatEuroCatalogue(r.prixVenteTTC) },
@@ -690,7 +690,7 @@ function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catal
             <Descriptions column={1} size="small" items={items.map((it, i) => ({ key: i, label: it.label, children: it.value }))} />
             {catalogueRoute && (
                 <div style={{ marginTop: 8, textAlign: 'right' }}>
-                    <Button type="link" size="small" onClick={() => navigate(catalogueRoute!)}>
+                    <Button type="link" size="small" onClick={() => navigate(catalogueRoute!, { typeProduit: type })}>
                         Voir dans le catalogue
                     </Button>
                 </div>
@@ -4386,7 +4386,7 @@ export default function Vente() {
                                 onChange={(value) => newBateauForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
-                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/bateaux')} />
+                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/produits', { typeProduit: 'bateau' })} />
                         </Space.Compact>
                     </Form.Item>
                     <Form.Item label="Propriétaires">
@@ -4418,7 +4418,7 @@ export default function Vente() {
                                 onChange={(values) => newBateauForm.setFieldValue('moteurs', (values || []).map((id: number) => ({ id })))}
                                 style={{ width: '100%' }}
                             />
-                            <Button icon={<PlusOutlined />} title="Créer un moteur" onClick={() => navigate('/catalogue/moteurs')} />
+                            <Button icon={<PlusOutlined />} title="Créer un moteur" onClick={() => navigate('/catalogue/produits', { typeProduit: 'moteur' })} />
                         </Space.Compact>
                     </Form.Item>
                     <Form.Item name="images" label="Images">
@@ -4482,7 +4482,7 @@ export default function Vente() {
                                 onChange={(value) => newMoteurForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
-                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/moteurs')} />
+                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/produits', { typeProduit: 'moteur' })} />
                         </Space.Compact>
                     </Form.Item>
                     <Form.Item label="Propriétaire">
@@ -4557,7 +4557,7 @@ export default function Vente() {
                                 onChange={(value) => newRemorqueForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
-                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/remorques')} />
+                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/produits', { typeProduit: 'remorque' })} />
                         </Space.Compact>
                     </Form.Item>
                     <Form.Item label="Propriétaire">
