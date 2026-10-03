@@ -59,6 +59,7 @@ public class BateauCatalogueResource {
             throw new NotFoundException();
         }
         entity.designation = updatedBateauCatalogue.designation;
+        entity.ref = updatedBateauCatalogue.ref;
         entity.images = updatedBateauCatalogue.images;
         entity.documents = updatedBateauCatalogue.documents;
         entity.type = updatedBateauCatalogue.type;

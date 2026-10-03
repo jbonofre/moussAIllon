@@ -101,6 +101,7 @@ public class HeliceCatalogueResource {
         }
 
         entity.designation = helice.designation;
+        entity.ref = helice.ref;
         entity.description = helice.description;
         entity.anneeDebut = helice.anneeDebut;
         entity.anneeFin = helice.anneeFin;

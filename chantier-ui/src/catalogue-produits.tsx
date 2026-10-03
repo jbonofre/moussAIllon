@@ -74,6 +74,7 @@ interface BateauOption {
 // Champs communs à tous les types de produit : conservés quand on change de type à la création
 const defaultCommun: CatalogueEntity = {
     designation: '',
+    ref: '',
     description: '',
     anneeDebut: new Date().getFullYear(),
     anneeFin: new Date().getFullYear(),
@@ -91,7 +92,6 @@ const CHAMPS_COMMUNS = Object.keys(defaultCommun);
 const defaultValues: Record<TypeProduit, CatalogueEntity> = {
     produit: {
         ...defaultCommun,
-        ref: '',
         refs: [],
         stock: 0,
         stockMini: 0,
@@ -843,7 +843,7 @@ const CatalogueProduits: React.FC = () => {
                                 ]}
                             />
                             <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
-                            <ImportCsvButton endpoint="/catalogue/produits/import" label="Importer des articles (CSV)" onImported={() => fetchCatalogue(['produit'])} />
+                            <ImportCsvButton endpoint="/catalogue/produits/import" label="Importer des articles (CSV)" onImported={() => fetchCatalogue()} />
                         </Space>
                     </Col>
                 </Row>
@@ -900,18 +900,11 @@ const CatalogueProduits: React.FC = () => {
                                         </Form.Item>
                                     </Col>
                                     {typeCourant === 'produit' && (
-                                        <>
-                                            <Col span={12}>
-                                                <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: "La catégorie est requise" }]}>
-                                                    <Select options={CATEGORIES} placeholder="Choisir une catégorie" />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col span={12}>
-                                                <Form.Item name="ref" label="Référence interne">
-                                                    <Input />
-                                                </Form.Item>
-                                            </Col>
-                                        </>
+                                        <Col span={12}>
+                                            <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: "La catégorie est requise" }]}>
+                                                <Select options={CATEGORIES} placeholder="Choisir une catégorie" />
+                                            </Form.Item>
+                                        </Col>
                                     )}
                                     {(typeCourant === 'bateau' || typeCourant === 'moteur') && (
                                         <Col span={12}>
@@ -924,6 +917,11 @@ const CatalogueProduits: React.FC = () => {
                                             </Form.Item>
                                         </Col>
                                     )}
+                                    <Col span={12}>
+                                        <Form.Item name="ref" label="Référence interne">
+                                            <Input />
+                                        </Form.Item>
+                                    </Col>
                                     <Col span={12}>
                                         <Form.Item label="Années">
                                             <Row gutter={8}>
