@@ -65,6 +65,10 @@ describe('CatalogueProduits', () => {
         fireEvent.click(screen.getByText('Bateaux'));
         await waitFor(() => expect(screen.queryByText('Anode zinc')).not.toBeInTheDocument());
         expect(screen.getByText('Cap Camarat 6.5')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByText('Articles'));
+        expect(await screen.findByText('Anode zinc')).toBeInTheDocument();
+        expect(screen.queryByText('Cap Camarat 6.5')).not.toBeInTheDocument();
     });
 
     it('filtre la liste avec la recherche', async () => {
@@ -92,7 +96,7 @@ describe('CatalogueProduits', () => {
         await renderCatalogue();
         fireEvent.click(document.querySelector('.anticon-plus-circle')!.closest('button')!);
 
-        expect(await screen.findByText('Ajouter un produit')).toBeInTheDocument();
+        expect(await screen.findByText('Ajouter un article')).toBeInTheDocument();
         expect(screen.getByLabelText('Référence interne')).toBeInTheDocument();
         // l'en-tête de colonne triable porte le même libellé : on cible le champ du formulaire
         fireEvent.change(screen.getByLabelText('Désignation', { selector: 'input' }), { target: { value: 'Inox 14x21' } });
