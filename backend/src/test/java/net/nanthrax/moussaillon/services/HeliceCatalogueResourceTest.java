@@ -93,4 +93,38 @@ public class HeliceCatalogueResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void testSupprimerHeliceCompatibleAvecUnMoteur() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Compatible ToDelete\",\"description\":\"Test\"}")
+            .when().post("/catalogue/helices")
+            .then().statusCode(200).extract().path("id");
+
+        int moteurId = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Moteur Compatible\",\"type\":\"Hors-bord\"}")
+            .when().post("/catalogue/moteurs")
+            .then().statusCode(200).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Moteur Compatible\",\"type\":\"Hors-bord\",\"helicesCompatibles\":[{\"id\":" + id + "}]}")
+            .when().put("/catalogue/moteurs/" + moteurId)
+            .then()
+            .statusCode(200)
+            .body("helicesCompatibles.id", hasItem(id));
+
+        given()
+            .when().delete("/catalogue/helices/" + id)
+            .then()
+            .statusCode(204);
+
+        given()
+            .when().get("/catalogue/moteurs/" + moteurId)
+            .then()
+            .statusCode(200)
+            .body("helicesCompatibles.size()", is(0));
+    }
 }

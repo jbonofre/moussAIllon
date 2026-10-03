@@ -93,4 +93,43 @@ public class MoteurCatalogueResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void testHelicesCompatibles() {
+        int heliceId = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Helice Compatible\",\"description\":\"Test\"}")
+            .when().post("/catalogue/helices")
+            .then().statusCode(200).extract().path("id");
+
+        int id = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Compatibilite\",\"type\":\"Hors-bord\",\"helicesCompatibles\":[{\"id\":" + heliceId + "}]}")
+            .when().post("/catalogue/moteurs")
+            .then()
+            .statusCode(200)
+            .body("helicesCompatibles.id", hasItem(heliceId))
+            .extract().path("id");
+
+        given()
+            .when().get("/catalogue/moteurs/" + id)
+            .then()
+            .statusCode(200)
+            .body("helicesCompatibles.size()", is(1))
+            .body("helicesCompatibles[0].designation", is("Test Helice Compatible"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Compatibilite\",\"type\":\"Hors-bord\",\"helicesCompatibles\":[]}")
+            .when().put("/catalogue/moteurs/" + id)
+            .then()
+            .statusCode(200)
+            .body("helicesCompatibles.size()", is(0));
+
+        given()
+            .when().get("/catalogue/moteurs/" + id)
+            .then()
+            .statusCode(200)
+            .body("helicesCompatibles.size()", is(0));
+    }
 }

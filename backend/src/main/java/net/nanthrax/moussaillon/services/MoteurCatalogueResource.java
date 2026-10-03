@@ -5,8 +5,10 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Path("/catalogue/moteurs")
@@ -46,6 +48,7 @@ public class MoteurCatalogueResource {
     @POST
     @Transactional
     public MoteurCatalogueEntity create(MoteurCatalogueEntity moteur) {
+        moteur.helicesCompatibles = resolveHelices(moteur.helicesCompatibles);
         moteur.persist();
         return moteur;
     }
@@ -85,10 +88,30 @@ public class MoteurCatalogueResource {
         entity.tva = moteur.tva;
         entity.montantTVA = moteur.montantTVA;
         entity.prixVenteTTC = moteur.prixVenteTTC;
-        entity.helicesCompatibles = moteur.helicesCompatibles;
+        List<HeliceCatalogueEntity> helices = resolveHelices(moteur.helicesCompatibles);
+        entity.helicesCompatibles.clear();
+        entity.helicesCompatibles.addAll(helices);
 
         // Panache updates are flushed automatically at transaction close
         return entity;
+    }
+
+    // Les hélices compatibles sont reçues détachées (souvent réduites à leur id) : on les remplace par les entités gérées
+    private List<HeliceCatalogueEntity> resolveHelices(List<HeliceCatalogueEntity> helices) {
+        List<HeliceCatalogueEntity> resolved = new ArrayList<>();
+        if (helices == null) {
+            return resolved;
+        }
+        for (HeliceCatalogueEntity helice : helices) {
+            if (helice == null || helice.id == null) {
+                continue;
+            }
+            HeliceCatalogueEntity existing = HeliceCatalogueEntity.findById(helice.id);
+            if (existing != null && !resolved.contains(existing)) {
+                resolved.add(existing);
+            }
+        }
+        return resolved;
     }
 
     @DELETE
