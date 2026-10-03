@@ -4455,7 +4455,7 @@ export default function Vente() {
                                 onChange={(value) => newBateauForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
-                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/bateaux')} />
+                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/produits', { typeProduit: 'bateau' })} />
                         </Space.Compact>
                     </Form.Item>
                     <Form.Item label="Propriétaires">
@@ -4487,7 +4487,7 @@ export default function Vente() {
                                 onChange={(values) => newBateauForm.setFieldValue('moteurs', (values || []).map((id: number) => ({ id })))}
                                 style={{ width: '100%' }}
                             />
-                            <Button icon={<PlusOutlined />} title="Créer un moteur" onClick={() => navigate('/catalogue/moteurs')} />
+                            <Button icon={<PlusOutlined />} title="Créer un moteur" onClick={() => navigate('/catalogue/produits', { typeProduit: 'moteur' })} />
                         </Space.Compact>
                     </Form.Item>
                     <Form.Item name="images" label="Images">
@@ -4551,7 +4551,7 @@ export default function Vente() {
                                 onChange={(value) => newMoteurForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
-                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/moteurs')} />
+                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/produits', { typeProduit: 'moteur' })} />
                         </Space.Compact>
                     </Form.Item>
                     <Form.Item label="Propriétaire">
@@ -4626,7 +4626,7 @@ export default function Vente() {
                                 onChange={(value) => newRemorqueForm.setFieldValue('modele', value ? { id: value } : undefined)}
                                 style={{ width: '100%' }}
                             />
-                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/remorques')} />
+                            <Button icon={<PlusOutlined />} title="Créer un modèle" onClick={() => navigate('/catalogue/produits', { typeProduit: 'remorque' })} />
                         </Space.Compact>
                     </Form.Item>
                     <Form.Item label="Propriétaire">

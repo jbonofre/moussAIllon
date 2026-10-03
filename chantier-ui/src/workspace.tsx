@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DeploymentUnitOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -13,15 +13,11 @@ import GlobalSearch from './global-search.tsx';
 import { VERSION_LABEL } from './version.ts';
 import Clients from './clients.tsx';
 import Produits from './catalogue-produits.tsx';
-import CatalogueBateaux from './catalogue-bateaux.tsx';
-import CatalogueMoteurs from './catalogue-moteurs.tsx';
-import CatalogueHelices from './catalogue-helices.tsx';
 import Fournisseurs from './fournisseurs.tsx';
 import Societe from './societe.tsx';
 import Facturation from './facturation.tsx';
 import Utilisateurs from './utilisateurs.tsx';
 import Forfaits from './forfaits.tsx';
-import CatalogueRemorques from './catalogue-remorques.tsx';
 import BateauxClients from './clients-bateaux.tsx';
 import ClientsMoteurs from './clients-moteurs.tsx';
 import RemorquesClients from './clients-remorques.tsx';
@@ -103,10 +99,6 @@ function SideMenu(props) {
       ] },
       { key: 'catalogue', label: 'Catalogue', icon: <ReadOutlined/>, requiredRole: 'magasinier', children: [
         { key: '/catalogue/produits', label: 'Produits', icon: <AppstoreOutlined /> },
-        { key: '/catalogue/bateaux', label: 'Bateaux', icon: <Icon component={ BoatOutlined } /> },
-        { key: '/catalogue/moteurs', label: 'Moteurs', icon: <Icon component={ EngineOutlined } /> },
-        { key: '/catalogue/helices', label: 'Hélices', icon: <DeploymentUnitOutlined /> },
-        { key: '/catalogue/remorques', label: 'Remorques', icon: <Icon component={ TailerOutlined } /> },
         { key: '/main-oeuvres', label: "Main d'Oeuvres", icon: <HourglassOutlined/> },
         { key: '/forfaits', label: 'Forfaits', icon: <FileDoneOutlined/> },
         { key: '/catalogue/fournisseurs', label: 'Fournisseurs', icon: <TruckOutlined/> },
@@ -464,14 +456,6 @@ export default function Workspace(props) {
                 return <ProtectedRoute roles={props.roles} requiredRole="manager"><RemorquesClients /></ProtectedRoute>;
             case '/catalogue/produits':
                 return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><Produits /></ProtectedRoute>;
-            case '/catalogue/bateaux':
-                return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><CatalogueBateaux /></ProtectedRoute>;
-            case '/catalogue/moteurs':
-                return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><CatalogueMoteurs /></ProtectedRoute>;
-            case '/catalogue/helices':
-                return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><CatalogueHelices /></ProtectedRoute>;
-            case '/catalogue/remorques':
-                return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><CatalogueRemorques /></ProtectedRoute>;
             case '/catalogue/fournisseurs':
                 return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><Fournisseurs /></ProtectedRoute>;
             case '/commandes-fournisseur':
