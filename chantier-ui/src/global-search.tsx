@@ -20,6 +20,7 @@ type SearchCategory = {
     endpoint: string;
     color: string;
     route: string;
+    routeState?: any;
     renderItem: (item: any) => string;
 };
 
@@ -40,6 +41,7 @@ const categories: SearchCategory[] = [
         endpoint: '/catalogue/produits/search',
         color: '#52c41a',
         route: '/catalogue/produits',
+        routeState: { typeProduit: 'produit' },
         renderItem: (item) => `${item.designation || ''}` + (item.ref ? ` - Ref: ${item.ref}` : ''),
     },
     {
@@ -48,7 +50,8 @@ const categories: SearchCategory[] = [
         icon: <Icon component={BoatOutlined} />,
         endpoint: '/catalogue/bateaux/search',
         color: '#13c2c2',
-        route: '/catalogue/bateaux',
+        route: '/catalogue/produits',
+        routeState: { typeProduit: 'bateau' },
         renderItem: (item) => item.designation || '',
     },
     {
@@ -57,7 +60,8 @@ const categories: SearchCategory[] = [
         icon: <Icon component={EngineOutlined} />,
         endpoint: '/catalogue/moteurs/search',
         color: '#722ed1',
-        route: '/catalogue/moteurs',
+        route: '/catalogue/produits',
+        routeState: { typeProduit: 'moteur' },
         renderItem: (item) => item.designation || '',
     },
     {
@@ -66,7 +70,8 @@ const categories: SearchCategory[] = [
         icon: <Icon component={TailerOutlined} />,
         endpoint: '/catalogue/remorques/search',
         color: '#fa8c16',
-        route: '/catalogue/remorques',
+        route: '/catalogue/produits',
+        routeState: { typeProduit: 'remorque' },
         renderItem: (item) => item.designation || '',
     },
     {
@@ -134,11 +139,11 @@ export default function GlobalSearch() {
         debounceRef.current = setTimeout(() => doSearch(value), 350);
     };
 
-    const handleNavigate = (route: string) => {
+    const handleNavigate = (category: SearchCategory) => {
         setOpen(false);
         setQuery('');
         setResults([]);
-        navigate(route);
+        navigate(category.route, category.routeState);
     };
 
     useEffect(() => {
@@ -205,7 +210,7 @@ export default function GlobalSearch() {
                                     <span style={{ marginLeft: 6 }}>{group.category.label}</span>
                                 </Text>
                                 <a
-                                    onClick={() => handleNavigate(group.category.route)}
+                                    onClick={() => handleNavigate(group.category)}
                                     style={{ fontSize: '0.8em', cursor: 'pointer' }}
                                 >
                                     Voir tout
@@ -214,7 +219,7 @@ export default function GlobalSearch() {
                             {group.items.map((item, idx) => (
                                 <div
                                     key={item.id || idx}
-                                    onClick={() => handleNavigate(group.category.route)}
+                                    onClick={() => handleNavigate(group.category)}
                                     style={{
                                         padding: '8px 16px',
                                         cursor: 'pointer',

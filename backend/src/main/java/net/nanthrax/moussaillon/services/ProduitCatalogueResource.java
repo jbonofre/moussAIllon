@@ -1,15 +1,21 @@
 package net.nanthrax.moussaillon.services;
 
-import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
+import io.quarkus.hibernate.orm.panache.Panache;
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.FournisseurProduitEntity;
+import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 import net.nanthrax.moussaillon.persistence.ReferenceValeurEntity;
+import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 import org.jboss.resteasy.reactive.RestForm;
 import org.jboss.resteasy.reactive.multipart.FileUpload;
 
@@ -18,7 +24,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -30,6 +38,10 @@ import java.util.Set;
 public class ProduitCatalogueResource {
 
     private static final String CATEGORIE_IMPORT_DEFAUT = "Non classé";
+    private static final String TYPE_IMPORT_DEFAUT = "Non classé";
+
+    @Inject
+    CatalogueTypeDetector typeDetector;
 
     @GET
     public List<ProduitCatalogueEntity> list() {
@@ -71,8 +83,6 @@ public class ProduitCatalogueResource {
 
     @POST
     @Path("/import")
-    @Transactional
-    @TransactionConfiguration(timeout = 300)
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public ImportResult importCsv(@RestForm("file") FileUpload file) throws IOException {
         ImportResult result = new ImportResult();
@@ -90,13 +100,108 @@ public class ProduitCatalogueResource {
             throw new WebApplicationException("Fichier CSV invalide : colonnes 'Code article'/'Libellé' manquantes", 400);
         }
 
-        if (ReferenceValeurEntity.count("type = ?1 and valeur = ?2", "CATEGORIE_PRODUIT", CATEGORIE_IMPORT_DEFAUT) == 0) {
-            ReferenceValeurEntity categorie = new ReferenceValeurEntity();
-            categorie.type = "CATEGORIE_PRODUIT";
-            categorie.valeur = CATEGORIE_IMPORT_DEFAUT;
-            categorie.ordre = 999;
-            categorie.persist();
+        // Le classement par IA peut prendre du temps : il est fait avant d'ouvrir la transaction.
+        Map<String, CatalogueTypeDetector.Type> typesConnus = typesParRef();
+        Map<String, CatalogueTypeDetector.Detection> detections = detecterTypes(lines, headers, typesConnus, result);
+
+        return QuarkusTransaction.requiringNew().timeout(300)
+                .call(() -> importerLignes(lines, headers, typesConnus, detections, result));
+    }
+
+    private static class LigneImport {
+        String ref;
+        String designation;
+        double prixVenteHT;
+        double prixVenteTTC;
+        double montantTVA;
+        // null quand le fichier ne permet pas de le calculer (prix HT à zéro)
+        Double tva;
+        Long stock;
+        String codeBarre;
+    }
+
+    // Code article -> référentiel dans lequel il est déjà enregistré
+    private Map<String, CatalogueTypeDetector.Type> typesParRef() {
+        Map<String, CatalogueTypeDetector.Type> types = new HashMap<>();
+        ajouterRefs(types, "BateauCatalogueEntity", CatalogueTypeDetector.Type.BATEAU);
+        ajouterRefs(types, "MoteurCatalogueEntity", CatalogueTypeDetector.Type.MOTEUR);
+        ajouterRefs(types, "HeliceCatalogueEntity", CatalogueTypeDetector.Type.HELICE);
+        ajouterRefs(types, "RemorqueCatalogueEntity", CatalogueTypeDetector.Type.REMORQUE);
+        // en dernier : un code article déjà enregistré comme produit reste un produit
+        ajouterRefs(types, "ProduitCatalogueEntity", CatalogueTypeDetector.Type.PRODUIT);
+        return types;
+    }
+
+    private void ajouterRefs(Map<String, CatalogueTypeDetector.Type> types, String entity, CatalogueTypeDetector.Type type) {
+        List<String> refs = Panache.getEntityManager()
+                .createQuery("select e.ref from " + entity + " e where e.ref is not null", String.class)
+                .getResultList();
+        for (String ref : refs) {
+            types.put(ref, type);
         }
+    }
+
+    // Seuls les codes article encore inconnus sont classés : une fiche existante garde son référentiel.
+    private Map<String, CatalogueTypeDetector.Detection> detecterTypes(List<String> lines, Map<String, Integer> headers,
+            Map<String, CatalogueTypeDetector.Type> typesConnus, ImportResult result) {
+        Map<String, String> nouveaux = new LinkedHashMap<>();
+        for (int i = 1; i < lines.size(); i++) {
+            String line = lines.get(i);
+            if (line.isBlank()) {
+                continue;
+            }
+            try {
+                String[] cols = CsvUtils.parseLine(line, ',');
+                String ref = CsvUtils.get(cols, headers, "Code article");
+                String libelle = CsvUtils.get(cols, headers, "Libellé");
+                String statut = CsvUtils.get(cols, headers, "Statut");
+                if (ref == null || libelle == null || typesConnus.containsKey(ref)
+                        || (statut != null && !"Actif".equalsIgnoreCase(statut))) {
+                    continue;
+                }
+                nouveaux.putIfAbsent(ref, CsvUtils.formatIfFullUpperCase(libelle));
+            } catch (Exception e) {
+                // ligne illisible : signalée lors de l'import
+            }
+        }
+
+        Map<String, CatalogueTypeDetector.Detection> detections = new HashMap<>();
+        if (nouveaux.isEmpty()) {
+            return detections;
+        }
+        CatalogueTypeDetector.Resultat resultat = typeDetector.detecter(
+                new ArrayList<>(nouveaux.values()), valeursReference("TYPE_BATEAU"), valeursReference("TYPE_MOTEUR"));
+        int index = 0;
+        for (String ref : nouveaux.keySet()) {
+            detections.put(ref, resultat.detections.get(index++));
+        }
+        result.detection = resultat.mode.name();
+        return detections;
+    }
+
+    private List<String> valeursReference(String type) {
+        List<ReferenceValeurEntity> references = ReferenceValeurEntity.list("type = ?1 order by ordre", type);
+        List<String> valeurs = new ArrayList<>();
+        for (ReferenceValeurEntity reference : references) {
+            valeurs.add(reference.valeur);
+        }
+        return valeurs;
+    }
+
+    private void assurerValeurReference(String type, String valeur) {
+        if (ReferenceValeurEntity.count("type = ?1 and valeur = ?2", type, valeur) == 0) {
+            ReferenceValeurEntity reference = new ReferenceValeurEntity();
+            reference.type = type;
+            reference.valeur = valeur;
+            reference.ordre = 999;
+            reference.persist();
+        }
+    }
+
+    private ImportResult importerLignes(List<String> lines, Map<String, Integer> headers,
+            Map<String, CatalogueTypeDetector.Type> typesConnus, Map<String, CatalogueTypeDetector.Detection> detections,
+            ImportResult result) {
+        assurerValeurReference("CATEGORIE_PRODUIT", CATEGORIE_IMPORT_DEFAUT);
 
         // Evite les collisions avec la contrainte d'unicité sur 'designation' (EBP autorise les libellés
         // en double, ex. "VIS" x14) en désambiguïsant avec le code article, garanti unique.
@@ -115,8 +220,6 @@ public class ProduitCatalogueResource {
                 if (ref == null || libelle == null) {
                     throw new IllegalArgumentException("Code article ou Libellé manquant");
                 }
-                // Le fichier exporte le libellé en majuscules (ex. EBP) : reformate en casse "Titre".
-                libelle = CsvUtils.formatIfFullUpperCase(libelle);
 
                 String statut = CsvUtils.get(cols, headers, "Statut");
                 if (statut != null && !"Actif".equalsIgnoreCase(statut)) {
@@ -124,54 +227,48 @@ public class ProduitCatalogueResource {
                     continue;
                 }
 
-                ProduitCatalogueEntity entity = ProduitCatalogueEntity.find("ref = ?1", ref).firstResult();
-                boolean isNew = entity == null;
-                if (isNew) {
-                    entity = new ProduitCatalogueEntity();
-                    entity.ref = ref;
-                    entity.categorie = CATEGORIE_IMPORT_DEFAUT;
+                LigneImport ligne = new LigneImport();
+                ligne.ref = ref;
+                // Le fichier exporte le libellé en majuscules (ex. EBP) : reformate en casse "Titre".
+                ligne.designation = CsvUtils.formatIfFullUpperCase(libelle);
+                ligne.prixVenteHT = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV HT"));
+                ligne.prixVenteTTC = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV TTC"));
+                if (ligne.prixVenteHT > 0) {
+                    ligne.montantTVA = Math.round((ligne.prixVenteTTC - ligne.prixVenteHT) * 100) / 100.0;
+                    ligne.tva = Math.round((ligne.prixVenteTTC / ligne.prixVenteHT - 1) * 100 * 100) / 100.0;
                 }
-
-                String designation = libelle;
-                boolean conflit = designationsUtiliseesDansImport.contains(designation)
-                        || ProduitCatalogueEntity.count("designation = ?1 and ref != ?2", designation, ref) > 0;
-                if (conflit) {
-                    designation = libelle + " (" + ref + ")";
-                }
-                designationsUtiliseesDansImport.add(designation);
-                entity.designation = designation;
-
-                double prixVenteHT = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV HT"));
-                double prixVenteTTC = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV TTC"));
-                entity.prixVenteHT = prixVenteHT;
-                entity.prixVenteTTC = prixVenteTTC;
-                if (prixVenteHT > 0) {
-                    entity.montantTVA = Math.round((prixVenteTTC - prixVenteHT) * 100) / 100.0;
-                    entity.tva = Math.round((prixVenteTTC / prixVenteHT - 1) * 100 * 100) / 100.0;
-                } else {
-                    entity.montantTVA = 0;
-                    if (isNew) {
-                        entity.tva = 20;
-                    }
-                }
-
                 String stockReel = CsvUtils.get(cols, headers, "Stock réel");
                 if (stockReel != null) {
-                    entity.stock = (int) Math.round(CsvUtils.parseFrenchDecimal(stockReel));
+                    ligne.stock = Math.round(CsvUtils.parseFrenchDecimal(stockReel));
                 }
+                ligne.codeBarre = CsvUtils.get(cols, headers, "Code barre");
 
-                String codeBarre = CsvUtils.get(cols, headers, "Code barre");
-                if (codeBarre != null) {
-                    if (entity.refs == null) {
-                        entity.refs = new ArrayList<>();
-                    }
-                    if (!entity.refs.contains(codeBarre)) {
-                        entity.refs.add(codeBarre);
-                    }
+                CatalogueTypeDetector.Detection detection = detections.get(ref);
+                CatalogueTypeDetector.Type type = typesConnus.containsKey(ref) ? typesConnus.get(ref)
+                        : detection != null ? detection.type : CatalogueTypeDetector.Type.PRODUIT;
+
+                boolean isNew;
+                switch (type) {
+                    case BATEAU:
+                        isNew = importerBateau(ligne, detection);
+                        result.bateaux++;
+                        break;
+                    case MOTEUR:
+                        isNew = importerMoteur(ligne, detection);
+                        result.moteurs++;
+                        break;
+                    case HELICE:
+                        isNew = importerHelice(ligne);
+                        result.helices++;
+                        break;
+                    case REMORQUE:
+                        isNew = importerRemorque(ligne);
+                        result.remorques++;
+                        break;
+                    default:
+                        isNew = importerProduit(ligne, designationsUtiliseesDansImport);
                 }
-
                 if (isNew) {
-                    entity.persist();
                     result.created++;
                 } else {
                     result.updated++;
@@ -183,6 +280,159 @@ public class ProduitCatalogueResource {
         }
 
         return result;
+    }
+
+    private boolean importerProduit(LigneImport ligne, Set<String> designationsUtiliseesDansImport) {
+        ProduitCatalogueEntity entity = ProduitCatalogueEntity.find("ref = ?1", ligne.ref).firstResult();
+        boolean isNew = entity == null;
+        if (isNew) {
+            entity = new ProduitCatalogueEntity();
+            entity.ref = ligne.ref;
+            entity.categorie = CATEGORIE_IMPORT_DEFAUT;
+        }
+
+        String designation = ligne.designation;
+        boolean conflit = designationsUtiliseesDansImport.contains(designation)
+                || ProduitCatalogueEntity.count("designation = ?1 and ref != ?2", designation, ligne.ref) > 0;
+        if (conflit) {
+            designation = ligne.designation + " (" + ligne.ref + ")";
+        }
+        designationsUtiliseesDansImport.add(designation);
+        entity.designation = designation;
+
+        entity.prixVenteHT = ligne.prixVenteHT;
+        entity.prixVenteTTC = ligne.prixVenteTTC;
+        entity.montantTVA = ligne.montantTVA;
+        if (ligne.tva != null) {
+            entity.tva = ligne.tva;
+        } else if (isNew) {
+            entity.tva = 20;
+        }
+        if (ligne.stock != null) {
+            entity.stock = ligne.stock.intValue();
+        }
+        if (ligne.codeBarre != null) {
+            if (entity.refs == null) {
+                entity.refs = new ArrayList<>();
+            }
+            if (!entity.refs.contains(ligne.codeBarre)) {
+                entity.refs.add(ligne.codeBarre);
+            }
+        }
+
+        if (isNew) {
+            entity.persist();
+        }
+        return isNew;
+    }
+
+    // Type de bateau ou de moteur d'une fiche créée par l'import : celui proposé par la détection, sinon "Non classé"
+    private String typeImport(String typeReference, CatalogueTypeDetector.Detection detection) {
+        if (detection != null && detection.sousType != null) {
+            return detection.sousType;
+        }
+        assurerValeurReference(typeReference, TYPE_IMPORT_DEFAUT);
+        return TYPE_IMPORT_DEFAUT;
+    }
+
+    private boolean importerBateau(LigneImport ligne, CatalogueTypeDetector.Detection detection) {
+        BateauCatalogueEntity entity = BateauCatalogueEntity.find("ref = ?1", ligne.ref).firstResult();
+        boolean isNew = entity == null;
+        if (isNew) {
+            entity = new BateauCatalogueEntity();
+            entity.ref = ligne.ref;
+            entity.type = typeImport("TYPE_BATEAU", detection);
+        }
+        entity.designation = ligne.designation;
+        entity.prixVenteHT = ligne.prixVenteHT;
+        entity.prixVenteTTC = ligne.prixVenteTTC;
+        entity.montantTVA = ligne.montantTVA;
+        if (ligne.tva != null) {
+            entity.tva = ligne.tva;
+        } else if (isNew) {
+            entity.tva = 20;
+        }
+        if (ligne.stock != null) {
+            entity.stock = ligne.stock;
+        }
+        if (isNew) {
+            entity.persist();
+        }
+        return isNew;
+    }
+
+    private boolean importerMoteur(LigneImport ligne, CatalogueTypeDetector.Detection detection) {
+        MoteurCatalogueEntity entity = MoteurCatalogueEntity.find("ref = ?1", ligne.ref).firstResult();
+        boolean isNew = entity == null;
+        if (isNew) {
+            entity = new MoteurCatalogueEntity();
+            entity.ref = ligne.ref;
+            entity.type = typeImport("TYPE_MOTEUR", detection);
+        }
+        entity.designation = ligne.designation;
+        entity.prixVenteHT = ligne.prixVenteHT;
+        entity.prixVenteTTC = ligne.prixVenteTTC;
+        entity.montantTVA = ligne.montantTVA;
+        if (ligne.tva != null) {
+            entity.tva = ligne.tva;
+        } else if (isNew) {
+            entity.tva = 20;
+        }
+        if (ligne.stock != null) {
+            entity.stock = ligne.stock;
+        }
+        if (isNew) {
+            entity.persist();
+        }
+        return isNew;
+    }
+
+    // Les hélices ne sont pas gérées en stock
+    private boolean importerHelice(LigneImport ligne) {
+        HeliceCatalogueEntity entity = HeliceCatalogueEntity.find("ref = ?1", ligne.ref).firstResult();
+        boolean isNew = entity == null;
+        if (isNew) {
+            entity = new HeliceCatalogueEntity();
+            entity.ref = ligne.ref;
+        }
+        entity.designation = ligne.designation;
+        entity.prixVenteHT = ligne.prixVenteHT;
+        entity.prixVenteTTC = ligne.prixVenteTTC;
+        entity.montantTVA = ligne.montantTVA;
+        if (ligne.tva != null) {
+            entity.tva = ligne.tva;
+        } else if (isNew) {
+            entity.tva = 20;
+        }
+        if (isNew) {
+            entity.persist();
+        }
+        return isNew;
+    }
+
+    private boolean importerRemorque(LigneImport ligne) {
+        RemorqueCatalogueEntity entity = RemorqueCatalogueEntity.find("ref = ?1", ligne.ref).firstResult();
+        boolean isNew = entity == null;
+        if (isNew) {
+            entity = new RemorqueCatalogueEntity();
+            entity.ref = ligne.ref;
+        }
+        entity.designation = ligne.designation;
+        entity.prixVenteHT = ligne.prixVenteHT;
+        entity.prixVenteTTC = ligne.prixVenteTTC;
+        entity.montantTVA = ligne.montantTVA;
+        if (ligne.tva != null) {
+            entity.tva = ligne.tva;
+        } else if (isNew) {
+            entity.tva = 20;
+        }
+        if (ligne.stock != null) {
+            entity.stock = ligne.stock;
+        }
+        if (isNew) {
+            entity.persist();
+        }
+        return isNew;
     }
 
     @GET

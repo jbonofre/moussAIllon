@@ -92,6 +92,7 @@ public class RemorqueCatalogResource {
             throw new WebApplicationException("La remorque (" + id + ") n'est pas trouvée", 404);
         }
         entity.designation = remorque.designation;
+        entity.ref = remorque.ref;
         entity.description = remorque.description;
         entity.anneeDebut = remorque.anneeDebut;
         entity.anneeFin = remorque.anneeFin;

@@ -13,6 +13,8 @@ public class RemorqueCatalogueEntity extends PanacheEntity {
     @Column(nullable = false)
     public String designation;
 
+    public String ref;
+
     public String description;
 
     public Integer anneeDebut;

@@ -69,6 +69,7 @@ cd technicien-ui && npm install && npm start
 | `AI_ANTHROPIC_API_KEY` | Cle API Anthropic | _(requis pour le chat IA)_ |
 | `AI_OPENAI_MODEL` | Modele OpenAI | `gpt-4o-mini` |
 | `AI_ANTHROPIC_MODEL` | Modele Anthropic | `claude-haiku-4-5-20251001` |
+| `AI_ANTHROPIC_IMPORT_DETECTION_ENABLED` | Detection par IA des bateaux, moteurs, helices et remorques a l'import du catalogue (les designations sont envoyees a Anthropic ; sinon detection par mots-cles) | `true` |
 | `STRIPE_API_KEY` | Cle API Stripe | _(requis pour paiements Stripe)_ |
 | `PAYPLUG_API_KEY` | Cle API PayPlug | _(requis pour paiements PayPlug)_ |
 | `MAILER_FROM` | Expediteur email | `noreply@moussaillon.local` |

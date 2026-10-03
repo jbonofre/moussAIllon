@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Button, Upload, Modal, List, Space, Tag, message } from 'antd';
+import { Alert, Button, Upload, Modal, List, Space, Tag, message } from 'antd';
 import type { UploadProps } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import api from './api.ts';
@@ -11,7 +11,20 @@ interface ImportResult {
     skipped: number;
     errors: number;
     errorDetails: string[];
+    // Import du catalogue : lignes reconnues comme bateau, moteur, hélice ou remorque
+    bateaux?: number;
+    moteurs?: number;
+    helices?: number;
+    remorques?: number;
+    detection?: 'REGLES' | 'IA' | 'IA_PARTIELLE' | 'IA_ECHEC';
 }
+
+const detectionLabels: Record<string, string> = {
+    IA: "Les nouvelles lignes ont été classées par l'IA.",
+    REGLES: "Les nouvelles lignes ont été classées par mots-clés (IA non configurée).",
+    IA_PARTIELLE: "L'IA n'a classé qu'une partie des nouvelles lignes : les autres ont été classées par mots-clés.",
+    IA_ECHEC: "L'appel à l'IA a échoué : les nouvelles lignes ont été classées par mots-clés.",
+};
 
 interface ImportCsvButtonProps {
     endpoint: string;
@@ -64,6 +77,22 @@ const ImportCsvButton: React.FC<ImportCsvButtonProps> = ({ endpoint, label = 'Im
                             <Tag color="default">Ignorés : {result.skipped}</Tag>
                             <Tag color={result.errors ? 'red' : 'default'}>Erreurs : {result.errors}</Tag>
                         </Space>
+                        {(result.bateaux || result.moteurs || result.helices || result.remorques) ? (
+                            <Space wrap style={{ marginBottom: 12 }}>
+                                {!!result.bateaux && <Tag color="cyan">Bateaux : {result.bateaux}</Tag>}
+                                {!!result.moteurs && <Tag color="purple">Moteurs : {result.moteurs}</Tag>}
+                                {!!result.helices && <Tag color="blue">Hélices : {result.helices}</Tag>}
+                                {!!result.remorques && <Tag color="gold">Remorques : {result.remorques}</Tag>}
+                            </Space>
+                        ) : null}
+                        {result.detection && (
+                            <Alert
+                                type={result.detection === 'IA' ? 'info' : 'warning'}
+                                showIcon
+                                title={detectionLabels[result.detection]}
+                                style={{ marginBottom: 12 }}
+                            />
+                        )}
                         {result.errorDetails && result.errorDetails.length > 0 && (
                             <List
                                 size="small"
