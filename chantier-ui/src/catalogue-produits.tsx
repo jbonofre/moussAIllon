@@ -31,7 +31,7 @@ interface TypeProduitConfig {
 }
 
 const TYPES_PRODUIT: Record<TypeProduit, TypeProduitConfig> = {
-    produit: { label: 'Produit', pluriel: 'Produits', article: 'un produit', demonstratif: 'ce produit', feminin: false, endpoint: '/catalogue/produits', color: 'orange' },
+    produit: { label: 'Article', pluriel: 'Articles', article: 'un article', demonstratif: 'cet article', feminin: false, endpoint: '/catalogue/produits', color: 'orange' },
     bateau: { label: 'Bateau', pluriel: 'Bateaux', article: 'un bateau', demonstratif: 'ce bateau', feminin: false, endpoint: '/catalogue/bateaux', color: 'cyan', forfaitField: 'bateauxAssocies' },
     moteur: { label: 'Moteur', pluriel: 'Moteurs', article: 'un moteur', demonstratif: 'ce moteur', feminin: false, endpoint: '/catalogue/moteurs', color: 'purple', forfaitField: 'moteursAssocies' },
     helice: { label: 'Hélice', pluriel: 'Hélices', article: 'une hélice', demonstratif: 'cette hélice', feminin: true, endpoint: '/catalogue/helices', color: 'blue' },
@@ -843,7 +843,7 @@ const CatalogueProduits: React.FC = () => {
                                 ]}
                             />
                             <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
-                            <ImportCsvButton endpoint="/catalogue/produits/import" label="Importer des produits (CSV)" onImported={() => fetchCatalogue(['produit'])} />
+                            <ImportCsvButton endpoint="/catalogue/produits/import" label="Importer des articles (CSV)" onImported={() => fetchCatalogue(['produit'])} />
                         </Space>
                     </Col>
                 </Row>
