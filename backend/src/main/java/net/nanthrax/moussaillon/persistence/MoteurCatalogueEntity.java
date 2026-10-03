@@ -17,6 +17,8 @@ public class MoteurCatalogueEntity extends PanacheEntity {
     @Column(nullable = false)
     public String designation;
 
+    public String ref;
+
     @Column(nullable = false)
     public String type;
 

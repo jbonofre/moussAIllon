@@ -86,7 +86,8 @@ describe('CatalogueProduits', () => {
         expect(await screen.findByText('Modifier un bateau')).toBeInTheDocument();
         expect(screen.getByLabelText('Longueur coque')).toBeInTheDocument();
         expect(screen.getByLabelText('Type de bateau')).toBeInTheDocument();
-        expect(screen.queryByLabelText('Référence interne')).not.toBeInTheDocument();
+        expect(screen.getByLabelText('Référence interne')).toBeInTheDocument();
+        expect(screen.queryByLabelText('Catégorie', { selector: 'input' })).not.toBeInTheDocument();
         expect(screen.queryByLabelText('PTAC')).not.toBeInTheDocument();
         expect(screen.getByTestId('fournisseurs-bateau')).toBeInTheDocument();
         expect(typeProduitSelect()).toBeDisabled();
@@ -97,7 +98,7 @@ describe('CatalogueProduits', () => {
         fireEvent.click(document.querySelector('.anticon-plus-circle')!.closest('button')!);
 
         expect(await screen.findByText('Ajouter un article')).toBeInTheDocument();
-        expect(screen.getByLabelText('Référence interne')).toBeInTheDocument();
+        expect(screen.getByLabelText('Catégorie', { selector: 'input' })).toBeInTheDocument();
         // l'en-tête de colonne triable porte le même libellé : on cible le champ du formulaire
         fireEvent.change(screen.getByLabelText('Désignation', { selector: 'input' }), { target: { value: 'Inox 14x21' } });
 
@@ -112,7 +113,7 @@ describe('CatalogueProduits', () => {
 
         expect(await screen.findByText('Ajouter une hélice')).toBeInTheDocument();
         expect(screen.getByLabelText('Diamètre')).toBeInTheDocument();
-        expect(screen.queryByLabelText('Référence interne')).not.toBeInTheDocument();
+        expect(screen.queryByLabelText('Catégorie', { selector: 'input' })).not.toBeInTheDocument();
         expect(screen.queryByLabelText('Stock', { selector: 'input' })).not.toBeInTheDocument();
         // les champs communs déjà saisis sont conservés
         expect(screen.getByLabelText('Désignation', { selector: 'input' })).toHaveValue('Inox 14x21');

@@ -64,6 +64,7 @@ public class MoteurCatalogueResource {
 
         // update the relevant fields
         entity.designation = moteur.designation;
+        entity.ref = moteur.ref;
         entity.type = moteur.type;
         entity.description = moteur.description;
         entity.anneeDebut = moteur.anneeDebut;

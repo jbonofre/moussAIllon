@@ -326,4 +326,150 @@ public class ProduitCatalogueResourceTest {
             .then()
             .statusCode(400);
     }
+
+    @Test
+    void testImporterProduitsCsvDetecteLesTypes() {
+        // La détection par IA est désactivée dans les tests : les types sont reconnus par les règles.
+        String entete = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n";
+        String csv = entete
+            + "DET001,Quicksilver Open Activ 605,Bien,\"20000,00000\",,\"24000,00000\",,\"1,00\",\"1,00\",Actif,Coché\r\n"
+            + "DET002,Mercury F115 EFI,Bien,\"10000,00000\",,\"12000,00000\",,\"2,00\",\"2,00\",Actif,Coché\r\n"
+            + "DET003,Hélice Solas Amita 13x19,Bien,\"100,00000\",,\"120,00000\",,\"0,00\",\"0,00\",Actif,Coché\r\n"
+            + "DET004,Remorque Satellite MX751,Bien,\"1500,00000\",,\"1800,00000\",,\"1,00\",\"1,00\",Actif,Coché\r\n"
+            + "DET005,Huile Quicksilver 4T 25W40,Bien,\"10,00000\",,\"12,00000\",,\"8,00\",\"8,00\",Actif,Coché\r\n";
+
+        given()
+            .multiPart("file", "produits.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("total", is(5))
+            .body("created", is(5))
+            .body("errors", is(0))
+            .body("bateaux", is(1))
+            .body("moteurs", is(1))
+            .body("helices", is(1))
+            .body("remorques", is(1))
+            .body("detection", is("REGLES"));
+
+        given()
+            .queryParam("q", "Activ 605")
+            .when().get("/catalogue/bateaux/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].designation", is("Quicksilver Open Activ 605"))
+            .body("[0].ref", is("DET001"))
+            .body("[0].type", is("Non classé"))
+            .body("[0].stock", is(1))
+            .body("[0].prixVenteHT", is(20000.0f))
+            .body("[0].prixVenteTTC", is(24000.0f))
+            .body("[0].tva", is(20.0f));
+
+        given()
+            .queryParam("type", "TYPE_BATEAU")
+            .when().get("/reference-valeurs")
+            .then()
+            .statusCode(200)
+            .body("valeur", hasItem("Non classé"));
+
+        given()
+            .queryParam("q", "F115 EFI")
+            .when().get("/catalogue/moteurs/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].ref", is("DET002"))
+            .body("[0].type", is("Non classé"))
+            .body("[0].stock", is(2));
+
+        given()
+            .queryParam("designation", "Solas Amita")
+            .when().get("/catalogue/helices/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].ref", is("DET003"))
+            .body("[0].prixVenteTTC", is(120.0f));
+
+        given()
+            .queryParam("q", "Satellite MX751")
+            .when().get("/catalogue/remorques/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].ref", is("DET004"))
+            .body("[0].stock", is(1));
+
+        // seule l'huile est un produit
+        given()
+            .queryParam("q", "DET00")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].designation", is("Huile Quicksilver 4T 25W40"));
+
+        // Ré-importer met à jour chaque fiche dans son référentiel (retrouvée par Code article) sans la dupliquer.
+        String csvMaj = entete
+            + "DET001,Quicksilver Open Activ 605,Bien,\"21000,00000\",,\"25200,00000\",,\"3,00\",\"3,00\",Actif,Coché\r\n"
+            + "DET004,Remorque Satellite MX751,Bien,\"1500,00000\",,\"1800,00000\",,\"0,00\",\"0,00\",Actif,Coché\r\n";
+        given()
+            .multiPart("file", "produits.csv", csvMaj.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(0))
+            .body("updated", is(2))
+            .body("bateaux", is(1))
+            .body("remorques", is(1))
+            .body("detection", nullValue());
+
+        given()
+            .queryParam("q", "Activ 605")
+            .when().get("/catalogue/bateaux/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].stock", is(3))
+            .body("[0].prixVenteTTC", is(25200.0f));
+    }
+
+    @Test
+    void testImporterProduitsCsvGardeLesProduitsExistants() {
+        // Un code article déjà enregistré comme produit reste un produit, même si sa désignation évoque un bateau.
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Zodiac Cadet 310 Aero\",\"categorie\":\"Annexes\",\"ref\":\"EXI001\",\"stock\":1}")
+            .when().post("/catalogue/produits")
+            .then()
+            .statusCode(200);
+
+        String csv = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n"
+            + "EXI001,Zodiac Cadet 310 Aero,Bien,\"1000,00000\",,\"1200,00000\",,\"2,00\",\"2,00\",Actif,Coché\r\n";
+
+        given()
+            .multiPart("file", "produits.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(0))
+            .body("updated", is(1))
+            .body("bateaux", is(0));
+
+        given()
+            .queryParam("q", "Cadet 310")
+            .when().get("/catalogue/bateaux/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(0));
+
+        given()
+            .queryParam("q", "EXI001")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].stock", is(2));
+    }
 }
