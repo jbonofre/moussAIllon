@@ -821,8 +821,8 @@ export default function Vente() {
                 label: 'Produits',
                 options: produits.map((p) => ({
                     value: `produit:${p.id}`,
-                    label: p.designation,
-                    searchText: p.designation.toLowerCase(),
+                    label: p.ref ? `${p.ref} - ${p.designation}` : p.designation,
+                    searchText: `${p.ref || ''} ${p.designation} ${(p.refs || []).join(' ')}`.toLowerCase(),
                 })),
             },
             {
@@ -1690,31 +1690,31 @@ export default function Vente() {
 
     const getBpaSummaryLines = useCallback(() => {
         const allLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
-        const lines: Array<{ type: string; nom: string; quantite: number; prixTTC: number }> = [];
+        const lines: Array<{ type: string; reference?: string; nom: string; quantite: number; prixTTC: number }> = [];
         allLignes.forEach((line) => {
             if (!line.type || !line.itemId) return;
             const quantite = line.quantite || 1;
             if (line.type === 'forfait') {
                 const f = forfaits.find((item) => item.id === line.itemId);
-                if (f) lines.push({ type: 'Forfait', nom: f.nom, quantite, prixTTC: (f.prixTTC || 0) * quantite });
+                if (f) lines.push({ type: 'Forfait', reference: f.reference || '-', nom: f.nom, quantite, prixTTC: (f.prixTTC || 0) * quantite });
             } else if (line.type === 'service') {
                 const s = services.find((item) => item.id === line.itemId);
-                if (s) lines.push({ type: 'Service', nom: s.nom, quantite, prixTTC: (s.prixTTC || 0) * quantite });
+                if (s) lines.push({ type: 'Service', reference: '-', nom: s.nom, quantite, prixTTC: (s.prixTTC || 0) * quantite });
             } else if (line.type === 'produit') {
                 const p = produits.find((item) => item.id === line.itemId);
-                if (p) lines.push({ type: 'Produit', nom: p.designation, quantite, prixTTC: (p.prixVenteTTC || 0) * quantite });
+                if (p) lines.push({ type: 'Produit', reference: p.ref || '-', nom: p.designation, quantite, prixTTC: (p.prixVenteTTC || 0) * quantite });
             } else if (line.type === 'bateau') {
                 const b = catalogueBateaux.find((item) => item.id === line.itemId);
-                if (b) lines.push({ type: 'Bateau', nom: b.designation, quantite, prixTTC: (b.prixVenteTTC || 0) * quantite });
+                if (b) lines.push({ type: 'Bateau', reference: '-', nom: b.designation, quantite, prixTTC: (b.prixVenteTTC || 0) * quantite });
             } else if (line.type === 'moteur') {
                 const m = catalogueMoteurs.find((item) => item.id === line.itemId);
-                if (m) lines.push({ type: 'Moteur', nom: m.designation, quantite, prixTTC: (m.prixVenteTTC || 0) * quantite });
+                if (m) lines.push({ type: 'Moteur', reference: '-', nom: m.designation, quantite, prixTTC: (m.prixVenteTTC || 0) * quantite });
             } else if (line.type === 'helice') {
                 const h = catalogueHelices.find((item) => item.id === line.itemId);
-                if (h) lines.push({ type: 'Hélice', nom: h.designation, quantite, prixTTC: (h.prixVenteTTC || 0) * quantite });
+                if (h) lines.push({ type: 'Hélice', reference: '-', nom: h.designation, quantite, prixTTC: (h.prixVenteTTC || 0) * quantite });
             } else if (line.type === 'remorque') {
                 const r = catalogueRemorques.find((item) => item.id === line.itemId);
-                if (r) lines.push({ type: 'Remorque', nom: r.designation, quantite, prixTTC: (r.prixVenteTTC || 0) * quantite });
+                if (r) lines.push({ type: 'Remorque', reference: '-', nom: r.designation, quantite, prixTTC: (r.prixVenteTTC || 0) * quantite });
             }
         });
         return lines;
@@ -2301,7 +2301,7 @@ export default function Vente() {
             const remise = vf.remise || 0;
             const brut = puTTC * quantite;
             return {
-                type: 'Forfait', label: vf.forfait?.nom || '', quantite,
+                type: 'Forfait', reference: vf.forfait?.reference || '', label: vf.forfait?.nom || '', quantite,
                 puTTC,
                 remise, remisePct: vf.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - remise),
@@ -2313,7 +2313,7 @@ export default function Vente() {
             const remise = vs.remise || 0;
             const brut = puTTC * quantite;
             return {
-                type: 'Service', label: vs.service?.nom || '', quantite,
+                type: 'Service', reference: '', label: vs.service?.nom || '', quantite,
                 puTTC,
                 remise, remisePct: vs.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - remise),
@@ -2321,12 +2321,13 @@ export default function Vente() {
         };
         const lineFromProduit = (vp: VenteProduitLigne) => {
             const label = vp.produit?.designation || '';
+            const reference = vp.produit?.ref || '';
             const puTTC = vp.produit?.prixVenteTTC || 0;
             const quantite = vp.quantite || 1;
             const remise = vp.remise || 0;
             const brut = puTTC * quantite;
             return {
-                type: 'Produit', label, quantite,
+                type: 'Produit', reference, label, quantite,
                 puTTC,
                 remise, remisePct: vp.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - remise),
@@ -2337,7 +2338,7 @@ export default function Vente() {
             const quantite = qty || 1;
             const brut = puTTC * quantite;
             return {
-                type: typeLabel, label: item?.designation || '', quantite,
+                type: typeLabel, reference: '', label: item?.designation || '', quantite,
                 puTTC,
                 remise: remise || 0, remisePct: remisePourcentage ?? computeRemisePct(remise || 0, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - (remise || 0)),
@@ -3267,6 +3268,13 @@ export default function Vente() {
                                                         )
                                                         : undefined;
 
+                                                    const getReference = () => {
+                                                        if (!lineType || !itemId) return '';
+                                                        if (lineType === 'produit') return produits.find((p) => p.id === itemId)?.ref || '';
+                                                        if (lineType === 'forfait') return forfaits.find((f) => f.id === itemId)?.reference || '';
+                                                        return '';
+                                                    };
+
                                                     return (
                                                     <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
                                                         <Form.Item
@@ -3280,6 +3288,9 @@ export default function Vente() {
                                                             hidden
                                                         >
                                                             <InputNumber />
+                                                        </Form.Item>
+                                                        <Form.Item style={{ width: 120 }}>
+                                                            <Input disabled value={getReference()} placeholder="Référence" />
                                                         </Form.Item>
                                                         <Form.Item style={{ width: 320 }}>
                                                             {lineType === 'service' ? (
@@ -4668,7 +4679,8 @@ export default function Vente() {
                         dataSource={getBpaSummaryLines()}
                         rowKey={(_, idx) => `bpa-${idx}`}
                         columns={[
-                            { title: 'Type', dataIndex: 'type', width: 100 },
+                            { title: 'Type', dataIndex: 'type', width: 90 },
+                            { title: 'Référence', dataIndex: 'reference', width: 120, render: (v: string) => v || '-' },
                             { title: 'Désignation', dataIndex: 'nom' },
                             { title: 'Qté', dataIndex: 'quantite', width: 60, align: 'center' as const },
                             ...(!form.getFieldValue('ordreDeReparation') ? [
@@ -4682,17 +4694,17 @@ export default function Vente() {
                             return (
                                 <>
                                     <Table.Summary.Row>
-                                        <Table.Summary.Cell index={0} colSpan={3} align="right"><strong>Total TTC</strong></Table.Summary.Cell>
+                                        <Table.Summary.Cell index={0} colSpan={4} align="right"><strong>Total TTC</strong></Table.Summary.Cell>
                                         <Table.Summary.Cell index={1} align="right"><strong>{formatEuro(total)}</strong></Table.Summary.Cell>
                                     </Table.Summary.Row>
                                     {remise > 0 && (
                                         <Table.Summary.Row>
-                                            <Table.Summary.Cell index={0} colSpan={3} align="right">Remise</Table.Summary.Cell>
+                                            <Table.Summary.Cell index={0} colSpan={4} align="right">Remise</Table.Summary.Cell>
                                             <Table.Summary.Cell index={1} align="right">-{formatEuro(remise)}</Table.Summary.Cell>
                                         </Table.Summary.Row>
                                     )}
                                     <Table.Summary.Row>
-                                        <Table.Summary.Cell index={0} colSpan={3} align="right"><strong>Prix vente TTC</strong></Table.Summary.Cell>
+                                        <Table.Summary.Cell index={0} colSpan={4} align="right"><strong>Prix vente TTC</strong></Table.Summary.Cell>
                                         <Table.Summary.Cell index={1} align="right"><strong>{formatEuro(prixVente)}</strong></Table.Summary.Cell>
                                     </Table.Summary.Row>
                                 </>

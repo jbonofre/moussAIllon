@@ -5,8 +5,16 @@ import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
 
 interface ForfaitRef { id: number; nom: string; reference?: string; prixTTC?: number }
-interface ProduitRef { id: number; designation: string; prixVenteTTC?: number }
+interface ProduitRef { id: number; designation: string; ref?: string; prixVenteTTC?: number }
 interface ServiceRef { id: number; nom: string; prixTTC?: number }
+
+interface VenteProduitEntry {
+    id?: number;
+    produit?: ProduitRef;
+    quantite?: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
 
 interface VenteForfaitEntry {
     id?: number;
@@ -82,6 +90,7 @@ interface VenteEntity {
     paiements?: VentePaiement[];
     venteForfaits?: VenteForfaitEntry[];
     venteServices?: VenteServiceEntry[];
+    venteProduits?: VenteProduitEntry[];
     produits?: ProduitRef[];
     forfaits?: ForfaitRef[];
     services?: ServiceRef[];
@@ -137,6 +146,7 @@ const getDocTitle = (docType: DocType) => {
 interface DocLine {
     key: string;
     type: string;
+    reference?: string;
     designation: string;
     quantite: number;
     prixUnitaire: number;
@@ -164,7 +174,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         const qty = vf.quantite || 1;
         const remise = vf.remise || 0;
         lines.push({
-            key: `vf-${vf.id}`, type: 'Forfait', designation: vf.forfait.nom, quantite: qty,
+            key: `vf-${vf.id}`, type: 'Forfait', reference: vf.forfait.reference || '', designation: vf.forfait.nom, quantite: qty,
             prixUnitaire: pu,
             remise, remisePct: vf.remisePourcentage ?? remisePourcentFacture(remise, pu, qty),
             totalTTC: Math.max(0, pu * qty - remise),
@@ -178,9 +188,23 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         const qty = vs.quantite || 1;
         const remise = vs.remise || 0;
         lines.push({
-            key: `vs-${vs.id}`, type: 'Service', designation: vs.service.nom, quantite: qty,
+            key: `vs-${vs.id}`, type: 'Service', reference: '', designation: vs.service.nom, quantite: qty,
             prixUnitaire: pu,
             remise, remisePct: vs.remisePourcentage ?? remisePourcentFacture(remise, pu, qty),
+            totalTTC: Math.max(0, pu * qty - remise),
+        });
+    });
+
+    // venteProduits (prestation-style)
+    (vente.venteProduits || []).forEach((vp) => {
+        if (!vp.produit) return;
+        const pu = vp.produit.prixVenteTTC || 0;
+        const qty = vp.quantite || 1;
+        const remise = vp.remise || 0;
+        lines.push({
+            key: `vp-${vp.id}`, type: 'Produit', reference: vp.produit.ref || '', designation: vp.produit.designation,
+            quantite: qty, prixUnitaire: pu,
+            remise, remisePct: vp.remisePourcentage ?? remisePourcentFacture(remise, pu, qty),
             totalTTC: Math.max(0, pu * qty - remise),
         });
     });
@@ -189,7 +213,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
     (vente.forfaits || []).forEach((f, i) => {
         const pu = f.prixTTC || 0;
         lines.push({
-            key: `f-${f.id}-${i}`, type: 'Forfait', designation: f.reference ? `${f.reference} - ${f.nom}` : f.nom,
+            key: `f-${f.id}-${i}`, type: 'Forfait', reference: f.reference || '', designation: f.nom,
             quantite: 1, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu,
         });
     });
@@ -198,12 +222,12 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
     (vente.services || []).forEach((s, i) => {
         const pu = s.prixTTC || 0;
         lines.push({
-            key: `s-${s.id}-${i}`, type: 'Service', designation: s.nom,
+            key: `s-${s.id}-${i}`, type: 'Service', reference: '', designation: s.nom,
             quantite: 1, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu,
         });
     });
 
-    // produits (grouped by id)
+    // flat produits (grouped by id)
     const produitMap = new Map<number, { produit: ProduitRef; quantite: number }>();
     (vente.produits || []).forEach((p) => {
         const existing = produitMap.get(p.id);
@@ -212,7 +236,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
     produitMap.forEach(({ produit, quantite }, id) => {
         const pu = produit.prixVenteTTC || 0;
         lines.push({
-            key: `p-${id}`, type: 'Produit', designation: produit.designation,
+            key: `p-${id}`, type: 'Produit', reference: produit.ref || '', designation: produit.designation,
             quantite, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu * quantite,
         });
     });
@@ -373,6 +397,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
         const tableHtml = lines.length > 0
             ? `<table class="invoice-table">
                 <thead><tr>
+                    <th>Référence</th>
                     <th>Description</th>
                     <th class="num">Qté</th>
                     ${showPrices ? '<th class="num">% Rem</th><th class="num">TVA</th><th class="num">P.U. TTC</th><th class="num">Montant TTC</th>' : ''}
@@ -381,6 +406,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                     const remisePct = Math.min(100, Math.max(0, line.remisePct));
                     return `
                     <tr>
+                        <td>${escapeHtml(line.reference || '-')}</td>
                         <td>${escapeHtml(line.type)} — ${escapeHtml(line.designation)}</td>
                         <td class="num">${line.quantite}</td>
                         ${showPrices ? `<td class="num">${remisePct > 0 ? remisePct.toFixed(2) : '-'}</td>` : ''}
@@ -596,7 +622,8 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
     const detailLines = detailVente ? buildLines(detailVente) : [];
 
     const detailColumns = [
-        { title: 'Type', dataIndex: 'type', width: 100 },
+        { title: 'Type', dataIndex: 'type', width: 90 },
+        { title: 'Référence', dataIndex: 'reference', width: 120, render: (v: string) => v || '-' },
         { title: 'Désignation', dataIndex: 'designation' },
         { title: 'Qté', dataIndex: 'quantite', width: 60, align: 'center' as const },
         ...(detailShowPrices ? [

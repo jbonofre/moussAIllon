@@ -25,6 +25,7 @@ export interface InvoicePrintClient {
 
 export interface InvoicePrintLine {
     type: string;
+    reference?: string;
     label: string;
     quantite: number;
     puTTC: number;
@@ -82,6 +83,7 @@ export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPri
     const { showPrices, tva } = opts;
     return `<table class="invoice-table">
         <thead><tr>
+            <th>Référence</th>
             <th>Description</th>
             <th class="num">Qté</th>
             ${showPrices ? '<th class="num">% Rem</th><th class="num">TVA</th><th class="num">P.U. TTC</th><th class="num">Montant TTC</th>' : ''}
@@ -90,6 +92,7 @@ export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPri
             const remisePct = Math.min(100, Math.max(0, line.remisePct));
             return `
             <tr>
+                <td>${escapeHtml(line.reference || '-')}</td>
                 <td>${escapeHtml(line.type)} — ${escapeHtml(line.label)}</td>
                 <td class="num">${line.quantite}</td>
                 ${showPrices ? `<td class="num">${remisePct > 0 ? remisePct.toFixed(2) : '-'}</td>` : ''}
