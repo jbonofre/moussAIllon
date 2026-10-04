@@ -2955,7 +2955,7 @@ export default function Vente() {
     ];
 
     return (
-        <Card title="Prestations">
+        <Card title="Transactions/Prestations">
             <Space style={{ marginBottom: 16 }}>
                 <Input.Search
                     placeholder="Recherche"
@@ -3003,7 +3003,7 @@ export default function Vente() {
             </Row>
 
             <Modal
-                title={isEdit ? 'Modifier une vente' : 'Ajouter une vente'}
+                title="Transaction/Prestation"
                 open={modalVisible}
                 onCancel={handleModalCancel}
                 footer={[
