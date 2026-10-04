@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Modal, Tabs, Descriptions, Tag, Image, Button, Spin, Rate, Space, Typography, List, Popover, message } from 'antd';
+import { Modal, Tabs, Descriptions, Tag, Image, Button, Spin, Space, Typography, List, Popover, message } from 'antd';
 import { DownloadOutlined, FileOutlined, FilePdfOutlined, FileWordOutlined, FileExcelOutlined, EyeOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import api from './api.ts';
-import FournisseurProduits from './fournisseur-produits.tsx';
-import ProduitHistorique from './produit-historique.tsx';
+import ProduitFormModal from './ProduitFormModal.tsx';
 import FournisseurBateaux from './fournisseur-bateaux.tsx';
 import FournisseurMoteurs from './fournisseur-moteurs.tsx';
 import FournisseurHelices from './fournisseur-helices.tsx';
@@ -16,7 +15,6 @@ export interface FicheCatalogueModalProps {
     onClose: () => void;
     type?: string;
     itemId?: number;
-    produits?: any[];
     catalogueBateaux?: any[];
     catalogueMoteurs?: any[];
     catalogueHelices?: any[];
@@ -60,7 +58,6 @@ export default function FicheCatalogueModal({
     onClose,
     type,
     itemId,
-    produits = [],
     catalogueBateaux = [],
     catalogueMoteurs = [],
     catalogueHelices = [],
@@ -81,10 +78,7 @@ export default function FicheCatalogueModal({
         let initial: any = null;
         let endpoint = '';
 
-        if (type === 'produit') {
-            initial = produits.find((p) => p.id === itemId);
-            endpoint = `/catalogue/produits/${itemId}`;
-        } else if (type === 'bateau') {
+        if (type === 'bateau') {
             initial = catalogueBateaux.find((b) => b.id === itemId);
             endpoint = `/catalogue/bateaux/${itemId}`;
         } else if (type === 'moteur') {
@@ -121,15 +115,13 @@ export default function FicheCatalogueModal({
                     setLoading(false);
                 });
         }
-    }, [open, type, itemId, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques, forfaits, services]);
+    }, [open, type, itemId, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques, forfaits, services]);
 
     if (!type || !itemId) return null;
 
     const item = itemDetails;
     const titleLabel =
-        type === 'produit'
-            ? 'Fiche produit'
-            : type === 'bateau'
+        type === 'bateau'
             ? 'Fiche bateau'
             : type === 'moteur'
             ? 'Fiche moteur'
@@ -217,82 +209,7 @@ export default function FicheCatalogueModal({
 
         const tabs = [];
 
-        if (type === 'produit') {
-            const generalItems = [
-                { key: 'des', label: 'Désignation', children: item.designation || '-' },
-                { key: 'cat', label: 'Catégorie', children: <Tag color="blue">{item.categorie || '-'}</Tag> },
-                { key: 'ref', label: 'Référence interne', children: item.ref || '-' },
-                {
-                    key: 'refs',
-                    label: 'Réf. complémentaires',
-                    children: item.refs && item.refs.length > 0 ? item.refs.join(', ') : '-',
-                },
-                {
-                    key: 'annees',
-                    label: 'Années',
-                    children: item.anneeDebut && item.anneeFin ? `${item.anneeDebut} - ${item.anneeFin}` : '-',
-                },
-                {
-                    key: 'eval',
-                    label: 'Évaluation',
-                    children: item.evaluation ? <Rate disabled allowHalf value={item.evaluation} /> : '-',
-                },
-                { key: 'emp', label: 'Emplacement atelier', children: item.emplacement || '-' },
-                { key: 'empMagasin', label: 'Emplacement magasin', children: item.emplacementMagasin || '-' },
-                {
-                    key: 'stk',
-                    label: 'Stock actuel',
-                    children: (
-                        <Tag color={item.stock > (item.stockMini || 0) ? 'green' : item.stock > 0 ? 'orange' : 'red'}>
-                            {item.stock != null ? `${item.stock} en stock` : '-'}
-                        </Tag>
-                    ),
-                },
-                { key: 'stkMini', label: "Stock d'alerte", children: item.stockMini != null ? item.stockMini : '-' },
-                { key: 'ht', label: 'Prix de vente HT', children: formatEuro(item.prixVenteHT) },
-                { key: 'tva', label: 'TVA', children: item.tva != null ? `${item.tva}%` : '-' },
-                { key: 'mtva', label: 'Montant TVA', children: formatEuro(item.montantTVA) },
-                {
-                    key: 'ttc',
-                    label: 'Prix de vente TTC',
-                    children: <strong style={{ color: '#1677ff' }}>{formatEuro(item.prixVenteTTC)}</strong>,
-                },
-            ];
-
-            tabs.push({
-                key: 'general',
-                label: 'Informations générales',
-                children: (
-                    <div>
-                        {renderImages(item.images)}
-                        <Descriptions bordered size="small" column={{ xs: 1, sm: 2 }} items={generalItems} />
-                        {item.description && (
-                            <div style={{ marginTop: 16 }}>
-                                <Text strong style={{ display: 'block', marginBottom: 4 }}>
-                                    Description
-                                </Text>
-                                <Paragraph style={{ whiteSpace: 'pre-wrap', backgroundColor: '#fafafa', padding: 8, borderRadius: 6 }}>
-                                    {item.description}
-                                </Paragraph>
-                            </div>
-                        )}
-                        {renderDocuments(item.documents)}
-                    </div>
-                ),
-            });
-
-            tabs.push({
-                key: 'fournisseurs',
-                label: 'Fournisseurs',
-                children: <FournisseurProduits produitId={item.id} />,
-            });
-
-            tabs.push({
-                key: 'historique',
-                label: 'Historique & Mouvements',
-                children: <ProduitHistorique produitId={item.id} />,
-            });
-        } else if (type === 'bateau') {
+        if (type === 'bateau') {
             const generalItems = [
                 { key: 'des', label: 'Désignation', children: item.designation || '-' },
                 { key: 'type', label: 'Type', children: item.type || '-' },
@@ -647,6 +564,7 @@ export interface FicheCataloguePopoverProps {
     forfaits?: any[];
     services?: any[];
     navigate?: (route: string) => void;
+    onProduitSaved?: (produit: any) => void;
 }
 
 export function FicheCataloguePopover({
@@ -659,6 +577,7 @@ export function FicheCataloguePopover({
     catalogueRemorques = [],
     forfaits = [],
     services = [],
+    onProduitSaved,
 }: FicheCataloguePopoverProps) {
     const [modalOpen, setModalOpen] = useState(false);
     const [popoverOpen, setPopoverOpen] = useState(false);
@@ -667,10 +586,12 @@ export function FicheCataloguePopover({
 
     let items: { label: string; value: React.ReactNode }[] = [];
     let titre = '';
+    let produit: any = null;
 
     if (type === 'produit') {
         const p = produits.find((x) => x.id === itemId);
         if (!p) return null;
+        produit = p;
         titre = p.designation;
         items = [
             { label: 'Référence', value: p.ref || '-' },
@@ -765,19 +686,30 @@ export function FicheCataloguePopover({
             >
                 <Button icon={<InfoCircleOutlined />} title="Fiche produit" size="small" />
             </Popover>
-            <FicheCatalogueModal
-                open={modalOpen}
-                onClose={() => setModalOpen(false)}
-                type={type}
-                itemId={itemId}
-                produits={produits}
-                catalogueBateaux={catalogueBateaux}
-                catalogueMoteurs={catalogueMoteurs}
-                catalogueHelices={catalogueHelices}
-                catalogueRemorques={catalogueRemorques}
-                forfaits={forfaits}
-                services={services}
-            />
+            {type === 'produit' ? (
+                // Monté à l'ouverture seulement : une fiche éditable par ligne de vente serait trop coûteuse
+                modalOpen && (
+                    <ProduitFormModal
+                        open={modalOpen}
+                        produit={produit}
+                        onClose={() => setModalOpen(false)}
+                        onSaved={onProduitSaved}
+                    />
+                )
+            ) : (
+                <FicheCatalogueModal
+                    open={modalOpen}
+                    onClose={() => setModalOpen(false)}
+                    type={type}
+                    itemId={itemId}
+                    catalogueBateaux={catalogueBateaux}
+                    catalogueMoteurs={catalogueMoteurs}
+                    catalogueHelices={catalogueHelices}
+                    catalogueRemorques={catalogueRemorques}
+                    forfaits={forfaits}
+                    services={services}
+                />
+            )}
         </>
     );
 }

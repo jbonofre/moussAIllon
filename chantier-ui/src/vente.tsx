@@ -1063,6 +1063,14 @@ export default function Vente() {
         }
     };
 
+    const handleProduitSaved = (updated: ProduitCatalogueEntity) => {
+        const previous = produits.find((p) => p.id === updated.id);
+        setProduits((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+        if (previous?.prixVenteTTC !== updated.prixVenteTTC) {
+            recalculateFromLines('auto', { produits: produits.map((p) => p.id === updated.id ? updated : p) });
+        }
+    };
+
     const onNewProduitValuesChange = (changedValues: Record<string, unknown>) => {
         setNewProduitFormDirty(true);
         if (changedValues.prixVenteHT !== undefined || changedValues.tva !== undefined) {
@@ -3332,6 +3340,7 @@ export default function Vente() {
                                                                 forfaits={forfaits}
                                                                 services={services}
                                                                 navigate={navigate}
+                                                                onProduitSaved={handleProduitSaved}
                                                             />
                                                         )}
                                                         <Form.Item

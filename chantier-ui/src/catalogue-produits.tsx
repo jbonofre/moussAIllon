@@ -1,58 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, Input, InputNumber, Select, Space, Popconfirm, message } from 'antd';
+import { Image, Table, Rate, Row, Col, Card, Button, Input, Space, Popconfirm, message } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
-import FournisseurProduits from './fournisseur-produits.tsx';
-import ProduitHistorique from './produit-historique.tsx';
-import ImageUpload from './ImageUpload.tsx';
-import DocumentUpload from './DocumentUpload.tsx';
+import ProduitFormModal from './ProduitFormModal.tsx';
+import type { ProduitCatalogueEntity } from './ProduitFormModal.tsx';
 import ImportCsvButton from './ImportCsvButton.tsx';
-
-// --- Types ---
-
-interface ProduitCatalogueEntity {
-    id?: number;
-    designation: string;
-    categorie: string;
-    ref: string;
-    refs?: string[];
-    images?: string[];
-    documents?: string[];
-    description?: string;
-    anneeDebut?: number;
-    anneeFin?: number;
-    evaluation?: number;
-    stock?: number;
-    stockMini?: number;
-    emplacement?: string;
-    emplacementMagasin?: string;
-    prixVenteHT?: number;
-    tva?: number;
-    montantTVA?: number;
-    prixVenteTTC?: number;
-}
-
-const defaultProduit: ProduitCatalogueEntity = {
-    designation: '',
-    categorie: '',
-    ref: '',
-    refs: [],
-    images: [],
-    documents: [],
-    description: '',
-    anneeDebut: new Date().getFullYear(),
-    anneeFin: new Date().getFullYear(),
-    evaluation: 0,
-    stock: 0,
-    stockMini: 0,
-    emplacement: '',
-    emplacementMagasin: '',
-    prixVenteHT: 0,
-    tva: 20,
-    montantTVA: 0,
-    prixVenteTTC: 0
-};
 
 // --- Component ---
 
@@ -61,10 +14,7 @@ const CatalogueProduits: React.FC = () => {
     const [produits, setProduits] = useState<ProduitCatalogueEntity[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
     const [modalVisible, setModalVisible] = useState<boolean>(false);
-    const [isEdit, setIsEdit] = useState<boolean>(false);
     const [currentProduit, setCurrentProduit] = useState<ProduitCatalogueEntity | null>(null);
-    const [form] = Form.useForm();
-    const [formDirty, setFormDirty] = useState(false);
 
     // Get all produits
     const fetchProduits = async () => {
@@ -82,66 +32,9 @@ const CatalogueProduits: React.FC = () => {
         fetchProduits();
     }, []);
 
-    const handleModalCancel = () => {
-        if (formDirty) {
-            Modal.confirm({
-                title: "Modifications non enregistrées",
-                content: "Vous avez des modifications non enregistrées. Voulez-vous vraiment fermer ?",
-                okText: "Fermer",
-                cancelText: "Annuler",
-                onOk: () => {
-                    setFormDirty(false);
-                    setModalVisible(false);
-                },
-            });
-        } else {
-            setModalVisible(false);
-        }
-    };
-
     const openModal = (produit?: ProduitCatalogueEntity) => {
-        if (produit) {
-            setIsEdit(true);
-            setCurrentProduit(produit);
-            form.setFieldsValue({
-                ...defaultProduit,
-                ...produit,
-                images: produit.images && produit.images.length > 0
-                    ? produit.images
-                    : [],
-            });
-        } else {
-            setIsEdit(false);
-            setCurrentProduit(null);
-            form.resetFields();
-            form.setFieldsValue(defaultProduit);
-        }
-        setFormDirty(false);
+        setCurrentProduit(produit || null);
         setModalVisible(true);
-    };
-
-    const handleModalOk = async () => {
-        try {
-            const values = await form.validateFields();
-            values.images = values.images || [];
-            values.documents = values.documents || [];
-            if (isEdit && currentProduit && currentProduit.id) {
-                const res = await api.put(`/catalogue/produits/${currentProduit.id}`, { ...currentProduit, ...values });
-                message.success('Produit modifié avec succès');
-                setCurrentProduit(res.data);
-                form.setFieldsValue({ ...defaultProduit, ...res.data, images: res.data.images || [] });
-            } else {
-                const res = await api.post('/catalogue/produits', values);
-                message.success('Produit ajouté avec succès');
-                setIsEdit(true);
-                setCurrentProduit(res.data);
-                form.setFieldsValue({ ...defaultProduit, ...res.data, images: res.data.images || [] });
-            }
-            setFormDirty(false);
-            fetchProduits();
-        } catch (err) {
-            // form validation error
-        }
     };
 
     const handleDelete = async (id: number | undefined) => {
@@ -218,27 +111,6 @@ const CatalogueProduits: React.FC = () => {
         },
     ];
 
-    // prix/tva calculation autocalc
-    const onValuesChange = (changedValues, allValues) => {
-        setFormDirty(true);
-        if (changedValues.prixVenteHT !== undefined || changedValues.tva !== undefined) {
-            const prixVenteHT = form.getFieldValue('prixVenteHT') || 0;
-            const tva = form.getFieldValue('tva') || 0;
-            const montantTVA = Math.round(((prixVenteHT * (tva / 100)) + Number.EPSILON) * 100) / 100;
-            form.setFieldValue('montantTVA', montantTVA);
-            const prixVenteTTC = Math.round(((prixVenteHT + montantTVA) + Number.EPSILON) * 100) / 100;
-            form.setFieldValue('prixVenteTTC', prixVenteTTC);
-        }
-        if (changedValues.prixVenteTTC !== undefined) {
-            const prixVenteTTC = form.getFieldValue('prixVenteTTC') || 0;
-            const tva = form.getFieldValue('tva') || 0;
-            const montantTVA = Math.round((((prixVenteTTC / (100 + tva)) * tva) + Number.EPSILON) * 100) / 100;
-            form.setFieldValue('montantTVA', montantTVA);
-            const prixVenteHT = Math.round(((prixVenteTTC - montantTVA) + Number.EPSILON) * 100) / 100;
-            form.setFieldValue('prixVenteHT', prixVenteHT);
-        }
-    };
-
     // --- UI Render ---
 
     return (
@@ -286,148 +158,12 @@ const CatalogueProduits: React.FC = () => {
                                 style: { cursor: 'pointer' },
                             })}
                         />
-                        <Modal
-                            title={isEdit ? 'Modifier un produit' : 'Ajouter un produit'}
+                        <ProduitFormModal
                             open={modalVisible}
-                            onOk={handleModalOk}
-                            onCancel={handleModalCancel}
-                            maskClosable={false}
-                width="95vw"
-                            okText="Enregistrer"
-                            cancelText="Fermer"
-                            destroyOnHidden
-                        >
-                            <Form
-                                form={form}
-                                layout="vertical"
-                                initialValues={defaultProduit}
-                                onValuesChange={onValuesChange}
-                            >
-                                <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "La désignation est requise" }]}>
-                                    <Input />
-                                </Form.Item>
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <Form.Item name="categorie" label="Catégorie" rules={[{ required: true, message: "La catégorie est requise" }]}>
-                                            <Select options={CATEGORIES} placeholder="Choisir une catégorie" />
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={12}>
-                                        <Form.Item name="ref" label="Référence interne">
-                                            <Input />
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <Form.Item label="Années">
-                                            <Row gutter={8}>
-                                                <Col span={12}>
-                                                    <Form.Item name="anneeDebut" noStyle>
-                                                        <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Début" />
-                                                    </Form.Item>
-                                                </Col>
-                                                <Col span={12}>
-                                                    <Form.Item name="anneeFin" noStyle>
-                                                        <InputNumber min={1900} max={new Date().getFullYear() + 10} step={1} style={{ width: '100%' }} placeholder="Fin" />
-                                                    </Form.Item>
-                                                </Col>
-                                            </Row>
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
-                                <Form.Item name="images" label="Images">
-                                    <ImageUpload />
-                                </Form.Item>
-                                <Form.Item name="documents" label="Documents">
-                                    <DocumentUpload />
-                                </Form.Item>
-                                <Form.Item name="refs" label="Références complémentaires">
-                                    <Form.List name="refs">
-                                        {(fields, { add, remove }) => (
-                                            <>
-                                                {fields.map((field, idx) => (
-                                                    <Space key={field.key} align="baseline">
-                                                        <Form.Item
-                                                            {...field}
-                                                            name={[field.name]}
-                                                            fieldKey={[field.fieldKey ?? field.key]}
-                                                            style={{ flex: 1 }}
-                                                        >
-                                                            <Input placeholder="Réf. complémentaire" style={{ width: 200 }} />
-                                                        </Form.Item>
-                                                        <Button icon={<DeleteOutlined />} danger onClick={() => remove(field.name)} />
-                                                    </Space>
-                                                ))}
-                                                <Button type="dashed" onClick={() => add()} block style={{ marginTop: 8 }}>
-                                                    Ajouter une référence
-                                                </Button>
-                                            </>
-                                        )}
-                                    </Form.List>
-                                </Form.Item>
-                                <Form.Item name="description" label="Description">
-                                    <Input.TextArea rows={3} placeholder="Description du produit" allowClear />
-                                </Form.Item>
-                                <Form.Item name="evaluation" label="Évaluation">
-                                    <Rate allowHalf />
-                                </Form.Item>
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <Form.Item name="stock" label="Stock">
-                                            <InputNumber min={0} step={1} style={{ width: '100%' }} />
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={12}>
-                                        <Form.Item name="stockMini" label="Stock minimal d'alerte">
-                                            <InputNumber min={0} step={1} style={{ width: '100%' }} />
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <Form.Item name="emplacement" label="Emplacement atelier">
-                                            <Input />
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={12}>
-                                        <Form.Item name="emplacementMagasin" label="Emplacement magasin">
-                                            <Input />
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <Form.Item name="prixVenteHT" label="Prix de vente HT">
-                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€"/>
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={12}>
-                                        <Form.Item name="tva" label="TVA (%)">
-                                            <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} addonAfter="%" />
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
-                                <Row gutter={16}>
-                                    <Col span={12}>
-                                        <Form.Item name="montantTVA" label="Montant TVA">
-                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€"/>
-                                        </Form.Item>
-                                    </Col>
-                                    <Col span={12}>
-                                        <Form.Item name="prixVenteTTC" label="Prix de vente TTC">
-                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€"/>
-                                        </Form.Item>
-                                    </Col>
-                                </Row>
-                            </Form>
-                            {isEdit && currentProduit && currentProduit.id && (
-                            <>
-                                <FournisseurProduits produitId={currentProduit?.id} />
-                                <ProduitHistorique produitId={currentProduit?.id} />
-                            </>
-                            )}
-                        </Modal>
+                            produit={currentProduit}
+                            onClose={() => setModalVisible(false)}
+                            onSaved={fetchProduits}
+                        />
                     </Col>
                 </Row>
             </Card>

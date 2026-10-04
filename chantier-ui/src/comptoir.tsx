@@ -567,12 +567,12 @@ export default function Comptoir() {
         },
     ], [produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
 
-    const getCatalogueItemPrice = (ref?: string): number => {
+    const getCatalogueItemPrice = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): number => {
         if (!ref) return 0;
         const [type, idStr] = ref.split(':');
         const id = parseInt(idStr, 10);
         if (isNaN(id)) return 0;
-        if (type === 'produit') return produits.find((p) => p.id === id)?.prixVenteTTC || 0;
+        if (type === 'produit') return allProduits.find((p) => p.id === id)?.prixVenteTTC || 0;
         if (type === 'bateau') return catalogueBateaux.find((b) => b.id === id)?.prixVenteTTC || 0;
         if (type === 'moteur') return catalogueMoteurs.find((m) => m.id === id)?.prixVenteTTC || 0;
         if (type === 'helice') return catalogueHelices.find((h) => h.id === id)?.prixVenteTTC || 0;
@@ -829,6 +829,14 @@ export default function Comptoir() {
             setNewProduitModalVisible(false);
         } catch {
             // validation errors shown in form
+        }
+    };
+
+    const handleProduitSaved = (updated: ProduitCatalogueEntity) => {
+        const previous = produits.find((p) => p.id === updated.id);
+        setProduits((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+        if (previous?.prixVenteTTC !== updated.prixVenteTTC) {
+            recalculateFromLines('auto', { produits: produits.map((p) => p.id === updated.id ? updated : p) });
         }
     };
 
@@ -1391,7 +1399,10 @@ export default function Comptoir() {
         { key: 'payplug', label: 'Payer via PayPlug', onClick: () => handlePayment(vente, 'payplug') },
     ]);
 
-    const recalculateFromLines = (remiseSource: 'amount' | 'percentage' | 'auto' = 'auto') => {
+    const recalculateFromLines = (
+        remiseSource: 'amount' | 'percentage' | 'auto' = 'auto',
+        overrides?: { produits?: ProduitCatalogueEntity[] }
+    ) => {
         const forfaitLines = form.getFieldValue('forfaits') || [];
         const produitLines = form.getFieldValue('produits') || [];
         const serviceLines = form.getFieldValue('services') || [];
@@ -1408,7 +1419,7 @@ export default function Comptoir() {
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
         const produitsTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number; remise?: number }) => {
-            const prixUnitaire = getCatalogueItemPrice(line.produitRef);
+            const prixUnitaire = getCatalogueItemPrice(line.produitRef, overrides?.produits);
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
         const servicesTTC = serviceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number; remise?: number }) => {
@@ -2017,6 +2028,7 @@ export default function Comptoir() {
                                                             forfaits={forfaits}
                                                             services={services}
                                                             navigate={navigate}
+                                                            onProduitSaved={handleProduitSaved}
                                                         />
                                                     )}
                                                     {emplacement && (
