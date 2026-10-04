@@ -25,6 +25,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.AvoirEntity;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.CommandeFournisseurEntity;
 import net.nanthrax.moussaillon.persistence.EmailTemplateEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitProduitEntity;
@@ -434,6 +435,10 @@ public class VenteResource {
                 Response.status(Response.Status.BAD_REQUEST)
                     .entity(java.util.Map.of("error", "Une vente payée ne peut pas être supprimée"))
                     .build());
+        }
+        List<CommandeFournisseurEntity> commandes = CommandeFournisseurEntity.list("vente.id", id);
+        for (CommandeFournisseurEntity cf : commandes) {
+            cf.vente = null;
         }
         entity.delete();
         return Response.status(204).build();

@@ -19,6 +19,9 @@ public class CommandeFournisseurLigneEntity extends PanacheEntity {
     @ManyToOne
     public HeliceCatalogueEntity helice;
 
+    @ManyToOne
+    public RemorqueCatalogueEntity remorque;
+
     public int quantite;
 
     public double prixUnitaireHT;
