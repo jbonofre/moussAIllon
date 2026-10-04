@@ -510,6 +510,9 @@ export default function Comptoir() {
     const [newProduitForm] = Form.useForm();
     const [newProduitFormDirty, setNewProduitFormDirty] = useState(false);
     const [clientSearchTimeout, setClientSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
+    const [newClientModalVisible, setNewClientModalVisible] = useState(false);
+    const [newClientForm] = Form.useForm();
+    const [newClientFormDirty, setNewClientFormDirty] = useState(false);
     const [produitSearchTimeout, setProduitSearchTimeout] = useState<ReturnType<typeof setTimeout> | null>(null);
     const [paiementModalVisible, setPaiementModalVisible] = useState(false);
     const [paiementMode, setPaiementMode] = useState<ModeReglement>('CARTE');
@@ -816,6 +819,45 @@ export default function Comptoir() {
             fetchVentes();
         } catch {
             message.error('Erreur lors de la suppression du paiement');
+        }
+    };
+
+    const openNewClientModal = () => {
+        newClientForm.resetFields();
+        newClientForm.setFieldsValue({ nom: '', type: 'PARTICULIER', email: '', telephone: '', adresse: '', siren: '', siret: '', tva: '', naf: '', remise: 0, evaluation: 0, notes: '' });
+        setNewClientFormDirty(false);
+        setNewClientModalVisible(true);
+    };
+
+    const handleNewClientSave = async () => {
+        try {
+            const values = await newClientForm.validateFields();
+            const res = await api.post('/clients', values);
+            const created = res.data as ClientEntity;
+            message.success('Client ajouté avec succès');
+            setClients((prev) => mergeById(prev, [created]));
+            form.setFieldValue('clientId', created.id);
+            setNewClientFormDirty(false);
+            setNewClientModalVisible(false);
+        } catch {
+            // validation errors shown in form
+        }
+    };
+
+    const handleNewClientCancel = () => {
+        if (newClientFormDirty) {
+            Modal.confirm({
+                title: "Modifications non enregistrées",
+                content: "Vous avez des modifications non enregistrées. Voulez-vous vraiment fermer ?",
+                okText: "Fermer",
+                cancelText: "Annuler",
+                onOk: () => {
+                    setNewClientFormDirty(false);
+                    setNewClientModalVisible(false);
+                },
+            });
+        } else {
+            setNewClientModalVisible(false);
         }
     };
 
@@ -1777,16 +1819,22 @@ export default function Comptoir() {
 
                     <Row gutter={16}>
                         <Col span={12}>
-                            <Form.Item name="clientId" label="Client">
-                                <Select
-                                    allowClear
-                                    showSearch
-                                    options={clientOptions}
-                                    filterOption={false}
-                                    onSearch={handleClientSearch}
-                                    notFoundContent={null}
-                                    placeholder="Rechercher un client par prénom ou nom"
-                                />
+                            <Form.Item label="Client">
+                                <Space.Compact style={{ width: '100%' }}>
+                                    <Form.Item name="clientId" noStyle>
+                                        <Select
+                                            allowClear
+                                            showSearch
+                                            options={clientOptions}
+                                            style={{ width: '100%' }}
+                                            filterOption={false}
+                                            onSearch={handleClientSearch}
+                                            notFoundContent={null}
+                                            placeholder="Rechercher un client par prénom ou nom"
+                                        />
+                                    </Form.Item>
+                                    <Button icon={<PlusOutlined />} title="Créer un client" onClick={openNewClientModal} />
+                                </Space.Compact>
                             </Form.Item>
                         </Col>
                     </Row>
@@ -2182,6 +2230,101 @@ export default function Comptoir() {
                                 </Form.Item>
                             </Col>
                         </Row>
+                    </Form>
+                </Modal>
+
+                <Modal
+                    title="Créer un client"
+                    open={newClientModalVisible}
+                    onOk={handleNewClientSave}
+                    onCancel={handleNewClientCancel}
+                    maskClosable={false}
+                    width="95vw"
+                    okText="Enregistrer"
+                    cancelText="Fermer"
+                    destroyOnHidden
+                >
+                    <Form form={newClientForm} layout="vertical" onValuesChange={() => setNewClientFormDirty(true)}>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Form.Item name="type" label="Type" rules={[{ required: true, message: 'Le type est requis' }]}>
+                                    <Select options={[
+                                        { value: 'PARTICULIER', label: 'Particulier' },
+                                        { value: 'PROFESSIONNEL', label: 'Professionnel' },
+                                        { value: 'PROFESSIONNEL_MER', label: 'Professionnel de la Mer' },
+                                    ]} />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
+                                    <Input allowClear />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Form.Item name="email" label="Email">
+                                    <Input type="email" allowClear />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item name="telephone" label="Téléphone">
+                                    <Input allowClear />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Form.Item name="adresse" label="Adresse">
+                            <Input.TextArea autoSize={{ minRows: 2, maxRows: 4 }} allowClear />
+                        </Form.Item>
+                        <Form.Item noStyle shouldUpdate={(prev, cur) => prev.type !== cur.type}>
+                            {({ getFieldValue }) =>
+                                getFieldValue('type') !== 'PARTICULIER' && (
+                                    <>
+                                        <Row gutter={16}>
+                                            <Col span={12}>
+                                                <Form.Item name="siren" label="SIREN">
+                                                    <Input allowClear />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item name="siret" label="SIRET">
+                                                    <Input allowClear />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+                                        <Row gutter={16}>
+                                            <Col span={12}>
+                                                <Form.Item name="tva" label="TVA">
+                                                    <Input allowClear />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={12}>
+                                                <Form.Item name="naf" label="NAF">
+                                                    <Input allowClear />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+                                    </>
+                                )
+                            }
+                        </Form.Item>
+                        <Row gutter={16}>
+                            <Col span={12}>
+                                <Form.Item name="remise" label="Remise (%)">
+                                    <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} addonAfter="%" />
+                                </Form.Item>
+                            </Col>
+                            <Col span={12}>
+                                <Form.Item name="evaluation" label="Évaluation">
+                                    <Rate allowClear />
+                                </Form.Item>
+                            </Col>
+                        </Row>
+                        <Form.Item name="notes" label="Notes">
+                            <Input.TextArea rows={3} allowClear />
+                        </Form.Item>
                     </Form>
                 </Modal>
 
