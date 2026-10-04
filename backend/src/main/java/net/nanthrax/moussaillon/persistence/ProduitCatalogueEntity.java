@@ -38,6 +38,8 @@ public class ProduitCatalogueEntity extends PanacheEntity {
 
     public String emplacement;
 
+    public String emplacementMagasin;
+
     public double prixVenteHT;
 
     public double tva;

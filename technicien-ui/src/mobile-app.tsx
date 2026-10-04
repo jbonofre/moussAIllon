@@ -62,6 +62,7 @@ interface ProduitItem {
     categorie?: string;
     ref?: string;
     emplacement?: string;
+    emplacementMagasin?: string;
     quantite?: number;
 }
 
@@ -515,7 +516,12 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                                         <div style={{ fontSize: 11, color: '#888' }}>
                                             {p.ref && <span>Ref: {p.ref}</span>}
                                         </div>
-                                        {p.emplacement && <div style={{ fontSize: 11, color: '#888' }}>Emplacement: {p.emplacement}</div>}
+                                        {(p.emplacement || p.emplacementMagasin) && (
+                                            <div style={{ fontSize: 11, color: '#888' }}>
+                                                {p.emplacement && <span>Empl. atelier: {p.emplacement} </span>}
+                                                {p.emplacementMagasin && <span>Empl. magasin: {p.emplacementMagasin}</span>}
+                                            </div>
+                                        )}
                                     </div>
                                     <div style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>x{p.quantite ?? 0}</div>
                                 </div>
@@ -538,7 +544,12 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                                         <div style={{ fontSize: 11, color: '#888' }}>
                                             {p.ref && <span>Ref: {p.ref}</span>}
                                         </div>
-                                        {p.emplacement && <div style={{ fontSize: 11, color: '#888' }}>Emplacement: {p.emplacement}</div>}
+                                        {(p.emplacement || p.emplacementMagasin) && (
+                                            <div style={{ fontSize: 11, color: '#888' }}>
+                                                {p.emplacement && <span>Empl. atelier: {p.emplacement} </span>}
+                                                {p.emplacementMagasin && <span>Empl. magasin: {p.emplacementMagasin}</span>}
+                                            </div>
+                                        )}
                                     </div>
                                     <Space>
                                         <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>x{p.quantite ?? 0}</span>
