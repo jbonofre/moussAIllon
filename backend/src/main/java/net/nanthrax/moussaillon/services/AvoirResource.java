@@ -49,7 +49,11 @@ public class AvoirResource {
     public List<AvoirEntity> search(
             @QueryParam("clientId") Long clientId,
             @QueryParam("venteId") Long venteId,
-            @QueryParam("status") String status) {
+            @QueryParam("status") String status,
+            @QueryParam("reference") String reference) {
+        if (reference != null && !reference.isBlank()) {
+            return AvoirEntity.list("LOWER(reference) LIKE ?1", "%" + reference.toLowerCase() + "%");
+        }
         if (clientId != null && venteId != null) {
             return AvoirEntity.list("client.id = ?1 AND vente.id = ?2", clientId, venteId);
         }
@@ -106,6 +110,11 @@ public class AvoirResource {
         avoir.dateCreation = new Timestamp(System.currentTimeMillis());
 
         avoir.persist();
+
+        if (avoir.reference == null || avoir.reference.isBlank()) {
+            int year = java.time.LocalDate.now().getYear();
+            avoir.reference = String.format("AV-%d-%05d", year, avoir.id);
+        }
         return avoir;
     }
 
@@ -144,6 +153,7 @@ public class AvoirResource {
             for (VenteForfaitEntity vf : vente.venteForfaits) {
                 if (vf.forfait == null) continue;
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
+                ligne.reference = vf.forfait.reference;
                 ligne.designation = vf.forfait.nom != null ? vf.forfait.nom : "Forfait";
                 ligne.quantite = Math.max(1, vf.quantite);
                 ligne.prixUnitaireHT = vf.forfait.prixHT;
@@ -180,6 +190,7 @@ public class AvoirResource {
             for (VenteProduitEntity vp : vente.venteProduits) {
                 if (vp.produit == null) continue;
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
+                ligne.reference = vp.produit.ref;
                 ligne.designation = vp.produit.designation != null ? vp.produit.designation : "Produit";
                 ligne.quantite = Math.max(1, vp.quantite);
                 ligne.prixUnitaireHT = vp.produit.prixVenteHT;
@@ -200,6 +211,11 @@ public class AvoirResource {
         avoir.montantTTC = round2(avoir.lignes.stream().mapToDouble(l -> l.totalTTC).sum());
 
         avoir.persist();
+
+        if (avoir.reference == null || avoir.reference.isBlank()) {
+            int year = java.time.LocalDate.now().getYear();
+            avoir.reference = String.format("AV-%d-%05d", year, avoir.id);
+        }
         return avoir;
     }
 
@@ -237,6 +253,12 @@ public class AvoirResource {
             entity.vente = null;
         }
 
+        if (data.reference != null && !data.reference.isBlank()) {
+            entity.reference = data.reference.trim();
+        } else if (entity.reference == null || entity.reference.isBlank()) {
+            int year = java.time.LocalDate.now().getYear();
+            entity.reference = String.format("AV-%d-%05d", year, entity.id);
+        }
         entity.motif = data.motif;
         entity.notes = data.notes;
         entity.montantHT = data.montantHT;
@@ -249,6 +271,7 @@ public class AvoirResource {
         if (data.lignes != null) {
             for (AvoirLigneEntity ligne : data.lignes) {
                 AvoirLigneEntity l = new AvoirLigneEntity();
+                l.reference = ligne.reference;
                 l.designation = ligne.designation;
                 l.quantite = ligne.quantite;
                 l.prixUnitaireHT = ligne.prixUnitaireHT;
@@ -264,6 +287,7 @@ public class AvoirResource {
 
     @POST
     @Path("{id}/emettre")
+    @Consumes({MediaType.APPLICATION_JSON, MediaType.WILDCARD})
     @Transactional
     public AvoirEntity emettre(@PathParam("id") long id) {
         AvoirEntity entity = AvoirEntity.findById(id);
@@ -275,11 +299,16 @@ public class AvoirResource {
         }
         entity.status = AvoirEntity.Status.EMIS;
         entity.dateEmission = new Timestamp(System.currentTimeMillis());
+        if (entity.reference == null || entity.reference.isBlank()) {
+            int year = java.time.LocalDate.now().getYear();
+            entity.reference = String.format("AV-%d-%05d", year, entity.id);
+        }
         return entity;
     }
 
     @POST
     @Path("{id}/rembourser")
+    @Consumes({MediaType.APPLICATION_JSON, MediaType.WILDCARD})
     @Transactional
     public AvoirEntity rembourser(@PathParam("id") long id) {
         AvoirEntity entity = AvoirEntity.findById(id);
@@ -296,6 +325,7 @@ public class AvoirResource {
 
     @POST
     @Path("{id}/annuler")
+    @Consumes({MediaType.APPLICATION_JSON, MediaType.WILDCARD})
     @Transactional
     public AvoirEntity annuler(@PathParam("id") long id) {
         AvoirEntity entity = AvoirEntity.findById(id);
@@ -326,6 +356,7 @@ public class AvoirResource {
 
     @POST
     @Path("{id}/email")
+    @Consumes({MediaType.APPLICATION_JSON, MediaType.WILDCARD})
     @Transactional
     public Response envoyerEmail(@PathParam("id") long id) {
         AvoirEntity entity = AvoirEntity.findById(id);
@@ -349,7 +380,8 @@ public class AvoirResource {
         StringBuilder lignes = new StringBuilder();
         if (entity.lignes != null && !entity.lignes.isEmpty()) {
             for (AvoirLigneEntity ligne : entity.lignes) {
-                lignes.append("- ").append(ligne.designation)
+                String refPart = (ligne.reference != null && !ligne.reference.isBlank()) ? "[" + ligne.reference + "] " : "";
+                lignes.append("- ").append(refPart).append(ligne.designation)
                         .append(" x").append(ligne.quantite)
                         .append(" = ").append(String.format("%.2f EUR", ligne.totalTTC))
                         .append("\n");
@@ -358,13 +390,17 @@ public class AvoirResource {
             lignes.append("Aucun élément");
         }
 
+        String avoirRef = (entity.reference != null && !entity.reference.isBlank())
+                ? entity.reference
+                : String.valueOf(entity.id);
+
         EmailTemplateEntity template = EmailTemplateEntity.findByType(EmailTemplateEntity.Type.AVOIR);
         String subject;
         String body;
         if (template != null) {
             subject = template.sujet
                     .replace("{client}", clientName)
-                    .replace("{reference}", String.valueOf(entity.id))
+                    .replace("{reference}", avoirRef)
                     .replace("{date}", dateStr)
                     .replace("{motif}", motif)
                     .replace("{montantTTC}", montantTTC)
@@ -373,7 +409,7 @@ public class AvoirResource {
                     .replace("{societe}", societeNom);
             body = template.contenu
                     .replace("{client}", clientName)
-                    .replace("{reference}", String.valueOf(entity.id))
+                    .replace("{reference}", avoirRef)
                     .replace("{date}", dateStr)
                     .replace("{motif}", motif)
                     .replace("{montantTTC}", montantTTC)
@@ -381,9 +417,9 @@ public class AvoirResource {
                     .replace("{lignes}", lignes.toString().trim())
                     .replace("{societe}", societeNom);
         } else {
-            subject = "Votre avoir #" + entity.id + " - " + societeNom;
+            subject = "Votre avoir #" + avoirRef + " - " + societeNom;
             body = "<p>Bonjour " + clientName + ",</p>"
-                    + "<p>Veuillez trouver ci-dessous les informations de votre avoir #" + entity.id + ".</p>"
+                    + "<p>Veuillez trouver ci-dessous les informations de votre avoir #" + avoirRef + ".</p>"
                     + "<table>"
                     + "<tr><td><strong>Date</strong></td><td>" + dateStr + "</td></tr>"
                     + "<tr><td><strong>Motif</strong></td><td>" + motif + "</td></tr>"
