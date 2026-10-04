@@ -41,6 +41,7 @@ import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
+import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 
 interface ClientEntity {
     id: number;
@@ -375,116 +376,7 @@ const getClientLabel = (client?: ClientEntity) => {
     return client.nom || `Client #${client.id}`;
 };
 
-const formatEuroCatalogue = (v?: number) => v != null ? v.toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' }) : '-';
 
-function FicheCataloguePopover({ type, itemId, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques, forfaits, services, navigate }: {
-    type?: string; itemId?: number;
-    produits: ProduitCatalogueEntity[];
-    catalogueBateaux: CatalogueBateauEntity[];
-    catalogueMoteurs: CatalogueMoteurEntity[];
-    catalogueHelices: CatalogueHeliceEntity[];
-    catalogueRemorques: CatalogueRemorqueEntity[];
-    forfaits: any[];
-    services: any[];
-    navigate: (route: string) => void;
-}) {
-    if (!type || !itemId) return null;
-
-    let items: { label: string; value: React.ReactNode }[] = [];
-    let catalogueRoute: string | null = null;
-    let titre = '';
-
-    if (type === 'produit') {
-        const p = produits.find((x) => x.id === itemId);
-        if (!p) return null;
-        titre = p.designation;
-        catalogueRoute = '/catalogue/produits';
-        items = [
-            { label: 'Référence', value: p.ref || '-' },
-            { label: 'Catégorie', value: p.categorie || '-' },
-            { label: 'Stock', value: p.stock != null ? p.stock : '-' },
-            { label: 'Emplacement atelier', value: p.emplacement || '-' },
-            { label: 'Emplacement magasin', value: p.emplacementMagasin || '-' },
-            { label: 'Prix TTC', value: formatEuroCatalogue(p.prixVenteTTC) },
-        ];
-        if (p.description) items.push({ label: 'Description', value: p.description });
-    } else if (type === 'bateau') {
-        const b = catalogueBateaux.find((x) => x.id === itemId);
-        if (!b) return null;
-        titre = b.designation;
-        catalogueRoute = '/catalogue/bateaux';
-        items = [
-            { label: 'Désignation', value: b.designation },
-            { label: 'Prix TTC', value: formatEuroCatalogue(b.prixVenteTTC) },
-        ];
-    } else if (type === 'moteur') {
-        const m = catalogueMoteurs.find((x) => x.id === itemId);
-        if (!m) return null;
-        titre = m.designation;
-        catalogueRoute = '/catalogue/moteurs';
-        items = [
-            { label: 'Désignation', value: m.designation },
-            { label: 'Prix TTC', value: formatEuroCatalogue(m.prixVenteTTC) },
-        ];
-    } else if (type === 'helice') {
-        const h = catalogueHelices.find((x) => x.id === itemId);
-        if (!h) return null;
-        titre = h.designation;
-        catalogueRoute = '/catalogue/helices';
-        items = [
-            { label: 'Désignation', value: h.designation },
-            { label: 'Prix TTC', value: formatEuroCatalogue(h.prixVenteTTC) },
-        ];
-    } else if (type === 'remorque') {
-        const r = catalogueRemorques.find((x) => x.id === itemId);
-        if (!r) return null;
-        titre = r.designation;
-        catalogueRoute = '/catalogue/remorques';
-        items = [
-            { label: 'Désignation', value: r.designation },
-            { label: 'Prix TTC', value: formatEuroCatalogue(r.prixVenteTTC) },
-        ];
-    } else if (type === 'forfait') {
-        const f = forfaits.find((x: any) => x.id === itemId);
-        if (!f) return null;
-        titre = f.nom;
-        items = [
-            { label: 'Prix TTC', value: formatEuroCatalogue(f.prixTTC) },
-            { label: 'Durée estimée', value: f.dureeEstimee != null ? `${f.dureeEstimee}h` : '-' },
-        ];
-        if (f.description) items.push({ label: 'Description', value: f.description });
-    } else if (type === 'service') {
-        const s = services.find((x: any) => x.id === itemId);
-        if (!s) return null;
-        titre = s.nom;
-        items = [
-            { label: 'Prix TTC', value: formatEuroCatalogue(s.prixTTC) },
-            { label: 'Durée estimée', value: s.dureeEstimee != null ? `${s.dureeEstimee}h` : '-' },
-        ];
-        if (s.description) items.push({ label: 'Description', value: s.description });
-    } else {
-        return null;
-    }
-
-    const content = (
-        <div style={{ maxWidth: 280 }}>
-            <Descriptions column={1} size="small" items={items.map((it, i) => ({ key: i, label: it.label, children: it.value }))} />
-            {catalogueRoute && (
-                <div style={{ marginTop: 8, textAlign: 'right' }}>
-                    <Button type="link" size="small" onClick={() => navigate(catalogueRoute!)}>
-                        Voir dans le catalogue
-                    </Button>
-                </div>
-            )}
-        </div>
-    );
-
-    return (
-        <Popover title={titre} content={content} trigger="click" placement="right">
-            <Button icon={<InfoCircleOutlined />} title="Fiche produit" size="small" />
-        </Popover>
-    );
-}
 
 export default function Comptoir() {
     const PRODUIT_CATEGORIES = useReferenceValeurs('CATEGORIE_PRODUIT');
@@ -675,12 +567,12 @@ export default function Comptoir() {
         },
     ], [produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
 
-    const getCatalogueItemPrice = (ref?: string): number => {
+    const getCatalogueItemPrice = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): number => {
         if (!ref) return 0;
         const [type, idStr] = ref.split(':');
         const id = parseInt(idStr, 10);
         if (isNaN(id)) return 0;
-        if (type === 'produit') return produits.find((p) => p.id === id)?.prixVenteTTC || 0;
+        if (type === 'produit') return allProduits.find((p) => p.id === id)?.prixVenteTTC || 0;
         if (type === 'bateau') return catalogueBateaux.find((b) => b.id === id)?.prixVenteTTC || 0;
         if (type === 'moteur') return catalogueMoteurs.find((m) => m.id === id)?.prixVenteTTC || 0;
         if (type === 'helice') return catalogueHelices.find((h) => h.id === id)?.prixVenteTTC || 0;
@@ -937,6 +829,14 @@ export default function Comptoir() {
             setNewProduitModalVisible(false);
         } catch {
             // validation errors shown in form
+        }
+    };
+
+    const handleProduitSaved = (updated: ProduitCatalogueEntity) => {
+        const previous = produits.find((p) => p.id === updated.id);
+        setProduits((prev) => prev.map((p) => p.id === updated.id ? updated : p));
+        if (previous?.prixVenteTTC !== updated.prixVenteTTC) {
+            recalculateFromLines('auto', { produits: produits.map((p) => p.id === updated.id ? updated : p) });
         }
     };
 
@@ -1499,7 +1399,10 @@ export default function Comptoir() {
         { key: 'payplug', label: 'Payer via PayPlug', onClick: () => handlePayment(vente, 'payplug') },
     ]);
 
-    const recalculateFromLines = (remiseSource: 'amount' | 'percentage' | 'auto' = 'auto') => {
+    const recalculateFromLines = (
+        remiseSource: 'amount' | 'percentage' | 'auto' = 'auto',
+        overrides?: { produits?: ProduitCatalogueEntity[] }
+    ) => {
         const forfaitLines = form.getFieldValue('forfaits') || [];
         const produitLines = form.getFieldValue('produits') || [];
         const serviceLines = form.getFieldValue('services') || [];
@@ -1516,7 +1419,7 @@ export default function Comptoir() {
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
         const produitsTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number; remise?: number }) => {
-            const prixUnitaire = getCatalogueItemPrice(line.produitRef);
+            const prixUnitaire = getCatalogueItemPrice(line.produitRef, overrides?.produits);
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
         const servicesTTC = serviceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number; remise?: number }) => {
@@ -2125,6 +2028,7 @@ export default function Comptoir() {
                                                             forfaits={forfaits}
                                                             services={services}
                                                             navigate={navigate}
+                                                            onProduitSaved={handleProduitSaved}
                                                         />
                                                     )}
                                                     {emplacement && (
