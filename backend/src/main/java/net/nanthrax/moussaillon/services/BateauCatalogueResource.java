@@ -47,6 +47,9 @@ public class BateauCatalogueResource {
     public Response create(BateauCatalogueEntity bateauCatalogue) {
         bateauCatalogue.id = null;
         BateauCatalogueEntity.persist(bateauCatalogue);
+        if (ReferenceInterne.absente(bateauCatalogue.ref)) {
+            bateauCatalogue.ref = ReferenceInterne.generer("BAT", bateauCatalogue.id);
+        }
         return Response.status(Response.Status.CREATED).entity(bateauCatalogue).build();
     }
 
@@ -59,6 +62,7 @@ public class BateauCatalogueResource {
             throw new NotFoundException();
         }
         entity.designation = updatedBateauCatalogue.designation;
+        entity.ref = updatedBateauCatalogue.ref;
         entity.images = updatedBateauCatalogue.images;
         entity.documents = updatedBateauCatalogue.documents;
         entity.type = updatedBateauCatalogue.type;

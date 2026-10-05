@@ -5,7 +5,9 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 
 import java.util.Collections;
@@ -61,6 +63,9 @@ public class HeliceCatalogueResource {
     @Transactional
     public HeliceCatalogueEntity create(HeliceCatalogueEntity helice) {
         helice.persist();
+        if (ReferenceInterne.absente(helice.ref)) {
+            helice.ref = ReferenceInterne.generer("HEL", helice.id);
+        }
         return helice;
     }
 
@@ -82,6 +87,14 @@ public class HeliceCatalogueResource {
         if (entity == null) {
             throw new WebApplicationException("L'hélice (" + id + ") n'est pas trouvée", 404);
         }
+        // La compatibilité est portée par le moteur : on détache l'hélice des moteurs avant de la supprimer
+        for (MoteurCatalogueEntity moteur : entity.moteursCompatibles) {
+            moteur.helicesCompatibles.remove(entity);
+        }
+        // Idem pour les bateaux clients équipés de cette hélice
+        for (BateauClientEntity bateau : BateauClientEntity.<BateauClientEntity>list("select b from BateauClientEntity b join b.helices h where h.id = ?1", id)) {
+            bateau.helices.remove(entity);
+        }
         entity.delete();
         return Response.status(204).build();
     }
@@ -96,6 +109,7 @@ public class HeliceCatalogueResource {
         }
 
         entity.designation = helice.designation;
+        entity.ref = helice.ref;
         entity.description = helice.description;
         entity.anneeDebut = helice.anneeDebut;
         entity.anneeFin = helice.anneeFin;
@@ -104,7 +118,6 @@ public class HeliceCatalogueResource {
         entity.pas = helice.pas;
         entity.pales = helice.pales;
         entity.cannelures = helice.cannelures;
-        entity.moteursCompatibles = helice.moteursCompatibles;
         entity.prixVenteHT = helice.prixVenteHT;
         entity.tva = helice.tva;
         entity.montantTVA = helice.montantTVA;

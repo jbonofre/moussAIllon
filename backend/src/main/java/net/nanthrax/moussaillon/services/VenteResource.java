@@ -25,6 +25,10 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.AvoirEntity;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.BateauClientEntity;
+import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.MoteurClientEntity;
+import net.nanthrax.moussaillon.persistence.RemorqueClientEntity;
 import net.nanthrax.moussaillon.persistence.CommandeFournisseurEntity;
 import net.nanthrax.moussaillon.persistence.EmailTemplateEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
@@ -710,6 +714,7 @@ public class VenteResource {
                     .anyMatch(vs -> vs.status == VenteServiceEntity.Status.EN_COURS);
             if (hasEnCours) {
                 decrementStock(entity);
+                ajouterAuParcClient(entity);
                 entity.stockDecremented = true;
             }
         }
@@ -758,6 +763,7 @@ public class VenteResource {
         if (!entity.stockDecremented
                 && (entity.status == VenteEntity.Status.FACTURE_PRETE || entity.status == VenteEntity.Status.FACTURE_PAYEE)) {
             decrementStock(entity);
+            ajouterAuParcClient(entity);
             entity.stockDecremented = true;
         }
 
@@ -997,6 +1003,88 @@ public class VenteResource {
         }
 
         mailer.send(Mail.withHtml(vente.client.email, subject, body));
+    }
+
+    /**
+     * Ajoute au parc du client les bateaux, moteurs et remorques vendus. Un bateau vendu avec un ou plusieurs
+     * moteurs (et éventuellement des hélices) devient un bateau client équipé de ces moteurs ; sans bateau,
+     * chaque moteur vendu devient un moteur client. Les remorques sont toujours ajoutées au parc.
+     */
+    private void ajouterAuParcClient(VenteEntity vente) {
+        if (vente.client == null) return;
+        Timestamp now = new Timestamp(System.currentTimeMillis());
+        String aujourdhui = java.time.LocalDate.now().toString();
+
+        List<BateauCatalogueEntity> bateaux = new java.util.ArrayList<>();
+        if (vente.venteBateauxCatalogue != null) {
+            for (VenteBateauCatalogueEntity vb : vente.venteBateauxCatalogue) {
+                if (vb.bateau == null || vb.bateau.id == null) continue;
+                BateauCatalogueEntity b = BateauCatalogueEntity.findById(vb.bateau.id);
+                for (int i = 0; b != null && i < Math.max(1, vb.quantite); i++) bateaux.add(b);
+            }
+        }
+        List<MoteurCatalogueEntity> moteurs = new java.util.ArrayList<>();
+        if (vente.venteMoteursCatalogue != null) {
+            for (VenteMoteurCatalogueEntity vm : vente.venteMoteursCatalogue) {
+                if (vm.moteur == null || vm.moteur.id == null) continue;
+                MoteurCatalogueEntity m = MoteurCatalogueEntity.findById(vm.moteur.id);
+                for (int i = 0; m != null && i < Math.max(1, vm.quantite); i++) moteurs.add(m);
+            }
+        }
+
+        List<HeliceCatalogueEntity> helices = new java.util.ArrayList<>();
+        if (vente.venteHelicesCatalogue != null) {
+            for (VenteHeliceCatalogueEntity vh : vente.venteHelicesCatalogue) {
+                if (vh.helice == null || vh.helice.id == null) continue;
+                HeliceCatalogueEntity h = HeliceCatalogueEntity.findById(vh.helice.id);
+                for (int i = 0; h != null && i < Math.max(1, vh.quantite); i++) helices.add(h);
+            }
+        }
+
+        if (!bateaux.isEmpty()) {
+            List<BateauClientEntity> crees = new java.util.ArrayList<>();
+            for (BateauCatalogueEntity modele : bateaux) {
+                BateauClientEntity bc = new BateauClientEntity();
+                bc.name = modele.designation;
+                bc.modele = modele;
+                bc.proprietaires = new java.util.ArrayList<>(List.of(vente.client));
+                bc.dateAchat = aujourdhui;
+                bc.dateCreation = now;
+                bc.persist();
+                crees.add(bc);
+            }
+            // les moteurs sont répartis sur les bateaux, dans l'ordre
+            for (int i = 0; i < moteurs.size(); i++) {
+                crees.get(i % crees.size()).moteurs.add(moteurs.get(i));
+            }
+            for (int i = 0; i < helices.size(); i++) {
+                crees.get(i % crees.size()).helices.add(helices.get(i));
+            }
+        } else {
+            for (MoteurCatalogueEntity modele : moteurs) {
+                MoteurClientEntity mc = new MoteurClientEntity();
+                mc.modele = modele;
+                mc.proprietaire = vente.client;
+                mc.dateAchat = aujourdhui;
+                mc.dateCreation = now;
+                mc.persist();
+            }
+        }
+
+        if (vente.venteRemorquesCatalogue != null) {
+            for (VenteRemorqueCatalogueEntity vr : vente.venteRemorquesCatalogue) {
+                if (vr.remorque == null || vr.remorque.id == null) continue;
+                RemorqueCatalogueEntity modele = RemorqueCatalogueEntity.findById(vr.remorque.id);
+                for (int i = 0; modele != null && i < Math.max(1, vr.quantite); i++) {
+                    RemorqueClientEntity rc = new RemorqueClientEntity();
+                    rc.modele = modele;
+                    rc.proprietaire = vente.client;
+                    rc.dateAchat = aujourdhui;
+                    rc.dateCreation = now;
+                    rc.persist();
+                }
+            }
+        }
     }
 
     private void decrementStock(VenteEntity vente) {

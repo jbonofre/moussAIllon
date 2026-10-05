@@ -18,6 +18,8 @@ public class BateauCatalogueEntity extends PanacheEntity {
     @Column(nullable = false)
     public String designation;
 
+    public String ref;
+
     public List<String> images = new ArrayList<>();
 
     public List<String> documents = new ArrayList<>();

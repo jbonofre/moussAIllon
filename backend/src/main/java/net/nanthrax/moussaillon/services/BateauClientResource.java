@@ -7,6 +7,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.BateauOptionEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
@@ -87,6 +88,8 @@ public class BateauClientResource {
             }
             entity.moteurs = moteursEntities;
         }
+
+        entity.helices = resoudreHelices(entity.helices);
 
         if (entity.options != null) {
             List<BateauOptionEntity> optionsEntities = new ArrayList<>();
@@ -170,6 +173,8 @@ public class BateauClientResource {
             entity.moteurs = new ArrayList<>();
         }
         
+        entity.helices = resoudreHelices(updated.helices);
+
         entity.equipements = updated.equipements != null ? updated.equipements : new ArrayList<>();
 
         if (updated.options != null) {
@@ -188,6 +193,21 @@ public class BateauClientResource {
         }
 
         return Response.ok(entity).build();
+    }
+
+    private List<HeliceCatalogueEntity> resoudreHelices(List<HeliceCatalogueEntity> helices) {
+        List<HeliceCatalogueEntity> resolues = new ArrayList<>();
+        if (helices != null) {
+            for (HeliceCatalogueEntity h : helices) {
+                if (h != null && h.id != null) {
+                    HeliceCatalogueEntity helice = HeliceCatalogueEntity.findById(h.id);
+                    if (helice != null) {
+                        resolues.add(helice);
+                    }
+                }
+            }
+        }
+        return resolues;
     }
 
     @DELETE
