@@ -26,6 +26,8 @@ import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Context;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -59,7 +61,8 @@ public class AiChatResource {
     private final Jsonb jsonb = JsonbBuilder.create();
 
     @POST
-    public Response chat(Map<String, Object> request) {
+    public Response chat(Map<String, Object> request, @Context HttpHeaders httpHeaders) {
+        String authorization = httpHeaders == null ? null : httpHeaders.getHeaderString(HttpHeaders.AUTHORIZATION);
         String provider = asString(request.get("provider"));
         String message = asString(request.get("message"));
 
@@ -76,7 +79,7 @@ public class AiChatResource {
                 return Response.ok(callOpenAi(message)).build();
             }
             if ("anthropic".equals(normalizedProvider)) {
-                return Response.ok(callAnthropic(message)).build();
+                return Response.ok(callAnthropic(message, authorization)).build();
             }
             return errorResponse(400, "INVALID_PROVIDER",
                     "Provider inconnu: " + provider + ". Utilisez 'openai' ou 'anthropic'.", provider);
@@ -132,12 +135,12 @@ public class AiChatResource {
         return response;
     }
 
-    private Map<String, Object> callAnthropic(String userMessage) {
+    private Map<String, Object> callAnthropic(String userMessage, String authorization) {
         if (anthropicApiKey == null || anthropicApiKey.trim().isEmpty()) {
             throw new WebApplicationException("La clé Anthropic est absente (ai.anthropic.api-key)", 500);
         }
 
-        List<Map<String, Object>> tools = anthropicMcpEnabled ? fetchAnthropicToolsFromMcp() : Collections.emptyList();
+        List<Map<String, Object>> tools = anthropicMcpEnabled ? fetchAnthropicToolsFromMcp(authorization) : Collections.emptyList();
 
         List<Map<String, Object>> messages = new ArrayList<Map<String, Object>>();
         messages.add(buildAnthropicTextMessage("user", userMessage));
@@ -180,7 +183,7 @@ public class AiChatResource {
 
             List<Map<String, Object>> toolResultBlocks = new ArrayList<Map<String, Object>>();
             for (Map<String, Object> toolUse : toolUses) {
-                toolResultBlocks.add(invokeMcpToolAndBuildResultBlock(toolUse));
+                toolResultBlocks.add(invokeMcpToolAndBuildResultBlock(toolUse, authorization));
             }
             messages.add(buildAnthropicBlocksMessage("user", toolResultBlocks));
         }
@@ -204,14 +207,14 @@ public class AiChatResource {
         return message;
     }
 
-    private List<Map<String, Object>> fetchAnthropicToolsFromMcp() {
+    private List<Map<String, Object>> fetchAnthropicToolsFromMcp(String authorization) {
         Map<String, Object> request = new LinkedHashMap<String, Object>();
         request.put("jsonrpc", "2.0");
         request.put("id", UUID.randomUUID().toString());
         request.put("method", "tools/list");
         request.put("params", Collections.emptyMap());
 
-        String responseBody = callJsonApi(resolveMcpEndpoint(), "POST", request, Collections.emptyMap());
+        String responseBody = callJsonApi(resolveMcpEndpoint(), "POST", request, buildMcpHeaders(authorization));
         Map<String, Object> response = fromJsonMap(responseBody);
         ensureMcpNoError(response);
 
@@ -244,7 +247,7 @@ public class AiChatResource {
         return anthropicTools;
     }
 
-    private Map<String, Object> invokeMcpToolAndBuildResultBlock(Map<String, Object> toolUse) {
+    private Map<String, Object> invokeMcpToolAndBuildResultBlock(Map<String, Object> toolUse, String authorization) {
         String toolUseId = asString(toolUse.get("id"));
         String toolName = asString(toolUse.get("name"));
         Map<String, Object> toolInput = asMapOrEmpty(toolUse.get("input"));
@@ -254,7 +257,7 @@ public class AiChatResource {
         block.put("tool_use_id", toolUseId == null ? "" : toolUseId);
 
         try {
-            Map<String, Object> mcpResult = callMcpTool(toolName, toolInput);
+            Map<String, Object> mcpResult = callMcpTool(toolName, toolInput, authorization);
             block.put("content", jsonb.toJson(mcpResult));
             if (Boolean.TRUE.equals(mcpResult.get("isError"))) {
                 block.put("is_error", Boolean.TRUE);
@@ -270,7 +273,7 @@ public class AiChatResource {
         }
     }
 
-    private Map<String, Object> callMcpTool(String toolName, Map<String, Object> arguments) {
+    private Map<String, Object> callMcpTool(String toolName, Map<String, Object> arguments, String authorization) {
         Map<String, Object> params = new LinkedHashMap<String, Object>();
         params.put("name", toolName);
         params.put("arguments", arguments == null ? Collections.emptyMap() : arguments);
@@ -281,7 +284,7 @@ public class AiChatResource {
         request.put("method", "tools/call");
         request.put("params", params);
 
-        String responseBody = callJsonApi(resolveMcpEndpoint(), "POST", request, Collections.emptyMap());
+        String responseBody = callJsonApi(resolveMcpEndpoint(), "POST", request, buildMcpHeaders(authorization));
         Map<String, Object> response = fromJsonMap(responseBody);
         ensureMcpNoError(response);
 
@@ -303,6 +306,13 @@ public class AiChatResource {
         String message = asString(error.get("message"));
         String code = asString(error.get("code"));
         throw new IllegalStateException("Erreur MCP [code=" + code + ", message=" + message + "]");
+    }
+
+    private Map<String, String> buildMcpHeaders(String authorization) {
+        if (authorization == null || authorization.trim().isEmpty()) {
+            return Collections.emptyMap();
+        }
+        return buildHeaders(HttpHeaders.AUTHORIZATION, authorization);
     }
 
     private String resolveMcpEndpoint() {
