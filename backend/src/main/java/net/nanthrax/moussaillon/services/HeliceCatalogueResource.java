@@ -5,6 +5,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
@@ -89,6 +90,10 @@ public class HeliceCatalogueResource {
         // La compatibilité est portée par le moteur : on détache l'hélice des moteurs avant de la supprimer
         for (MoteurCatalogueEntity moteur : entity.moteursCompatibles) {
             moteur.helicesCompatibles.remove(entity);
+        }
+        // Idem pour les bateaux clients équipés de cette hélice
+        for (BateauClientEntity bateau : BateauClientEntity.<BateauClientEntity>list("select b from BateauClientEntity b join b.helices h where h.id = ?1", id)) {
+            bateau.helices.remove(entity);
         }
         entity.delete();
         return Response.status(204).build();

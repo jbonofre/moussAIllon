@@ -26,6 +26,7 @@ import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.AvoirEntity;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
+import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurClientEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueClientEntity;
 import net.nanthrax.moussaillon.persistence.CommandeFournisseurEntity;
@@ -1006,7 +1007,7 @@ public class VenteResource {
 
     /**
      * Ajoute au parc du client les bateaux, moteurs et remorques vendus. Un bateau vendu avec un ou plusieurs
-     * moteurs (et éventuellement une hélice) devient un bateau client équipé de ces moteurs ; sans bateau,
+     * moteurs (et éventuellement des hélices) devient un bateau client équipé de ces moteurs ; sans bateau,
      * chaque moteur vendu devient un moteur client. Les remorques sont toujours ajoutées au parc.
      */
     private void ajouterAuParcClient(VenteEntity vente) {
@@ -1031,6 +1032,15 @@ public class VenteResource {
             }
         }
 
+        List<HeliceCatalogueEntity> helices = new java.util.ArrayList<>();
+        if (vente.venteHelicesCatalogue != null) {
+            for (VenteHeliceCatalogueEntity vh : vente.venteHelicesCatalogue) {
+                if (vh.helice == null || vh.helice.id == null) continue;
+                HeliceCatalogueEntity h = HeliceCatalogueEntity.findById(vh.helice.id);
+                for (int i = 0; h != null && i < Math.max(1, vh.quantite); i++) helices.add(h);
+            }
+        }
+
         if (!bateaux.isEmpty()) {
             List<BateauClientEntity> crees = new java.util.ArrayList<>();
             for (BateauCatalogueEntity modele : bateaux) {
@@ -1046,6 +1056,9 @@ public class VenteResource {
             // les moteurs sont répartis sur les bateaux, dans l'ordre
             for (int i = 0; i < moteurs.size(); i++) {
                 crees.get(i % crees.size()).moteurs.add(moteurs.get(i));
+            }
+            for (int i = 0; i < helices.size(); i++) {
+                crees.get(i % crees.size()).helices.add(helices.get(i));
             }
         } else {
             for (MoteurCatalogueEntity modele : moteurs) {

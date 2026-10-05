@@ -65,6 +65,7 @@ interface BateauClient {
   localisation?: string;
   localisationGps?: string;
   moteurs?: any[];
+  helices?: any[];
   remorque?: any;
   equipements?: any[];
   options?: { id?: number; nom: string }[];
@@ -85,6 +86,7 @@ const defaultBateau: BateauClient = {
   localisation: "",
   localisationGps: "",
   moteurs: [],
+  helices: [],
   remorque: null,
   equipements: [],
   options: [],
@@ -100,6 +102,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [bateaux, setBateaux] = useState<BateauClient[]>([]);
   const [bateauxCatalogue, setBateauxCatalogue] = useState<any[]>([]);
   const [moteursCatalogue, setMoteursCatalogue] = useState<any[]>([]);
+  const [helicesCatalogue, setHelicesCatalogue] = useState<any[]>([]);
   const [produitsCatalogue, setProduitsCatalogue] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -190,10 +193,21 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     }
   };
 
+  const fetchHelicesCatalogue = async () => {
+    try {
+      const res = await api.get('/catalogue/helices');
+      setHelicesCatalogue(res.data);
+    } catch {
+      message.error("Erreur lors du chargement du catalogue d'hélices");
+      setHelicesCatalogue([]);
+    }
+  };
+
   useEffect(() => {
     fetchBateaux();
     fetchBateauxCatalogue();
     fetchMoteursCatalogue();
+    fetchHelicesCatalogue();
     fetchClients();
   }, [clientId]);
 
@@ -217,6 +231,10 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       label: `${m.designation}${formatAnnee(m.anneeDebut, m.anneeFin) ? ` (${formatAnnee(m.anneeDebut, m.anneeFin)})` : ''}`,
     })),
     [moteursCatalogue]
+  );
+  const heliceSelectOptions = useMemo(
+    () => helicesCatalogue.map((h: any) => ({ value: h.id, label: h.designation })),
+    [helicesCatalogue]
   );
   const proprietaireSelectOptions = useMemo(
     () => clients.map((c: any) => ({ value: c.id, label: c.nom })),
@@ -262,6 +280,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       modeleId: record.modele?.id || undefined,
       proprietaires: record.proprietaires?.map((p: any) => p.id || p) || [],
       moteurs: record.moteurs?.map((m: any) => m.id || m) || [],
+      helices: record.helices?.map((h: any) => h.id || h) || [],
       options: record.options?.map((o: any) => o.id || o) || [],
     });
     setModalVisible(true);
@@ -359,7 +378,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       const values = await form.validateFields();
       setLoading(true);
       // Transform modeleId to modele object and proprietaires/moteurs IDs to objects
-      const { modeleId, proprietaires, moteurs, options, dateMeS, dateAchat, dateFinDeGuarantie, ...restValues } = values;
+      const { modeleId, proprietaires, moteurs, helices, options, dateMeS, dateAchat, dateFinDeGuarantie, ...restValues } = values;
       const payload = {
         ...restValues,
         dateMeS: dateMeS ? dateMeS.format("YYYY-MM-DD") : null,
@@ -371,6 +390,9 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           : [],
         moteurs: moteurs && Array.isArray(moteurs)
           ? moteurs.map((id: number) => ({ id }))
+          : [],
+        helices: helices && Array.isArray(helices)
+          ? helices.map((id: number) => ({ id }))
           : [],
         options: options && Array.isArray(options)
           ? options.map((id: number) => ({ id }))
@@ -390,6 +412,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           modeleId: updated.modele?.id || undefined,
           proprietaires: updated.proprietaires?.map((p: any) => p.id || p) || [],
           moteurs: updated.moteurs?.map((m: any) => m.id || m) || [],
+          helices: updated.helices?.map((h: any) => h.id || h) || [],
         });
       } else {
         // create
@@ -405,6 +428,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           modeleId: created.modele?.id || undefined,
           proprietaires: created.proprietaires?.map((p: any) => p.id || p) || [],
           moteurs: created.moteurs?.map((m: any) => m.id || m) || [],
+          helices: created.helices?.map((h: any) => h.id || h) || [],
         });
       }
       setFormDirty(false);
@@ -647,6 +671,17 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                 }}
               />
             </Space.Compact>
+          </Form.Item>
+          <Form.Item label="Hélices" name="helices">
+            <Select
+              mode="multiple"
+              style={{ width: '100%' }}
+              placeholder="Rechercher une hélice par désignation"
+              optionFilterProp="label"
+              showSearch
+              allowClear
+              options={heliceSelectOptions}
+            />
           </Form.Item>
           <Form.Item label="Équipements" name="equipements">
             <Select

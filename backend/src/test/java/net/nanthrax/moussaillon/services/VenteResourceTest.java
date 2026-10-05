@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItem;
 
 @QuarkusTest
 public class VenteResourceTest {
@@ -482,5 +483,15 @@ public class VenteResourceTest {
         int remorques = taille("/remorques");
         vendre("\"venteRemorquesCatalogue\":[{\"remorque\":{\"id\":100},\"quantite\":1}]");
         org.junit.jupiter.api.Assertions.assertEquals(remorques + 1, taille("/remorques"));
+    }
+
+    @Test
+    void testVenteBateauMoteurHeliceAjouteHeliceAuBateauClient() {
+        int id = vendre("\"venteBateauxCatalogue\":[{\"bateau\":{\"id\":100},\"quantite\":1}],"
+            + "\"venteMoteursCatalogue\":[{\"moteur\":{\"id\":100},\"quantite\":1}],"
+            + "\"venteHelicesCatalogue\":[{\"helice\":{\"id\":100},\"quantite\":1}]");
+        given().when().get("/bateaux")
+            .then().statusCode(200)
+            .body("findAll { it.helices.size() > 0 }.helices.flatten().id", hasItem(100));
     }
 }
