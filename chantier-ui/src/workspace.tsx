@@ -92,7 +92,7 @@ function SideMenu(props) {
       { key: '/dashboard', label: 'Accueil', icon: <HomeOutlined/> },
       { key: 'Vente', label: 'Vente', icon: <DollarOutlined/>, requiredRole: 'vendeur', children: [
         { key: '/comptoir', label: 'Comptoir', icon: <ShopOutlined/> },
-        { key: '/prestations', label: 'Prestations', icon: <SolutionOutlined/> },
+        { key: '/prestations', label: 'Transactions/Prestations', icon: <SolutionOutlined/> },
         { key: '/avoirs', label: 'Avoirs', icon: <RollbackOutlined/> },
         { key: '/clients', label: 'Clients', icon: <TeamOutlined /> },
       ]},
