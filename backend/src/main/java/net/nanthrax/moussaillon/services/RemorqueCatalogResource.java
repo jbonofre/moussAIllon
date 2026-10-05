@@ -70,6 +70,9 @@ public class RemorqueCatalogResource {
     @Transactional
     public RemorqueCatalogueEntity create(RemorqueCatalogueEntity remorque) {
         remorque.persist();
+        if (ReferenceInterne.absente(remorque.ref)) {
+            remorque.ref = ReferenceInterne.generer("REM", remorque.id);
+        }
         return remorque;
     }
 

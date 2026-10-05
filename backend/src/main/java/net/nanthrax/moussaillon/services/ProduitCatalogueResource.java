@@ -78,6 +78,9 @@ public class ProduitCatalogueResource {
     @Transactional
     public ProduitCatalogueEntity create(ProduitCatalogueEntity produit) {
         produit.persist();
+        if (ReferenceInterne.absente(produit.ref)) {
+            produit.ref = ReferenceInterne.generer("PRD", produit.id);
+        }
         return produit;
     }
 

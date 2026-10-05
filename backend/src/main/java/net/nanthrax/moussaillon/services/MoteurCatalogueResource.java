@@ -50,6 +50,9 @@ public class MoteurCatalogueResource {
     public MoteurCatalogueEntity create(MoteurCatalogueEntity moteur) {
         moteur.helicesCompatibles = resolveHelices(moteur.helicesCompatibles);
         moteur.persist();
+        if (ReferenceInterne.absente(moteur.ref)) {
+            moteur.ref = ReferenceInterne.generer("MOT", moteur.id);
+        }
         return moteur;
     }
 

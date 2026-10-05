@@ -62,6 +62,9 @@ public class HeliceCatalogueResource {
     @Transactional
     public HeliceCatalogueEntity create(HeliceCatalogueEntity helice) {
         helice.persist();
+        if (ReferenceInterne.absente(helice.ref)) {
+            helice.ref = ReferenceInterne.generer("HEL", helice.id);
+        }
         return helice;
     }
 
