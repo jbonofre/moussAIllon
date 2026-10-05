@@ -439,4 +439,48 @@ public class VenteResourceTest {
 
         org.junit.jupiter.api.Assertions.assertEquals(stockAvant - 1, stockApres);
     }
+
+    // --- Parc client ---
+
+    private int vendre(String lignes) {
+        String corps = "{\"status\":\"%s\",\"client\":{\"id\":100},\"prixVenteTTC\":100.0," + lignes + "}";
+        int id = given().contentType("application/json")
+            .body(String.format(corps, "DEVIS"))
+            .when().post("/ventes").then().statusCode(201).extract().path("id");
+        given().contentType("application/json")
+            .body(String.format(corps, "FACTURE_PRETE"))
+            .when().put("/ventes/" + id).then().statusCode(200);
+        return id;
+    }
+
+    private int taille(String chemin) {
+        return given().when().get(chemin).then().statusCode(200).extract().path("size()");
+    }
+
+    @Test
+    void testVenteBateauMoteurAjouteBateauAuParc() {
+        int bateaux = taille("/bateaux");
+        int moteurs = taille("/moteurs");
+        vendre("\"venteBateauxCatalogue\":[{\"bateau\":{\"id\":100},\"quantite\":1}],"
+            + "\"venteMoteursCatalogue\":[{\"moteur\":{\"id\":100},\"quantite\":1}]");
+        org.junit.jupiter.api.Assertions.assertEquals(bateaux + 1, taille("/bateaux"));
+        // le moteur est porté par le bateau, pas ajouté seul
+        org.junit.jupiter.api.Assertions.assertEquals(moteurs, taille("/moteurs"));
+    }
+
+    @Test
+    void testVenteMoteurSeulAjouteMoteurAuParc() {
+        int bateaux = taille("/bateaux");
+        int moteurs = taille("/moteurs");
+        vendre("\"venteMoteursCatalogue\":[{\"moteur\":{\"id\":100},\"quantite\":1}]");
+        org.junit.jupiter.api.Assertions.assertEquals(moteurs + 1, taille("/moteurs"));
+        org.junit.jupiter.api.Assertions.assertEquals(bateaux, taille("/bateaux"));
+    }
+
+    @Test
+    void testVenteRemorqueAjouteRemorqueAuParc() {
+        int remorques = taille("/remorques");
+        vendre("\"venteRemorquesCatalogue\":[{\"remorque\":{\"id\":100},\"quantite\":1}]");
+        org.junit.jupiter.api.Assertions.assertEquals(remorques + 1, taille("/remorques"));
+    }
 }
