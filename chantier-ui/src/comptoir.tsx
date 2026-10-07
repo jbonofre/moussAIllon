@@ -1109,29 +1109,10 @@ export default function Comptoir() {
         }
     };
 
-    const handleMarkPaid = async () => {
-        if (!currentVente?.id) return;
-        const values = await form.validateFields();
-        const totalPaiements = (currentVente.paiements ?? []).reduce((s, p) => s + p.montant, 0);
-        const prixVenteTTC = currentVente.prixVenteTTC ?? 0;
-        if (totalPaiements < prixVenteTTC - 0.005) {
-            const restant = Math.round((prixVenteTTC - totalPaiements) * 100) / 100;
-            message.warning(`Montant restant à régler : ${formatEuro(restant)}. Ajoutez un paiement avant de marquer comme payée.`);
-            return;
-        }
-        form.setFieldsValue({ status: 'FACTURE_PAYEE' });
-        const payload = toPayload({ ...values, status: 'FACTURE_PAYEE' });
-        try {
-            const res = await api.put(`/ventes/${currentVente.id}`, { ...currentVente, ...payload });
-            message.success('Vente marquée comme payée');
-            setCurrentVente(res.data);
-            form.setFieldsValue({ status: res.data.status });
-            setFormDirty(false);
-            fetchVentes();
-        } catch {
-            message.error('Erreur lors du marquage comme payée');
-            form.setFieldsValue({ status: 'FACTURE_PRETE' });
-        }
+    const getSoldeDu = (vente: VenteEntity) => {
+        if (vente.status === 'FACTURE_PAYEE') return 0;
+        const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
+        return Math.max(0, Math.round(((vente.prixVenteTTC || 0) - totalPaye) * 100) / 100);
     };
 
     const getProduitLines = (vente: VenteEntity) => {
@@ -1645,10 +1626,22 @@ export default function Comptoir() {
             }
         },
         {
-            title: 'Prix vente TTC',
+            title: 'Montant TTC',
             dataIndex: 'prixVenteTTC',
+            align: 'right' as const,
             sorter: (a: VenteEntity, b: VenteEntity) => (a.prixVenteTTC || 0) - (b.prixVenteTTC || 0),
             render: (value: number) => formatEuro(value)
+        },
+        {
+            title: 'Solde dû',
+            key: 'soldeDu',
+            align: 'right' as const,
+            sorter: (a: VenteEntity, b: VenteEntity) => getSoldeDu(a) - getSoldeDu(b),
+            render: (_: unknown, record: VenteEntity) => {
+                if (record.status === 'DEVIS' || record.status === 'FACTURE_EN_ATTENTE') return '-';
+                const solde = getSoldeDu(record);
+                return <span style={{ color: solde > 0.005 ? '#cf1322' : '#52c41a', fontWeight: 500 }}>{formatEuro(solde)}</span>;
+            }
         },
         {
             title: 'Fournisseur',
@@ -1791,15 +1784,6 @@ export default function Comptoir() {
                             Lien de paiement
                         </Button>
                     </Dropdown>] : []),
-                    ...(!isReadOnly && isEdit ? [<Button
-                        key="mark-paid"
-                        type="primary"
-                        danger
-                        icon={<CreditCardOutlined />}
-                        onClick={handleMarkPaid}
-                    >
-                        Marquer comme payée
-                    </Button>] : []),
                     ...(currentVente?.id ? [<Button
                         key="commande-fournisseur"
                         icon={<ShoppingCartOutlined />}

@@ -863,6 +863,7 @@ public class VenteResource {
             paiement.date = now;
             paiement.notes = request.notes;
             vente.paiements.add(paiement);
+            marquerPayeeSiSoldee(vente);
             restant = Math.round((restant - montantPaiement) * 100.0) / 100.0;
             count++;
         }
@@ -930,7 +931,23 @@ public class VenteResource {
         }
 
         entity.paiements.add(paiement);
+        marquerPayeeSiSoldee(entity);
         return paiement;
+    }
+
+    /** Passe automatiquement la facture en « payée » lorsque le solde dû est à 0. */
+    private void marquerPayeeSiSoldee(VenteEntity vente) {
+        if (vente.status != VenteEntity.Status.FACTURE_PRETE) {
+            return;
+        }
+        double totalPaye = vente.paiements.stream().mapToDouble(p -> p.montant).sum();
+        double solde = Math.round((vente.prixVenteTTC - totalPaye) * 100.0) / 100.0;
+        if (solde <= 0.005) {
+            vente.status = VenteEntity.Status.FACTURE_PAYEE;
+            if (vente.dateFacturePayee == null) {
+                vente.dateFacturePayee = new Timestamp(System.currentTimeMillis());
+            }
+        }
     }
 
     @DELETE
