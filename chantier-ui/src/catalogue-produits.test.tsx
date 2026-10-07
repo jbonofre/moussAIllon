@@ -90,7 +90,7 @@ describe('CatalogueProduits', () => {
         expect(screen.queryByLabelText('Catégorie', { selector: 'input' })).not.toBeInTheDocument();
         expect(screen.queryByLabelText('PTAC')).not.toBeInTheDocument();
         expect(screen.getByTestId('fournisseurs-bateau')).toBeInTheDocument();
-        expect(typeProduitSelect()).toBeDisabled();
+        expect(typeProduitSelect()).not.toBeDisabled();
     });
 
     it('adapte le formulaire au type choisi et enregistre dans le bon référentiel', async () => {
@@ -140,6 +140,28 @@ describe('CatalogueProduits', () => {
         ));
         const body = mockedApi.put.mock.calls[0][1] as any;
         ['typeProduit', 'key', 'forfaitIds'].forEach((champ) => expect(body).not.toHaveProperty(champ));
+    });
+
+    it('convertit un article existant vers un autre type', async () => {
+        await renderCatalogue();
+        fireEvent.click(screen.getByText('Alu 13x19'));
+        expect(await screen.findByText('Modifier une hélice')).toBeInTheDocument();
+
+        fireEvent.mouseDown(typeProduitSelect());
+        const option = await waitFor(() => {
+            const found = Array.from(document.querySelectorAll('.ant-select-item-option'))
+                .find((element) => element.textContent === 'Remorque');
+            expect(found).toBeTruthy();
+            return found as HTMLElement;
+        });
+        fireEvent.click(option);
+
+        expect(await screen.findByText('Convertir en remorque')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Convertir' }));
+        await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith(
+            '/catalogue/convertir',
+            { source: 'helice', id: 1, cible: 'remorque', categorie: undefined },
+        ));
     });
 
     it('enregistre les moteurs compatibles d\'une hélice sur les moteurs', async () => {

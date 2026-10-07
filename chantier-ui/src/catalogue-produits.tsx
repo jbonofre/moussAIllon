@@ -450,6 +450,8 @@ const CatalogueProduits: React.FC = () => {
     const [form] = Form.useForm();
     const [formDirty, setFormDirty] = useState(false);
     const [forfaitModalVisible, setForfaitModalVisible] = useState(false);
+    const [conversion, setConversion] = useState<{ cible: TypeProduit; categorie?: string } | null>(null);
+    const [converting, setConverting] = useState(false);
 
     const isEdit = !!(currentProduit && currentProduit.id);
     const config = TYPES_PRODUIT[typeCourant];
@@ -570,6 +572,35 @@ const CatalogueProduits: React.FC = () => {
         form.setFieldsValue({ ...defaultValues[type], ...communs });
         setInitialForfaitIds([]);
         setTypeCourant(type);
+    };
+
+    // En modification, le changement de type convertit l'article existant (voir /catalogue/convertir)
+    const handleConvertir = async () => {
+        if (!conversion || !currentProduit?.id) return;
+        const optionsCategorie = conversion.cible === 'produit' ? CATEGORIES : conversion.cible === 'bateau' ? bateauTypes : conversion.cible === 'moteur' ? moteurTypes : null;
+        if (optionsCategorie && !conversion.categorie) {
+            message.warning(conversion.cible === 'produit' ? 'Veuillez choisir une catégorie' : 'Veuillez choisir un type');
+            return;
+        }
+        setConverting(true);
+        try {
+            await api.post('/catalogue/convertir', {
+                source: typeCourant,
+                id: currentProduit.id,
+                cible: conversion.cible,
+                categorie: conversion.categorie,
+            });
+            message.success(`Type modifié : ${TYPES_PRODUIT[conversion.cible].label}`);
+            setConversion(null);
+            setFormDirty(false);
+            setModalVisible(false);
+            fetchCatalogue();
+        } catch (err: unknown) {
+            const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+            message.error(msg || 'Erreur lors du changement de type');
+        } finally {
+            setConverting(false);
+        }
     };
 
     const updateForfaitAssociations = async (type: TypeProduit, id: number, selectedForfaitIds: number[]) => {
@@ -868,6 +899,35 @@ const CatalogueProduits: React.FC = () => {
                             })}
                         />
                         <Modal
+                            title={conversion ? `Convertir en ${TYPES_PRODUIT[conversion.cible].label.toLowerCase()}` : ''}
+                            open={!!conversion}
+                            onOk={handleConvertir}
+                            onCancel={() => setConversion(null)}
+                            okText="Convertir"
+                            cancelText="Annuler"
+                            confirmLoading={converting}
+                            destroyOnHidden
+                        >
+                            {conversion && (
+                                <Space direction="vertical" style={{ width: '100%' }}>
+                                    <div>
+                                        Les champs communs (désignation, référence, prix, stock, images, documents…) sont conservés.
+                                        Les champs propres au type « {TYPES_PRODUIT[typeCourant].label} » seront perdus. Les modifications non enregistrées du formulaire ne sont pas reprises.
+                                    </div>
+                                    <div>La conversion est refusée si l'article est utilisé (ventes, commandes fournisseur, forfaits, fournisseurs, stock).</div>
+                                    {(conversion.cible === 'produit' || conversion.cible === 'bateau' || conversion.cible === 'moteur') && (
+                                        <Select
+                                            style={{ width: '100%' }}
+                                            value={conversion.categorie}
+                                            onChange={(categorie: string) => setConversion({ ...conversion, categorie })}
+                                            options={conversion.cible === 'produit' ? CATEGORIES : conversion.cible === 'bateau' ? bateauTypes : moteurTypes}
+                                            placeholder={conversion.cible === 'produit' ? 'Choisir une catégorie' : `Choisir un type de ${conversion.cible}`}
+                                        />
+                                    )}
+                                </Space>
+                            )}
+                        </Modal>
+                        <Modal
                             title={`${isEdit ? 'Modifier' : 'Ajouter'} ${config.article}`}
                             open={modalVisible}
                             onOk={handleModalOk}
@@ -885,12 +945,11 @@ const CatalogueProduits: React.FC = () => {
                             >
                                 <Row gutter={16}>
                                     <Col span={12}>
-                                        {/* Chaque type a son propre référentiel : le type n'est plus modifiable une fois le produit créé */}
+                                        {/* Chaque type a son propre référentiel : en modification, le changement de type convertit l'article (refusé s'il est utilisé) */}
                                         <Form.Item label="Type de produit" required>
                                             <Select
                                                 value={typeCourant}
-                                                onChange={handleTypeChange}
-                                                disabled={isEdit}
+                                                onChange={(type: TypeProduit) => (isEdit ? setConversion({ cible: type }) : handleTypeChange(type))}
                                                 options={TYPE_PRODUIT_KEYS.map((type) => ({ value: type, label: TYPES_PRODUIT[type].label }))}
                                             />
                                         </Form.Item>
