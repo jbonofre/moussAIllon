@@ -697,6 +697,8 @@ export default function Comptoir() {
         try {
             const res = await api.get<VenteEntity>(`/ventes/${id}`);
             setCurrentVente(res.data);
+            // Le statut peut avoir changé côté serveur (facture passée automatiquement en payée).
+            form.setFieldsValue({ status: res.data.status });
         } catch {
             message.error('Erreur lors du rechargement de la vente');
         }
@@ -1089,7 +1091,7 @@ export default function Comptoir() {
                 return;
             }
             if (axios.isAxiosError(error)) {
-                message.error(error.response?.data?.message || "Erreur lors de l'enregistrement de la vente comptoir.");
+                message.error(error.response?.data?.message || error.response?.data?.error || "Erreur lors de l'enregistrement de la vente comptoir.");
                 return;
             }
             message.error("Erreur lors de l'enregistrement de la vente comptoir.");
@@ -1181,7 +1183,8 @@ export default function Comptoir() {
             return ps.map((p) => {
                 const label = modeLabels[p.mode] ?? p.mode;
                 const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
-                return `<div class="row">${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
+                const date = p.date ? `${formatDate(p.date)} - ` : '';
+                return `<div class="row">${escapeHtml(date)}${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
             }).join('');
         }
         return '';
@@ -1895,16 +1898,8 @@ export default function Comptoir() {
                                                 const moteurCatalogue = ligneType === 'moteur' ? catalogueMoteurs.find((m) => m.id === ligneItemId) : undefined;
                                                 const heliceCatalogue = ligneType === 'helice' ? catalogueHelices.find((h) => h.id === ligneItemId) : undefined;
                                                 const remorqueCatalogue = ligneType === 'remorque' ? catalogueRemorques.find((r) => r.id === ligneItemId) : undefined;
-                                                const reference = produitCatalogue?.ref || '';
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                                                    <Form.Item style={{ width: 120 }}>
-                                                        <Input
-                                                            disabled
-                                                            value={reference}
-                                                            placeholder="Référence"
-                                                        />
-                                                    </Form.Item>
                                                     <Form.Item
                                                         {...field}
                                                         name={[field.name, 'produitRef']}
@@ -1919,7 +1914,7 @@ export default function Comptoir() {
                                                                 }
                                                             }
                                                         ]}
-                                                        style={{ width: 320 }}
+                                                        style={{ width: 440 }}
                                                     >
                                                         <Select
                                                             allowClear
@@ -2139,6 +2134,7 @@ export default function Comptoir() {
                                     dataSource={ps}
                                     locale={{ emptyText: 'Aucun paiement enregistré' }}
                                     columns={[
+                                        { title: 'Date', dataIndex: 'date', width: 150, sorter: (a: VentePaiement, b: VentePaiement) => (a.date || '').localeCompare(b.date || ''), render: (v?: string) => formatDate(v) },
                                         { title: 'Mode', dataIndex: 'mode', width: 110, sorter: (a: VentePaiement, b: VentePaiement) => (a.mode || '').localeCompare(b.mode || ''), render: (v: string) => modeLabels[v] ?? v },
                                         {
                                             title: 'Avoir',

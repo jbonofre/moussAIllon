@@ -417,14 +417,10 @@ public class VenteResourceTest {
     }
 
     @Test
-    void testDecrementStockComptoirDirectementFacturePayee() {
-        int stockAvant = given()
-            .when().get("/catalogue/produits/100")
-            .then().statusCode(200).extract().path("stock");
-
+    void testPassageEnPayeeRefuseSansPaiement() {
         int id = given()
             .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"produits\":[{\"id\":100}]}")
+            .body("{\"status\":\"FACTURE_PRETE\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"produits\":[{\"id\":100}]}")
             .when().post("/ventes")
             .then().statusCode(201).extract().path("id");
 
@@ -432,13 +428,35 @@ public class VenteResourceTest {
             .contentType("application/json")
             .body("{\"status\":\"FACTURE_PAYEE\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"produits\":[{\"id\":100}]}")
             .when().put("/ventes/" + id)
+            .then().statusCode(400)
+            .body("message", org.hamcrest.Matchers.containsString("solde dû"));
+
+        given().when().get("/ventes/" + id).then().statusCode(200).body("status", is("FACTURE_PRETE"));
+    }
+
+    @Test
+    void testPassageAutomatiqueEnPayeeQuandSoldeAZero() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"produits\":[{\"id\":100}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"mode\":\"CARTE\",\"montant\":10.0}")
+            .when().post("/ventes/" + id + "/paiements")
             .then().statusCode(200);
+        given().when().get("/ventes/" + id).then().statusCode(200).body("status", is("FACTURE_PRETE"));
 
-        int stockApres = given()
-            .when().get("/catalogue/produits/100")
-            .then().statusCode(200).extract().path("stock");
-
-        org.junit.jupiter.api.Assertions.assertEquals(stockAvant - 1, stockApres);
+        given()
+            .contentType("application/json")
+            .body("{\"mode\":\"ESPÈCES\",\"montant\":14.0}")
+            .when().post("/ventes/" + id + "/paiements")
+            .then().statusCode(200);
+        given().when().get("/ventes/" + id).then().statusCode(200)
+            .body("status", is("FACTURE_PAYEE"))
+            .body("dateFacturePayee", org.hamcrest.Matchers.notNullValue());
     }
 
     // --- Parc client ---

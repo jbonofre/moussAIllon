@@ -466,6 +466,19 @@ public class VenteResource {
                     .build());
         }
 
+        // Une facture ne peut passer manuellement en « payée » que si les paiements couvrent le montant dû
+        if (vente.status == VenteEntity.Status.FACTURE_PAYEE && entity.status != VenteEntity.Status.FACTURE_PAYEE) {
+            double totalPaye = entity.paiements.stream().mapToDouble(p -> p.montant).sum();
+            double solde = Math.round((vente.prixVenteTTC - totalPaye) * 100.0) / 100.0;
+            if (solde > 0.005) {
+                throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST)
+                        .entity(java.util.Map.of("message", String.format(java.util.Locale.FRANCE,
+                            "La facture ne peut pas passer en payée : solde dû de %.2f €. Ajoutez les paiements correspondants.", solde)))
+                        .build());
+            }
+        }
+
         // Track step date history on transitions
         Timestamp now = new Timestamp(System.currentTimeMillis());
         if (vente.status != entity.status || vente.bonPourAccord != entity.bonPourAccord) {
