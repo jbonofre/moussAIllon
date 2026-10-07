@@ -93,7 +93,7 @@ export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPri
             return `
             <tr>
                 <td>${escapeHtml(line.reference || '-')}</td>
-                <td>${escapeHtml(line.type)} — ${escapeHtml(line.label)}</td>
+                <td>${escapeHtml(line.label)}</td>
                 <td class="num">${line.quantite}</td>
                 ${showPrices ? `<td class="num">${remisePct > 0 ? remisePct.toFixed(2) : '-'}</td>` : ''}
                 ${showPrices ? `<td class="num">${tva != null ? tva.toFixed(2) : '-'}</td>` : ''}
