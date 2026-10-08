@@ -85,10 +85,18 @@ describe('Packages', () => {
         const modal = document.querySelector('.ant-modal') as HTMLElement;
 
         fireEvent.change(within(modal).getByLabelText('Désignation'), { target: { value: 'Pack motorisation' } });
+        // une seule ligne, vide, sans bouton d'ajout ni de suppression
+        expect(within(modal).getAllByRole('combobox')).toHaveLength(1);
+        expect(within(modal).queryByRole('button', { name: /Ajouter un article/ })).not.toBeInTheDocument();
+        expect(within(modal).queryByTitle('Retirer du package')).not.toBeInTheDocument();
+
+        // choisir un article pré-remplit la quantité et ouvre la ligne de saisie suivante
         await choisirArticle(within(modal).getAllByRole('combobox')[0], 'F115 XB');
-        fireEvent.click(within(modal).getByRole('button', { name: /Ajouter un article/ }));
         await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(2));
+        expect(within(modal).getAllByPlaceholderText('Qte')[0]).toHaveValue('1');
+        expect(within(modal).getAllByTitle('Retirer du package')).toHaveLength(1);
         await choisirArticle(within(modal).getAllByRole('combobox')[1], 'Alu 13x19');
+        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(3));
         expect(await within(modal).findByText('13150.00 €')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -124,6 +132,9 @@ describe('Packages', () => {
         expect(within(modal).getByLabelText('Désignation')).toHaveValue('Pack prêt à naviguer');
         expect(within(modal).getByText('AN-1 - Anode zinc')).toBeInTheDocument();
         expect(within(modal).getByText('58048.00 €')).toBeInTheDocument();
+        // les trois articles du package, puis la ligne de saisie vide
+        expect(within(modal).getAllByRole('combobox')).toHaveLength(4);
+        expect(within(modal).getAllByTitle('Retirer du package')).toHaveLength(3);
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
         await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith(
@@ -138,6 +149,28 @@ describe('Packages', () => {
                     { produit: { id: 1 }, quantite: 4 },
                 ],
             },
+        ));
+    });
+
+    it('retire un article du package', async () => {
+        await renderPackages();
+        fireEvent.click(screen.getByText('Pack prêt à naviguer'));
+        expect(await screen.findByText('Modifier un package')).toBeInTheDocument();
+        const modal = document.querySelector('.ant-modal') as HTMLElement;
+
+        fireEvent.click(within(modal).getAllByTitle('Retirer du package')[1]);
+        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(3));
+        expect(await within(modal).findByText('45048.00 €')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith(
+            '/catalogue/packages/7',
+            expect.objectContaining({
+                lignes: [
+                    { bateau: { id: 1 }, quantite: 1 },
+                    { produit: { id: 1 }, quantite: 4 },
+                ],
+            }),
         ));
     });
 

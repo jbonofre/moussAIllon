@@ -43,8 +43,11 @@ const defaultPackage: PackageFormValues = {
     designation: '',
     ref: '',
     description: '',
-    lignes: [{ quantite: 1 }],
+    lignes: [{}],
 };
+
+// Largeurs des colonnes d'une ligne de package : l'article occupe le reste de la largeur
+const COLONNES = { type: 100, quantite: 110, prixUnitaire: 160, total: 170, action: 32 };
 
 const formatEuro = (value?: number) => `${(value || 0).toFixed(2)} €`;
 
@@ -137,7 +140,7 @@ export default function Packages() {
                 designation: pack.designation,
                 ref: pack.ref,
                 description: pack.description,
-                lignes: articlesDuPackage(pack).map(({ type, article, quantite }) => ({ articleRef: `${type}:${article.id}`, quantite })),
+                lignes: [...articlesDuPackage(pack).map(({ type, article, quantite }) => ({ articleRef: `${type}:${article.id}`, quantite })), {}],
             });
         } else {
             setCurrentPackage(null);
@@ -145,6 +148,17 @@ export default function Packages() {
         }
         setFormDirty(false);
         setModalVisible(true);
+    };
+
+    const onValuesChange = (changedValues: Partial<PackageFormValues>, allValues: PackageFormValues) => {
+        setFormDirty(true);
+        if (changedValues.lignes === undefined) return;
+        // La quantité est pré-remplie à 1 au choix de l'article, et la saisie se poursuit sur une ligne vide en fin de liste
+        const lignes = (allValues.lignes || []).map((ligne, index) => (
+            changedValues.lignes?.[index]?.articleRef && !ligne.quantite ? { ...ligne, quantite: 1 } : ligne
+        ));
+        const derniere = lignes[lignes.length - 1];
+        form.setFieldValue('lignes', !derniere || derniere.articleRef ? [...lignes, {}] : lignes);
     };
 
     const handleModalCancel = () => {
@@ -306,7 +320,7 @@ export default function Packages() {
                 destroyOnHidden
                 width="95vw"
             >
-                <Form form={form} layout="vertical" initialValues={defaultPackage} onValuesChange={() => setFormDirty(true)}>
+                <Form form={form} layout="vertical" initialValues={defaultPackage} onValuesChange={onValuesChange}>
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="designation" label="Désignation" rules={[{ required: true, whitespace: true, message: 'La désignation est requise' }]}>
@@ -323,56 +337,62 @@ export default function Packages() {
                         <Input.TextArea rows={3} placeholder="Description" allowClear />
                     </Form.Item>
                     <Form.Item label="Contenu du package" extra="Ces lignes sont recopiées dans la vente comptoir ou la transaction qui utilise le package, au prix catalogue du moment.">
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, color: '#8c8c8c' }}>
+                            <div style={{ flex: 1 }}>Article</div>
+                            <div style={{ width: COLONNES.type }}>Type</div>
+                            <div style={{ width: COLONNES.quantite }}>Quantité</div>
+                            <div style={{ width: COLONNES.prixUnitaire }}>P.U. TTC</div>
+                            <div style={{ width: COLONNES.total }}>Total TTC</div>
+                            <div style={{ width: COLONNES.action }} />
+                        </div>
                         <Form.List name="lignes">
-                            {(fields, { add, remove }) => (
+                            {(fields, { remove }) => (
                                 <>
                                     {fields.map((field) => (
-                                        <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                                            <Form.Item name={[field.name, 'articleRef']} style={{ width: 440 }}>
-                                                <Select
-                                                    allowClear
-                                                    showSearch
-                                                    options={articleOptions}
-                                                    filterOption={(input, option) =>
-                                                        ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
-                                                    }
-                                                    placeholder="Rechercher produit, bateau, moteur, hélice ou remorque"
-                                                />
-                                            </Form.Item>
-                                            <Form.Item name={[field.name, 'quantite']} style={{ width: 90 }}>
-                                                <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
-                                            </Form.Item>
-                                            <Form.Item noStyle shouldUpdate>
-                                                {() => {
-                                                    const ligne: PackageLigneForm = form.getFieldValue(['lignes', field.name]) || {};
-                                                    const parsed = parseArticleRef(ligne.articleRef);
-                                                    const prixUnitaire = getArticle(ligne.articleRef)?.prixVenteTTC;
-                                                    const total = prixUnitaire !== undefined
-                                                        ? Math.round((prixUnitaire * Math.max(1, Math.floor(ligne.quantite || 1)) + Number.EPSILON) * 100) / 100
-                                                        : undefined;
-                                                    return (
-                                                        <>
-                                                            <Form.Item style={{ width: 130 }}>
-                                                                <InputNumber addonAfter="€" value={prixUnitaire} disabled style={{ width: '100%' }} placeholder="P.U." />
-                                                            </Form.Item>
-                                                            <Form.Item style={{ width: 140 }}>
-                                                                <InputNumber addonAfter="€" value={total} disabled style={{ width: '100%' }} placeholder="Total" />
-                                                            </Form.Item>
-                                                            {parsed && (
-                                                                <Tag color={TYPES_ARTICLE[parsed.type].color} style={{ marginRight: 0 }}>
-                                                                    {TYPES_ARTICLE[parsed.type].label}
-                                                                </Tag>
+                                        <Form.Item key={field.key} shouldUpdate noStyle>
+                                            {() => {
+                                                const ligne: PackageLigneForm = form.getFieldValue(['lignes', field.name]) || {};
+                                                const parsed = parseArticleRef(ligne.articleRef);
+                                                const prixUnitaire = getArticle(ligne.articleRef)?.prixVenteTTC;
+                                                const total = prixUnitaire !== undefined
+                                                    ? Math.round((prixUnitaire * Math.max(1, Math.floor(ligne.quantite || 1)) + Number.EPSILON) * 100) / 100
+                                                    : undefined;
+                                                return (
+                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
+                                                        <Form.Item name={[field.name, 'articleRef']} style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
+                                                            <Select
+                                                                allowClear
+                                                                showSearch
+                                                                options={articleOptions}
+                                                                filterOption={(input, option) =>
+                                                                    ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
+                                                                }
+                                                                placeholder="Rechercher produit, bateau, moteur, hélice ou remorque"
+                                                            />
+                                                        </Form.Item>
+                                                        <div style={{ width: COLONNES.type }}>
+                                                            {parsed && <Tag color={TYPES_ARTICLE[parsed.type].color}>{TYPES_ARTICLE[parsed.type].label}</Tag>}
+                                                        </div>
+                                                        <Form.Item name={[field.name, 'quantite']} style={{ width: COLONNES.quantite, marginBottom: 0 }}>
+                                                            <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
+                                                        </Form.Item>
+                                                        <Form.Item style={{ width: COLONNES.prixUnitaire, marginBottom: 0 }}>
+                                                            <InputNumber addonAfter="€" value={prixUnitaire} disabled style={{ width: '100%' }} placeholder="P.U." />
+                                                        </Form.Item>
+                                                        <Form.Item style={{ width: COLONNES.total, marginBottom: 0 }}>
+                                                            <InputNumber addonAfter="€" value={total} disabled style={{ width: '100%' }} placeholder="Total" />
+                                                        </Form.Item>
+                                                        {/* La ligne de saisie vide en fin de liste n'a rien à retirer */}
+                                                        <div style={{ width: COLONNES.action }}>
+                                                            {(parsed || field.name < fields.length - 1) && (
+                                                                <Button danger icon={<DeleteOutlined />} title="Retirer du package" onClick={() => remove(field.name)} />
                                                             )}
-                                                        </>
-                                                    );
-                                                }}
-                                            </Form.Item>
-                                            <Button danger icon={<DeleteOutlined />} title="Retirer du package" onClick={() => remove(field.name)} />
-                                        </Space>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            }}
+                                        </Form.Item>
                                     ))}
-                                    <Button type="dashed" onClick={() => add({ quantite: 1 })} block icon={<PlusCircleOutlined />}>
-                                        Ajouter un article
-                                    </Button>
                                 </>
                             )}
                         </Form.List>
