@@ -697,6 +697,8 @@ export default function Comptoir() {
         try {
             const res = await api.get<VenteEntity>(`/ventes/${id}`);
             setCurrentVente(res.data);
+            // Le statut peut avoir changé côté serveur (facture passée automatiquement en payée).
+            form.setFieldsValue({ status: res.data.status });
         } catch {
             message.error('Erreur lors du rechargement de la vente');
         }
@@ -1089,7 +1091,7 @@ export default function Comptoir() {
                 return;
             }
             if (axios.isAxiosError(error)) {
-                message.error(error.response?.data?.message || "Erreur lors de l'enregistrement de la vente comptoir.");
+                message.error(error.response?.data?.message || error.response?.data?.error || "Erreur lors de l'enregistrement de la vente comptoir.");
                 return;
             }
             message.error("Erreur lors de l'enregistrement de la vente comptoir.");
@@ -1109,29 +1111,10 @@ export default function Comptoir() {
         }
     };
 
-    const handleMarkPaid = async () => {
-        if (!currentVente?.id) return;
-        const values = await form.validateFields();
-        const totalPaiements = (currentVente.paiements ?? []).reduce((s, p) => s + p.montant, 0);
-        const prixVenteTTC = currentVente.prixVenteTTC ?? 0;
-        if (totalPaiements < prixVenteTTC - 0.005) {
-            const restant = Math.round((prixVenteTTC - totalPaiements) * 100) / 100;
-            message.warning(`Montant restant à régler : ${formatEuro(restant)}. Ajoutez un paiement avant de marquer comme payée.`);
-            return;
-        }
-        form.setFieldsValue({ status: 'FACTURE_PAYEE' });
-        const payload = toPayload({ ...values, status: 'FACTURE_PAYEE' });
-        try {
-            const res = await api.put(`/ventes/${currentVente.id}`, { ...currentVente, ...payload });
-            message.success('Vente marquée comme payée');
-            setCurrentVente(res.data);
-            form.setFieldsValue({ status: res.data.status });
-            setFormDirty(false);
-            fetchVentes();
-        } catch {
-            message.error('Erreur lors du marquage comme payée');
-            form.setFieldsValue({ status: 'FACTURE_PRETE' });
-        }
+    const getSoldeDu = (vente: VenteEntity) => {
+        if (vente.status === 'FACTURE_PAYEE') return 0;
+        const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
+        return Math.max(0, Math.round(((vente.prixVenteTTC || 0) - totalPaye) * 100) / 100);
     };
 
     const getProduitLines = (vente: VenteEntity) => {
@@ -1200,7 +1183,8 @@ export default function Comptoir() {
             return ps.map((p) => {
                 const label = modeLabels[p.mode] ?? p.mode;
                 const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
-                return `<div class="row">${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
+                const date = p.date ? `${formatDate(p.date)} - ` : '';
+                return `<div class="row">${escapeHtml(date)}${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
             }).join('');
         }
         return '';
@@ -1645,10 +1629,22 @@ export default function Comptoir() {
             }
         },
         {
-            title: 'Prix vente TTC',
+            title: 'Montant TTC',
             dataIndex: 'prixVenteTTC',
+            align: 'right' as const,
             sorter: (a: VenteEntity, b: VenteEntity) => (a.prixVenteTTC || 0) - (b.prixVenteTTC || 0),
             render: (value: number) => formatEuro(value)
+        },
+        {
+            title: 'Solde dû',
+            key: 'soldeDu',
+            align: 'right' as const,
+            sorter: (a: VenteEntity, b: VenteEntity) => getSoldeDu(a) - getSoldeDu(b),
+            render: (_: unknown, record: VenteEntity) => {
+                if (record.status === 'DEVIS' || record.status === 'FACTURE_EN_ATTENTE') return '-';
+                const solde = getSoldeDu(record);
+                return <span style={{ color: solde > 0.005 ? '#cf1322' : '#52c41a', fontWeight: 500 }}>{formatEuro(solde)}</span>;
+            }
         },
         {
             title: 'Fournisseur',
@@ -1791,15 +1787,6 @@ export default function Comptoir() {
                             Lien de paiement
                         </Button>
                     </Dropdown>] : []),
-                    ...(!isReadOnly && isEdit ? [<Button
-                        key="mark-paid"
-                        type="primary"
-                        danger
-                        icon={<CreditCardOutlined />}
-                        onClick={handleMarkPaid}
-                    >
-                        Marquer comme payée
-                    </Button>] : []),
                     ...(currentVente?.id ? [<Button
                         key="commande-fournisseur"
                         icon={<ShoppingCartOutlined />}
@@ -1911,16 +1898,8 @@ export default function Comptoir() {
                                                 const moteurCatalogue = ligneType === 'moteur' ? catalogueMoteurs.find((m) => m.id === ligneItemId) : undefined;
                                                 const heliceCatalogue = ligneType === 'helice' ? catalogueHelices.find((h) => h.id === ligneItemId) : undefined;
                                                 const remorqueCatalogue = ligneType === 'remorque' ? catalogueRemorques.find((r) => r.id === ligneItemId) : undefined;
-                                                const reference = produitCatalogue?.ref || '';
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                                                    <Form.Item style={{ width: 120 }}>
-                                                        <Input
-                                                            disabled
-                                                            value={reference}
-                                                            placeholder="Référence"
-                                                        />
-                                                    </Form.Item>
                                                     <Form.Item
                                                         {...field}
                                                         name={[field.name, 'produitRef']}
@@ -1935,7 +1914,7 @@ export default function Comptoir() {
                                                                 }
                                                             }
                                                         ]}
-                                                        style={{ width: 320 }}
+                                                        style={{ width: 440 }}
                                                     >
                                                         <Select
                                                             allowClear
@@ -2155,6 +2134,7 @@ export default function Comptoir() {
                                     dataSource={ps}
                                     locale={{ emptyText: 'Aucun paiement enregistré' }}
                                     columns={[
+                                        { title: 'Date', dataIndex: 'date', width: 150, sorter: (a: VentePaiement, b: VentePaiement) => (a.date || '').localeCompare(b.date || ''), render: (v?: string) => formatDate(v) },
                                         { title: 'Mode', dataIndex: 'mode', width: 110, sorter: (a: VentePaiement, b: VentePaiement) => (a.mode || '').localeCompare(b.mode || ''), render: (v: string) => modeLabels[v] ?? v },
                                         {
                                             title: 'Avoir',

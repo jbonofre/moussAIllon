@@ -578,6 +578,11 @@ const defaultVente: VenteFormValues = {
 };
 
 const formatEuro = (value?: number) => `${(value || 0).toFixed(2)} EUR`;
+const getSoldeDu = (vente: { status?: string; prixVenteTTC?: number; paiements?: Array<{ montant: number }> }) => {
+    if (vente.status === 'FACTURE_PAYEE') return 0;
+    const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
+    return Math.max(0, Math.round(((vente.prixVenteTTC || 0) - totalPaye) * 100) / 100);
+};
 const formatDate = (value?: string) => {
     if (!value) return '-';
     const parsed = new Date(value);
@@ -2055,6 +2060,15 @@ export default function Vente() {
             });
             return;
         }
+        // La facture passe en « payée » automatiquement quand les paiements couvrent le solde : pas de passage manuel
+        if (step === 4) {
+            const totalPaye = (currentVente?.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
+            const solde = Math.round(((form.getFieldValue('prixVenteTTC') || 0) - totalPaye) * 100) / 100;
+            if (solde > 0.005) {
+                message.warning(`Solde dû de ${formatEuro(solde)} : ajoutez les paiements correspondants, la facture passera automatiquement en payée.`);
+                return;
+            }
+        }
         // Block transition to "Facture complète" (step 3+) if not all tasks are done
         if (step >= 3 && currentStep < 3) {
             const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
@@ -2099,6 +2113,8 @@ export default function Vente() {
         try {
             const res = await api.get<VenteEntity>(`/ventes/${id}`);
             setCurrentVente(res.data);
+            // Le statut peut avoir changé côté serveur (facture passée automatiquement en payée).
+            form.setFieldsValue({ status: res.data.status });
         } catch {
             message.error('Erreur lors du rechargement de la vente');
         }
@@ -2144,6 +2160,7 @@ export default function Vente() {
             message.success('Paiement ajouté');
             setPaiementModalVisible(false);
             await refreshCurrentVente(currentVente.id);
+            fetchVentes();
         } catch (err: unknown) {
             const msg = (err as { response?: { data?: string } })?.response?.data || 'Erreur lors de l\'ajout du paiement';
             message.error(msg);
@@ -2158,6 +2175,7 @@ export default function Vente() {
             await api.delete(`/ventes/${currentVente.id}/paiements/${paiementId}`);
             message.success('Paiement supprimé');
             await refreshCurrentVente(currentVente.id);
+            fetchVentes();
         } catch {
             message.error('Erreur lors de la suppression du paiement');
         }
@@ -2420,7 +2438,8 @@ export default function Vente() {
                 return ps.map(p => {
                     const label = modeLabels[p.mode] ?? p.mode;
                     const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
-                    return `<div class="row">${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
+                    const date = p.date ? `${formatDate(p.date)} - ` : '';
+                    return `<div class="row">${escapeHtml(date)}${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
                 }).join('');
             }
             return '';
@@ -2847,10 +2866,22 @@ export default function Vente() {
             }
         },
         {
-            title: 'Prix vente TTC',
+            title: 'Montant TTC',
             dataIndex: 'prixVenteTTC',
+            align: 'right' as const,
             sorter: (a: VenteEntity, b: VenteEntity) => (a.prixVenteTTC || 0) - (b.prixVenteTTC || 0),
             render: (value: number) => formatEuro(value)
+        },
+        {
+            title: 'Solde dû',
+            key: 'soldeDu',
+            align: 'right' as const,
+            sorter: (a: VenteEntity, b: VenteEntity) => getSoldeDu(a) - getSoldeDu(b),
+            render: (_: unknown, record: VenteEntity) => {
+                if (record.status === 'DEVIS' || record.status === 'FACTURE_EN_ATTENTE') return '-';
+                const solde = getSoldeDu(record);
+                return <span style={{ color: solde > 0.005 ? '#cf1322' : '#52c41a', fontWeight: 500 }}>{formatEuro(solde)}</span>;
+            }
         },
         {
             title: 'Mode de paiement',
@@ -3268,13 +3299,6 @@ export default function Vente() {
                                                         )
                                                         : undefined;
 
-                                                    const getReference = () => {
-                                                        if (!lineType || !itemId) return '';
-                                                        if (lineType === 'produit') return produits.find((p) => p.id === itemId)?.ref || '';
-                                                        if (lineType === 'forfait') return forfaits.find((f) => f.id === itemId)?.reference || '';
-                                                        return '';
-                                                    };
-
                                                     return (
                                                     <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
                                                         <Form.Item
@@ -3289,10 +3313,7 @@ export default function Vente() {
                                                         >
                                                             <InputNumber />
                                                         </Form.Item>
-                                                        <Form.Item style={{ width: 120 }}>
-                                                            <Input disabled value={getReference()} placeholder="Référence" />
-                                                        </Form.Item>
-                                                        <Form.Item style={{ width: 320 }}>
+                                                        <Form.Item style={{ width: 440 }}>
                                                             {lineType === 'service' ? (
                                                                 <Input disabled value={services.find((s) => s.id === itemId)?.nom || ''} placeholder="Service" />
                                                             ) : (
@@ -3623,6 +3644,7 @@ export default function Vente() {
                                                                 dataSource={ps}
                                                                 locale={{ emptyText: 'Aucun paiement enregistré' }}
                                                                 columns={[
+                                                                    { title: 'Date', dataIndex: 'date', width: 150, render: (v?: string) => formatDate(v) },
                                                                     { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
                                                                     {
                                                                         title: 'Avoir',
