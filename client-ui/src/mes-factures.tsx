@@ -4,9 +4,13 @@ import { CheckCircleOutlined, CreditCardOutlined, EyeOutlined, PrinterOutlined }
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
 
-interface ForfaitRef { id: number; nom: string; reference?: string; prixTTC?: number }
 interface ProduitRef { id: number; designation: string; ref?: string; prixVenteTTC?: number }
-interface ServiceRef { id: number; nom: string; prixTTC?: number }
+interface CompositionRef {
+    mainOeuvres?: Array<{ mainOeuvre?: { reference?: string; nom?: string }; quantite?: number }>;
+    produits?: Array<{ produit?: ProduitRef; quantite?: number }>;
+}
+interface ForfaitRef extends CompositionRef { id: number; nom: string; reference?: string; prixTTC?: number }
+interface ServiceRef extends CompositionRef { id: number; nom: string; prixTTC?: number }
 
 interface VenteProduitEntry {
     id?: number;
@@ -143,6 +147,12 @@ const getDocTitle = (docType: DocType) => {
     }
 };
 
+interface DocDetailLine {
+    reference?: string;
+    designation: string;
+    quantite: number;
+}
+
 interface DocLine {
     key: string;
     type: string;
@@ -153,7 +163,26 @@ interface DocLine {
     remise: number;
     remisePct: number;
     totalTTC: number;
+    // Composition d'un forfait/service, imprimée en retrait sous la ligne.
+    details?: DocDetailLine[];
 }
+
+const formatQuantite = (value: number) => String(Math.round((value + Number.EPSILON) * 100) / 100);
+
+// Les quantités du détail sont multipliées par la quantité de la ligne : le prix
+// reste porté par la seule ligne du forfait/service.
+const buildCompositionDetails = (composition: CompositionRef | undefined, quantiteLigne: number): DocDetailLine[] => [
+    ...(composition?.mainOeuvres || []).flatMap((item) => item.mainOeuvre ? [{
+        reference: item.mainOeuvre.reference || '',
+        designation: item.mainOeuvre.nom || '',
+        quantite: (item.quantite || 0) * quantiteLigne,
+    }] : []),
+    ...(composition?.produits || []).flatMap((item) => item.produit ? [{
+        reference: item.produit.ref || '',
+        designation: item.produit.designation || '',
+        quantite: (item.quantite || 0) * quantiteLigne,
+    }] : []),
+];
 
 const remisePourcentFacture = (remise: number, puTTC: number, quantite: number) => {
     const brut = puTTC * quantite;
@@ -178,6 +207,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
             prixUnitaire: pu,
             remise, remisePct: vf.remisePourcentage ?? remisePourcentFacture(remise, pu, qty),
             totalTTC: Math.max(0, pu * qty - remise),
+            details: buildCompositionDetails(vf.forfait, qty),
         });
     });
 
@@ -192,6 +222,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
             prixUnitaire: pu,
             remise, remisePct: vs.remisePourcentage ?? remisePourcentFacture(remise, pu, qty),
             totalTTC: Math.max(0, pu * qty - remise),
+            details: buildCompositionDetails(vs.service, qty),
         });
     });
 
@@ -413,7 +444,13 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                         ${showPrices ? `<td class="num">${vente.tva != null ? vente.tva.toFixed(2) : '-'}</td>` : ''}
                         ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.prixUnitaire))}</td>` : ''}
                         ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.totalTTC))}</td>` : ''}
-                    </tr>`;
+                    </tr>${(line.details || []).map((detail) => `
+                    <tr class="detail">
+                        <td>${escapeHtml(detail.reference || '-')}</td>
+                        <td>${escapeHtml(detail.designation)}</td>
+                        <td class="num">${formatQuantite(detail.quantite)}</td>
+                        ${showPrices ? '<td></td><td></td><td></td><td></td>' : ''}
+                    </tr>`).join('')}`;
                 }).join('')}
                 </tbody>
               </table>`
@@ -509,6 +546,8 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                 .invoice-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
                 .invoice-table th, .invoice-table td { border: 1px solid #d9d9d9; padding: 6px 8px; }
                 .invoice-table th { background: #f0f0f0; text-align: left; }
+                .invoice-table tr.detail td { font-size: 0.9em; color: #595959; padding-top: 3px; padding-bottom: 3px; }
+                .invoice-table tr.detail td:nth-child(-n+2) { padding-left: 24px; }
                 .footer-row { display: flex; justify-content: space-between; gap: 24px; margin-top: 20px; align-items: flex-start; }
                 .footer-left { flex: 1; }
                 .tva-box { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
