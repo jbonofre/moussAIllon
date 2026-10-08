@@ -7,6 +7,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -126,6 +127,8 @@ public class MoteurCatalogueResource {
         if (entity == null) {
             throw new WebApplicationException("Le moteur (" + id + ") n'est pas trouvé", 404);
         }
+        // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
+        PackageLigneEntity.delete("moteur.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }

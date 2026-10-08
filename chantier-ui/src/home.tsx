@@ -17,6 +17,7 @@ const PAGE_LABELS: Record<string, string> = {
     '/clients/moteurs': "les moteurs des clients",
     '/clients/remorques': "les remorques des clients",
     '/catalogue/produits': "le catalogue produits (produits, bateaux, moteurs, hélices et remorques)",
+    '/catalogue/packages': "les packages du catalogue (regroupements de produits, bateaux, moteurs, hélices et remorques)",
     '/catalogue/fournisseurs': "les fournisseurs",
     '/commandes-fournisseur': "les commandes fournisseur",
     '/main-oeuvres': "les mains d'oeuvre",

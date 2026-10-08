@@ -13,6 +13,7 @@ import net.nanthrax.moussaillon.persistence.FournisseurProduitEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
 import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 import net.nanthrax.moussaillon.persistence.ReferenceValeurEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
@@ -508,6 +509,8 @@ public class ProduitCatalogueResource {
         if (entity == null) {
             throw new WebApplicationException("Le produit (" + id + ") n'est pas trouvé", 404);
         }
+        // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
+        PackageLigneEntity.delete("produit.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }

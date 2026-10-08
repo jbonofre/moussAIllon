@@ -5,6 +5,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.BateauOptionEntity;
+import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
 import jakarta.transaction.Transactional;
 import java.util.List;
 
@@ -123,6 +124,8 @@ public class BateauCatalogueResource {
         if (entity == null) {
             throw new NotFoundException();
         }
+        // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
+        PackageLigneEntity.delete("bateau.id = ?1", id);
         entity.delete();
         return Response.noContent().build();
     }

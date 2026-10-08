@@ -914,7 +914,7 @@ const CatalogueProduits: React.FC = () => {
                                         Les champs communs (désignation, référence, prix, stock, images, documents…) sont conservés.
                                         Les champs propres au type « {TYPES_PRODUIT[typeCourant].label} » seront perdus. Les modifications non enregistrées du formulaire ne sont pas reprises.
                                     </div>
-                                    <div>La conversion est refusée si l'article est utilisé (ventes, commandes fournisseur, forfaits, fournisseurs, stock).</div>
+                                    <div>La conversion est refusée si l'article est utilisé (ventes, commandes fournisseur, forfaits, packages, fournisseurs, stock).</div>
                                     {(conversion.cible === 'produit' || conversion.cible === 'bateau' || conversion.cible === 'moteur') && (
                                         <Select
                                             style={{ width: '100%' }}

@@ -44,6 +44,7 @@ public class McpServerResource {
             "/catalogue/fournisseurs",
             "/catalogue/helices",
             "/catalogue/moteurs",
+            "/catalogue/packages",
             "/catalogue/produits",
             "/catalogue/remorques",
             "/clients",

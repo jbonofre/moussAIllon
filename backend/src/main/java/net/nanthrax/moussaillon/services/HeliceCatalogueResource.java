@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 
 import java.util.Collections;
@@ -95,6 +96,8 @@ public class HeliceCatalogueResource {
         for (BateauClientEntity bateau : BateauClientEntity.<BateauClientEntity>list("select b from BateauClientEntity b join b.helices h where h.id = ?1", id)) {
             bateau.helices.remove(entity);
         }
+        // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
+        PackageLigneEntity.delete("helice.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }
