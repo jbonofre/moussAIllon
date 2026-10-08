@@ -11,11 +11,12 @@ public class ImportResult {
     public int errors;
     public List<String> errorDetails = new ArrayList<>();
 
-    // Import du catalogue : lignes reconnues comme bateau, moteur, hélice ou remorque
+    // Import du catalogue : lignes reconnues comme bateau, moteur, hélice, remorque ou main d'oeuvre
     public int bateaux;
     public int moteurs;
     public int helices;
     public int remorques;
+    public int mainOeuvres;
     // Mode de détection utilisé pour les nouvelles lignes (voir CatalogueTypeDetector.Mode), null si aucune
     public String detection;
 }

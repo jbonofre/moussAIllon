@@ -94,6 +94,26 @@ public class CatalogueTypeDetectorTest {
     }
 
     @Test
+    void testReglesMainOeuvre() {
+        assertEquals(Type.MAIN_OEUVRE, CatalogueTypeDetector.detecterParRegles("Main d'oeuvre"));
+        assertEquals(Type.MAIN_OEUVRE, CatalogueTypeDetector.detecterParRegles("MAIN D'OEUVRE MECANIQUE"));
+        assertEquals(Type.MAIN_OEUVRE, CatalogueTypeDetector.detecterParRegles("Main-d'œuvre atelier"));
+        assertEquals(Type.MAIN_OEUVRE, CatalogueTypeDetector.detecterParRegles("MAIN OEUVRE"));
+        assertEquals(Type.MAIN_OEUVRE, CatalogueTypeDetector.detecterParRegles("Heure de main d'oeuvre"));
+        // la main d'oeuvre l'emporte sur les mots-clés de pièces et de moteurs
+        assertEquals(Type.MAIN_OEUVRE, CatalogueTypeDetector.detecterParRegles("Main d'oeuvre pose kit Mercury F115"));
+        // "œ" d'un fichier Windows-1252 lu en ISO-8859-1
+        assertEquals(Type.MAIN_OEUVRE, CatalogueTypeDetector.detecterParRegles("MAIN D'\u008cUVRE"));
+        assertEquals(Type.MAIN_OEUVRE, CatalogueTypeDetector.detecterParRegles("Main d'\u009cuvre"));
+
+        // "main" et "oeuvre" doivent être des mots entiers
+        assertEquals(Type.PRODUIT, CatalogueTypeDetector.detecterParRegles("Main courante inox"));
+        assertEquals(Type.PRODUIT, CatalogueTypeDetector.detecterParRegles("Cordage de manoeuvre"));
+        assertEquals(Type.PRODUIT, CatalogueTypeDetector.detecterParRegles("Maintenance propulseur de manoeuvre"));
+        assertEquals(Type.PRODUIT, CatalogueTypeDetector.detecterParRegles("Peinture oeuvres mortes"));
+    }
+
+    @Test
     void testClassementParIa() {
         // réponse volontairement différente des règles, avec un sous-type inconnu et un numéro hors limites
         reponse = (exchange, appel) -> envoyer(exchange, 200, message("{\"elements\":["
@@ -121,6 +141,21 @@ public class CatalogueTypeDetectorTest {
         assertTrue(requete.contains("\"json_schema\""), requete);
         assertTrue(requete.contains("0. Activ 605 Open"), requete);
         assertTrue(requete.contains("3. Verado 300"), requete);
+    }
+
+    @Test
+    void testMainOeuvreJamaisReclasseeParIa() {
+        reponse = (exchange, appel) -> envoyer(exchange, 200, message("{\"elements\":["
+                + "{\"i\":0,\"type\":\"moteur\",\"sousType\":\"Hors-bord\"},"
+                + "{\"i\":1,\"type\":\"moteur\",\"sousType\":\"Hors-bord\"}]}", "end_turn"));
+
+        Resultat resultat = detector("test-key").detecter(
+                List.of("Main d'oeuvre moteur Mercury F115", "Mercury F115 EFI"), TYPES_BATEAU, TYPES_MOTEUR);
+
+        assertEquals(Mode.IA, resultat.mode);
+        assertEquals(Type.MAIN_OEUVRE, resultat.detections.get(0).type);
+        assertNull(resultat.detections.get(0).sousType);
+        assertEquals(Type.MOTEUR, resultat.detections.get(1).type);
     }
 
     @Test

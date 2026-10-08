@@ -11,6 +11,7 @@ import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.FournisseurProduitEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.MainOeuvreEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
@@ -127,18 +128,20 @@ public class ProduitCatalogueResource {
     // Code article -> référentiel dans lequel il est déjà enregistré
     private Map<String, CatalogueTypeDetector.Type> typesParRef() {
         Map<String, CatalogueTypeDetector.Type> types = new HashMap<>();
-        ajouterRefs(types, "BateauCatalogueEntity", CatalogueTypeDetector.Type.BATEAU);
-        ajouterRefs(types, "MoteurCatalogueEntity", CatalogueTypeDetector.Type.MOTEUR);
-        ajouterRefs(types, "HeliceCatalogueEntity", CatalogueTypeDetector.Type.HELICE);
-        ajouterRefs(types, "RemorqueCatalogueEntity", CatalogueTypeDetector.Type.REMORQUE);
+        ajouterRefs(types, "MainOeuvreEntity", "reference", CatalogueTypeDetector.Type.MAIN_OEUVRE);
+        ajouterRefs(types, "BateauCatalogueEntity", "ref", CatalogueTypeDetector.Type.BATEAU);
+        ajouterRefs(types, "MoteurCatalogueEntity", "ref", CatalogueTypeDetector.Type.MOTEUR);
+        ajouterRefs(types, "HeliceCatalogueEntity", "ref", CatalogueTypeDetector.Type.HELICE);
+        ajouterRefs(types, "RemorqueCatalogueEntity", "ref", CatalogueTypeDetector.Type.REMORQUE);
         // en dernier : un code article déjà enregistré comme produit reste un produit
-        ajouterRefs(types, "ProduitCatalogueEntity", CatalogueTypeDetector.Type.PRODUIT);
+        ajouterRefs(types, "ProduitCatalogueEntity", "ref", CatalogueTypeDetector.Type.PRODUIT);
         return types;
     }
 
-    private void ajouterRefs(Map<String, CatalogueTypeDetector.Type> types, String entity, CatalogueTypeDetector.Type type) {
+    private void ajouterRefs(Map<String, CatalogueTypeDetector.Type> types, String entity, String champ,
+            CatalogueTypeDetector.Type type) {
         List<String> refs = Panache.getEntityManager()
-                .createQuery("select e.ref from " + entity + " e where e.ref is not null", String.class)
+                .createQuery("select e." + champ + " from " + entity + " e where e." + champ + " is not null", String.class)
                 .getResultList();
         for (String ref : refs) {
             types.put(ref, type);
@@ -268,6 +271,10 @@ public class ProduitCatalogueResource {
                     case REMORQUE:
                         isNew = importerRemorque(ligne);
                         result.remorques++;
+                        break;
+                    case MAIN_OEUVRE:
+                        isNew = importerMainOeuvre(ligne);
+                        result.mainOeuvres++;
                         break;
                     default:
                         isNew = importerProduit(ligne, designationsUtiliseesDansImport);
@@ -432,6 +439,29 @@ public class ProduitCatalogueResource {
         }
         if (ligne.stock != null) {
             entity.stock = ligne.stock;
+        }
+        if (isNew) {
+            entity.persist();
+        }
+        return isNew;
+    }
+
+    // Une main d'oeuvre n'est pas un article du catalogue : ni stock, ni code-barres
+    private boolean importerMainOeuvre(LigneImport ligne) {
+        MainOeuvreEntity entity = MainOeuvreEntity.find("reference = ?1", ligne.ref).firstResult();
+        boolean isNew = entity == null;
+        if (isNew) {
+            entity = new MainOeuvreEntity();
+            entity.reference = ligne.ref;
+        }
+        entity.nom = ligne.designation;
+        entity.prixHT = ligne.prixVenteHT;
+        entity.prixTTC = ligne.prixVenteTTC;
+        entity.montantTVA = ligne.montantTVA;
+        if (ligne.tva != null) {
+            entity.tva = ligne.tva;
+        } else if (isNew) {
+            entity.tva = 20;
         }
         if (isNew) {
             entity.persist();
