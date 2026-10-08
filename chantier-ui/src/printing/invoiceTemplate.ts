@@ -23,6 +23,12 @@ export interface InvoicePrintClient {
     siret?: string;
 }
 
+export interface InvoicePrintDetailLine {
+    reference?: string;
+    label: string;
+    quantite: number;
+}
+
 export interface InvoicePrintLine {
     type: string;
     reference?: string;
@@ -32,6 +38,13 @@ export interface InvoicePrintLine {
     remise: number;
     remisePct: number;
     totalPrixTTC: number;
+    // Composition d'un forfait/service, imprimée en retrait sous la ligne.
+    details?: InvoicePrintDetailLine[];
+}
+
+export interface InvoicePrintComposition {
+    mainOeuvres?: Array<{ mainOeuvre?: { reference?: string; nom?: string }; quantite?: number }>;
+    produits?: Array<{ produit?: { ref?: string; designation?: string }; quantite?: number }>;
 }
 
 const escapeHtml = (value: string) =>
@@ -52,6 +65,23 @@ export const computeRemisePct = (remise: number, puTTC: number, quantite: number
     const pct = Math.round(((remise / brut) * 100 + Number.EPSILON) * 100) / 100;
     return Math.min(100, Math.max(0, pct));
 };
+
+const formatQuantite = (value: number) => String(Math.round((value + Number.EPSILON) * 100) / 100);
+
+// Les quantités du détail sont multipliées par la quantité de la ligne, comme pour
+// le décrément de stock : le prix reste porté par la seule ligne du forfait/service.
+export const buildCompositionDetails = (composition: InvoicePrintComposition | undefined, quantiteLigne: number): InvoicePrintDetailLine[] => [
+    ...(composition?.mainOeuvres || []).flatMap((item) => item.mainOeuvre ? [{
+        reference: item.mainOeuvre.reference || '',
+        label: item.mainOeuvre.nom || '',
+        quantite: (item.quantite || 0) * quantiteLigne,
+    }] : []),
+    ...(composition?.produits || []).flatMap((item) => item.produit ? [{
+        reference: item.produit.ref || '',
+        label: item.produit.designation || '',
+        quantite: (item.quantite || 0) * quantiteLigne,
+    }] : []),
+];
 
 export const buildSocieteBlockHtml = (societe?: InvoicePrintSociete) => societe ? `
     <div class="societe-block">
@@ -99,7 +129,13 @@ export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPri
                 ${showPrices ? `<td class="num">${tva != null ? tva.toFixed(2) : '-'}</td>` : ''}
                 ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.puTTC))}</td>` : ''}
                 ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.totalPrixTTC))}</td>` : ''}
-            </tr>`;
+            </tr>${(line.details || []).map((detail) => `
+            <tr class="detail">
+                <td>${escapeHtml(detail.reference || '-')}</td>
+                <td>${escapeHtml(detail.label)}</td>
+                <td class="num">${formatQuantite(detail.quantite)}</td>
+                ${showPrices ? '<td></td><td></td><td></td><td></td>' : ''}
+            </tr>`).join('')}`;
         }).join('')}
         </tbody>
       </table>`;
@@ -168,6 +204,8 @@ export const INVOICE_PRINT_STYLES = `
     .invoice-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .invoice-table th, .invoice-table td { border: 1px solid #d9d9d9; padding: 6px 8px; }
     .invoice-table th { background: #f0f0f0; text-align: left; }
+    .invoice-table tr.detail td { font-size: 0.9em; color: #595959; padding-top: 3px; padding-bottom: 3px; }
+    .invoice-table tr.detail td:nth-child(-n+2) { padding-left: 24px; }
     .footer-row { display: flex; justify-content: space-between; gap: 24px; margin-top: 20px; align-items: flex-start; }
     .footer-left { flex: 1; }
     .tva-box { width: 100%; border-collapse: collapse; margin-bottom: 12px; }

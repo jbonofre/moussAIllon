@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     buildClientBoxHtml,
+    buildCompositionDetails,
     buildDocBoxHtml,
     buildInvoiceTableHtml,
     buildLegalLine,
@@ -2323,6 +2324,7 @@ export default function Vente() {
                 puTTC,
                 remise, remisePct: vf.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - remise),
+                details: buildCompositionDetails(vf.forfait, quantite),
             };
         };
         const lineFromService = (vs: VenteServiceEntity) => {
@@ -2335,6 +2337,7 @@ export default function Vente() {
                 puTTC,
                 remise, remisePct: vs.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - remise),
+                details: buildCompositionDetails(vs.service, quantite),
             };
         };
         const lineFromProduit = (vp: VenteProduitLigne) => {
