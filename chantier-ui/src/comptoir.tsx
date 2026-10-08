@@ -42,6 +42,7 @@ import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
+import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
 
 interface ClientEntity {
     id: number;
@@ -392,6 +393,7 @@ export default function Comptoir() {
     const [catalogueMoteurs, setCatalogueMoteurs] = useState<CatalogueMoteurEntity[]>([]);
     const [catalogueHelices, setCatalogueHelices] = useState<CatalogueHeliceEntity[]>([]);
     const [catalogueRemorques, setCatalogueRemorques] = useState<CatalogueRemorqueEntity[]>([]);
+    const [packages, setPackages] = useState<PackageEntity[]>([]);
     const [services, setServices] = useState<ServiceEntity[]>([]);
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -525,6 +527,15 @@ export default function Comptoir() {
         [forfaits]
     );
     const catalogueOptions = useMemo(() => [
+        // Choisir un package ajoute à la vente les articles qu'il regroupe (voir deplierPackages)
+        ...(packages.length > 0 ? [{
+            label: 'Packages',
+            options: packages.map((pack) => ({
+                value: `package:${pack.id}`,
+                label: getPackageLabel(pack),
+                searchText: `${pack.ref || ''} ${pack.designation}`.toLowerCase(),
+            })),
+        }] : []),
         {
             label: 'Produits',
             options: produits.map((p) => ({
@@ -565,7 +576,7 @@ export default function Comptoir() {
                 searchText: r.designation.toLowerCase(),
             })),
         },
-    ], [produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
+    ], [packages, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
 
     const getCatalogueItemPrice = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): number => {
         if (!ref) return 0;
@@ -685,6 +696,16 @@ export default function Comptoir() {
             setCatalogueRemorques(catRemorquesRes.data || []);
         } catch {
             // silencieux : le stock affiché reste celui du dernier chargement réussi
+        }
+    };
+
+    // Chargés à part : sans les packages, la vente reste saisissable article par article
+    const fetchPackages = async () => {
+        try {
+            const res = await api.get('/catalogue/packages');
+            setPackages(res.data || []);
+        } catch {
+            // silencieux
         }
     };
 
@@ -863,7 +884,7 @@ export default function Comptoir() {
 
     const openModal = async (vente?: VenteEntity) => {
         // Recharge le stock depuis le backend pour repartir d'un état à jour.
-        await refreshCatalogue();
+        await Promise.all([refreshCatalogue(), fetchPackages()]);
         if (vente) {
             setIsEdit(true);
             setCurrentVente(vente);
@@ -1455,8 +1476,34 @@ export default function Comptoir() {
         });
     };
 
+    // Un package n'est pas une ligne de vente : la ligne où il est choisi est remplacée par les articles qu'il regroupe.
+    // Renvoie false si aucune ligne ne désigne un package.
+    const deplierPackages = (lines: VenteFormValues['produits']): boolean => {
+        if (!lines.some((line) => parsePackageRef(line?.produitRef) !== undefined)) return false;
+        const depliees = lines.flatMap((line) => {
+            const packageId = parsePackageRef(line?.produitRef);
+            if (packageId === undefined) return [line];
+            const pack = packages.find((p) => p.id === packageId);
+            const articles = articlesDuPackage(pack);
+            if (articles.length === 0) {
+                message.info('Ce package ne contient aucun article.');
+                return [{ ...line, produitRef: undefined }];
+            }
+            message.success(`Package « ${pack!.designation} » ajouté à la vente`);
+            return articles.map(({ type, article, quantite }) => ({ produitRef: `${type}:${article.id}`, quantite, remise: 0, remisePourcentage: 0 }));
+        });
+        // La saisie se poursuit sur une ligne vide en fin de liste
+        const derniere = depliees[depliees.length - 1];
+        form.setFieldValue('produits', !derniere || derniere.produitRef ? [...depliees, {}] : depliees);
+        recalculateFromLines('auto');
+        return true;
+    };
+
     const onValuesChange = (changedValues: Partial<VenteFormValues>, allValues: VenteFormValues) => {
         if (changedValues.produits !== undefined) {
+            if (deplierPackages(allValues.produits || [])) {
+                return;
+            }
             // Sync line-level remise EUR <-> % when changed
             const lineRemiseChanged = (changedValues.produits as Array<Partial<{ remise: number; remisePourcentage: number }> | undefined>)
                 .some((p) => p && (p.remise !== undefined || p.remisePourcentage !== undefined));
@@ -1903,6 +1950,8 @@ export default function Comptoir() {
                                                     <Form.Item
                                                         {...field}
                                                         name={[field.name, 'produitRef']}
+                                                        // null plutôt qu'undefined : sinon le sélecteur garde affiché le package qui vient d'être déplié
+                                                        getValueProps={(value) => ({ value: value ?? null })}
                                                         rules={[
                                                             {
                                                                 validator: async (_, value) => {
@@ -1925,7 +1974,7 @@ export default function Comptoir() {
                                                             }
                                                             onSearch={handleCatalogueSearch}
                                                             notFoundContent={null}
-                                                            placeholder="Rechercher produit, bateau, moteur, hélice ou remorque"
+                                                            placeholder="Rechercher package, produit, bateau, moteur, hélice ou remorque"
                                                         />
                                                     </Form.Item>
                                                     <Form.Item style={{ width: 110 }}>

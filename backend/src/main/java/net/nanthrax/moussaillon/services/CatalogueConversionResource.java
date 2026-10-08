@@ -27,7 +27,7 @@ import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
  *
  * Chaque type possède son propre référentiel : la conversion crée l'article dans le référentiel cible
  * (champs communs conservés, champs propres à l'ancien type perdus) puis supprime l'ancien. Elle est
- * refusée si l'article est référencé ailleurs (ventes, commandes fournisseur, forfaits, fournisseurs,
+ * refusée si l'article est référencé ailleurs (ventes, commandes fournisseur, forfaits, packages, fournisseurs,
  * mouvements de stock...), pour ne jamais modifier l'historique de facturation.
  */
 @Path("/catalogue/convertir")
@@ -114,6 +114,7 @@ public class CatalogueConversionResource {
                 compter(result, "commandes fournisseur", "select count(l) from CommandeFournisseurLigneEntity l where l.produit.id = ?1", id);
                 compter(result, "forfaits", "select count(l) from ForfaitProduitEntity l where l.produit.id = ?1", id);
                 compter(result, "services", "select count(l) from ServiceProduitEntity l where l.produit.id = ?1", id);
+                compter(result, "packages", "select count(l) from PackageLigneEntity l where l.produit.id = ?1", id);
                 compter(result, "fournisseurs", "select count(l) from FournisseurProduitEntity l where l.produit.id = ?1", id);
                 compter(result, "mouvements de stock", "select count(m) from ProduitMouvementEntity m where m.produit.id = ?1", id);
             }
@@ -122,6 +123,7 @@ public class CatalogueConversionResource {
                 compter(result, "ventes (historique)", "select count(v) from VenteEntity v join v.bateauxCatalogue p where p.id = ?1", id);
                 compter(result, "commandes fournisseur", "select count(l) from CommandeFournisseurLigneEntity l where l.bateau.id = ?1", id);
                 compter(result, "forfaits", "select count(f) from ForfaitEntity f join f.bateauxAssocies b where b.id = ?1", id);
+                compter(result, "packages", "select count(l) from PackageLigneEntity l where l.bateau.id = ?1", id);
                 compter(result, "fournisseurs", "select count(l) from FournisseurBateauEntity l where l.bateau.id = ?1", id);
                 compter(result, "bateaux clients", "select count(b) from BateauClientEntity b where b.modele.id = ?1", id);
             }
@@ -130,6 +132,7 @@ public class CatalogueConversionResource {
                 compter(result, "ventes (historique)", "select count(v) from VenteEntity v join v.moteursCatalogue p where p.id = ?1", id);
                 compter(result, "commandes fournisseur", "select count(l) from CommandeFournisseurLigneEntity l where l.moteur.id = ?1", id);
                 compter(result, "forfaits", "select count(f) from ForfaitEntity f join f.moteursAssocies m where m.id = ?1", id);
+                compter(result, "packages", "select count(l) from PackageLigneEntity l where l.moteur.id = ?1", id);
                 compter(result, "fournisseurs", "select count(l) from FournisseurMoteurEntity l where l.moteur.id = ?1", id);
                 compter(result, "moteurs clients", "select count(m) from MoteurClientEntity m where m.modele.id = ?1", id);
                 compter(result, "bateaux clients", "select count(b) from BateauClientEntity b join b.moteurs m where m.id = ?1", id);
@@ -138,6 +141,7 @@ public class CatalogueConversionResource {
                 compter(result, "ventes", "select count(l) from VenteHeliceCatalogueEntity l where l.helice.id = ?1", id);
                 compter(result, "ventes (historique)", "select count(v) from VenteEntity v join v.helicesCatalogue p where p.id = ?1", id);
                 compter(result, "commandes fournisseur", "select count(l) from CommandeFournisseurLigneEntity l where l.helice.id = ?1", id);
+                compter(result, "packages", "select count(l) from PackageLigneEntity l where l.helice.id = ?1", id);
                 compter(result, "fournisseurs", "select count(l) from FournisseurHeliceEntity l where l.helice.id = ?1", id);
                 compter(result, "bateaux clients", "select count(b) from BateauClientEntity b join b.helices h where h.id = ?1", id);
             }
@@ -145,6 +149,7 @@ public class CatalogueConversionResource {
                 compter(result, "ventes", "select count(l) from VenteRemorqueCatalogueEntity l where l.remorque.id = ?1", id);
                 compter(result, "ventes (historique)", "select count(v) from VenteEntity v join v.remorquesCatalogue p where p.id = ?1", id);
                 compter(result, "commandes fournisseur", "select count(l) from CommandeFournisseurLigneEntity l where l.remorque.id = ?1", id);
+                compter(result, "packages", "select count(l) from PackageLigneEntity l where l.remorque.id = ?1", id);
                 compter(result, "fournisseurs", "select count(l) from FournisseurRemorqueEntity l where l.remorque.id = ?1", id);
                 compter(result, "remorques clients", "select count(r) from RemorqueClientEntity r where r.modele.id = ?1", id);
             }

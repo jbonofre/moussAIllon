@@ -47,6 +47,7 @@ import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
+import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
 
 interface ClientEntity {
     id: number;
@@ -623,6 +624,7 @@ export default function Vente() {
     const [catalogueMoteurs, setCatalogueMoteurs] = useState<CatalogueMoteurEntity[]>([]);
     const [catalogueHelices, setCatalogueHelices] = useState<CatalogueHeliceEntity[]>([]);
     const [catalogueRemorques, setCatalogueRemorques] = useState<CatalogueRemorqueEntity[]>([]);
+    const [packages, setPackages] = useState<PackageEntity[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
@@ -814,6 +816,15 @@ export default function Vente() {
 
     const ligneUnifieeOptions = useMemo(
         () => [
+            // Choisir un package ajoute à la vente les articles qu'il regroupe (voir deplierPackage)
+            ...(packages.length > 0 ? [{
+                label: 'Packages',
+                options: packages.map((pack) => ({
+                    value: `package:${pack.id}`,
+                    label: getPackageLabel(pack),
+                    searchText: `${pack.ref || ''} ${pack.designation}`.toLowerCase(),
+                })),
+            }] : []),
             {
                 label: 'Forfaits',
                 options: forfaits.map((f) => ({
@@ -863,7 +874,7 @@ export default function Vente() {
                 })),
             },
         ],
-        [forfaits, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]
+        [packages, forfaits, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]
     );
 
     const parseLigneValue = (compositeValue?: string): { type: LigneType; id: number } | null => {
@@ -981,6 +992,16 @@ export default function Vente() {
             setCatalogueRemorques(catRemorquesRes.data || []);
         } catch {
             // silencieux : le stock affiché reste celui du dernier chargement réussi
+        }
+    };
+
+    // Chargés à part : sans les packages, la vente reste saisissable article par article
+    const fetchPackages = async () => {
+        try {
+            const res = await api.get('/catalogue/packages');
+            setPackages(res.data || []);
+        } catch {
+            // silencieux
         }
     };
 
@@ -1837,7 +1858,7 @@ export default function Vente() {
     const openModal = async (vente?: VenteEntity) => {
         suppressDirtyRef.current = true;
         // Recharge le stock depuis le backend pour repartir d'un état à jour.
-        await refreshCatalogue();
+        await Promise.all([refreshCatalogue(), fetchPackages()]);
         if (vente) {
             setIsEdit(true);
             setCurrentVente(vente);
@@ -2678,6 +2699,27 @@ export default function Vente() {
         });
     };
 
+    // Un package n'est pas une ligne de vente : la ligne où il est choisi est remplacée par les articles qu'il regroupe
+    const deplierPackage = (lineIndex: number, packageId: number) => {
+        const pack = packages.find((p) => p.id === packageId);
+        const articles = articlesDuPackage(pack);
+        if (!pack || articles.length === 0) {
+            message.info('Ce package ne contient aucun article.');
+            return;
+        }
+        const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+        const lignesPackage: LigneUnifiee[] = articles.map(({ type, article, quantite }) => ({ type, itemId: article.id, quantite }));
+        const updated = [...currentLignes.slice(0, lineIndex), ...lignesPackage, ...currentLignes.slice(lineIndex + 1)];
+        const lastLine = updated[updated.length - 1];
+        if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
+            updated.push({ quantite: 1 });
+        }
+        form.setFieldValue('lignes', updated);
+        setFormDirty(true);
+        recalculateFromLines('auto');
+        message.success(`Package « ${pack.designation} » ajouté à la vente`);
+    };
+
     const onValuesChange = (changedValues: Partial<VenteFormValues>, allValues: VenteFormValues) => {
         if (!suppressDirtyRef.current) {
             setFormDirty(true);
@@ -3320,14 +3362,20 @@ export default function Vente() {
                                                                 <Select
                                                                     allowClear
                                                                     showSearch
-                                                                    value={toLigneCompositeValue(lineType, itemId)}
+                                                                    // null plutôt qu'undefined : sinon le sélecteur garde affiché un package sans article
+                                                                    value={toLigneCompositeValue(lineType, itemId) ?? null}
                                                                     options={ligneUnifieeOptions}
-                                                                    placeholder="Forfait, produit, bateau, moteur..."
+                                                                    placeholder="Package, forfait, produit, bateau, moteur..."
                                                                     onSearch={handleProduitSearch}
                                                                     filterOption={(input, option) =>
                                                                         ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
                                                                     }
                                                                     onChange={(compositeValue: string) => {
+                                                                        const packageId = parsePackageRef(compositeValue);
+                                                                        if (packageId !== undefined) {
+                                                                            deplierPackage(field.name, packageId);
+                                                                            return;
+                                                                        }
                                                                         const parsed = parseLigneValue(compositeValue);
                                                                         const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
                                                                         const updated = [...currentLignes];

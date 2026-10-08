@@ -6,6 +6,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 
 import java.util.Collections;
@@ -132,6 +133,8 @@ public class RemorqueCatalogResource {
         if (entity == null) {
             throw new WebApplicationException("La remorque (" + id + ") n'est pas trouvée", 404);
         }
+        // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
+        PackageLigneEntity.delete("remorque.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }

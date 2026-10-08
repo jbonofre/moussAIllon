@@ -7,7 +7,7 @@ MoussAIllon centralise l'ensemble des metiers d'un chantier naval dans une seule
 ## Fonctionnalites principales
 
 - **Gestion clients** - fiches, bateaux, moteurs, remorques, historique
-- **Catalogue & parc** - bateaux, moteurs, helices, remorques, produits (neuf et occasion)
+- **Catalogue & parc** - bateaux, moteurs, helices, remorques, produits (neuf et occasion), packages regroupant ces articles pour peupler une vente comptoir ou une transaction
 - **Ventes & facturation** - forfaits, comptoir, transactions, paiement en ligne (Stripe, PayPlug)
 - **Fournisseurs** - referentiel multi-types (bateaux, moteurs, helices, produits, remorques)
 - **Equipe & planning** - gestion des techniciens, planification des interventions

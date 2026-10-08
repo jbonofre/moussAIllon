@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Input, Spin, Typography, Tag, Empty } from 'antd';
 import {
     TeamOutlined, ToolOutlined, StockOutlined, FileProtectOutlined,
-    ShoppingCartOutlined, SearchOutlined,
+    ShoppingCartOutlined, SearchOutlined, GiftOutlined,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -73,6 +73,15 @@ const categories: SearchCategory[] = [
         route: '/catalogue/produits',
         routeState: { typeProduit: 'remorque' },
         renderItem: (item) => item.designation || '',
+    },
+    {
+        key: 'packages',
+        label: 'Packages',
+        icon: <GiftOutlined />,
+        endpoint: '/catalogue/packages/search',
+        color: '#2f54eb',
+        route: '/catalogue/packages',
+        renderItem: (item) => `${item.designation || ''}` + (item.ref ? ` - Ref: ${item.ref}` : ''),
     },
     {
         key: 'fournisseurs',
