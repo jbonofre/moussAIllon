@@ -436,6 +436,84 @@ public class ProduitCatalogueResourceTest {
     }
 
     @Test
+    void testImporterProduitsCsvDetecteLesMainsOeuvre() {
+        String entete = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n";
+        String csv = entete
+            + "MOI001,MAIN D'OEUVRE MECANIQUE,Service,\"60,00000\",,\"72,00000\",,\"0,00\",\"0,00\",Actif,Décoché\r\n"
+            + "MOI002,Main oeuvre pose kit Mercury F115,Service,\"80,00000\",,\"96,00000\",,\"0,00\",\"0,00\",Actif,Décoché\r\n"
+            + "MOI003,Main courante inox,Bien,\"40,00000\",,\"48,00000\",,\"2,00\",\"2,00\",Actif,Coché\r\n";
+
+        given()
+            .multiPart("file", "produits.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("total", is(3))
+            .body("created", is(3))
+            .body("errors", is(0))
+            .body("mainOeuvres", is(2))
+            .body("bateaux", is(0))
+            .body("moteurs", is(0));
+
+        given()
+            .queryParam("q", "MOI001")
+            .when().get("/main-oeuvres/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].reference", is("MOI001"))
+            .body("[0].nom", is("Main D'Oeuvre Mecanique"))
+            .body("[0].prixHT", is(60.0f))
+            .body("[0].prixTTC", is(72.0f))
+            .body("[0].montantTVA", is(12.0f))
+            .body("[0].tva", is(20.0f));
+
+        given()
+            .queryParam("q", "MOI002")
+            .when().get("/main-oeuvres/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].nom", is("Main oeuvre pose kit Mercury F115"));
+
+        // seule la main courante est un article du catalogue
+        given()
+            .queryParam("q", "MOI00")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].designation", is("Main courante inox"));
+        given()
+            .queryParam("q", "MOI00")
+            .when().get("/catalogue/moteurs/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(0));
+
+        // Ré-importer met à jour la main d'oeuvre (retrouvée par Code article) sans la dupliquer.
+        String csvMaj = entete
+            + "MOI001,MAIN D'OEUVRE MECANIQUE,Service,\"65,00000\",,\"78,00000\",,\"0,00\",\"0,00\",Actif,Décoché\r\n";
+        given()
+            .multiPart("file", "produits.csv", csvMaj.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/catalogue/produits/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(0))
+            .body("updated", is(1))
+            .body("mainOeuvres", is(1));
+
+        given()
+            .queryParam("q", "MOI001")
+            .when().get("/main-oeuvres/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].prixHT", is(65.0f))
+            .body("[0].prixTTC", is(78.0f));
+    }
+
+    @Test
     void testImporterProduitsCsvGardeLesProduitsExistants() {
         // Un code article déjà enregistré comme produit reste un produit, même si sa désignation évoque un bateau.
         given()

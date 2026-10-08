@@ -31,18 +31,19 @@ import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbBuilder;
 
 /**
- * Reconnaît, à partir de sa désignation, si une ligne importée est un bateau, un moteur, une hélice
- * ou une remorque plutôt qu'un produit.
+ * Reconnaît, à partir de sa désignation, si une ligne importée est un bateau, un moteur, une hélice,
+ * une remorque ou une main d'oeuvre plutôt qu'un produit.
  *
  * La détection passe par l'API Anthropic quand elle est configurée, avec repli sur des règles par
- * mots-clés (clé absente, détection désactivée, lot en erreur ou hors délai).
+ * mots-clés (clé absente, détection désactivée, lot en erreur ou hors délai). Les mains d'oeuvre sont
+ * toujours reconnues par les règles.
  */
 @ApplicationScoped
 public class CatalogueTypeDetector {
 
     private static final Logger LOG = Logger.getLogger(CatalogueTypeDetector.class);
 
-    public enum Type { PRODUIT, BATEAU, MOTEUR, HELICE, REMORQUE }
+    public enum Type { PRODUIT, BATEAU, MOTEUR, HELICE, REMORQUE, MAIN_OEUVRE }
 
     public enum Mode {
         /** IA non configurée ou désactivée : règles par mots-clés. */
@@ -121,7 +122,11 @@ public class CatalogueTypeDetector {
                 try {
                     List<Detection> classees = futures.get(lot).get();
                     for (int i = 0; i < classees.size(); i++) {
-                        detections.set(lot * TAILLE_LOT + i, classees.get(i));
+                        int index = lot * TAILLE_LOT + i;
+                        // une main d'oeuvre se reconnaît à sa désignation : l'IA ne la reclasse pas
+                        if (detections.get(index).type != Type.MAIN_OEUVRE) {
+                            detections.set(index, classees.get(i));
+                        }
                     }
                 } catch (CancellationException | ExecutionException e) {
                     echecs++;
@@ -147,6 +152,9 @@ public class CatalogueTypeDetector {
 
     // --- Règles par mots-clés ---
 
+    // "Main d'oeuvre", "MAIN OEUVRE ATELIER"... mais pas "Main courante" ni "Cordage de manoeuvre"
+    private static final Pattern MOT_MAIN = Pattern.compile("\\bmains?\\b");
+    private static final Pattern MOT_OEUVRE = Pattern.compile("\\boeuvres?\\b");
     // Pièces, accessoires et consommables : jamais un bateau, un moteur, une hélice ou une remorque complets
     private static final Pattern PIECE = Pattern.compile("\\b(huile|graisse|filtre|kit|anode|pompe|joint|bougie|cable|housse|bache|taud"
             + "|courroie|turbine|thermostat|piece|vis|ecrou|clavette|moyeu|roue|pneu|feu|treuil|sangle|antifouling|peinture|colle"
@@ -172,7 +180,12 @@ public class CatalogueTypeDetector {
         String d = Normalizer.normalize(designation, Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "")
                 .toLowerCase(Locale.ROOT)
+                // le "œ" d'un export Windows-1252 lu en ISO-8859-1 arrive sous la forme d'un caractère de contrôle
+                .replaceAll("[œ\\u008c\\u009c]", "oe")
                 .trim();
+        if (MOT_MAIN.matcher(d).find() && MOT_OEUVRE.matcher(d).find()) {
+            return Type.MAIN_OEUVRE;
+        }
         if (PIECE.matcher(d).find()) {
             return Type.PRODUIT;
         }

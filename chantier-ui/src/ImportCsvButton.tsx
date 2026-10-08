@@ -11,11 +11,12 @@ interface ImportResult {
     skipped: number;
     errors: number;
     errorDetails: string[];
-    // Import du catalogue : lignes reconnues comme bateau, moteur, hélice ou remorque
+    // Import du catalogue : lignes reconnues comme bateau, moteur, hélice, remorque ou main d'oeuvre
     bateaux?: number;
     moteurs?: number;
     helices?: number;
     remorques?: number;
+    mainOeuvres?: number;
     detection?: 'REGLES' | 'IA' | 'IA_PARTIELLE' | 'IA_ECHEC';
 }
 
@@ -77,12 +78,13 @@ const ImportCsvButton: React.FC<ImportCsvButtonProps> = ({ endpoint, label = 'Im
                             <Tag color="default">Ignorés : {result.skipped}</Tag>
                             <Tag color={result.errors ? 'red' : 'default'}>Erreurs : {result.errors}</Tag>
                         </Space>
-                        {(result.bateaux || result.moteurs || result.helices || result.remorques) ? (
+                        {(result.bateaux || result.moteurs || result.helices || result.remorques || result.mainOeuvres) ? (
                             <Space wrap style={{ marginBottom: 12 }}>
                                 {!!result.bateaux && <Tag color="cyan">Bateaux : {result.bateaux}</Tag>}
                                 {!!result.moteurs && <Tag color="purple">Moteurs : {result.moteurs}</Tag>}
                                 {!!result.helices && <Tag color="blue">Hélices : {result.helices}</Tag>}
                                 {!!result.remorques && <Tag color="gold">Remorques : {result.remorques}</Tag>}
+                                {!!result.mainOeuvres && <Tag color="geekblue">Main d'Oeuvres : {result.mainOeuvres}</Tag>}
                             </Space>
                         ) : null}
                         {result.detection && (
