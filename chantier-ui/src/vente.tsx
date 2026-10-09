@@ -745,6 +745,8 @@ export default function Vente() {
     const [paiementMode, setPaiementMode] = useState<ModeReglement>('CHEQUE');
     const [paiementMontant, setPaiementMontant] = useState<number>(0);
     const [paiementNotes, setPaiementNotes] = useState('');
+    const [paiementDate, setPaiementDate] = useState<dayjs.Dayjs>(dayjs());
+    const [editPaiement, setEditPaiement] = useState<{ id: number; date: dayjs.Dayjs } | null>(null);
     const [paiementAvoirId, setPaiementAvoirId] = useState<number | null>(null);
     const [avoirsDisponibles, setAvoirsDisponibles] = useState<AvoirDisponible[]>([]);
     const [addingPaiement, setAddingPaiement] = useState(false);
@@ -756,6 +758,7 @@ export default function Vente() {
     const [rgMode, setRgMode] = useState<ModeReglement>('CHEQUE');
     const [rgMontant, setRgMontant] = useState<number>(0);
     const [rgNotes, setRgNotes] = useState('');
+    const [rgDate, setRgDate] = useState<dayjs.Dayjs>(dayjs());
     const [rgSubmitting, setRgSubmitting] = useState(false);
 
     // Génération d'avoir depuis une vente
@@ -2148,6 +2151,7 @@ export default function Vente() {
         setPaiementMode('CHEQUE');
         setPaiementMontant(Math.max(0, Math.round(restant * 100) / 100));
         setPaiementNotes('');
+        setPaiementDate(dayjs());
         setPaiementAvoirId(null);
         setAvoirsDisponibles([]);
         setPaiementModalVisible(true);
@@ -2177,6 +2181,7 @@ export default function Vente() {
                 mode: paiementMode,
                 montant: paiementMontant,
                 notes: paiementNotes || undefined,
+                date: paiementDate.format('YYYY-MM-DDTHH:mm:ss'),
                 avoirId: paiementMode === 'AVOIR' ? paiementAvoirId : undefined,
             });
             message.success('Paiement ajouté');
@@ -2188,6 +2193,21 @@ export default function Vente() {
             message.error(msg);
         } finally {
             setAddingPaiement(false);
+        }
+    };
+
+    const handleUpdatePaiementDate = async () => {
+        if (!currentVente?.id || !editPaiement) return;
+        try {
+            await api.put(`/ventes/${currentVente.id}/paiements/${editPaiement.id}`, {
+                date: editPaiement.date.format('YYYY-MM-DDTHH:mm:ss'),
+            });
+            message.success('Date du paiement modifiée');
+            setEditPaiement(null);
+            await refreshCurrentVente(currentVente.id);
+            fetchVentes();
+        } catch {
+            message.error('Erreur lors de la modification de la date du paiement');
         }
     };
 
@@ -2237,6 +2257,7 @@ export default function Vente() {
                 mode: rgMode,
                 montant: rgMontant,
                 notes: rgNotes || undefined,
+                date: rgDate.format('YYYY-MM-DDTHH:mm:ss'),
             });
             message.success('Règlement groupé enregistré');
             setReglementGroupeVisible(false);
@@ -2244,6 +2265,7 @@ export default function Vente() {
             setRgSelectedIds([]);
             setRgMontant(0);
             setRgNotes('');
+            setRgDate(dayjs());
             const res = await api.get('/ventes');
             setVentes(res.data || []);
         } catch (err: unknown) {
@@ -3051,6 +3073,7 @@ export default function Vente() {
                         setRgMode('CHEQUE');
                         setRgMontant(0);
                         setRgNotes('');
+                        setRgDate(dayjs());
                         setReglementGroupeVisible(true);
                     }}
                 >
@@ -3695,7 +3718,12 @@ export default function Vente() {
                                                                 dataSource={ps}
                                                                 locale={{ emptyText: 'Aucun paiement enregistré' }}
                                                                 columns={[
-                                                                    { title: 'Date', dataIndex: 'date', width: 150, render: (v?: string) => formatDate(v) },
+                                                                    { title: 'Date', dataIndex: 'date', width: 190, render: (v: string | undefined, r: VentePaiement) => (
+<Space>
+<span>{formatDate(v)}</span>
+<Button size="small" type="text" icon={<EditOutlined />} title="Modifier la date" disabled={watchedStatus === 'FACTURE_PAYEE'} onClick={() => r.id && setEditPaiement({ id: r.id, date: r.date ? dayjs(r.date) : dayjs() })} />
+</Space>
+) },
                                                                     { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
                                                                     {
                                                                         title: 'Avoir',
@@ -4860,6 +4888,25 @@ export default function Vente() {
                 </Form>
             </Modal>
 
+
+            <Modal
+                title="Modifier la date du paiement"
+                open={editPaiement !== null}
+                onCancel={() => setEditPaiement(null)}
+                onOk={handleUpdatePaiementDate}
+                okText="Valider"
+                destroyOnHidden
+            >
+                <DatePicker
+                    showTime
+                    format="DD/MM/YYYY HH:mm"
+                    allowClear={false}
+                    value={editPaiement?.date}
+                    onChange={(v) => v && setEditPaiement((p) => (p ? { ...p, date: v } : p))}
+                    style={{ width: '100%' }}
+                />
+            </Modal>
+
             {/* Modal ajout paiement */}
             <Modal
                 title="Ajouter un paiement"
@@ -4925,6 +4972,17 @@ export default function Vente() {
                             value={paiementMontant}
                             onChange={(v) => setPaiementMontant(v ?? 0)}
                             addonAfter="€"
+                            style={{ width: '100%' }}
+                        />
+                    </Form.Item>
+
+                    <Form.Item label="Date du paiement" required>
+                        <DatePicker
+                            showTime
+                            format="DD/MM/YYYY HH:mm"
+                            allowClear={false}
+                            value={paiementDate}
+                            onChange={(v) => v && setPaiementDate(v)}
                             style={{ width: '100%' }}
                         />
                     </Form.Item>
@@ -5033,6 +5091,16 @@ export default function Vente() {
                                     </Form.Item>
                                 </Col>
                             </Row>
+                            <Form.Item label="Date du paiement" required>
+                                <DatePicker
+                                    showTime
+                                    format="DD/MM/YYYY HH:mm"
+                                    allowClear={false}
+                                    value={rgDate}
+                                    onChange={(v) => v && setRgDate(v)}
+                                    style={{ width: '100%' }}
+                                />
+                            </Form.Item>
                             <Form.Item label="Notes (optionnel)">
                                 <Input
                                     value={rgNotes}
