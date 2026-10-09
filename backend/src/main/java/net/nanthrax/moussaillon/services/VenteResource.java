@@ -10,6 +10,7 @@ import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
@@ -46,6 +47,7 @@ import net.nanthrax.moussaillon.persistence.VenteEntity;
 import net.nanthrax.moussaillon.persistence.VenteForfaitEntity;
 import net.nanthrax.moussaillon.persistence.VenteHeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.VenteMoteurCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.TimestampJsonbAdapter;
 import net.nanthrax.moussaillon.persistence.VentePaiementEntity;
 import net.nanthrax.moussaillon.persistence.VenteProduitEntity;
 import net.nanthrax.moussaillon.persistence.VenteRemorqueCatalogueEntity;
@@ -477,6 +479,13 @@ public class VenteResource {
                             "La facture ne peut pas passer en payée : solde dû de %.2f €. Ajoutez les paiements correspondants.", solde)))
                         .build());
             }
+            if (!tousPaiementsEchus(entity)) {
+                throw new WebApplicationException(
+                    Response.status(Response.Status.BAD_REQUEST)
+                        .entity(java.util.Map.of("message",
+                            "La facture ne peut pas passer en payée : certains paiements ont une date dans le futur."))
+                        .build());
+            }
         }
 
         // Track step date history on transitions
@@ -821,6 +830,13 @@ public class VenteResource {
         public double montant;
         public String notes;
         public Long avoirId;
+        @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+        public Timestamp date;
+    }
+
+    public static class ModifierPaiementRequest {
+        @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+        public Timestamp date;
     }
 
     public static class PaiementGroupeRequest {
@@ -828,6 +844,8 @@ public class VenteResource {
         public String mode;
         public double montant;
         public String notes;
+        @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+        public Timestamp date;
     }
 
     @POST
@@ -863,7 +881,7 @@ public class VenteResource {
         ventes.sort(java.util.Comparator.comparingLong(v -> v.dateDevis != null ? v.dateDevis.getTime() : 0L));
         double restant = Math.round(request.montant * 100.0) / 100.0;
         int count = 0;
-        Timestamp now = new Timestamp(System.currentTimeMillis());
+        Timestamp now = request.date != null ? request.date : new Timestamp(System.currentTimeMillis());
         for (VenteEntity vente : ventes) {
             if (restant <= 0.005) break;
             double totalPaye = vente.paiements.stream().mapToDouble(p -> p.montant).sum();
@@ -918,7 +936,7 @@ public class VenteResource {
         VentePaiementEntity paiement = new VentePaiementEntity();
         paiement.mode = mode;
         paiement.montant = request.montant;
-        paiement.date = new Timestamp(System.currentTimeMillis());
+        paiement.date = request.date != null ? request.date : new Timestamp(System.currentTimeMillis());
         paiement.notes = request.notes;
 
         if (mode == VentePaiementEntity.Mode.AVOIR) {
@@ -948,14 +966,47 @@ public class VenteResource {
         return paiement;
     }
 
-    /** Passe automatiquement la facture en « payée » lorsque le solde dû est à 0. */
-    private void marquerPayeeSiSoldee(VenteEntity vente) {
+    @PUT
+    @Path("{id}/paiements/{paiementId}")
+    @Transactional
+    public VentePaiementEntity updatePaiement(@PathParam("id") long id, @PathParam("paiementId") long paiementId,
+            ModifierPaiementRequest request) {
+        VenteEntity entity = VenteEntity.findById(id);
+        if (entity == null) {
+            throw new WebApplicationException("La vente (" + id + ") n'est pas trouvée", 404);
+        }
+        if (entity.status == VenteEntity.Status.FACTURE_PAYEE) {
+            throw new WebApplicationException("Une vente payée ne peut plus être modifiée", 400);
+        }
+        if (request == null || request.date == null) {
+            throw new WebApplicationException("La date du paiement est obligatoire", 400);
+        }
+        VentePaiementEntity paiement = entity.paiements.stream()
+            .filter(p -> p.id != null && p.id == paiementId)
+            .findFirst()
+            .orElseThrow(() -> new WebApplicationException("Paiement (" + paiementId + ") non trouvé", 404));
+        paiement.date = request.date;
+        marquerPayeeSiSoldee(entity);
+        return paiement;
+    }
+
+    /** Vrai si aucun paiement n'a une date dans le futur. */
+    static boolean tousPaiementsEchus(VenteEntity vente) {
+        long now = System.currentTimeMillis();
+        return vente.paiements.stream().noneMatch(p -> p.date != null && p.date.getTime() > now);
+    }
+
+    /**
+     * Passe automatiquement la facture en « payée » lorsque le solde dû est à 0
+     * et que la date de tous les paiements est atteinte.
+     */
+    static void marquerPayeeSiSoldee(VenteEntity vente) {
         if (vente.status != VenteEntity.Status.FACTURE_PRETE) {
             return;
         }
         double totalPaye = vente.paiements.stream().mapToDouble(p -> p.montant).sum();
         double solde = Math.round((vente.prixVenteTTC - totalPaye) * 100.0) / 100.0;
-        if (solde <= 0.005) {
+        if (solde <= 0.005 && tousPaiementsEchus(vente)) {
             vente.status = VenteEntity.Status.FACTURE_PAYEE;
             if (vente.dateFacturePayee == null) {
                 vente.dateFacturePayee = new Timestamp(System.currentTimeMillis());

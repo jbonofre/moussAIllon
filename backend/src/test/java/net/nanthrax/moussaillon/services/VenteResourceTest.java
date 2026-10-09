@@ -459,6 +459,38 @@ public class VenteResourceTest {
             .body("dateFacturePayee", org.hamcrest.Matchers.notNullValue());
     }
 
+    @Test
+    void testPaiementDateFutureBloquePassageEnPayee() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"produits\":[{\"id\":100}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        String futur = java.time.LocalDateTime.now().plusDays(10).withNano(0).toString();
+        int paiementId = given()
+            .contentType("application/json")
+            .body("{\"mode\":\"VIREMENT\",\"montant\":24.0,\"date\":\"" + futur + "\"}")
+            .when().post("/ventes/" + id + "/paiements")
+            .then().statusCode(200).body("date", is(futur)).extract().path("id");
+        given().when().get("/ventes/" + id).then().statusCode(200).body("status", is("FACTURE_PRETE"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PAYEE\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"produits\":[{\"id\":100}]}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(400)
+            .body("message", org.hamcrest.Matchers.containsString("futur"));
+
+        String passe = java.time.LocalDateTime.now().minusDays(1).withNano(0).toString();
+        given()
+            .contentType("application/json")
+            .body("{\"date\":\"" + passe + "\"}")
+            .when().put("/ventes/" + id + "/paiements/" + paiementId)
+            .then().statusCode(200).body("date", is(passe));
+        given().when().get("/ventes/" + id).then().statusCode(200).body("status", is("FACTURE_PAYEE"));
+    }
+
     // --- Parc client ---
 
     private int vendre(String lignes) {
