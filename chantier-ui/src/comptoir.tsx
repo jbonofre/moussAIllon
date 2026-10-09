@@ -352,6 +352,12 @@ const toBackendDateValue = (value?: dayjs.Dayjs | string) => {
 };
 
 const formatEuro = (value?: number) => `${(value || 0).toFixed(2)} EUR`;
+const formatDatePrint = (value?: string) => {
+    if (!value) return '-';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value.split('T')[0];
+    return parsed.toLocaleDateString('fr-FR');
+};
 const formatDate = (value?: string) => {
     if (!value) {
         return '-';
@@ -1204,7 +1210,7 @@ export default function Comptoir() {
             return ps.map((p) => {
                 const label = modeLabels[p.mode] ?? p.mode;
                 const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
-                const date = p.date ? `${formatDate(p.date)} - ` : '';
+                const date = p.date ? `${formatDatePrint(p.date)} - ` : '';
                 return `<div class="row">${escapeHtml(date)}${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
             }).join('');
         }
@@ -1267,7 +1273,7 @@ export default function Comptoir() {
         const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
         const docBoxRows: Array<[string, string]> = [
             ['Numéro', escapeHtml(docRef)],
-            ['Date', escapeHtml(formatDate(vente.date))],
+            ['Date', escapeHtml(formatDatePrint(vente.date))],
             ...(isFacture && vente.modePaiement ? [['Mode de règlement', escapeHtml(modeLabels[vente.modePaiement] ?? vente.modePaiement)] as [string, string]] : []),
             ...(client?.tva ? [['N° TVA Intracom.', escapeHtml(client.tva)] as [string, string]] : []),
         ];
@@ -1364,7 +1370,7 @@ export default function Comptoir() {
                 </head>
                 <body>
                     <h2>${escapeHtml(title)}</h2>
-                    <div class="center">${escapeHtml(formatDate(vente.date))}</div>
+                    <div class="center">${escapeHtml(formatDatePrint(vente.date))}</div>
                     <div class="center">${escapeHtml(getClientLabel(vente.client))}</div>
                     <div class="separator"></div>
                     ${produitRows || '<div class="line"><span>Aucun produit</span><span>-</span></div>'}

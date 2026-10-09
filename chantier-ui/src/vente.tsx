@@ -585,6 +585,12 @@ const getSoldeDu = (vente: { status?: string; prixVenteTTC?: number; paiements?:
     const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
     return Math.max(0, Math.round(((vente.prixVenteTTC || 0) - totalPaye) * 100) / 100);
 };
+const formatDatePrint = (value?: string) => {
+    if (!value) return '-';
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) return value.split('T')[0];
+    return parsed.toLocaleDateString('fr-FR');
+};
 const formatDate = (value?: string) => {
     if (!value) return '-';
     const parsed = new Date(value);
@@ -2422,8 +2428,8 @@ export default function Vente() {
 
         const docBoxRows: Array<[string, string]> = [
             ['Numéro', escapeHtml(docRef)],
-            ['Date', escapeHtml(formatDate(vente.date))],
-            ...(isFacture && vente.dateEcheance ? [["Date d'échéance", escapeHtml(formatDate(vente.dateEcheance))] as [string, string]] : []),
+            ['Date', escapeHtml(formatDatePrint(vente.date))],
+            ...(isFacture && vente.dateEcheance ? [["Date d'échéance", escapeHtml(formatDatePrint(vente.dateEcheance))] as [string, string]] : []),
             ...(isFacture && vente.modePaiement ? [['Mode de règlement', escapeHtml(modeLabels[vente.modePaiement] ?? vente.modePaiement)] as [string, string]] : []),
             ...(client?.tva ? [['N° TVA Intracom.', escapeHtml(client.tva)] as [string, string]] : []),
         ];
@@ -2462,7 +2468,7 @@ export default function Vente() {
                 return ps.map(p => {
                     const label = modeLabels[p.mode] ?? p.mode;
                     const avoir = p.avoirId ? ` (avoir #${p.avoirId})` : '';
-                    const date = p.date ? `${formatDate(p.date)} - ` : '';
+                    const date = p.date ? `${formatDatePrint(p.date)} - ` : '';
                     return `<div class="row">${escapeHtml(date)}${escapeHtml(label)}${escapeHtml(avoir)} : ${escapeHtml(formatEuro(p.montant))}</div>`;
                 }).join('');
             }
