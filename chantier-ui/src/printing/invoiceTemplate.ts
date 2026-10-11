@@ -14,6 +14,7 @@ export interface InvoicePrintSociete {
     telephone?: string;
     email?: string;
     bancaire?: string;
+    images?: string[];
 }
 
 export interface InvoicePrintClient {
@@ -83,13 +84,22 @@ export const buildCompositionDetails = (composition: InvoicePrintComposition | u
     }] : []),
 ];
 
-export const buildSocieteBlockHtml = (societe?: InvoicePrintSociete) => societe ? `
+export const buildSocieteBlockHtml = (societe?: InvoicePrintSociete) => {
+    if (!societe) return '<div class="societe-block"></div>';
+    const logo = societe.images && societe.images[0]
+        ? `<img class="societe-logo" src="${escapeHtml(new URL(societe.images[0], window.location.origin).href)}" alt="" />`
+        : '';
+    return `
     <div class="societe-block">
-        ${societe.nom ? `<div class="societe-nom">${escapeHtml(societe.nom)}</div>` : ''}
+        <div class="societe-header">
+            ${logo}
+            ${societe.nom ? `<div class="societe-nom">${escapeHtml(societe.nom)}</div>` : ''}
+        </div>
         ${societe.adresse ? `<div style="white-space:pre-line">${escapeHtml(societe.adresse)}</div>` : ''}
         ${societe.telephone ? `<div>Tél : ${escapeHtml(societe.telephone)}</div>` : ''}
         ${societe.email ? `<div>Email : ${escapeHtml(societe.email)}</div>` : ''}
-    </div>` : '<div class="societe-block"></div>';
+    </div>`;
+};
 
 export const buildDocBoxHtml = (docTitle: string, rows: Array<[string, string]>) => `
     <div class="doc-box">
@@ -194,7 +204,9 @@ export const INVOICE_PRINT_STYLES = `
     .section { margin-top: 18px; }
     .num { text-align: right; }
     .header-row { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #1f1f1f; padding-bottom: 12px; margin-bottom: 16px; }
-    .societe-nom { font-size: 18px; font-weight: bold; margin-bottom: 4px; font-style: italic; }
+    .societe-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .societe-logo { max-height: 60px; max-width: 120px; object-fit: contain; }
+    .societe-nom { font-size: 18px; font-weight: bold; font-style: italic; }
     .info-row { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
     .doc-box, .client-box { border: 1px solid #1f1f1f; border-radius: 4px; padding: 10px 14px; flex: 1; }
     .doc-box-title { font-size: 20px; font-style: italic; font-weight: bold; margin-bottom: 8px; }

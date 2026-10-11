@@ -67,6 +67,7 @@ interface SocieteData {
     telephone?: string;
     email?: string;
     bancaire?: string;
+    images?: string[];
 }
 
 interface BateauClientEntity {
@@ -1217,9 +1218,23 @@ export default function Comptoir() {
         iframeWindow.document.write(contentHtml);
         iframeWindow.document.close();
         iframeWindow.focus();
-        iframeWindow.print();
 
-        setTimeout(cleanup, 1000);
+        const doPrint = () => {
+            iframeWindow.print();
+            setTimeout(cleanup, 1000);
+        };
+
+        const pendingImages = Array.from(iframeWindow.document.getElementsByTagName('img')).filter(img => !img.complete);
+        if (pendingImages.length === 0) {
+            doPrint();
+        } else {
+            let pending = pendingImages.length;
+            const onSettle = () => { pending--; if (pending === 0) doPrint(); };
+            pendingImages.forEach(img => {
+                img.addEventListener('load', onSettle, { once: true });
+                img.addEventListener('error', onSettle, { once: true });
+            });
+        }
     };
 
     const renderPaiementsHtml = (vente: VenteEntity) => {
