@@ -46,6 +46,7 @@ import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
+import PretRecuperationTag from './PretRecuperationTag.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
@@ -377,6 +378,7 @@ interface VenteRemorqueCatalogueLigne {
 
 interface VenteEntity {
     id?: number;
+    datePretRecuperation?: string | null;
     status: VenteStatus;
     bonPourAccord?: boolean;
     ordreDeReparation?: boolean;
@@ -2897,6 +2899,15 @@ export default function Vente() {
                 const color = value === 'DEVIS' && record.bonPourAccord ? 'cyan' : statusColor[value] || 'default';
                 return <Tag color={color}>{label}</Tag>;
             }
+        },
+        {
+            title: 'Retrait',
+            key: 'pretRecuperation',
+            filters: [{ text: 'Prêt à récupérer', value: 'pret' }],
+            onFilter: (_value: unknown, record: VenteEntity) => !!record.datePretRecuperation,
+            render: (_: unknown, record: VenteEntity) => (
+                <PretRecuperationTag datePret={record.datePretRecuperation} basePath="/ventes" id={record.id} onChange={fetchVentes} />
+            )
         },
         {
             title: 'Client',

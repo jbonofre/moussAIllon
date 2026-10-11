@@ -30,6 +30,7 @@ import {
   TagsOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
+import PretRecuperationTag from "./PretRecuperationTag.tsx";
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import AiPhotoIdentify, { IdentifyResult } from './ai-photo-identify.tsx';
 import ImageUpload from './ImageUpload.tsx';
@@ -379,6 +380,15 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       dataIndex: "dateFinDeGuarantie",
       key: "dateFinDeGuarantie",
       sorter: (a, b) => a.dateFinDeGuarantie.localeCompare(b.dateFinDeGuarantie),
+    },
+    {
+      title: "Statut",
+      key: "pret",
+      render: (_: any, record: any) => (
+        <PretRecuperationTag datePret={record.datePretRecuperation} basePath="/moteurs" id={record.id} onChange={() => fetchMoteurs()} />
+      ),
+      filters: [{ text: "Prêt à récupérer", value: "pret" }],
+      onFilter: (_value: any, record: any) => !!record.datePretRecuperation,
     },
     {
       title: "Actions",

@@ -110,6 +110,15 @@ public class VenteEntity extends PanacheEntity {
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateFacturePayee;
 
+    // Renseignée quand toutes les prestations sont terminées : le client peut venir récupérer son matériel.
+    // Remise à null par l'utilisateur lorsque le client est venu le récupérer.
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp datePretRecuperation;
+
+    // Vrai une fois le signal « prêt à récupérer » émis (évite de le réémettre après annulation)
+    @jakarta.persistence.Column(columnDefinition = "boolean default false")
+    public boolean pretRecuperationNotifie;
+
     public String numeroFacture;
 
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)

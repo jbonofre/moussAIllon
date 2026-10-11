@@ -15,6 +15,9 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 public class RemorqueClientResource {
 
+    @jakarta.inject.Inject
+    PretRecuperationService pretRecuperationService;
+
     @GET
     public List<RemorqueClientEntity> listAll() {
         return RemorqueClientEntity.listAll();
@@ -50,6 +53,20 @@ public class RemorqueClientResource {
             remorque.dateCreation = new Timestamp(System.currentTimeMillis());
         }
         remorque.persist();
+        return remorque;
+    }
+
+    /** Le client est venu récupérer son matériel : annule le signal « prêt à récupérer ». */
+    @POST
+    @Path("/{id}/recupere")
+    @Consumes(MediaType.WILDCARD)
+    @Transactional
+    public RemorqueClientEntity marquerRecupere(@PathParam("id") Long id) {
+        RemorqueClientEntity remorque = RemorqueClientEntity.findById(id);
+        if (remorque == null) {
+            throw new NotFoundException();
+        }
+        pretRecuperationService.annulerRemorque(remorque);
         return remorque;
     }
 

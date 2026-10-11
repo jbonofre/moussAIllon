@@ -84,6 +84,9 @@ public class EmailTemplateResource {
                 avoir.description = "Variables disponibles : {client}, {reference}, {date}, {motif}, {venteRef}, {montantTTC}, {lignes}, {societe}";
                 avoir.persist();
             }
+            if (EmailTemplateEntity.findByType(EmailTemplateEntity.Type.PRET_A_RECUPERER) == null) {
+                creerTemplatePret().persist();
+            }
             return Response.ok().build();
         }
 
@@ -140,7 +143,22 @@ public class EmailTemplateResource {
         avoir.description = "Variables disponibles : {client}, {reference}, {date}, {motif}, {venteRef}, {montantTTC}, {lignes}, {societe}";
         avoir.persist();
 
+        creerTemplatePret().persist();
+
         return Response.status(Response.Status.CREATED).build();
+    }
+
+    private static EmailTemplateEntity creerTemplatePret() {
+        EmailTemplateEntity pret = new EmailTemplateEntity();
+        pret.type = EmailTemplateEntity.Type.PRET_A_RECUPERER;
+        pret.sujet = "Votre matériel est prêt - {societe}";
+        pret.contenu = "<p>Bonjour {client},</p>"
+                + "<p>Les travaux sur votre {materiel} sont terminés (référence #{reference}) : "
+                + "vous pouvez venir le récupérer.</p>"
+                + "<p>N'hésitez pas à nous contacter pour convenir d'un rendez-vous.</p>"
+                + "<p>Cordialement,<br/>{societe}</p>";
+        pret.description = "Variables disponibles : {client}, {materiel}, {reference}, {societe}";
+        return pret;
     }
 
 }

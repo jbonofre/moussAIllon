@@ -24,6 +24,9 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 public class BateauClientResource {
 
+    @jakarta.inject.Inject
+    PretRecuperationService pretRecuperationService;
+
     @Inject
     EmailSequenceScheduler emailSequenceScheduler;
 
@@ -125,6 +128,20 @@ public class BateauClientResource {
         // Entrée en parc : déclenche immédiatement le mailing de bienvenue plutôt que d'attendre le cron du lendemain
         emailSequenceScheduler.declencherEntreeEnParc(entity);
         return Response.status(Response.Status.CREATED).entity(entity).build();
+    }
+
+    /** Le client est venu récupérer son matériel : annule le signal « prêt à récupérer ». */
+    @POST
+    @Path("/{id}/recupere")
+    @Consumes(MediaType.WILDCARD)
+    @Transactional
+    public BateauClientEntity marquerRecupere(@PathParam("id") Long id) {
+        BateauClientEntity bateau = BateauClientEntity.findById(id);
+        if (bateau == null) {
+            throw new NotFoundException();
+        }
+        pretRecuperationService.annulerBateau(bateau);
+        return bateau;
     }
 
     @PUT

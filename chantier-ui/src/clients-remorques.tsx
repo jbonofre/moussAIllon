@@ -31,6 +31,7 @@ import {
   TagsOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
+import PretRecuperationTag from "./PretRecuperationTag.tsx";
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import dayjs from "dayjs";
@@ -338,6 +339,15 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
     },
     { title: "Date achat", dataIndex: "dateAchat", key: "dateAchat", sorter: (a, b) => a.dateAchat.localeCompare(b.dateAchat) },
     { title: "Date fin garantie", dataIndex: "dateFinDeGuarantie", key: "dateFinDeGuarantie", sorter: (a, b) => a.dateFinDeGuarantie.localeCompare(b.dateFinDeGuarantie) },
+    {
+      title: "Statut",
+      key: "pret",
+      render: (_: any, record: any) => (
+        <PretRecuperationTag datePret={record.datePretRecuperation} basePath="/remorques" id={record.id} onChange={() => fetchRemorques()} />
+      ),
+      filters: [{ text: "Prêt à récupérer", value: "pret" }],
+      onFilter: (_value: any, record: any) => !!record.datePretRecuperation,
+    },
     {
       title: "Actions",
       key: "actions",

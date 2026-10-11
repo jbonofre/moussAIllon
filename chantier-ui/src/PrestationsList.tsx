@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Table, Tag, Spin, Button, message } from 'antd';
 import { EyeOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useNavigation } from './navigation-context.tsx';
+import PretRecuperationTag from './PretRecuperationTag.tsx';
 
 interface Vente {
     id: number;
     reference?: string;
     dateDevis?: string;
     status: string;
+    datePretRecuperation?: string | null;
     montantTTC: number;
     client?: { id: number; nom?: string };
 }
@@ -39,7 +41,7 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
     const [loading, setLoading] = useState(false);
     const { navigate } = useNavigation();
 
-    useEffect(() => {
+    const load = useCallback(() => {
         if (!clientId && !bateauId && !moteurId && !remorqueId) return;
         const params = new URLSearchParams();
         if (clientId) params.append('clientId', String(clientId));
@@ -52,6 +54,8 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
             .catch(() => message.error('Erreur lors du chargement des prestations'))
             .finally(() => setLoading(false));
     }, [clientId, bateauId, moteurId, remorqueId]);
+
+    useEffect(() => { load(); }, [load]);
 
     const columns = [
         {
@@ -71,6 +75,13 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
             dataIndex: 'status',
             key: 'status',
             render: (s: string) => <Tag color={statusColor[s] || 'default'}>{statusLabel[s] || s}</Tag>,
+        },
+        {
+            title: 'Retrait',
+            key: 'pretRecuperation',
+            render: (_: unknown, record: Vente) => (
+                <PretRecuperationTag datePret={record.datePretRecuperation} basePath="/ventes" id={record.id} onChange={load} />
+            ),
         },
         {
             title: 'Montant TTC',

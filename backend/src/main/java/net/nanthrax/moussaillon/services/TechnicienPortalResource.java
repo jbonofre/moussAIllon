@@ -44,6 +44,9 @@ public class TechnicienPortalResource {
     @Inject
     TokenService tokenService;
 
+    @Inject
+    PretRecuperationService pretRecuperationService;
+
     public static class LoginRequest {
         public String email;
         public String motDePasse;
@@ -452,6 +455,8 @@ public class TechnicienPortalResource {
             sendIncidentNotification(parentVente, nom, vf.incidentDetails, vf.incidentDate);
         }
 
+        pretRecuperationService.evaluer(parentVente);
+
         // Decrement stock
         if (vf.status == VenteForfaitEntity.Status.EN_COURS && parentVente != null && !parentVente.stockDecremented) {
             decrementStock(parentVente);
@@ -523,6 +528,8 @@ public class TechnicienPortalResource {
             String nom = vs.service != null ? vs.service.nom : "Service";
             sendIncidentNotification(parentVente, nom, vs.incidentDetails, vs.incidentDate);
         }
+
+        pretRecuperationService.evaluer(parentVente);
 
         // Decrement stock
         if (vs.status == VenteServiceEntity.Status.EN_COURS && parentVente != null && !parentVente.stockDecremented) {
