@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import MosaicTable from "./MosaicTable.tsx";
 import {
   Table,
   Button,
@@ -611,7 +612,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
       </Row>
       <Row gutter={[16, 16]}>
         <Col span={24}>
-          <Table
+          <MosaicTable
             rowKey="id"
             columns={columns}
             dataSource={commandes}

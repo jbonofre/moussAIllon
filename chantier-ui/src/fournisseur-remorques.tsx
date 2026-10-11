@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import MosaicTable from "./MosaicTable.tsx";
 import {
   Table,
   Button,
@@ -376,7 +377,7 @@ const FournisseurRemorques = ({
       style={{ marginTop: 24 }}
     >
       <Spin spinning={loading}>
-        <Table
+        <MosaicTable thumbnail
           rowKey="id"
           columns={columns}
           dataSource={remorquesAssocies}

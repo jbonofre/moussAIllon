@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import MosaicTable from "./MosaicTable.tsx";
 import {
   Table,
   Button,
@@ -530,7 +531,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
       </Space>
       <Spin spinning={loading}>
-        <Table
+        <MosaicTable thumbnail
           rowKey="id"
           columns={columns}
           dataSource={bateaux}
@@ -638,16 +639,12 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           <Form.Item label="Localisation GPS" name="localisationGps">
             <LocationPicker />
           </Form.Item>
-          {editing && (
-            <>
-              <Form.Item label="Images" name="images">
-                <ImageUpload />
-              </Form.Item>
-              <Form.Item label="Documents" name="documents">
-                <DocumentUpload />
-              </Form.Item>
-            </>
-          )}
+          <Form.Item label="Images" name="images">
+            <ImageUpload />
+          </Form.Item>
+          <Form.Item label="Documents" name="documents">
+            <DocumentUpload />
+          </Form.Item>
           {/* Association avec un bateau du catalogue */}
           <Form.Item label="Modèle catalogue" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>

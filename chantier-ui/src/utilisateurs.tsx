@@ -1,4 +1,5 @@
 import { fetchWithAuth } from './api.ts';
+import MosaicTable from "./MosaicTable.tsx";
 import React, { useEffect, useState } from 'react';
 import { Space, Table, Button, Input, Form, Modal, Avatar, Spin, Select, Popconfirm, message, Row, Col } from 'antd';
 import { UserOutlined, PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -305,7 +306,7 @@ export default function Utilisateurs() {
                 {loading ? (
                     <Spin />
                 ) : (
-                    <Table
+                    <MosaicTable
                         rowKey="name"
                         dataSource={users}
                         columns={columns}

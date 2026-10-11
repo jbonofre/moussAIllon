@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import MosaicTable from "./MosaicTable.tsx";
 import {
   Table,
   Button,
@@ -368,7 +369,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
       </Space>
       <Spin spinning={loading}>
-        <Table
+        <MosaicTable thumbnail
           rowKey="id"
           columns={columns}
           dataSource={remorques}

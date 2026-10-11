@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import MosaicTable from "./MosaicTable.tsx";
 import {
     AutoComplete,
     Button,
@@ -862,7 +863,7 @@ export default function Avoirs() {
                 </Col>
             </Row>
 
-            <Table
+            <MosaicTable
                 rowKey="id"
                 loading={loading}
                 dataSource={filteredAvoirs}
@@ -977,7 +978,7 @@ export default function Avoirs() {
 
                     <Divider orientation="left">Lignes de l'avoir</Divider>
 
-                    <Table
+                    <MosaicTable
                         rowKey={(_, i) => String(i)}
                         dataSource={formLignes}
                         columns={lignesColumns}

@@ -1,4 +1,5 @@
 import { fetchWithAuth } from './api.ts';
+import MosaicTable from "./MosaicTable.tsx";
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button, Card, Descriptions, Divider, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
 import { CreditCardOutlined, DownloadOutlined, LinkOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
@@ -367,7 +368,7 @@ export default function Facturation() {
 
                 <Divider>Historique des paiements</Divider>
 
-                <Table
+                <MosaicTable
                     rowKey="id"
                     dataSource={societe.paiements ?? []}
                     columns={historiqueColumns}

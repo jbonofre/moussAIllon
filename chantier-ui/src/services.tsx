@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import MosaicTable from "./MosaicTable.tsx";
 import {
     Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber,
     Popconfirm, message, Tabs, Select
@@ -551,7 +552,7 @@ export default function Services() {
             </Row>
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                 <Col span={24}>
-                    <Table
+                    <MosaicTable
                         rowKey="id"
                         dataSource={services}
                         columns={columns}

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import MosaicTable from "./MosaicTable.tsx";
 import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, Input, InputNumber, Select, Space, Popconfirm, message, Divider, Tag, Segmented } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import api from './api.ts';
@@ -882,7 +883,7 @@ const CatalogueProduits: React.FC = () => {
                 <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                     <Col span={24}>
                         {/* key : réinitialise tri, filtres et pagination quand on change de type */}
-                        <Table
+                        <MosaicTable
                             key={typeFiltre}
                             rowKey="key"
                             columns={columns}
