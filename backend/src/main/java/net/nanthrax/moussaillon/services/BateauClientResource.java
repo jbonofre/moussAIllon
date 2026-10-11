@@ -49,7 +49,18 @@ public class BateauClientResource {
             return BateauClientEntity.listAll();
         }
         String likePattern = "%" + q.toLowerCase() + "%";
-        return BateauClientEntity.list("LOWER(name) like ?1 or LOWER(immatriculation) like ?1", likePattern);
+        // Le bateau référence des modèles du catalogue ; le numéro de série du moteur et l'immatriculation
+        // de la remorque sont portés par les fiches client, rattachées au bateau via propriétaire + modèle.
+        return BateauClientEntity.find(
+                "SELECT DISTINCT b FROM BateauClientEntity b LEFT JOIN b.proprietaires p "
+                        + "WHERE LOWER(b.name) like ?1 "
+                        + "OR LOWER(b.immatriculation) like ?1 "
+                        + "OR LOWER(p.nom) like ?1 "
+                        + "OR EXISTS (SELECT 1 FROM MoteurClientEntity m WHERE LOWER(m.numeroSerie) like ?1 "
+                        + "AND m.proprietaire MEMBER OF b.proprietaires AND m.modele MEMBER OF b.moteurs) "
+                        + "OR EXISTS (SELECT 1 FROM RemorqueClientEntity r WHERE LOWER(r.immatriculation) like ?1 "
+                        + "AND r.proprietaire MEMBER OF b.proprietaires AND r.modele MEMBER OF b.remorques)",
+                likePattern).list();
     }
 
     @POST
