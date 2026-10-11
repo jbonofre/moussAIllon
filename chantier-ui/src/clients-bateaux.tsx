@@ -66,7 +66,7 @@ interface BateauClient {
   localisationGps?: string;
   moteurs?: any[];
   helices?: any[];
-  remorque?: any;
+  remorques?: any[];
   equipements?: any[];
   options?: { id?: number; nom: string }[];
 }
@@ -87,7 +87,7 @@ const defaultBateau: BateauClient = {
   localisationGps: "",
   moteurs: [],
   helices: [],
-  remorque: null,
+  remorques: [],
   equipements: [],
   options: [],
 };
@@ -103,6 +103,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [bateauxCatalogue, setBateauxCatalogue] = useState<any[]>([]);
   const [moteursCatalogue, setMoteursCatalogue] = useState<any[]>([]);
   const [helicesCatalogue, setHelicesCatalogue] = useState<any[]>([]);
+  const [remorquesCatalogue, setRemorquesCatalogue] = useState<any[]>([]);
   const [produitsCatalogue, setProduitsCatalogue] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -115,6 +116,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [catalogueForm] = Form.useForm();
   const [moteurModalVisible, setMoteurModalVisible] = useState(false);
   const [moteurForm] = Form.useForm();
+  const [remorqueModalVisible, setRemorqueModalVisible] = useState(false);
+  const [remorqueForm] = Form.useForm();
   const [clientModalVisible, setClientModalVisible] = useState(false);
   const [clientForm] = Form.useForm();
   const [annonceImageModalVisible, setAnnonceImageModalVisible] = useState(false);
@@ -203,11 +206,22 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     }
   };
 
+  const fetchRemorquesCatalogue = async () => {
+    try {
+      const res = await api.get('/catalogue/remorques');
+      setRemorquesCatalogue(res.data);
+    } catch {
+      message.error("Erreur lors du chargement du catalogue de remorques");
+      setRemorquesCatalogue([]);
+    }
+  };
+
   useEffect(() => {
     fetchBateaux();
     fetchBateauxCatalogue();
     fetchMoteursCatalogue();
     fetchHelicesCatalogue();
+    fetchRemorquesCatalogue();
     fetchClients();
   }, [clientId]);
 
@@ -235,6 +249,10 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const heliceSelectOptions = useMemo(
     () => helicesCatalogue.map((h: any) => ({ value: h.id, label: h.designation })),
     [helicesCatalogue]
+  );
+  const remorqueSelectOptions = useMemo(
+    () => remorquesCatalogue.map((r: any) => ({ value: r.id, label: r.designation })),
+    [remorquesCatalogue]
   );
   const proprietaireSelectOptions = useMemo(
     () => clients.map((c: any) => ({ value: c.id, label: c.nom })),
@@ -281,6 +299,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       proprietaires: record.proprietaires?.map((p: any) => p.id || p) || [],
       moteurs: record.moteurs?.map((m: any) => m.id || m) || [],
       helices: record.helices?.map((h: any) => h.id || h) || [],
+      remorques: record.remorques?.map((r: any) => r.id || r) || [],
       options: record.options?.map((o: any) => o.id || o) || [],
     });
     setModalVisible(true);
@@ -311,6 +330,24 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     } catch (e) {
       if (e && e.response) {
         message.error("Erreur lors de l'ajout du modèle catalogue");
+      }
+    }
+  };
+
+  const handleRemorqueAdd = async () => {
+    try {
+      const values = await remorqueForm.validateFields();
+      const res = await api.post("/catalogue/remorques", values);
+      message.success("Remorque catalogue ajoutée");
+      setRemorqueModalVisible(false);
+      remorqueForm.resetFields();
+      await fetchRemorquesCatalogue();
+      // Add the new remorque to the current selection
+      const currentRemorques = form.getFieldValue("remorques") || [];
+      form.setFieldsValue({ remorques: [...currentRemorques, res.data.id] });
+    } catch (e) {
+      if (e && e.response) {
+        message.error("Erreur lors de l'ajout de la remorque catalogue");
       }
     }
   };
@@ -378,7 +415,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       const values = await form.validateFields();
       setLoading(true);
       // Transform modeleId to modele object and proprietaires/moteurs IDs to objects
-      const { modeleId, proprietaires, moteurs, helices, options, dateMeS, dateAchat, dateFinDeGuarantie, ...restValues } = values;
+      const { modeleId, proprietaires, moteurs, helices, remorques, options, dateMeS, dateAchat, dateFinDeGuarantie, ...restValues } = values;
       const payload = {
         ...restValues,
         dateMeS: dateMeS ? dateMeS.format("YYYY-MM-DD") : null,
@@ -390,6 +427,9 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           : [],
         moteurs: moteurs && Array.isArray(moteurs)
           ? moteurs.map((id: number) => ({ id }))
+          : [],
+        remorques: remorques && Array.isArray(remorques)
+          ? remorques.map((id: number) => ({ id }))
           : [],
         helices: helices && Array.isArray(helices)
           ? helices.map((id: number) => ({ id }))
@@ -413,6 +453,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           proprietaires: updated.proprietaires?.map((p: any) => p.id || p) || [],
           moteurs: updated.moteurs?.map((m: any) => m.id || m) || [],
           helices: updated.helices?.map((h: any) => h.id || h) || [],
+          remorques: updated.remorques?.map((r: any) => r.id || r) || [],
         });
       } else {
         // create
@@ -429,6 +470,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           proprietaires: created.proprietaires?.map((p: any) => p.id || p) || [],
           moteurs: created.moteurs?.map((m: any) => m.id || m) || [],
           helices: created.helices?.map((h: any) => h.id || h) || [],
+          remorques: created.remorques?.map((r: any) => r.id || r) || [],
         });
       }
       setFormDirty(false);
@@ -683,6 +725,28 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               options={heliceSelectOptions}
             />
           </Form.Item>
+          <Form.Item label="Remorques" style={{ marginBottom: 0 }}>
+            <Space.Compact style={{ width: "100%" }}>
+              <Form.Item name="remorques" noStyle>
+                <Select
+                  mode="multiple"
+                  style={{ width: '100%' }}
+                  placeholder="Rechercher une remorque par désignation"
+                  optionFilterProp="label"
+                  showSearch
+                  allowClear
+                  options={remorqueSelectOptions}
+                />
+              </Form.Item>
+              <Button
+                icon={<PlusCircleOutlined />}
+                onClick={() => {
+                  remorqueForm.resetFields();
+                  setRemorqueModalVisible(true);
+                }}
+              />
+            </Space.Compact>
+          </Form.Item>
           <Form.Item label="Équipements" name="equipements">
             <Select
               mode="tags"
@@ -919,6 +983,152 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
             </Col>
           </Row>
           <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="montantTVA" label="Montant TVA">
+                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="prixVenteTTC" label="Prix de vente TTC">
+                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
+              </Form.Item>
+            </Col>
+          </Row>
+        </Form>
+      </Modal>
+      <Modal
+        open={remorqueModalVisible}
+        title="Ajouter une remorque catalogue"
+        onCancel={() => setRemorqueModalVisible(false)}
+        onOk={handleRemorqueAdd}
+        okText="Ajouter"
+        cancelText="Fermer"
+        destroyOnHidden
+        width="95vw"
+      >
+        <Form
+          layout="vertical"
+          form={remorqueForm}
+          initialValues={{ tva: 20 }}
+          onValuesChange={(changedValues) => {
+            const arrondi = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
+            if (changedValues.prixVenteHT || changedValues.tva) {
+              const prixVenteHT = remorqueForm.getFieldValue('prixVenteHT') || 0;
+              const tva = remorqueForm.getFieldValue('tva') || 0;
+              const montantTVA = arrondi(prixVenteHT * (tva / 100));
+              remorqueForm.setFieldValue('montantTVA', montantTVA);
+              remorqueForm.setFieldValue('prixVenteTTC', arrondi(prixVenteHT + montantTVA));
+            }
+            if (changedValues.prixVenteTTC) {
+              const prixVenteTTC = remorqueForm.getFieldValue('prixVenteTTC') || 0;
+              const tva = remorqueForm.getFieldValue('tva') || 0;
+              const montantTVA = arrondi((prixVenteTTC / (100 + tva)) * tva);
+              remorqueForm.setFieldValue('montantTVA', montantTVA);
+              remorqueForm.setFieldValue('prixVenteHT', arrondi(prixVenteTTC - montantTVA));
+            }
+          }}
+        >
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="designation" label="Désignation" rules={[{ required: true, message: "La désignation est requise" }]}>
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="evaluation" label="Évaluation">
+                <Rate allowHalf />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Form.Item name="description" label="Description">
+            <Input.TextArea rows={3} />
+          </Form.Item>
+          <Form.Item name="images" label="Images">
+            <ImageUpload />
+          </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="ptac" label="PTAC">
+                <InputNumber min={0} style={{ width: '100%' }} addonAfter="kg" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="chargeAVide" label="Charge à vide">
+                <InputNumber min={0} style={{ width: '100%' }} addonAfter="kg" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="chargeUtile" label="Charge utile">
+                <InputNumber min={0} style={{ width: '100%' }} addonAfter="kg" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="longueur" label="Longueur">
+                <InputNumber min={0} style={{ width: '100%' }} addonAfter="mm" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="largeur" label="Largeur">
+                <InputNumber min={0} style={{ width: '100%' }} addonAfter="mm" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="longueurMaxBateau" label="Long. Max. Bateau">
+                <InputNumber min={0} style={{ width: '100%' }} addonAfter="mm" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="largeurMaxBateau" label="Larg. Max. Bateau">
+                <InputNumber min={0} style={{ width: '100%' }} addonAfter="mm" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="fleche" label="Flèche">
+                <InputNumber min={0} style={{ width: '100%' }} addonAfter="mm" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="typeChassis" label="Type de châssis">
+                <Select allowClear options={[{ label: 'Standard', value: 'Standard' }, { label: 'Renforcé', value: 'Renforcé' }]} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="roues" label="Roues">
+                <Select allowClear options={[{ label: 'Simple', value: 'Simple' }, { label: 'Double', value: 'Double' }]} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="equipement" label="Équipement">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="emplacement" label="Emplacement">
+                <Input />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="stock" label="Stock">
+                <InputNumber min={0} step={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="stockAlerte" label="Stock alerte">
+                <InputNumber min={0} step={1} style={{ width: '100%' }} />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item name="prixVenteHT" label="Prix de vente HT">
+                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
+              </Form.Item>
+            </Col>
+            <Col span={12}>
+              <Form.Item name="tva" label="TVA">
+                <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="%" />
+              </Form.Item>
+            </Col>
             <Col span={12}>
               <Form.Item name="montantTVA" label="Montant TVA">
                 <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" />
