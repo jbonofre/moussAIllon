@@ -77,6 +77,17 @@ cd technicien-ui && npm install && npm start
 | `MAILER_PORT` | Port SMTP | `1025` |
 | `MAILER_MOCK` | Mode mock (pas d'envoi reel) | `true` |
 
+### Upload d'images
+
+Les images (bateaux, moteurs, etc.) sont envoyees via `POST /api/images` et stockees dans `./data/images`. La taille maximale d'une requete est de **50 Mo**, a configurer a deux niveaux :
+
+| Composant | Parametre | Valeur |
+|---|---|---|
+| Backend (`application.properties`) | `quarkus.http.limits.max-body-size` | `50M` (defaut Quarkus : 10 Mo) |
+| nginx (gateway, frontends, reverse proxy) | `client_max_body_size` | `50m` (defaut nginx : 1 Mo) |
+
+> **Note :** Sans `client_max_body_size`, nginx rejette les photos de plus de 1 Mo (HTTP 413) et l'UI affiche « Erreur lors de l'upload de l'image ». Si vous placez un autre reverse proxy ou un Ingress devant l'application, relevez aussi sa limite (ex. annotation `nginx.ingress.kubernetes.io/proxy-body-size: 50m` pour ingress-nginx).
+
 ### Base de donnees
 
 Par defaut, H2 avec stockage fichier (`./data/moussaillon`). Le schema est mis a jour automatiquement au demarrage (`hibernate.schema-management.strategy=update`).
@@ -199,8 +210,11 @@ L'Ingress (desactive par defaut) utilise un routage par host :
 ```bash
 helm install moussaillon ./helm/moussaillon \
   --set ingress.enabled=true \
-  --set ingress.className=nginx
+  --set ingress.className=nginx \
+  --set-string 'ingress.annotations.nginx\.ingress\.kubernetes\.io/proxy-body-size=50m'
 ```
+
+L'annotation `proxy-body-size` est necessaire pour l'upload d'images (voir [Upload d'images](#upload-dimages)).
 
 > **Note :** Le backend utilise H2 (base embarquee fichier). Pour un deploiement Kubernetes en production avec plusieurs replicas, il est recommande de migrer vers PostgreSQL (`quarkus-jdbc-postgresql`).
 
@@ -407,6 +421,9 @@ Creer `/etc/nginx/conf.d/moussaillon.conf` :
 server {
     listen 80;
     server_name _;
+
+    # Upload d'images (defaut nginx : 1m)
+    client_max_body_size 50m;
 
     location ^~ /api/ {
         rewrite ^/api/(.*) /$1 break;
