@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, message, Button, List, Input, Space } from 'antd';
 import { DeleteOutlined, InboxOutlined, FileOutlined, FilePdfOutlined, FileWordOutlined, FileExcelOutlined, DownloadOutlined, LinkOutlined } from '@ant-design/icons';
 import type { UploadProps } from 'antd';
@@ -31,7 +31,12 @@ const getFileIcon = (name: string) => {
 const DocumentUpload: React.FC<DocumentUploadProps> = ({ value = [], onChange }) => {
     const [urlInput, setUrlInput] = useState('');
 
+    // Les uploads multiples sont concurrents : on passe par une ref pour ne pas s'écraser.
+    const valueRef = useRef(value);
+    useEffect(() => { valueRef.current = value; }, [value]);
+
     const triggerChange = (urls: string[]) => {
+        valueRef.current = urls;
         onChange?.(urls);
     };
 
@@ -56,7 +61,7 @@ const DocumentUpload: React.FC<DocumentUploadProps> = ({ value = [], onChange })
             });
             const urls: string[] = res.data;
             if (urls.length > 0) {
-                triggerChange([...value, ...urls]);
+                triggerChange([...valueRef.current, ...urls]);
             }
             onSuccess?.(res.data);
         } catch (err) {

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import MosaicTable from "./MosaicTable.tsx";
 import {
     Button,
     Card,
@@ -373,7 +374,7 @@ export default function Annonces() {
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
             </Space>
-            <Table
+            <MosaicTable
                 rowKey="id"
                 dataSource={filteredAnnonces}
                 columns={columns}

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import MosaicTable from "./MosaicTable.tsx";
 import { useNavigation } from './navigation-context.tsx';
 import { Breadcrumb, Space, Button, Row, Col, AutoComplete, Table, Card, Form, Input, Image, Select, InputNumber, Collapse, DatePicker } from 'antd';
 import { HomeOutlined, EditOutlined, DeleteOutlined, PlusCircleOutlined, LinkOutlined, LeftCircleOutlined, PauseCircleOutlined } from '@ant-design/icons';
@@ -43,7 +44,7 @@ function List(props) {
             </Row>
             <Row gutter={[16,16]}>
                 <Col span={24}>
-                    <Table columns={columns} dataSource={props.moteurs} onRow={(record, rowIndex) => {
+                    <MosaicTable columns={columns} dataSource={props.moteurs} onRow={(record, rowIndex) => {
                         return {
                             onClick: (event) => { props.setMoteur(record.numeroserie) }
                         };

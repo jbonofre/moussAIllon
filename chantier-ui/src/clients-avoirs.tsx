@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import MosaicTable from "./MosaicTable.tsx";
 import { Table, Card, Space, Tag, Empty, message } from "antd";
 import { RollbackOutlined } from "@ant-design/icons";
 import api from "./api.ts";
@@ -102,7 +103,7 @@ function ClientsAvoirs({ clientId }: { clientId: number }) {
       title={<Space><RollbackOutlined /> Avoirs</Space>}
       styles={{ body: { padding: avoirs.length === 0 && !loading ? 24 : 0 } }}
     >
-      <Table
+      <MosaicTable
         rowKey="id"
         size="small"
         loading={loading}

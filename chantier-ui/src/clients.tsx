@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import MosaicTable from "./MosaicTable.tsx";
 import {
   Table,
   Button,
@@ -356,7 +357,7 @@ function Clients() {
         <ImportCsvButton endpoint="/clients/import" label="Importer des clients (CSV)" onImported={() => fetchClients()} />
       </Space>
       <Spin spinning={loading}>
-        <Table
+        <MosaicTable
           rowKey="id"
           columns={columns}
           dataSource={clients}
@@ -558,6 +559,11 @@ function Clients() {
           <Form.Item label="Notes" name="notes">
             <Input.TextArea rows={3} />
           </Form.Item>
+          {!(editing && editing.id) && (
+            <Form.Item label="Documents" name="documents">
+              <DocumentUpload />
+            </Form.Item>
+          )}
         </Form>
         {editing && editing.id && (
           <>

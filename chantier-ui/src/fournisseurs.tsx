@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import MosaicTable from "./MosaicTable.tsx";
 import {
   Table,
   Button,
@@ -258,7 +259,7 @@ const Fournisseurs = () => {
         </Row>
         <Row gutter={[16, 16]}>
           <Col span={24}>
-            <Table rowKey="id" columns={columns} dataSource={fournisseurs} loading={loading} bordered pagination={{ pageSize: 10 }} />
+            <MosaicTable rowKey="id" columns={columns} dataSource={fournisseurs} loading={loading} bordered pagination={{ pageSize: 10 }} />
           </Col>
         </Row>
       </Card>

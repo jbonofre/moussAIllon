@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import MosaicTable from "./MosaicTable.tsx";
 import { Space, Table, Button, Input, InputNumber, Form, Modal, Card, Row, Col, Popconfirm, message, Drawer, Statistic, Progress, Divider, Spin, Checkbox, ColorPicker } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, UserOutlined, BarChartOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, WarningOutlined, EuroCircleOutlined, KeyOutlined, MailOutlined } from '@ant-design/icons';
 import api from './api.ts';
@@ -306,7 +307,7 @@ const Techniciens: React.FC = () => {
                 </Row>
                 <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                     <Col span={24}>
-                        <Table
+                        <MosaicTable
                             rowKey="id"
                             columns={columns}
                             dataSource={techniciens}

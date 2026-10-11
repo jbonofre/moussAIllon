@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import MosaicTable from "./MosaicTable.tsx";
 import { Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber, Popconfirm, message } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from './api.ts';
@@ -224,7 +225,7 @@ export default function MainOeuvres() {
             </Row>
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                 <Col span={24}>
-                    <Table
+                    <MosaicTable
                         rowKey="id"
                         dataSource={mainOeuvres}
                         columns={columns}
