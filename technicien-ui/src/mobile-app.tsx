@@ -186,6 +186,9 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
     };
 
     const handleChecklistChange = (index: number, done: boolean) => {
+        if (!done && form.getFieldValue('status') === 'TERMINEE') {
+            form.setFieldsValue({ status: 'EN_COURS' });
+        }
         setChecklist((prev) => prev.map((c, i) => i === index ? { ...c, done } : c));
     };
 
@@ -193,6 +196,10 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
         if (!currentItem) return;
         try {
             const values = await form.validateFields();
+            if (values.status === 'TERMINEE' && checklist.some((c) => !c.done)) {
+                message.warning('Toutes les taches doivent etre cochees pour terminer la prestation');
+                return;
+            }
             setSaving(true);
             const endpoint = currentItem.itemType === 'forfait'
                 ? `/technicien-portal/forfaits/${currentItem.itemId}`
