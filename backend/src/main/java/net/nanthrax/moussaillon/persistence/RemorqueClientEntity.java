@@ -31,4 +31,7 @@ public class RemorqueClientEntity extends PanacheEntity {
 
     public Timestamp dateCreation;
 
+    // Renseignée quand le client peut venir récupérer son matériel (prestation terminée)
+    public Timestamp datePretRecuperation;
+
 }

@@ -63,6 +63,9 @@ public class VenteResource {
     Mailer mailer;
 
     @Inject
+    PretRecuperationService pretRecuperationService;
+
+    @Inject
     RappelScheduler rappelScheduler;
 
     @Inject
@@ -429,6 +432,20 @@ public class VenteResource {
         return entity;
     }
 
+    /** Le client est venu récupérer son matériel : annule le signal « prêt à récupérer ». */
+    @POST
+    @Path("{id}/recupere")
+    @Consumes(MediaType.WILDCARD)
+    @Transactional
+    public Response marquerRecupere(@PathParam("id") long id) {
+        VenteEntity entity = VenteEntity.findById(id);
+        if (entity == null) {
+            throw new WebApplicationException("La vente (" + id + ") n'est pas trouvee", 404);
+        }
+        pretRecuperationService.annuler(entity);
+        return Response.noContent().build();
+    }
+
     @DELETE
     @Path("{id}")
     @Transactional
@@ -779,6 +796,9 @@ public class VenteResource {
                 }
             }
         }
+
+        // Signal « prêt à récupérer » : posé quand toutes les interventions sont terminées
+        pretRecuperationService.evaluer(entity);
 
         // Fallback: decrement stock once the sale reaches FACTURE_PRETE or FACTURE_PAYEE,
         // for sales without EN_COURS phase (e.g. comptoir, which can skip FACTURE_PRETE entirely)

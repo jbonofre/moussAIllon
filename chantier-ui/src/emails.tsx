@@ -8,13 +8,15 @@ import 'react-quill-new/dist/quill.snow.css';
 const TYPE_LABELS = {
     RAPPEL: 'Rappel',
     INCIDENT: 'Incident',
-    FACTURE: 'Facture'
+    FACTURE: 'Facture',
+    PRET_A_RECUPERER: 'Prêt à récupérer'
 };
 
 const TYPE_COLORS = {
     RAPPEL: 'blue',
     INCIDENT: 'red',
-    FACTURE: 'green'
+    FACTURE: 'green',
+    PRET_A_RECUPERER: 'orange'
 };
 
 export default function Emails() {

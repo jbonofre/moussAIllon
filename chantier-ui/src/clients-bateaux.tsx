@@ -31,6 +31,7 @@ import {
   TagsOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
+import PretRecuperationTag from "./PretRecuperationTag.tsx";
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import AiPhotoIdentify, { IdentifyResult } from './ai-photo-identify.tsx';
 import ImageUpload from './ImageUpload.tsx';
@@ -499,6 +500,15 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       sorter: (a, b) => (a.modele?.designation || '').localeCompare(b.modele?.designation || ''),
       filters: bateauxCatalogue.map((bateau) => { const a = formatAnnee(bateau.anneeDebut, bateau.anneeFin); return { text: `${bateau.designation}${a ? ` (${a})` : ''}`, value: bateau.id }; }),
       onFilter: (value, record) => record.modele?.id === value,
+    },
+    {
+      title: "Statut",
+      key: "pret",
+      render: (_: any, record: any) => (
+        <PretRecuperationTag datePret={record.datePretRecuperation} basePath="/bateaux" id={record.id} onChange={() => fetchBateaux()} />
+      ),
+      filters: [{ text: "Prêt à récupérer", value: "pret" }],
+      onFilter: (_value: any, record: any) => !!record.datePretRecuperation,
     },
     {
       title: "Actions",

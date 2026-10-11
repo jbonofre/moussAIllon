@@ -544,4 +544,45 @@ public class VenteResourceTest {
             .then().statusCode(200)
             .body("findAll { it.helices.size() > 0 }.helices.flatten().id", hasItem(100));
     }
+
+    @Test
+    void testPretARecupererPoseEtAnnule() {
+        int remorqueId = given()
+            .contentType("application/json")
+            .body("{\"immatriculation\":\"REM-PRET\"}")
+            .when().post("/remorques")
+            .then().statusCode(200).extract().path("id");
+
+        String body = "{\"status\":\"DEVIS\",\"bonPourAccord\":true,\"prixVenteTTC\":200.0,"
+                + "\"remorque\":{\"id\":" + remorqueId + "},"
+                + "\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"%s\"}]}";
+
+        int id = given()
+            .contentType("application/json")
+            .body(String.format(body, "EN_COURS"))
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given().when().get("/ventes/" + id).then().body("datePretRecuperation", nullValue());
+
+        given()
+            .contentType("application/json")
+            .body(String.format(body, "TERMINEE"))
+            .when().put("/ventes/" + id)
+            .then().statusCode(200)
+            .body("datePretRecuperation", notNullValue());
+
+        given().when().get("/remorques/" + remorqueId)
+            .then().body("datePretRecuperation", notNullValue());
+
+        given().when().post("/ventes/" + id + "/recupere")
+            .then().statusCode(204);
+
+        given().when().get("/ventes/" + id)
+            .then().body("datePretRecuperation", nullValue());
+
+        given().when().get("/remorques/" + remorqueId)
+            .then().body("datePretRecuperation", nullValue());
+    }
+
 }
