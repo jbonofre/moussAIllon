@@ -467,7 +467,7 @@ public class VenteResourceTest {
             .when().post("/ventes")
             .then().statusCode(201).extract().path("id");
 
-        String futur = java.time.LocalDateTime.now().plusDays(10).withNano(0).toString();
+        String futur = java.time.LocalDateTime.now().plusDays(10).withNano(0).format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         int paiementId = given()
             .contentType("application/json")
             .body("{\"mode\":\"VIREMENT\",\"montant\":24.0,\"date\":\"" + futur + "\"}")
@@ -482,7 +482,7 @@ public class VenteResourceTest {
             .then().statusCode(400)
             .body("message", org.hamcrest.Matchers.containsString("futur"));
 
-        String passe = java.time.LocalDateTime.now().minusDays(1).withNano(0).toString();
+        String passe = java.time.LocalDateTime.now().minusDays(1).withNano(0).format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
         given()
             .contentType("application/json")
             .body("{\"date\":\"" + passe + "\"}")
