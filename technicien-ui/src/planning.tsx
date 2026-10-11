@@ -235,6 +235,9 @@ export default function Planning({ technicienId }: PlanningProps) {
     const handleChecklistChange = (index: number, done: boolean) => {
         setChecklist((prev) => {
             const updated = prev.map((c, i) => i === index ? { ...c, done } : c);
+            if (!done && form.getFieldValue('status') === 'TERMINEE') {
+                form.setFieldsValue({ status: 'EN_COURS' });
+            }
             // If all checked, auto-set status to TERMINEE and dateFin, compute dureeReelle
             if (updated.length > 0 && updated.every((c) => c.done)) {
                 const finIso = nowIso();
@@ -283,6 +286,10 @@ export default function Planning({ technicienId }: PlanningProps) {
         if (!currentItem) return;
         try {
             const values = await form.validateFields();
+            if (values.status === 'TERMINEE' && checklist.some((c) => !c.done)) {
+                message.warning('Toutes les taches doivent etre cochees pour terminer la prestation');
+                return;
+            }
             setSaving(true);
             const endpoint = currentItem.itemType === 'forfait'
                 ? `/technicien-portal/forfaits/${currentItem.itemId}`

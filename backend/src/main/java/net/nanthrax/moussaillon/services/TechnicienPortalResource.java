@@ -441,6 +441,12 @@ public class TechnicienPortalResource {
             }
         }
 
+        // A prestation cannot be TERMINEE while some of its tasks are not done
+        if (vf.status == VenteForfaitEntity.Status.TERMINEE && vf.taches != null
+                && vf.taches.stream().anyMatch(t -> !t.done)) {
+            throw new WebApplicationException("Toutes les taches doivent etre terminees avant de terminer la prestation", Response.Status.BAD_REQUEST);
+        }
+
         // Find parent vente
         List<VenteEntity> ventes = VenteEntity.list("SELECT v FROM VenteEntity v JOIN v.venteForfaits vf WHERE vf.id = ?1", itemId);
         VenteEntity parentVente = ventes.isEmpty() ? null : ventes.get(0);
@@ -511,6 +517,12 @@ public class TechnicienPortalResource {
                     }
                 }
             }
+        }
+
+        // A prestation cannot be TERMINEE while some of its tasks are not done
+        if (vs.status == VenteServiceEntity.Status.TERMINEE && vs.taches != null
+                && vs.taches.stream().anyMatch(t -> !t.done)) {
+            throw new WebApplicationException("Toutes les taches doivent etre terminees avant de terminer la prestation", Response.Status.BAD_REQUEST);
         }
 
         // Find parent vente
