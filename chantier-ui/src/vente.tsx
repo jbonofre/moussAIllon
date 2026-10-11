@@ -332,6 +332,7 @@ interface SocieteData {
     telephone?: string;
     email?: string;
     bancaire?: string;
+    images?: string[];
 }
 
 interface VenteProduitLigne {
