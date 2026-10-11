@@ -18,6 +18,7 @@ interface BateauClientEntity {
     documents?: string[];
     modele?: { id: number; designation?: string };
     moteurs?: Array<{ id: number; designation?: string }>;
+    remorques?: Array<{ id: number; designation?: string }>;
     equipements?: string[];
 }
 
@@ -125,6 +126,14 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
             render: (_: unknown, record: BateauClientEntity) =>
                 (record.moteurs || []).map((m) => (
                     <Tag key={m.id}>{m.designation || `#${m.id}`}</Tag>
+                )),
+        },
+        {
+            title: 'Remorques',
+            key: 'remorques',
+            render: (_: unknown, record: BateauClientEntity) =>
+                (record.remorques || []).map((r) => (
+                    <Tag key={r.id}>{r.designation || `#${r.id}`}</Tag>
                 )),
         },
         {

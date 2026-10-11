@@ -47,6 +47,9 @@ public class BateauClientEntity extends PanacheEntity {
     @ManyToMany
     public List<HeliceCatalogueEntity> helices = new ArrayList<>();
 
+    @ManyToMany
+    public List<RemorqueCatalogueEntity> remorques = new ArrayList<>();
+
     public List<String> equipements = new ArrayList<>();
 
     @ManyToMany(fetch = FetchType.EAGER)

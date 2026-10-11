@@ -12,6 +12,7 @@ import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.BateauOptionEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -90,6 +91,8 @@ public class BateauClientResource {
         }
 
         entity.helices = resoudreHelices(entity.helices);
+
+        entity.remorques = resoudreRemorques(entity.remorques);
 
         if (entity.options != null) {
             List<BateauOptionEntity> optionsEntities = new ArrayList<>();
@@ -175,6 +178,8 @@ public class BateauClientResource {
         
         entity.helices = resoudreHelices(updated.helices);
 
+        entity.remorques = resoudreRemorques(updated.remorques);
+
         entity.equipements = updated.equipements != null ? updated.equipements : new ArrayList<>();
 
         if (updated.options != null) {
@@ -203,6 +208,21 @@ public class BateauClientResource {
                     HeliceCatalogueEntity helice = HeliceCatalogueEntity.findById(h.id);
                     if (helice != null) {
                         resolues.add(helice);
+                    }
+                }
+            }
+        }
+        return resolues;
+    }
+
+    private List<RemorqueCatalogueEntity> resoudreRemorques(List<RemorqueCatalogueEntity> remorques) {
+        List<RemorqueCatalogueEntity> resolues = new ArrayList<>();
+        if (remorques != null) {
+            for (RemorqueCatalogueEntity r : remorques) {
+                if (r != null && r.id != null) {
+                    RemorqueCatalogueEntity remorque = RemorqueCatalogueEntity.findById(r.id);
+                    if (remorque != null) {
+                        resolues.add(remorque);
                     }
                 }
             }
