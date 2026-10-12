@@ -395,6 +395,101 @@ public class TechnicienPortalResource {
         return result;
     }
 
+    public static class PlanningGeneralTechnicien {
+        public Long id;
+        public String prenom;
+        public String nom;
+        public String couleur;
+    }
+
+    public static class PlanningGeneralItem {
+        public Long itemId;
+        public Long venteId;
+        public String itemType;
+        public String itemNom;
+        public String itemStatus;
+        public String dateDebut;
+        public String statusDate;
+        public Double dureePlanifiee;
+        public double dureeEstimee;
+        public String clientNom;
+        public String bateauNom;
+        public String bateauImmatriculation;
+        public int tachesTotal;
+        public int tachesFaites;
+        public List<PlanningGeneralTechnicien> techniciens = new ArrayList<>();
+    }
+
+    private static List<PlanningGeneralTechnicien> toPlanningGeneralTechniciens(List<TechnicienEntity> techniciens) {
+        List<PlanningGeneralTechnicien> result = new ArrayList<>();
+        if (techniciens != null) {
+            for (TechnicienEntity t : techniciens) {
+                PlanningGeneralTechnicien pt = new PlanningGeneralTechnicien();
+                pt.id = t.id;
+                pt.prenom = t.prenom;
+                pt.nom = t.nom;
+                pt.couleur = t.couleur;
+                result.add(pt);
+            }
+        }
+        return result;
+    }
+
+    private static PlanningGeneralItem toPlanningGeneralItem(VenteEntity vente, Long itemId, String type, String nom,
+            Enum<?> status, java.sql.Timestamp dateDebut, java.sql.Timestamp statusDate, Double dureePlanifiee,
+            double dureeEstimee, List<TaskEntity> taches, List<TechnicienEntity> techniciens) {
+        PlanningGeneralItem item = new PlanningGeneralItem();
+        item.itemId = itemId;
+        item.venteId = vente.id;
+        item.itemType = type;
+        item.itemNom = nom;
+        item.itemStatus = status != null ? status.name() : null;
+        item.dateDebut = dateDebut != null ? dateDebut.toString() : null;
+        item.statusDate = statusDate != null ? statusDate.toString() : null;
+        item.dureePlanifiee = dureePlanifiee;
+        item.dureeEstimee = dureeEstimee;
+        item.clientNom = vente.client != null ? vente.client.nom : null;
+        if (vente.bateau != null) {
+            item.bateauNom = vente.bateau.name;
+            item.bateauImmatriculation = vente.bateau.immatriculation;
+        }
+        if (taches != null) {
+            item.tachesTotal = taches.size();
+            item.tachesFaites = (int) taches.stream().filter(t -> t.done).count();
+        }
+        item.techniciens = toPlanningGeneralTechniciens(techniciens);
+        return item;
+    }
+
+    /** Planning général en lecture seule : prestations planifiées ou en cours, tous techniciens confondus. */
+    @GET
+    @Path("/planning-general")
+    public List<PlanningGeneralItem> getPlanningGeneral() {
+        List<VenteEntity> ventes = VenteEntity.listAll();
+        List<PlanningGeneralItem> result = new ArrayList<>();
+        for (VenteEntity vente : ventes) {
+            if (vente.venteForfaits != null) {
+                for (VenteForfaitEntity vf : vente.venteForfaits) {
+                    if (vf.status == VenteForfaitEntity.Status.PLANIFIEE || vf.status == VenteForfaitEntity.Status.EN_COURS) {
+                        result.add(toPlanningGeneralItem(vente, vf.id, "forfait", vf.forfait != null ? vf.forfait.nom : "",
+                                vf.status, vf.dateDebut, vf.statusDate, vf.dureePlanifiee,
+                                vf.forfait != null ? vf.forfait.dureeEstimee : 0, vf.taches, vf.techniciens));
+                    }
+                }
+            }
+            if (vente.venteServices != null) {
+                for (VenteServiceEntity vs : vente.venteServices) {
+                    if (vs.status == VenteServiceEntity.Status.PLANIFIEE || vs.status == VenteServiceEntity.Status.EN_COURS) {
+                        result.add(toPlanningGeneralItem(vente, vs.id, "service", vs.service != null ? vs.service.nom : "",
+                                vs.status, vs.dateDebut, vs.statusDate, vs.dureePlanifiee,
+                                vs.service != null ? vs.service.dureeEstimee : 0, vs.taches, vs.techniciens));
+                    }
+                }
+            }
+        }
+        return result;
+    }
+
     @PUT
     @Path("/forfaits/{itemId}")
     @Transactional
