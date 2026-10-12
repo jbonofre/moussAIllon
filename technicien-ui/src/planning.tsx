@@ -540,7 +540,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                 : `/technicien-portal/services/${selfAssignItem.itemId}/s-affecter`;
             await api.post(endpoint, {
                 technicienId,
-                datePlanification: selfAssignDate ? selfAssignDate.format('YYYY-MM-DD') : undefined,
+                datePlanification: selfAssignDate ? selfAssignDate.format('YYYY-MM-DDTHH:mm') : undefined,
             });
             message.success('Tache affectee et planifiee');
             setSelfAssignItem(null);
@@ -710,12 +710,14 @@ export default function Planning({ technicienId }: PlanningProps) {
                     </div>
                 )}
                 <Form layout="vertical">
-                    <Form.Item label="Date de planification (optionnel)">
+                    <Form.Item label="Date et heure de planification (optionnel)">
                         <DatePicker
+                            showTime={{ format: 'HH:mm', minuteStep: 5 }}
+                            format="DD/MM/YYYY HH:mm"
                             style={{ width: '100%' }}
                             value={selfAssignDate}
                             onChange={(date) => setSelfAssignDate(date)}
-                            placeholder="Choisir une date"
+                            placeholder="Choisir une date et une heure"
                         />
                     </Form.Item>
                 </Form>

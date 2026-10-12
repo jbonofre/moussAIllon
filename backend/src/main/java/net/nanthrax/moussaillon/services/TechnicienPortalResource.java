@@ -676,10 +676,7 @@ public class TechnicienPortalResource {
             vf.techniciens.add(technicien);
         }
         if (request.datePlanification != null && !request.datePlanification.isBlank()) {
-            String dateStr = request.datePlanification.length() > 10
-                    ? request.datePlanification.substring(0, 10)
-                    : request.datePlanification;
-            vf.datePlanification = java.sql.Timestamp.valueOf(java.time.LocalDate.parse(dateStr).atStartOfDay());
+            vf.datePlanification = parseDatePlanification(request.datePlanification);
         }
         vf.status = VenteForfaitEntity.Status.PLANIFIEE;
         VenteEntity parentVente = venteParenteForfait(itemId);
@@ -705,14 +702,19 @@ public class TechnicienPortalResource {
             vs.techniciens.add(technicien);
         }
         if (request.datePlanification != null && !request.datePlanification.isBlank()) {
-            String dateStr = request.datePlanification.length() > 10
-                    ? request.datePlanification.substring(0, 10)
-                    : request.datePlanification;
-            vs.datePlanification = java.sql.Timestamp.valueOf(java.time.LocalDate.parse(dateStr).atStartOfDay());
+            vs.datePlanification = parseDatePlanification(request.datePlanification);
         }
         vs.status = VenteServiceEntity.Status.PLANIFIEE;
         VenteEntity parentVente = venteParenteService(itemId);
         return PlanningItemWithVente.fromService(vs, parentVente != null ? parentVente : new VenteEntity());
+    }
+
+    private static java.sql.Timestamp parseDatePlanification(String value) {
+        String v = value.trim();
+        if (v.length() <= 10) {
+            return java.sql.Timestamp.valueOf(java.time.LocalDate.parse(v).atStartOfDay());
+        }
+        return java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(v.replace(' ', 'T').substring(0, 16)));
     }
 
     private static VenteEntity venteParenteForfait(long forfaitId) {
