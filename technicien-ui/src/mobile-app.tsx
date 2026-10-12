@@ -19,6 +19,7 @@ import {
 } from 'antd';
 import {
     AimOutlined,
+    CalendarOutlined,
     CheckCircleOutlined,
     ClockCircleOutlined,
     DeleteOutlined,
@@ -39,6 +40,7 @@ import dayjs from 'dayjs';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
+import PlanningGeneral from './planning-general.tsx';
 import Objectifs from './objectifs.tsx';
 
 interface Technicien {
@@ -98,7 +100,7 @@ interface MobileAppProps {
     onChangePassword: () => void;
 }
 
-type Tab = 'today' | 'all' | 'incidents' | 'objectifs';
+type Tab = 'today' | 'all' | 'general' | 'incidents' | 'objectifs';
 
 const taskStatusOptions: Array<{ value: TaskStatus; label: string }> = [
     { value: 'EN_ATTENTE', label: 'En attente' },
@@ -368,6 +370,8 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
             <div style={{ flex: 1, padding: 12, background: '#f5f5f5', overflowY: 'auto' }}>
                 {tab === 'objectifs' ? (
                     <Objectifs technicienId={user.id} />
+                ) : tab === 'general' ? (
+                    <PlanningGeneral technicienId={user.id} compact />
                 ) : (
                     <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -398,6 +402,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                     options={[
                         { value: 'today', icon: <ScheduleOutlined />, label: "Aujourd'hui" },
                         { value: 'all', icon: <UnorderedListOutlined />, label: 'Toutes' },
+                        { value: 'general', icon: <CalendarOutlined />, label: 'General' },
                         { value: 'incidents', icon: <ExclamationCircleOutlined />, label: 'Incidents' },
                         { value: 'objectifs', icon: <AimOutlined />, label: 'Objectifs' },
                     ]}

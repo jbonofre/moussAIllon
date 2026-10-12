@@ -195,4 +195,13 @@ public class TechnicienPortalResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void testPlanningGeneral() {
+        given()
+            .when().get("/technicien-portal/planning-general")
+            .then()
+            .statusCode(200)
+            .body("$", notNullValue());
+    }
 }
