@@ -494,6 +494,41 @@ public class TechnicienPortalResource {
         return result;
     }
 
+    /** Tâches des prestations (forfaits et services) réalisées sur un bateau, un moteur ou une remorque du parc client. */
+    @GET
+    @Path("/parc/{type}/{id}/taches")
+    public List<PlanningItemWithVente> getTachesParc(@PathParam("type") String type, @PathParam("id") long id) {
+        String champ;
+        switch (type) {
+            case "bateaux":
+                champ = "bateau";
+                break;
+            case "moteurs":
+                champ = "moteur";
+                break;
+            case "remorques":
+                champ = "remorque";
+                break;
+            default:
+                throw new WebApplicationException("Type de matériel inconnu", Response.Status.NOT_FOUND);
+        }
+        List<VenteEntity> ventes = VenteEntity.list("FROM VenteEntity v WHERE v." + champ + ".id = ?1 ORDER BY v.id DESC", id);
+        List<PlanningItemWithVente> result = new ArrayList<>();
+        for (VenteEntity vente : ventes) {
+            if (vente.venteForfaits != null) {
+                for (VenteForfaitEntity vf : vente.venteForfaits) {
+                    result.add(PlanningItemWithVente.fromForfait(vf, vente));
+                }
+            }
+            if (vente.venteServices != null) {
+                for (VenteServiceEntity vs : vente.venteServices) {
+                    result.add(PlanningItemWithVente.fromService(vs, vente));
+                }
+            }
+        }
+        return result;
+    }
+
     @PUT
     @Path("/forfaits/{itemId}")
     @Transactional

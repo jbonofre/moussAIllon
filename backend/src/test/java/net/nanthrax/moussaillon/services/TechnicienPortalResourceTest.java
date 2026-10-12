@@ -126,6 +126,25 @@ public class TechnicienPortalResourceTest {
     }
 
     @Test
+    void testObtenirTachesParc() {
+        for (String type : new String[] {"bateaux", "moteurs", "remorques"}) {
+            given()
+                .when().get("/technicien-portal/parc/" + type + "/9999/taches")
+                .then()
+                .statusCode(200)
+                .body("size()", is(0));
+        }
+    }
+
+    @Test
+    void testObtenirTachesParcTypeInconnu() {
+        given()
+            .when().get("/technicien-portal/parc/helices/1/taches")
+            .then()
+            .statusCode(404);
+    }
+
+    @Test
     void testModifierForfait() {
         given()
             .contentType("application/json")
