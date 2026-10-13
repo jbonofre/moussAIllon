@@ -20,6 +20,7 @@ import {
 import {
     AimOutlined,
     CalendarOutlined,
+    CarOutlined,
     CheckCircleOutlined,
     ClockCircleOutlined,
     DeleteOutlined,
@@ -42,6 +43,7 @@ import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import PlanningGeneral from './planning-general.tsx';
 import Objectifs from './objectifs.tsx';
+import Parc from './parc.tsx';
 
 interface Technicien {
     id: number;
@@ -101,7 +103,7 @@ interface MobileAppProps {
     onChangePassword: () => void;
 }
 
-type Tab = 'today' | 'all' | 'general' | 'incidents' | 'objectifs';
+type Tab = 'today' | 'all' | 'general' | 'incidents' | 'parc' | 'objectifs';
 
 const taskStatusOptions: Array<{ value: TaskStatus; label: string }> = [
     { value: 'EN_ATTENTE', label: 'En attente' },
@@ -373,6 +375,8 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                     <Objectifs technicienId={user.id} />
                 ) : tab === 'general' ? (
                     <PlanningGeneral technicienId={user.id} compact />
+                ) : tab === 'parc' ? (
+                    <Parc />
                 ) : (
                     <>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
@@ -405,6 +409,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                         { value: 'all', icon: <UnorderedListOutlined />, label: 'Toutes' },
                         { value: 'general', icon: <CalendarOutlined />, label: 'General' },
                         { value: 'incidents', icon: <ExclamationCircleOutlined />, label: 'Incidents' },
+                        { value: 'parc', icon: <CarOutlined />, label: 'Parc' },
                         { value: 'objectifs', icon: <AimOutlined />, label: 'Objectifs' },
                     ]}
                     style={{ borderRadius: 0 }}

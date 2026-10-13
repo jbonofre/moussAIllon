@@ -3,6 +3,7 @@ import { Layout, Menu, Image, Button } from 'antd';
 import {
     AimOutlined,
     CalendarOutlined,
+    CarOutlined,
     KeyOutlined,
     ScheduleOutlined,
     UserOutlined,
@@ -12,6 +13,7 @@ import Login from './login.tsx';
 import Planning from './planning.tsx';
 import PlanningGeneral from './planning-general.tsx';
 import Objectifs from './objectifs.tsx';
+import Parc from './parc.tsx';
 import MobileApp from './mobile-app.tsx';
 import ChangePasswordModal from './change-password-modal.tsx';
 import useIsMobile from './use-is-mobile.tsx';
@@ -35,7 +37,7 @@ export default function App() {
         return stored ? JSON.parse(stored) : null;
     });
     const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-    const [section, setSection] = useState<'planning' | 'general' | 'objectifs'>('planning');
+    const [section, setSection] = useState<'planning' | 'general' | 'parc' | 'objectifs'>('planning');
     const isMobile = useIsMobile();
 
     const handleLogout = () => {
@@ -73,10 +75,11 @@ export default function App() {
                     theme="dark"
                     mode="inline"
                     selectedKeys={[section]}
-                    onClick={({ key }) => setSection(key as 'planning' | 'general' | 'objectifs')}
+                    onClick={({ key }) => setSection(key as 'planning' | 'general' | 'parc' | 'objectifs')}
                     items={[
                         { key: 'planning', icon: <ScheduleOutlined />, label: 'Mon planning' },
                         { key: 'general', icon: <CalendarOutlined />, label: 'Planning general' },
+                        { key: 'parc', icon: <CarOutlined />, label: 'Parc client' },
                         { key: 'objectifs', icon: <AimOutlined />, label: 'Mes objectifs' },
                     ]}
                 />
@@ -121,6 +124,7 @@ export default function App() {
                 }}>
                     {section === 'planning' && <Planning technicienId={user.id} />}
                     {section === 'general' && <PlanningGeneral technicienId={user.id} />}
+                    {section === 'parc' && <Parc />}
                     {section === 'objectifs' && <Objectifs technicienId={user.id} />}
                 </Content>
                 <Footer style={{ background: 'transparent', padding: '16px 50px' }}>
