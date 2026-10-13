@@ -122,6 +122,25 @@ public class ProduitCatalogueResourceTest {
     }
 
     @Test
+    void testRechercherParReferenceFournisseur() {
+        given()
+            .contentType("application/json")
+            .body("{\"fournisseur\":{\"id\":100},\"produit\":{\"id\":100},\"reference\":\"ZXQ-FOURN-42\",\"prixAchatHT\":15.0,\"tva\":20.0}")
+            .when().post("/fournisseur-produit")
+            .then()
+            .statusCode(201);
+
+        given()
+            .queryParam("q", "zxq-fourn-42")
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].id", is(100))
+            .body("[0].referencesFournisseurs", hasItem("ZXQ-FOURN-42"));
+    }
+
+    @Test
     void testListerFournisseurs() {
         given()
             .when().get("/catalogue/produits/fournisseurs")

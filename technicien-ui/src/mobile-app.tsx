@@ -66,6 +66,7 @@ interface ProduitItem {
     emplacement?: string;
     emplacementMagasin?: string;
     quantite?: number;
+    referencesFournisseurs?: string[];
 }
 
 interface PlanningItem {
@@ -431,12 +432,16 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                                 value={selectedProduitId}
                                 onChange={setSelectedProduitId}
                                 filterOption={(input, option) =>
-                                    (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
+                                    (option?.searchText as string || '').toLowerCase().includes(input.toLowerCase())
                                 }
-                                options={catalogue.map((p) => ({
-                                    value: p.id,
-                                    label: `${p.designation || ''}${p.ref ? ` (${p.ref})` : ''}`,
-                                }))}
+                                options={catalogue.map((p) => {
+                                    const label = `${p.designation || ''}${p.ref ? ` (${p.ref})` : ''}`;
+                                    return {
+                                        value: p.id,
+                                        label,
+                                        searchText: [label, ...(p.referencesFournisseurs || [])].join(' '),
+                                    };
+                                })}
                                 style={{ width: '100%' }}
                             />
                         </Form.Item>

@@ -33,6 +33,8 @@ public class FournisseurBateauEntity extends PanacheEntity {
     @jakarta.persistence.Column(columnDefinition = "double default 0")
     public double tauxMarque;
 
+    public String reference;
+
     public String notes;
 
 }

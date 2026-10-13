@@ -2,7 +2,9 @@ package net.nanthrax.moussaillon.services;
 
 import java.sql.Date;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
@@ -22,6 +24,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitProduitEntity;
+import net.nanthrax.moussaillon.persistence.FournisseurProduitEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ServiceProduitEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
@@ -106,6 +109,7 @@ public class TechnicienPortalResource {
         public String emplacement;
         public String emplacementMagasin;
         public int quantite;
+        public List<String> referencesFournisseurs;
     }
 
     public static class PlanningItemWithVente {
@@ -654,6 +658,12 @@ public class TechnicienPortalResource {
     @Path("/produits")
     public List<ProduitItem> getCatalogueProduits() {
         List<ProduitCatalogueEntity> all = ProduitCatalogueEntity.listAll();
+        Map<Long, List<String>> referencesFournisseurs = new HashMap<>();
+        for (FournisseurProduitEntity fp : FournisseurProduitEntity.<FournisseurProduitEntity>listAll()) {
+            if (fp.produit != null && fp.reference != null && !fp.reference.isBlank()) {
+                referencesFournisseurs.computeIfAbsent(fp.produit.id, k -> new ArrayList<>()).add(fp.reference);
+            }
+        }
         List<ProduitItem> result = new ArrayList<>();
         for (ProduitCatalogueEntity p : all) {
             ProduitItem pi = new ProduitItem();
@@ -664,6 +674,7 @@ public class TechnicienPortalResource {
             pi.emplacement = p.emplacement;
             pi.emplacementMagasin = p.emplacementMagasin;
             pi.quantite = p.stock;
+            pi.referencesFournisseurs = referencesFournisseurs.get(p.id);
             result.add(pi);
         }
         return result;

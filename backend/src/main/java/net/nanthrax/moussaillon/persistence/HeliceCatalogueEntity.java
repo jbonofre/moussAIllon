@@ -13,6 +13,9 @@ import jakarta.persistence.Entity;
 @Entity
 public class HeliceCatalogueEntity extends PanacheEntity {
 
+    @jakarta.persistence.Transient
+    public List<String> referencesFournisseurs;
+
     @Column(nullable = false)
     public String designation;
 

@@ -80,6 +80,24 @@ public class BateauCatalogueResourceTest {
     }
 
     @Test
+    void testRechercherBateauxParReferenceFournisseur() {
+        given()
+            .contentType("application/json")
+            .body("{\"fournisseur\":{\"id\":100},\"bateau\":{\"id\":100},\"reference\":\"ZXQ-BAT-77\",\"prixAchatHT\":18000.0,\"tva\":20.0}")
+            .when().post("/fournisseur-bateau")
+            .then()
+            .statusCode(201);
+
+        given()
+            .queryParam("q", "zxq-bat-77")
+            .when().get("/catalogue/bateaux/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].id", is(100));
+    }
+
+    @Test
     void testRechercherBateauxSansRequete() {
         given()
             .when().get("/catalogue/bateaux/search")

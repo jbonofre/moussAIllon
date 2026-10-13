@@ -22,13 +22,17 @@ public class BateauCatalogueResource {
     @GET
     @Path("/search")
     public List<BateauCatalogueEntity> search(@QueryParam("q") String q) {
+        return ReferencesFournisseurs.bateaux(rechercher(q));
+    }
+
+    private List<BateauCatalogueEntity> rechercher(String q) {
         if (q == null || q.trim().isEmpty()) {
             return BateauCatalogueEntity.listAll();
         }
         String likePattern = "%" + q.toLowerCase() + "%";
         // Search in designation, type, description
         return BateauCatalogueEntity.list(
-            "LOWER(designation) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(description) LIKE ?1",
+            "LOWER(designation) LIKE ?1 OR LOWER(type) LIKE ?1 OR LOWER(description) LIKE ?1 OR id IN (SELECT fp.bateau.id FROM FournisseurBateauEntity fp WHERE LOWER(fp.reference) LIKE ?1)",
             likePattern
         );
     }

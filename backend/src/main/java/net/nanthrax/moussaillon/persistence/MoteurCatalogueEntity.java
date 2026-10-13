@@ -14,6 +14,9 @@ import jakarta.persistence.ManyToMany;
 @Entity
 public class MoteurCatalogueEntity extends PanacheEntity {
 
+    @jakarta.persistence.Transient
+    public List<String> referencesFournisseurs;
+
     @Column(nullable = false)
     public String designation;
 

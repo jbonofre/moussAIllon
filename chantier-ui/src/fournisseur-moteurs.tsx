@@ -81,6 +81,7 @@ type FournisseurMoteur = {
   nombreMinACommander?: number;
   tauxMarge?: number;
   tauxMarque?: number;
+  reference?: string;
   notes?: string;
 };
 
@@ -94,6 +95,7 @@ const defaultFournisseurMoteur: Partial<FournisseurMoteur> = {
   nombreMinACommander: 1,
   tauxMarge: 0,
   tauxMarque: 0,
+  reference: "",
   notes: "",
 };
 
@@ -348,6 +350,7 @@ const FournisseurMoteurs = ({
             ),
           },
         ]),
+    { title: "Référence fournisseur", dataIndex: "reference", key: "reference", sorter: (a: any, b: any) => (a.reference || "").localeCompare(b.reference || ""), render: (v: string) => v || "-" },
     {
       title: "Prix Achat HT",
       dataIndex: "prixAchatHT",
@@ -618,6 +621,9 @@ const FournisseurMoteurs = ({
             </Col>
           </Row>
 
+          <Form.Item label="Référence Fournisseur" name="reference">
+            <Input />
+          </Form.Item>
           <Form.Item label="Notes" name="notes">
             <Input.TextArea rows={2} />
           </Form.Item>
