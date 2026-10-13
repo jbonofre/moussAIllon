@@ -139,6 +139,7 @@ public class FournisseurRemorqueResource {
         entity.nombreMinACommander = updated.nombreMinACommander;
         entity.tauxMarge = updated.tauxMarge;
         entity.tauxMarque = updated.tauxMarque;
+        entity.reference = updated.reference;
         entity.notes = updated.notes;
         return entity;
     }

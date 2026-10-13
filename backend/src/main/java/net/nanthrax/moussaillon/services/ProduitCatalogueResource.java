@@ -53,13 +53,17 @@ public class ProduitCatalogueResource {
     @GET
     @Path("/search")
     public List<ProduitCatalogueEntity> search(@QueryParam("q") String q) {
+        return ReferencesFournisseurs.produits(rechercher(q));
+    }
+
+    private List<ProduitCatalogueEntity> rechercher(String q) {
         if (q == null || q.trim().isEmpty()) {
             return ProduitCatalogueEntity.listAll();
         }
         String likePattern = "%" + q.toLowerCase() + "%";
         // Search in 'designation', 'categorie', 'ref', 'description', 'emplacement', 'emplacementMagasin'
         return ProduitCatalogueEntity.list(
-            "LOWER(designation) LIKE ?1 OR LOWER(categorie) LIKE ?1 OR LOWER(ref) LIKE ?1 OR LOWER(description) LIKE ?1 OR LOWER(emplacement) LIKE ?1 OR LOWER(emplacementMagasin) LIKE ?1",
+            "LOWER(designation) LIKE ?1 OR LOWER(categorie) LIKE ?1 OR LOWER(ref) LIKE ?1 OR LOWER(description) LIKE ?1 OR LOWER(emplacement) LIKE ?1 OR LOWER(emplacementMagasin) LIKE ?1 OR id IN (SELECT fp.produit.id FROM FournisseurProduitEntity fp WHERE LOWER(fp.reference) LIKE ?1)",
             likePattern
         );
     }

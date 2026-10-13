@@ -86,6 +86,7 @@ type FournisseurRemorque = {
   nombreMinACommander?: number;
   tauxMarge?: number;
   tauxMarque?: number;
+  reference?: string;
   notes?: string;
 };
 
@@ -99,6 +100,7 @@ const defaultFournisseurRemorque: Partial<FournisseurRemorque> = {
   nombreMinACommander: 1,
   tauxMarge: 0,
   tauxMarque: 0,
+  reference: "",
   notes: "",
 };
 
@@ -344,6 +346,7 @@ const FournisseurRemorques = ({
             ),
           },
         ]),
+    { title: "Référence fournisseur", dataIndex: "reference", key: "reference", sorter: (a: any, b: any) => (a.reference || "").localeCompare(b.reference || ""), render: (v: string) => v || "-" },
     { title: "Prix Achat HT", dataIndex: "prixAchatHT", key: "prixAchatHT", sorter: (a: FournisseurRemorque, b: FournisseurRemorque) => (a.prixAchatHT ?? 0) - (b.prixAchatHT ?? 0) },
     { title: "TVA (%)", dataIndex: "tva", key: "tva", sorter: (a: FournisseurRemorque, b: FournisseurRemorque) => (a.tva ?? 0) - (b.tva ?? 0) },
     { title: "Montant TVA", dataIndex: "montantTVA", key: "montantTVA", sorter: (a: FournisseurRemorque, b: FournisseurRemorque) => (a.montantTVA ?? 0) - (b.montantTVA ?? 0) },
@@ -550,6 +553,9 @@ const FournisseurRemorques = ({
               </Form.Item>
             </Col>
           </Row>
+          <Form.Item label="Référence Fournisseur" name="reference">
+            <Input />
+          </Form.Item>
           <Form.Item label="Notes" name="notes">
             <Input.TextArea rows={2} />
           </Form.Item>

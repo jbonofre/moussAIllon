@@ -36,12 +36,16 @@ public class MoteurCatalogueResource {
     @GET
     @Path("/search")
     public List<MoteurCatalogueEntity> search(@QueryParam("q") String query) {
+        return ReferencesFournisseurs.moteurs(rechercher(query));
+    }
+
+    private List<MoteurCatalogueEntity> rechercher(String query) {
         if (query == null || query.trim().isEmpty()) {
             return MoteurCatalogueEntity.listAll();
         }
         String q = "%" + query.toLowerCase() + "%";
         return MoteurCatalogueEntity.find(
-            "lower(designation) like ?1 or lower(type) like ?1",
+            "lower(designation) like ?1 or lower(type) like ?1 or id IN (SELECT fp.moteur.id FROM FournisseurMoteurEntity fp WHERE LOWER(fp.reference) LIKE ?1)",
             q
         ).list();
     }

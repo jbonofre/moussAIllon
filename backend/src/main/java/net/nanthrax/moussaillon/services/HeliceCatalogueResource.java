@@ -30,9 +30,26 @@ public class HeliceCatalogueResource {
     @GET
     @Path("/search")
     public List<HeliceCatalogueEntity> search(
+            @QueryParam("q") String q,
             @QueryParam("designation") String designation,
             @QueryParam("description") String description
     ) {
+        return ReferencesFournisseurs.helices(rechercher(q, designation, description));
+    }
+
+    private List<HeliceCatalogueEntity> rechercher(
+            String q,
+            String designation,
+            String description
+    ) {
+        if (q != null && !q.trim().isEmpty()) {
+            String likePattern = "%" + q.toLowerCase() + "%";
+            return HeliceCatalogueEntity.list(
+                "lower(designation) like ?1 or lower(description) like ?1 or lower(ref) like ?1 or id in (select fp.helice.id from FournisseurHeliceEntity fp where lower(fp.reference) like ?1)",
+                likePattern
+            );
+        }
+
         String query = "";
         boolean first = true;
         if (designation != null && !designation.isEmpty()) {

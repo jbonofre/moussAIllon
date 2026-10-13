@@ -105,6 +105,7 @@ interface ProduitCatalogueEntity {
     categorie?: string;
     ref?: string;
     refs?: string[];
+    referencesFournisseurs?: string[];
     images?: string[];
     description?: string;
     evaluation?: number;
@@ -550,7 +551,7 @@ export default function Comptoir() {
             options: produits.map((p) => ({
                 value: `produit:${p.id}`,
                 label: p.ref ? `${p.ref} - ${p.designation}` : p.designation,
-                searchText: `${p.ref || ''} ${p.designation} ${(p.refs || []).join(' ')} ${p.emplacement || ''} ${p.emplacementMagasin || ''}`.toLowerCase(),
+                searchText: `${p.ref || ''} ${p.designation} ${(p.refs || []).join(' ')} ${(p.referencesFournisseurs || []).join(' ')} ${p.emplacement || ''} ${p.emplacementMagasin || ''}`.toLowerCase(),
             })),
         },
         {
@@ -558,7 +559,7 @@ export default function Comptoir() {
             options: catalogueBateaux.map((b) => ({
                 value: `bateau:${b.id}`,
                 label: b.designation,
-                searchText: b.designation.toLowerCase(),
+                searchText: `${b.ref || ''} ${b.designation} ${(b.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
             })),
         },
         {
@@ -566,7 +567,7 @@ export default function Comptoir() {
             options: catalogueMoteurs.map((m) => ({
                 value: `moteur:${m.id}`,
                 label: m.designation,
-                searchText: m.designation.toLowerCase(),
+                searchText: `${m.ref || ''} ${m.designation} ${(m.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
             })),
         },
         {
@@ -574,7 +575,7 @@ export default function Comptoir() {
             options: catalogueHelices.map((h) => ({
                 value: `helice:${h.id}`,
                 label: h.designation,
-                searchText: h.designation.toLowerCase(),
+                searchText: `${h.ref || ''} ${h.designation} ${(h.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
             })),
         },
         {
@@ -582,7 +583,7 @@ export default function Comptoir() {
             options: catalogueRemorques.map((r) => ({
                 value: `remorque:${r.id}`,
                 label: r.designation,
-                searchText: r.designation.toLowerCase(),
+                searchText: `${r.ref || ''} ${r.designation} ${(r.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
             })),
         },
     ], [packages, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);

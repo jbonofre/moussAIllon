@@ -15,6 +15,9 @@ import java.util.List;
 @Entity
 public class BateauCatalogueEntity extends PanacheEntity {
 
+    @jakarta.persistence.Transient
+    public List<String> referencesFournisseurs;
+
     @Column(nullable = false)
     public String designation;
 

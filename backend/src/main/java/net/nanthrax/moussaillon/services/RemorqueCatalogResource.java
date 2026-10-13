@@ -32,10 +32,18 @@ public class RemorqueCatalogResource {
             @QueryParam("designation") String designation,
             @QueryParam("description") String description
     ) {
+        return ReferencesFournisseurs.remorques(rechercher(q, designation, description));
+    }
+
+    private List<RemorqueCatalogueEntity> rechercher(
+            String q,
+            String designation,
+            String description
+    ) {
         if (q != null && !q.trim().isEmpty()) {
             String likePattern = "%" + q.toLowerCase() + "%";
             return RemorqueCatalogueEntity.list(
-                "lower(designation) like ?1 or lower(description) like ?1",
+                "lower(designation) like ?1 or lower(description) like ?1 or id IN (SELECT fp.remorque.id FROM FournisseurRemorqueEntity fp WHERE LOWER(fp.reference) LIKE ?1)",
                 likePattern
             );
         }
