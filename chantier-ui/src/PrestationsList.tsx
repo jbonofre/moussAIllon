@@ -57,6 +57,17 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
 
     useEffect(() => { load(); }, [load]);
 
+    const creerPrestation = async () => {
+        let client = clientId;
+        if (!client && bateauId) {
+            try {
+                const res = await api.get(`/bateaux/${bateauId}`);
+                client = res.data?.proprietaires?.[0]?.id;
+            } catch { /* on ouvre quand même la prestation */ }
+        }
+        navigate('/prestations', { clientId: client, bateauId });
+    };
+
     const columns = [
         {
             title: 'Référence',
@@ -115,7 +126,7 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
                     type="primary"
                     size="small"
                     icon={<PlusCircleOutlined />}
-                    onClick={() => navigate('/prestations', { clientId })}
+                    onClick={creerPrestation}
                 >
                     Créer une prestation
                 </Button>
