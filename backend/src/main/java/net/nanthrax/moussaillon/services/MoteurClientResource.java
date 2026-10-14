@@ -4,6 +4,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
+import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurClientEntity;
 
@@ -108,6 +109,11 @@ public class MoteurClientResource {
         MoteurClientEntity moteur = MoteurClientEntity.findById(id);
         if (moteur == null) {
             throw new NotFoundException();
+        }
+        List<ForfaitEntity> forfaits = ForfaitEntity.list(
+                "select f from ForfaitEntity f join f.moteursClientsAssocies m where m.id = ?1", id);
+        for (ForfaitEntity forfait : forfaits) {
+            forfait.moteursClientsAssocies.removeIf(m -> id.equals(m.id));
         }
         moteur.delete();
     }

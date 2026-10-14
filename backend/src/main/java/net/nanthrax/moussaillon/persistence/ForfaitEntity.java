@@ -19,6 +19,12 @@ public class ForfaitEntity extends PanacheEntity {
     public List<MoteurCatalogueEntity> moteursAssocies;
     @ManyToMany
     public List<BateauCatalogueEntity> bateauxAssocies;
+
+    // Forfaits gérés directement depuis un bateau / moteur client (en plus des modèles du catalogue)
+    @ManyToMany
+    public List<BateauClientEntity> bateauxClientsAssocies = new ArrayList<>();
+    @ManyToMany
+    public List<MoteurClientEntity> moteursClientsAssocies = new ArrayList<>();
     
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "forfait_id")

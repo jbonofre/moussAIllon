@@ -93,4 +93,46 @@ public class ForfaitResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void testForfaitSurBateauEtMoteurClient() {
+        int bateauId = given()
+            .contentType("application/json")
+            .body("{\"name\":\"Zéphyr Forfait\",\"immatriculation\":\"ZZ-777-FF\",\"numeroSerie\":\"SN-FORFAIT-BAT\"}")
+            .when().post("/bateaux")
+            .then().statusCode(201).extract().path("id");
+        int moteurId = given()
+            .contentType("application/json")
+            .body("{\"numeroSerie\":\"SN-FORFAIT-MOT\"}")
+            .when().post("/moteurs")
+            .then().statusCode(200).extract().path("id");
+
+        int id = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Forfait parc client\",\"reference\":\"FPC-1\","
+                + "\"bateauxClientsAssocies\":[{\"id\":" + bateauId + "}],"
+                + "\"moteursClientsAssocies\":[{\"id\":" + moteurId + "}]}")
+            .when().post("/forfaits")
+            .then().statusCode(201).extract().path("id");
+
+        given().when().get("/forfaits/" + id)
+            .then().statusCode(200)
+            .body("bateauxClientsAssocies.size()", is(1))
+            .body("moteursClientsAssocies.size()", is(1));
+
+        for (String q : new String[] {"zz-777", "sn-forfait-bat", "zéphyr", "sn-forfait-mot"}) {
+            given().queryParam("q", q)
+                .when().get("/forfaits/search")
+                .then().statusCode(200)
+                .body("id", hasItem(id));
+        }
+
+        // La suppression du bateau / moteur client détache le forfait
+        given().when().delete("/bateaux/" + bateauId).then().statusCode(204);
+        given().when().delete("/moteurs/" + moteurId).then().statusCode(204);
+        given().when().get("/forfaits/" + id)
+            .then().statusCode(200)
+            .body("bateauxClientsAssocies.size()", is(0))
+            .body("moteursClientsAssocies.size()", is(0));
+    }
 }

@@ -11,6 +11,7 @@ import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.BateauOptionEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
+import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 
@@ -262,6 +263,11 @@ public class BateauClientResource {
     @Path("/{id}")
     @Transactional
     public Response delete(@PathParam("id") Long id) {
+        List<ForfaitEntity> forfaits = ForfaitEntity.list(
+                "select f from ForfaitEntity f join f.bateauxClientsAssocies b where b.id = ?1", id);
+        for (ForfaitEntity forfait : forfaits) {
+            forfait.bateauxClientsAssocies.removeIf(b -> id.equals(b.id));
+        }
         boolean deleted = BateauClientEntity.deleteById(id);
         if (!deleted) {
             throw new NotFoundException();

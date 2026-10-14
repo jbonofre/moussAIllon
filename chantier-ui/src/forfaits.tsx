@@ -19,6 +19,7 @@ import {
 } from 'antd';
 import { DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import api from './api.ts';
+import { bateauClientOptions, moteurClientOptions, filterClientOption } from './forfait-clients.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
 
@@ -99,6 +100,8 @@ interface ForfaitEntity {
     dureeEstimee: number;
     moteursAssocies: MoteurCatalogueEntity[];
     bateauxAssocies: BateauCatalogueEntity[];
+    bateauxClientsAssocies?: Array<{ id: number }>;
+    moteursClientsAssocies?: Array<{ id: number }>;
     produits: ForfaitProduitEntity[];
     mainOeuvres: ForfaitMainOeuvreEntity[];
     heuresFonctionnement: number;
@@ -116,6 +119,8 @@ interface ForfaitFormValues {
     dureeEstimee: number;
     moteurIds: number[];
     bateauIds: number[];
+    moteurClientIds: number[];
+    bateauClientIds: number[];
     produits: Array<{ produitId?: number; quantite?: number }>;
     mainOeuvres: Array<{ mainOeuvreId?: number; quantite?: number }>;
     taches: Array<{
@@ -139,6 +144,8 @@ const defaultForfait: ForfaitFormValues = {
     dureeEstimee: 0,
     moteurIds: [],
     bateauIds: [],
+    moteurClientIds: [],
+    bateauClientIds: [],
     produits: [{}],
     mainOeuvres: [{}],
     taches: [{}],
@@ -159,6 +166,8 @@ export default function Forfaits() {
     const [forfaits, setForfaits] = useState<ForfaitEntity[]>([]);
     const [moteurs, setMoteurs] = useState<MoteurCatalogueEntity[]>([]);
     const [bateaux, setBateaux] = useState<BateauCatalogueEntity[]>([]);
+    const [bateauxClients, setBateauxClients] = useState<any[]>([]);
+    const [moteursClients, setMoteursClients] = useState<any[]>([]);
     const [produits, setProduits] = useState<ProduitCatalogueEntity[]>([]);
     const [mainOeuvresList, setMainOeuvresList] = useState<MainOeuvreEntity[]>([]);
     const [loading, setLoading] = useState(false);
@@ -198,6 +207,12 @@ export default function Forfaits() {
     );
 
 
+    const bateauClientSelectOptions = useMemo(() => bateauClientOptions(bateauxClients), [bateauxClients]);
+    const moteurClientSelectOptions = useMemo(
+        () => moteurClientOptions(moteursClients, bateauxClients),
+        [moteursClients, bateauxClients]
+    );
+
     const fetchForfaits = async (query?: string) => {
         setLoading(true);
         try {
@@ -213,12 +228,16 @@ export default function Forfaits() {
 
     const fetchOptions = async () => {
         try {
-            const [moteursRes, bateauxRes, produitsRes, mainOeuvresRes] = await Promise.all([
+            const [moteursRes, bateauxRes, produitsRes, mainOeuvresRes, bateauxClientsRes, moteursClientsRes] = await Promise.all([
                 api.get('/catalogue/moteurs'),
                 api.get('/catalogue/bateaux'),
                 api.get('/catalogue/produits'),
                 api.get('/main-oeuvres'),
+                api.get('/bateaux'),
+                api.get('/moteurs'),
             ]);
+            setBateauxClients(bateauxClientsRes.data || []);
+            setMoteursClients(moteursClientsRes.data || []);
             setMoteurs(moteursRes.data || []);
             setBateaux(bateauxRes.data || []);
             setProduits(produitsRes.data || []);
@@ -334,6 +353,8 @@ export default function Forfaits() {
                 dureeEstimee: forfait.dureeEstimee || 0,
                 moteurIds: (forfait.moteursAssocies || []).map((m) => m.id),
                 bateauIds: (forfait.bateauxAssocies || []).map((b) => b.id),
+                moteurClientIds: (forfait.moteursClientsAssocies || []).map((m) => m.id),
+                bateauClientIds: (forfait.bateauxClientsAssocies || []).map((b) => b.id),
                 produits: (forfait.produits || [])
                     .filter((item) => item.produit?.id)
                     .map<ForfaitFormValues['produits'][number]>((item) => ({ produitId: item.produit!.id, quantite: item.quantite || 1 }))
@@ -429,6 +450,8 @@ export default function Forfaits() {
         bateauxAssocies: (values.bateauIds || [])
             .map((id) => bateaux.find((bateau) => bateau.id === id))
             .filter(Boolean) as BateauCatalogueEntity[],
+        bateauxClientsAssocies: (values.bateauClientIds || []).map((id) => ({ id })),
+        moteursClientsAssocies: (values.moteurClientIds || []).map((id) => ({ id })),
         produits: (values.produits || [])
             .filter((item) => item.produitId)
             .map((item) => ({
@@ -657,6 +680,15 @@ export default function Forfaits() {
             render: (values: BateauCatalogueEntity[]) => values?.length || 0
         },
         {
+            title: 'Clients',
+            key: 'clients',
+            sorter: (a: ForfaitEntity, b: ForfaitEntity) =>
+                ((a.bateauxClientsAssocies?.length || 0) + (a.moteursClientsAssocies?.length || 0))
+                - ((b.bateauxClientsAssocies?.length || 0) + (b.moteursClientsAssocies?.length || 0)),
+            render: (_: unknown, record: ForfaitEntity) =>
+                `${record.bateauxClientsAssocies?.length || 0} bateau(x) / ${record.moteursClientsAssocies?.length || 0} moteur(s)`
+        },
+        {
             title: 'Fréquence',
             key: 'frequence',
             sorter: (a: ForfaitEntity, b: ForfaitEntity) => (a.heuresFonctionnement || 0) - (b.heuresFonctionnement || 0) || (a.joursFrequence || 0) - (b.joursFrequence || 0),
@@ -770,6 +802,33 @@ export default function Forfaits() {
                         <Col span={12}>
                             <Form.Item name="bateauIds" label="Bateaux associés">
                                 <Select mode="multiple" allowClear options={bateauOptions} placeholder="Sélectionner les bateaux" />
+                            </Form.Item>
+                        </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="moteurClientIds" label="Moteurs clients associés">
+                                <Select
+                                    mode="multiple"
+                                    allowClear
+                                    showSearch
+                                    options={moteurClientSelectOptions}
+                                    filterOption={filterClientOption}
+                                    placeholder="Rechercher par modèle, n° de série, propriétaire, bateau"
+                                />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="bateauClientIds" label="Bateaux clients associés">
+                                <Select
+                                    mode="multiple"
+                                    allowClear
+                                    showSearch
+                                    options={bateauClientSelectOptions}
+                                    filterOption={filterClientOption}
+                                    placeholder="Rechercher par nom, immatriculation, n° de série, moteur"
+                                />
                             </Form.Item>
                         </Col>
                     </Row>
