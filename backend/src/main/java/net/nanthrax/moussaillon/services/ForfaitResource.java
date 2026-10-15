@@ -1,5 +1,6 @@
 package net.nanthrax.moussaillon.services;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -37,7 +38,19 @@ public class ForfaitResource {
         }
 
         String likePattern = "%" + q.toLowerCase() + "%";
-        return ForfaitEntity.list("LOWER(nom) LIKE ?1 OR LOWER(reference) LIKE ?1", likePattern);
+        return ForfaitEntity.list(
+                "select distinct f from ForfaitEntity f"
+                        + " left join f.bateauxClientsAssocies bc"
+                        + " left join bc.modele bcm"
+                        + " left join bc.moteurs bcmot"
+                        + " left join f.moteursClientsAssocies mc"
+                        + " left join mc.modele mcm"
+                        + " left join mc.proprietaire mcp"
+                        + " where LOWER(f.nom) LIKE ?1 OR LOWER(f.reference) LIKE ?1"
+                        + " OR LOWER(bc.name) LIKE ?1 OR LOWER(bc.immatriculation) LIKE ?1 OR LOWER(bc.numeroSerie) LIKE ?1"
+                        + " OR LOWER(bcm.designation) LIKE ?1 OR LOWER(bcmot.designation) LIKE ?1"
+                        + " OR LOWER(mc.numeroSerie) LIKE ?1 OR LOWER(mcm.designation) LIKE ?1 OR LOWER(mcp.nom) LIKE ?1",
+                likePattern);
     }
 
     @POST
@@ -82,6 +95,10 @@ public class ForfaitResource {
         entity.nom = forfait.nom;
         entity.moteursAssocies = forfait.moteursAssocies;
         entity.bateauxAssocies = forfait.bateauxAssocies;
+        entity.bateauxClientsAssocies = forfait.bateauxClientsAssocies != null
+                ? forfait.bateauxClientsAssocies : new ArrayList<>();
+        entity.moteursClientsAssocies = forfait.moteursClientsAssocies != null
+                ? forfait.moteursClientsAssocies : new ArrayList<>();
         entity.produits.clear();
         if (forfait.produits != null) {
             entity.produits.addAll(forfait.produits);

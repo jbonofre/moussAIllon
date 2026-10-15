@@ -39,6 +39,7 @@ import dayjs from "dayjs";
 import { useNavigation } from './navigation-context.tsx';
 import HistoriqueOperations from './historique-operations.tsx';
 import PrestationsList from './PrestationsList.tsx';
+import ForfaitsAssocies from './ForfaitsAssocies.tsx';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -535,6 +536,15 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
                   key: 'prestations',
                   label: 'Prestations',
                   children: <PrestationsList moteurId={editing.id} />,
+                },
+                {
+                  key: 'forfaits',
+                  label: 'Forfaits',
+                  children: (
+                    <Form layout="vertical">
+                      <ForfaitsAssocies moteurId={editing.id} />
+                    </Form>
+                  ),
                 },
                 {
                   key: 'historique',

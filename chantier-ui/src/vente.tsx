@@ -72,12 +72,14 @@ interface BateauClientEntity {
     immatriculation?: string;
     proprietaires?: ClientEntity[];
     moteurs?: CatalogueMoteurEntity[];
+    modele?: { id: number };
 }
 
 interface MoteurClientEntity {
     id: number;
     numeroSerie?: string;
     proprietaire?: ClientEntity;
+    modele?: { id: number };
 }
 
 interface RemorqueClientEntity {
@@ -158,8 +160,10 @@ interface ForfaitEntity {
     reference?: string;
     nom: string;
     dureeEstimee?: number;
-    moteursAssocies?: MoteurClientEntity[];
-    bateauxAssocies?: BateauClientEntity[];
+    moteursAssocies?: Array<{ id: number }>;
+    bateauxAssocies?: Array<{ id: number }>;
+    moteursClientsAssocies?: Array<{ id: number }>;
+    bateauxClientsAssocies?: Array<{ id: number }>;
     produits?: ForfaitProduitEntity[];
     mainOeuvres?: ForfaitMainOeuvreEntity[];
     heuresFonctionnement?: number;
@@ -1513,9 +1517,14 @@ export default function Vente() {
         const selectedBateau = bateaux.find((b) => b.id === selectedBateauId);
         const bateauMoteurIds = new Set((selectedBateau?.moteurs || []).map((m) => m.id));
         if (selectedBateauId || selectedMoteurId || bateauMoteurIds.size > 0) {
+            const selectedMoteur = moteurs.find((m) => m.id === selectedMoteurId);
             const matchingForfaits = forfaits.filter((f) =>
-                (selectedBateauId && f.bateauxAssocies?.some((b) => b.id === selectedBateauId)) ||
-                (selectedMoteurId && f.moteursAssocies?.some((m) => m.id === selectedMoteurId)) ||
+                // Forfaits gérés directement sur le bateau / moteur client
+                (selectedBateauId && f.bateauxClientsAssocies?.some((b) => b.id === selectedBateauId)) ||
+                (selectedMoteurId && f.moteursClientsAssocies?.some((m) => m.id === selectedMoteurId)) ||
+                // Forfaits du catalogue, via le modèle du bateau / moteur client
+                (selectedBateau?.modele?.id && f.bateauxAssocies?.some((b) => b.id === selectedBateau.modele?.id)) ||
+                (selectedMoteur?.modele?.id && f.moteursAssocies?.some((m) => m.id === selectedMoteur.modele?.id)) ||
                 (bateauMoteurIds.size > 0 && f.moteursAssocies?.some((m) => bateauMoteurIds.has(m.id)))
             );
             if (matchingForfaits.length > 0) {

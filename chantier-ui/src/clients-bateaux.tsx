@@ -41,6 +41,7 @@ import LocationPicker from "./LocationPicker.tsx";
 import { useNavigation } from './navigation-context.tsx';
 import HistoriqueOperations from './historique-operations.tsx';
 import PrestationsList from './PrestationsList.tsx';
+import ForfaitsAssocies from './ForfaitsAssocies.tsx';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -783,6 +784,15 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
                   key: 'prestations',
                   label: 'Prestations',
                   children: <PrestationsList bateauId={editing.id} />,
+                },
+                {
+                  key: 'forfaits',
+                  label: 'Forfaits',
+                  children: (
+                    <Form layout="vertical">
+                      <ForfaitsAssocies bateauId={editing.id} />
+                    </Form>
+                  ),
                 },
                 {
                   key: 'historique',

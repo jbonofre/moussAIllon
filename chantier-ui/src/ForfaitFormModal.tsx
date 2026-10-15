@@ -18,6 +18,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
+import { bateauClientOptions, moteurClientOptions, filterClientOption } from './forfait-clients.ts';
 
 interface ProduitCatalogueEntity {
     id: number;
@@ -65,6 +66,8 @@ const defaultForfait = {
     dureeEstimee: 0,
     moteurIds: [],
     bateauIds: [],
+    moteurClientIds: [],
+    bateauClientIds: [],
     produits: [{}],
     mainOeuvres: [{}],
     taches: [{}],
@@ -84,13 +87,17 @@ interface ForfaitFormModalProps {
     onCreated: (forfait: any) => void;
     preAssociatedBateauId?: number;
     preAssociatedMoteurId?: number;
+    preAssociatedBateauClientId?: number;
+    preAssociatedMoteurClientId?: number;
 }
 
-export default function ForfaitFormModal({ open, onCancel, onCreated, preAssociatedBateauId, preAssociatedMoteurId }: ForfaitFormModalProps) {
+export default function ForfaitFormModal({ open, onCancel, onCreated, preAssociatedBateauId, preAssociatedMoteurId, preAssociatedBateauClientId, preAssociatedMoteurClientId }: ForfaitFormModalProps) {
     const PRODUIT_CATEGORIES = useReferenceValeurs('CATEGORIE_PRODUIT');
 
     const [moteurs, setMoteurs] = useState<any[]>([]);
     const [bateaux, setBateaux] = useState<any[]>([]);
+    const [bateauxClients, setBateauxClients] = useState<any[]>([]);
+    const [moteursClients, setMoteursClients] = useState<any[]>([]);
     const [produits, setProduits] = useState<ProduitCatalogueEntity[]>([]);
     const [mainOeuvresList, setMainOeuvresList] = useState<MainOeuvreEntity[]>([]);
 
@@ -117,6 +124,12 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
         [bateaux]
     );
 
+    const bateauClientSelectOptions = useMemo(() => bateauClientOptions(bateauxClients), [bateauxClients]);
+    const moteurClientSelectOptions = useMemo(
+        () => moteurClientOptions(moteursClients, bateauxClients),
+        [moteursClients, bateauxClients]
+    );
+
     const produitOptions = useMemo(
         () => produits.map((p) => ({ value: p.id, label: p.designation })),
         [produits]
@@ -134,9 +147,13 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                 api.get('/catalogue/bateaux'),
                 api.get('/catalogue/produits'),
                 api.get('/main-oeuvres'),
-            ]).then(([moteursRes, bateauxRes, produitsRes, mainOeuvresRes]) => {
+                api.get('/bateaux'),
+                api.get('/moteurs'),
+            ]).then(([moteursRes, bateauxRes, produitsRes, mainOeuvresRes, bateauxClientsRes, moteursClientsRes]) => {
                 setMoteurs(moteursRes.data || []);
                 setBateaux(bateauxRes.data || []);
+                setBateauxClients(bateauxClientsRes.data || []);
+                setMoteursClients(moteursClientsRes.data || []);
                 setProduits(produitsRes.data || []);
                 setMainOeuvresList(mainOeuvresRes.data || []);
             }).catch(() => {
@@ -148,6 +165,8 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                 ...defaultForfait,
                 bateauIds: preAssociatedBateauId ? [preAssociatedBateauId] : [],
                 moteurIds: preAssociatedMoteurId ? [preAssociatedMoteurId] : [],
+                bateauClientIds: preAssociatedBateauClientId ? [preAssociatedBateauClientId] : [],
+                moteurClientIds: preAssociatedMoteurClientId ? [preAssociatedMoteurClientId] : [],
             });
             setFormDirty(false);
         }
@@ -290,6 +309,8 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                 bateauxAssocies: (values.bateauIds || [])
                     .map((id: number) => bateaux.find((b) => b.id === id))
                     .filter(Boolean),
+                bateauxClientsAssocies: (values.bateauClientIds || []).map((id: number) => ({ id })),
+                moteursClientsAssocies: (values.moteurClientIds || []).map((id: number) => ({ id })),
                 produits: (values.produits || [])
                     .filter((item: any) => item.produitId)
                     .map((item: any) => ({
@@ -489,6 +510,33 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                     <Col span={12}>
                         <Form.Item name="bateauIds" label="Bateaux associés">
                             <Select mode="multiple" allowClear options={bateauOptions} placeholder="Sélectionner les bateaux" />
+                        </Form.Item>
+                    </Col>
+                </Row>
+
+                <Row gutter={16}>
+                    <Col span={12}>
+                        <Form.Item name="moteurClientIds" label="Moteurs clients associés">
+                            <Select
+                                mode="multiple"
+                                allowClear
+                                showSearch
+                                options={moteurClientSelectOptions}
+                                filterOption={filterClientOption}
+                                placeholder="Rechercher par modèle, n° de série, propriétaire, bateau"
+                            />
+                        </Form.Item>
+                    </Col>
+                    <Col span={12}>
+                        <Form.Item name="bateauClientIds" label="Bateaux clients associés">
+                            <Select
+                                mode="multiple"
+                                allowClear
+                                showSearch
+                                options={bateauClientSelectOptions}
+                                filterOption={filterClientOption}
+                                placeholder="Rechercher par nom, immatriculation, n° de série, moteur"
+                            />
                         </Form.Item>
                     </Col>
                 </Row>
