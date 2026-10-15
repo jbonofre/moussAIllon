@@ -1031,14 +1031,22 @@ export default function Vente() {
     useEffect(() => {
         if (pageState?.clientId) {
             const clientId = pageState.clientId;
+            const bateauId = pageState.bateauId;
             navigate('/prestations');
             (async () => {
                 try {
                     const res = await api.get(`/clients/${clientId}`);
                     setClients(prev => mergeById(prev, [res.data]));
                 } catch { /* ignore */ }
+                if (bateauId) {
+                    try {
+                        const res = await api.get(`/bateaux/${bateauId}`);
+                        setBateaux(prev => mergeById(prev, [res.data]));
+                    } catch { /* ignore */ }
+                }
                 await openModal();
                 form.setFieldValue('clientId', clientId);
+                if (bateauId) form.setFieldValue('bateauId', bateauId);
                 handleClientChange(clientId);
             })();
         }
