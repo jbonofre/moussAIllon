@@ -3,6 +3,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --legacy-peer-deps
 COPY public ./public
+COPY index.html vite.config.ts ./
 COPY src ./src
 RUN npm run build
 

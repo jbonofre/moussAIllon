@@ -1,11 +1,11 @@
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import '@testing-library/jest-dom';
 
-const mockGet = jest.fn();
-const mockPost = jest.fn();
-jest.mock('./api.ts', () => ({
+const mockGet = vi.fn();
+const mockPost = vi.fn();
+vi.mock('./api.ts', () => ({
     __esModule: true,
     default: {
         get: (...args: any[]) => mockGet(...args),
@@ -13,9 +13,9 @@ jest.mock('./api.ts', () => ({
     },
 }));
 
-const mockMessageError = jest.fn();
-jest.mock('antd', () => {
-    const actual = jest.requireActual('antd');
+const mockMessageError = vi.fn();
+vi.mock('antd', async () => {
+    const actual: any = await vi.importActual('antd');
     return {
         ...actual,
         message: {

@@ -1,11 +1,11 @@
+import { vi, type Mock } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import dayjs from 'dayjs';
 import PlanningGeneral from './planning-general.tsx';
 import api from './api.ts';
 
-jest.mock('./api.ts', () => ({ __esModule: true, default: { get: jest.fn() } }));
+vi.mock('./api.ts', () => ({ __esModule: true, default: { get: vi.fn() } }));
 
 const item = (over: any) => ({
     itemId: 1,
@@ -21,7 +21,7 @@ const item = (over: any) => ({
 
 describe('PlanningGeneral', () => {
     beforeEach(() => {
-        (api.get as jest.Mock).mockResolvedValue({
+        (api.get as Mock).mockResolvedValue({
             data: [
                 item({ techniciens: [{ id: 1, prenom: 'Pierre', nom: 'Leclerc' }] }),
                 item({ itemId: 2, bateauNom: 'Pen Duick', techniciens: [{ id: 2, prenom: 'Anne', nom: 'Martin' }] }),

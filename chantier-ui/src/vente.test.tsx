@@ -1,22 +1,22 @@
+import { vi, type Mocked } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import Vente from './vente.tsx';
 import api from './api.ts';
 
-jest.mock('./api.ts', () => ({
+vi.mock('./api.ts', () => ({
     __esModule: true,
-    default: { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn() },
+    default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
 
 // Mock child components to isolate the sale form logic
-jest.mock('./ImageUpload.tsx', () => () => null);
-jest.mock('./DocumentUpload.tsx', () => () => null);
-jest.mock('./CommandeFournisseurFromVenteModal.tsx', () => () => null);
-jest.mock('./FicheCatalogueModal.tsx', () => ({ __esModule: true, default: () => null, FicheCataloguePopover: () => null }));
+vi.mock('./ImageUpload.tsx', () => ({ default: () => null }));
+vi.mock('./DocumentUpload.tsx', () => ({ default: () => null }));
+vi.mock('./CommandeFournisseurFromVenteModal.tsx', () => ({ default: () => null }));
+vi.mock('./FicheCatalogueModal.tsx', () => ({ __esModule: true, default: () => null, FicheCataloguePopover: () => null }));
 
 // Le rendu du formulaire complet est lent sous jsdom
-jest.setTimeout(90000);
+vi.setConfig({ testTimeout: 90000 });
 
 const PLACEHOLDER_LIGNE = 'Package, forfait, produit, bateau, moteur...';
 
@@ -47,10 +47,10 @@ const donnees: Record<string, any[]> = {
     '/clients': [{ id: 3, nom: 'Jean Dupont' }],
 };
 
-const mockedApi = api as jest.Mocked<typeof api>;
+const mockedApi = api as Mocked<typeof api>;
 
 beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedApi.get.mockImplementation((url: string) => Promise.resolve({ data: donnees[url] || [] }) as any);
     mockedApi.post.mockImplementation((_url: string, body: any) => Promise.resolve({ data: { ...body, id: 42 } }) as any);
 });
@@ -68,7 +68,7 @@ const choisir = async (modal: HTMLElement, placeholder: string, libelle: string)
     const select = within(modal).getByText(placeholder).closest('.ant-select') as HTMLElement;
     fireEvent.mouseDown(within(select).getByRole('combobox'));
     const option = await waitFor(() => {
-        const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+        const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')).slice(-1).flatMap((dropdown) => Array.from(dropdown.querySelectorAll('.ant-select-item-option')))
             .find((element) => element.textContent === libelle);
         expect(found).toBeTruthy();
         return found as HTMLElement;

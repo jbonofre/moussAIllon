@@ -1,28 +1,28 @@
+import { vi, type Mocked } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import CatalogueProduits from './catalogue-produits.tsx';
 import api from './api.ts';
 
-jest.mock('./api.ts', () => ({
+vi.mock('./api.ts', () => ({
     __esModule: true,
-    default: { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn() },
+    default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
 
 // Mock child components to isolate the catalogue view logic
-jest.mock('./ImageUpload.tsx', () => () => null);
-jest.mock('./DocumentUpload.tsx', () => () => null);
-jest.mock('./ImportCsvButton.tsx', () => () => null);
-jest.mock('./ForfaitFormModal.tsx', () => () => null);
-jest.mock('./produit-historique.tsx', () => () => null);
-jest.mock('./fournisseur-produits.tsx', () => () => <div data-testid="fournisseurs-produit" />);
-jest.mock('./fournisseur-bateaux.tsx', () => () => <div data-testid="fournisseurs-bateau" />);
-jest.mock('./fournisseur-moteurs.tsx', () => () => <div data-testid="fournisseurs-moteur" />);
-jest.mock('./fournisseur-helices.tsx', () => () => <div data-testid="fournisseurs-helice" />);
-jest.mock('./fournisseur-remorques.tsx', () => () => <div data-testid="fournisseurs-remorque" />);
+vi.mock('./ImageUpload.tsx', () => ({ default: () => null }));
+vi.mock('./DocumentUpload.tsx', () => ({ default: () => null }));
+vi.mock('./ImportCsvButton.tsx', () => ({ default: () => null }));
+vi.mock('./ForfaitFormModal.tsx', () => ({ default: () => null }));
+vi.mock('./produit-historique.tsx', () => ({ default: () => null }));
+vi.mock('./fournisseur-produits.tsx', () => ({ default: () => <div data-testid="fournisseurs-produit" /> }));
+vi.mock('./fournisseur-bateaux.tsx', () => ({ default: () => <div data-testid="fournisseurs-bateau" /> }));
+vi.mock('./fournisseur-moteurs.tsx', () => ({ default: () => <div data-testid="fournisseurs-moteur" /> }));
+vi.mock('./fournisseur-helices.tsx', () => ({ default: () => <div data-testid="fournisseurs-helice" /> }));
+vi.mock('./fournisseur-remorques.tsx', () => ({ default: () => <div data-testid="fournisseurs-remorque" /> }));
 
 // Le rendu du formulaire complet est lent sous jsdom
-jest.setTimeout(60000);
+vi.setConfig({ testTimeout: 60000 });
 
 // Même identifiant dans chaque référentiel : les lignes doivent rester distinctes
 const catalogue: Record<string, any[]> = {
@@ -33,10 +33,10 @@ const catalogue: Record<string, any[]> = {
     '/catalogue/remorques': [{ id: 1, designation: 'Satellite 750', stock: 1, prixVenteTTC: 1900 }],
 };
 
-const mockedApi = api as jest.Mocked<typeof api>;
+const mockedApi = api as Mocked<typeof api>;
 
 beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedApi.get.mockImplementation((url: string) => Promise.resolve({ data: catalogue[url] || [] }) as any);
     mockedApi.post.mockImplementation((_url: string, body: any) => Promise.resolve({ data: { ...body, id: 42 } }) as any);
     mockedApi.put.mockImplementation((_url: string, body: any) => Promise.resolve({ data: body }) as any);
