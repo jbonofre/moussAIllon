@@ -1,11 +1,11 @@
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import App from './app.tsx';
 
 // Mock child components to isolate App logic
-jest.mock('./login.tsx', () => {
-    return function MockLogin({ setUser }: any) {
+vi.mock('./login.tsx', () => {
+    return { default: function MockLogin({ setUser }: any) {
         return (
             <div data-testid="login-component">
                 <button onClick={() => setUser({ name: 'admin', roles: 'ADMIN' })}>
@@ -13,13 +13,13 @@ jest.mock('./login.tsx', () => {
                 </button>
             </div>
         );
-    };
+    } };
 });
 
-jest.mock('./workspace.tsx', () => {
-    return function MockWorkspace({ user, roles }: any) {
+vi.mock('./workspace.tsx', () => {
+    return { default: function MockWorkspace({ user, roles }: any) {
         return <div data-testid="workspace-component">Workspace: {user} ({roles})</div>;
-    };
+    } };
 });
 
 describe('App', () => {

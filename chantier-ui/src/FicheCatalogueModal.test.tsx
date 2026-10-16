@@ -1,13 +1,13 @@
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import '@testing-library/jest-dom';
 
-const mockGet = jest.fn();
-const mockPost = jest.fn();
-const mockPut = jest.fn();
+const mockGet = vi.fn();
+const mockPost = vi.fn();
+const mockPut = vi.fn();
 
 // Mock api
-jest.mock('./api.ts', () => ({
+vi.mock('./api.ts', () => ({
     __esModule: true,
     default: {
         get: (...args: any[]) => mockGet(...args),
@@ -17,17 +17,17 @@ jest.mock('./api.ts', () => ({
 }));
 
 // Mock subcomponents used in modals to isolate tests
-jest.mock('./fournisseur-produits.tsx', () => () => <div data-testid="fournisseur-produits">Fournisseurs Produits</div>);
-jest.mock('./produit-historique.tsx', () => () => <div data-testid="produit-historique">Historique Produits</div>);
-jest.mock('./fournisseur-bateaux.tsx', () => () => <div data-testid="fournisseur-bateaux">Fournisseurs Bateaux</div>);
-jest.mock('./fournisseur-moteurs.tsx', () => () => <div data-testid="fournisseur-moteurs">Fournisseurs Moteurs</div>);
-jest.mock('./fournisseur-helices.tsx', () => () => <div data-testid="fournisseur-helices">Fournisseurs Hélices</div>);
-jest.mock('./fournisseur-remorques.tsx', () => () => <div data-testid="fournisseur-remorques">Fournisseurs Remorques</div>);
+vi.mock('./fournisseur-produits.tsx', () => ({ default: () => <div data-testid="fournisseur-produits">Fournisseurs Produits</div> }));
+vi.mock('./produit-historique.tsx', () => ({ default: () => <div data-testid="produit-historique">Historique Produits</div> }));
+vi.mock('./fournisseur-bateaux.tsx', () => ({ default: () => <div data-testid="fournisseur-bateaux">Fournisseurs Bateaux</div> }));
+vi.mock('./fournisseur-moteurs.tsx', () => ({ default: () => <div data-testid="fournisseur-moteurs">Fournisseurs Moteurs</div> }));
+vi.mock('./fournisseur-helices.tsx', () => ({ default: () => <div data-testid="fournisseur-helices">Fournisseurs Hélices</div> }));
+vi.mock('./fournisseur-remorques.tsx', () => ({ default: () => <div data-testid="fournisseur-remorques">Fournisseurs Remorques</div> }));
 
 import FicheCatalogueModal, { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 
 describe('FicheCatalogueModal and FicheCataloguePopover', () => {
-    const mockNavigate = jest.fn();
+    const mockNavigate = vi.fn();
 
     const sampleProduits = [
         {
@@ -55,7 +55,7 @@ describe('FicheCatalogueModal and FicheCataloguePopover', () => {
     });
 
     it('opens the editable fiche produit without navigating when clicking "Voir dans le catalogue"', async () => {
-        const onProduitSaved = jest.fn();
+        const onProduitSaved = vi.fn();
         const saved = { ...sampleProduits[0], emplacement: 'Rayon C4' };
         mockPut.mockResolvedValue({ data: saved });
 
@@ -144,7 +144,7 @@ describe('FicheCatalogueModal and FicheCataloguePopover', () => {
         render(
             <FicheCatalogueModal
                 open={true}
-                onClose={jest.fn()}
+                onClose={vi.fn()}
                 type="bateau"
                 itemId={101}
                 catalogueBateaux={sampleBateaux}

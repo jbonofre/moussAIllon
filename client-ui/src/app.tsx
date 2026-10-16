@@ -116,7 +116,7 @@ export default function App() {
         <Layout className="layout">
             <Sider breakpoint="lg" collapsedWidth="0">
                 <div className="logo">
-                    <Image width={80} src={process.env.PUBLIC_URL + '/logo.png'} preview={false} />
+                    <Image width={80} src={import.meta.env.BASE_URL + 'logo.png'} preview={false} />
                 </div>
                 <Menu
                     theme="dark"

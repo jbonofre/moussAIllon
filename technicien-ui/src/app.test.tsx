@@ -1,11 +1,11 @@
+import { vi } from 'vitest';
 import React from 'react';
 import { render, screen, act } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import App from './app.tsx';
 
 // Mock child components
-jest.mock('./login.tsx', () => {
-    return function MockLogin({ setUser }: any) {
+vi.mock('./login.tsx', () => {
+    return { default: function MockLogin({ setUser }: any) {
         return (
             <div data-testid="login-component">
                 <button onClick={() => setUser({ id: 1, nom: 'Leclerc', prenom: 'Pierre' })}>
@@ -13,27 +13,27 @@ jest.mock('./login.tsx', () => {
                 </button>
             </div>
         );
-    };
+    } };
 });
 
-jest.mock('./planning.tsx', () => {
-    return function MockPlanning({ technicienId }: any) {
+vi.mock('./planning.tsx', () => {
+    return { default: function MockPlanning({ technicienId }: any) {
         return <div data-testid="planning-component">Planning: {technicienId}</div>;
-    };
+    } };
 });
 
-jest.mock('./mobile-app.tsx', () => {
-    return function MockMobileApp({ onChangePassword }: any) {
+vi.mock('./mobile-app.tsx', () => {
+    return { default: function MockMobileApp({ onChangePassword }: any) {
         return (
             <div data-testid="mobile-app">
                 <button onClick={onChangePassword}>Changer mot de passe mobile</button>
             </div>
         );
-    };
+    } };
 });
 
-jest.mock('./change-password-modal.tsx', () => {
-    return function MockChangePasswordModal({ open, onClose, technicienId }: any) {
+vi.mock('./change-password-modal.tsx', () => {
+    return { default: function MockChangePasswordModal({ open, onClose, technicienId }: any) {
         if (!open) return null;
         return (
             <div data-testid="change-password-modal">
@@ -41,11 +41,11 @@ jest.mock('./change-password-modal.tsx', () => {
                 <button onClick={onClose}>Fermer</button>
             </div>
         );
-    };
+    } };
 });
 
-jest.mock('./use-is-mobile.tsx', () => {
-    return () => false;
+vi.mock('./use-is-mobile.tsx', () => {
+    return { default: () => false };
 });
 
 describe('App', () => {

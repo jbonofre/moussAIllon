@@ -5,9 +5,9 @@ import {
     ShoppingCartOutlined, SearchOutlined, GiftOutlined,
 } from '@ant-design/icons';
 import Icon from '@ant-design/icons';
-import { ReactComponent as BoatOutlined } from './boat.svg';
-import { ReactComponent as EngineOutlined } from './moteur.svg';
-import { ReactComponent as TailerOutlined } from './remorque.svg';
+import BoatOutlined from './boat.svg?react';
+import EngineOutlined from './moteur.svg?react';
+import TailerOutlined from './remorque.svg?react';
 import api from './api.ts';
 import { useNavigation } from './navigation-context.tsx';
 

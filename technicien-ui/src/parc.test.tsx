@@ -1,12 +1,12 @@
+import { vi, type Mock } from 'vitest';
 import React from 'react';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import Parc from './parc.tsx';
 import api from './api.ts';
 
-jest.mock('./api.ts', () => ({ __esModule: true, default: { get: jest.fn() } }));
+vi.mock('./api.ts', () => ({ __esModule: true, default: { get: vi.fn() } }));
 
-const get = api.get as jest.Mock;
+const get = api.get as Mock;
 
 describe('Parc', () => {
     beforeEach(() => {

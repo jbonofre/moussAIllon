@@ -4,10 +4,10 @@ import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvi
 import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
-import { ReactComponent as BoatOutlined } from './boat.svg';
-import { ReactComponent as EngineOutlined } from './moteur.svg';
-import { ReactComponent as ParcOutlined } from './parc.svg';
-import { ReactComponent as TailerOutlined } from './remorque.svg';
+import BoatOutlined from './boat.svg?react';
+import EngineOutlined from './moteur.svg?react';
+import ParcOutlined from './parc.svg?react';
+import TailerOutlined from './remorque.svg?react';
 import { Result } from 'antd';
 import GlobalSearch from './global-search.tsx';
 import { VERSION_LABEL } from './version.ts';
@@ -205,7 +205,7 @@ function Header(props) {
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
         }}>
             <Row align="middle" justify="center" wrap={false} style={{ height: '100%' }}>
-                <Col span={3}><Image src={process.env.PUBLIC_URL + '/logo.png'} preview={false} width={75}/></Col>
+                <Col span={3}><Image src={import.meta.env.BASE_URL + 'logo.png'} preview={false} width={75}/></Col>
                 <Col span={19}><GlobalSearch /></Col>
                 <Col span={2}><Menu items={menuUser} onClick={(e) => {
                     if (e.key === 'deconnexion') {

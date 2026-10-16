@@ -1,30 +1,30 @@
+import { vi, type Mocked } from 'vitest';
 import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import '@testing-library/jest-dom';
 import ChangePasswordModal from './change-password-modal.tsx';
 import api from './api.ts';
 
-jest.mock('./api.ts');
-const mockedApi = api as jest.Mocked<typeof api>;
+vi.mock('./api.ts');
+const mockedApi = api as Mocked<typeof api>;
 
 // antd responsiveObserver requires window.matchMedia to return a valid MediaQueryList.
-// This must be set before any antd component renders and must survive jest.clearAllMocks().
+// This must be set before any antd component renders and must survive vi.clearAllMocks().
 const matchMediaImpl = (query: string) => ({
     matches: false,
     media: query,
     onchange: null as any,
-    addListener: jest.fn(),
-    removeListener: jest.fn(),
-    addEventListener: jest.fn(),
-    removeEventListener: jest.fn(),
-    dispatchEvent: jest.fn(),
+    addListener: vi.fn(),
+    removeListener: vi.fn(),
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    dispatchEvent: vi.fn(),
 });
 
 window.matchMedia = matchMediaImpl as any;
 
 describe('ChangePasswordModal', () => {
-    const onClose = jest.fn();
+    const onClose = vi.fn();
 
     beforeEach(() => {
         onClose.mockClear();

@@ -49,7 +49,7 @@ Le backend demarre sur `http://localhost:8080`.
 ### Frontends
 
 ```bash
-# Chantier UI (port 3000)
+# Chantier UI (Vite, port 3000)
 cd chantier-ui && npm install && npm start
 
 # Client UI (port 3001)
@@ -106,11 +106,11 @@ Tests disponibles : `ClientResourceTest`, `UserResourceTest`, `BateauCatalogueRe
 
 ### Frontend
 
-Tests avec Jest et React Testing Library.
+Tests avec Vitest et React Testing Library.
 
 ```bash
 # Depuis le repertoire du frontend concerne
-CI=true npm test -- --watchAll=false
+npm test
 ```
 
 ## Docker
@@ -227,9 +227,9 @@ GitHub Actions (`.github/workflows/ci.yml`) — declenchement sur push et PR ver
 | Job | Contenu |
 |---|---|
 | **Backend Tests** | Build Maven + tests d'integration (JDK 21) |
-| **Chantier UI Tests** | `npm ci` + tests Jest + build |
-| **Client UI Tests** | `npm ci` + tests Jest + build |
-| **Technicien UI Tests** | `npm ci` + tests Jest + build |
+| **Chantier UI Tests** | `npm ci` + tests Vitest + build |
+| **Client UI Tests** | `npm ci` + tests Vitest + build |
+| **Technicien UI Tests** | `npm ci` + tests Vitest + build |
 
 ## Serveur MCP (IA)
 

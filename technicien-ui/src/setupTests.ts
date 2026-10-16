@@ -1,14 +1,16 @@
+import { vi } from 'vitest';
+import '@testing-library/jest-dom/vitest';
 // Polyfills for jsdom (required by Ant Design 6)
 window.matchMedia = window.matchMedia || function matchMediaMock(query: string) {
     return {
         matches: false,
         media: query,
         onchange: null,
-        addListener: jest.fn(),
-        removeListener: jest.fn(),
-        addEventListener: jest.fn(),
-        removeEventListener: jest.fn(),
-        dispatchEvent: jest.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
     };
 } as any;
 

@@ -1,16 +1,16 @@
+import { vi, type Mocked } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import '@testing-library/jest-dom';
 import Packages from './packages.tsx';
 import api from './api.ts';
 
-jest.mock('./api.ts', () => ({
+vi.mock('./api.ts', () => ({
     __esModule: true,
-    default: { get: jest.fn(), post: jest.fn(), put: jest.fn(), delete: jest.fn() },
+    default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
 
 // Le rendu du formulaire complet est lent sous jsdom
-jest.setTimeout(60000);
+vi.setConfig({ testTimeout: 60000 });
 
 // Même identifiant dans chaque référentiel : une ligne doit garder le type de son article
 const produit = { id: 1, designation: 'Anode zinc', ref: 'AN-1', prixVenteTTC: 12 };
@@ -40,10 +40,10 @@ const donnees: Record<string, any[]> = {
     '/catalogue/remorques': [remorque],
 };
 
-const mockedApi = api as jest.Mocked<typeof api>;
+const mockedApi = api as Mocked<typeof api>;
 
 beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     mockedApi.get.mockImplementation((url: string) => Promise.resolve({ data: donnees[url] || [] }) as any);
     mockedApi.post.mockImplementation((_url: string, body: any) => Promise.resolve({ data: { ...body, id: 42 } }) as any);
     mockedApi.put.mockImplementation((_url: string, body: any) => Promise.resolve({ data: { ...body, id: 7 } }) as any);
@@ -55,11 +55,11 @@ const renderPackages = async () => {
     await screen.findByText('Pack prêt à naviguer');
 };
 
-// La liste déroulante d'une ligne déjà renseignée reste dans le DOM, masquée : on choisit dans celle qui est ouverte
+// La liste déroulante d'une ligne déjà renseignée reste dans le DOM, masquée : on choisit dans la dernière ouverte
 const choisirArticle = async (combobox: HTMLElement, libelle: string) => {
     fireEvent.mouseDown(combobox);
     const option = await waitFor(() => {
-        const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+        const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden)')).slice(-1).flatMap((dropdown) => Array.from(dropdown.querySelectorAll('.ant-select-item-option')))
             .find((element) => element.textContent === libelle);
         expect(found).toBeTruthy();
         return found as HTMLElement;
