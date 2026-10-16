@@ -110,6 +110,7 @@ interface PlanningFormValues {
 
 interface CalendarEvent {
     eventId: string;
+    rowKey: string;
     startTime: Date;
     title: string;
     backgroundColor?: string;
@@ -536,15 +537,15 @@ export default function Planning() {
             allItems
                 .filter((row) => row.item.status === 'PLANIFIEE' || row.item.status === 'EN_COURS')
                 .filter(matchesTechnicien)
-                .map((row) => {
+                .flatMap((row) => {
                     const { vente, item } = row;
                     const startSource = item.dateDebut || item.statusDate || vente.date;
                     if (!startSource) {
-                        return null;
+                        return [];
                     }
                     const startDate = dayjs(startSource);
                     if (!startDate.isValid()) {
-                        return null;
+                        return [];
                     }
 
                     const typeLabel = item.type === 'forfait' ? 'Forfait' : 'Service';
@@ -552,27 +553,31 @@ export default function Planning() {
                     const totalTaches = taches.length;
                     const doneTaches = taches.filter((t) => t.done).length;
                     const progressPct = totalTaches > 0 ? Math.round((doneTaches / totalTaches) * 100) : undefined;
-                    const technicien = item.techniciens?.[0];
 
-                    return {
-                        eventId: row.key,
-                        startTime: startDate.toDate(),
-                        title: `[${typeLabel}] ${item.nom || 'Sans nom'} (${getClientLabel(vente.client)})`,
-                        backgroundColor: getTechnicienColor(item.techniciens),
-                        textColor: '#ffffff',
-                        dureeEstimee: item.dureeEstimee,
-                        dureePlanifiee: item.dureePlanifiee,
-                        bateauNom: item.bateauNom,
-                        bateauImmatriculation: item.bateauImmatriculation,
-                        clientNom: item.clientNom,
-                        forfaitServiceNom: item.nom,
-                        status: item.status,
-                        progressPct,
-                        technicienId: technicien?.id,
-                        technicienNom: `${technicien?.prenom || ''} ${technicien?.nom || ''}`.trim() || undefined,
-                    } as CalendarEvent;
-                })
-                .filter(Boolean) as CalendarEvent[],
+                    // Un événement par technicien affecté : une prestation à deux techniciens
+                    // apparaît sur le couloir de chacun.
+                    const assigned = item.techniciens && item.techniciens.length > 0 ? item.techniciens : [undefined];
+                    return assigned
+                        .filter((technicien) => !selectedTechnicien || technicien?.id === selectedTechnicien)
+                        .map((technicien) => ({
+                            eventId: `${row.key}|${technicien?.id ?? 'none'}`,
+                            rowKey: row.key,
+                            startTime: startDate.toDate(),
+                            title: `[${typeLabel}] ${item.nom || 'Sans nom'} (${getClientLabel(vente.client)})`,
+                            backgroundColor: getTechnicienColor(technicien ? [technicien] : undefined),
+                            textColor: '#ffffff',
+                            dureeEstimee: item.dureeEstimee,
+                            dureePlanifiee: item.dureePlanifiee,
+                            bateauNom: item.bateauNom,
+                            bateauImmatriculation: item.bateauImmatriculation,
+                            clientNom: item.clientNom,
+                            forfaitServiceNom: item.nom,
+                            status: item.status,
+                            progressPct,
+                            technicienId: technicien?.id,
+                            technicienNom: `${technicien?.prenom || ''} ${technicien?.nom || ''}`.trim() || undefined,
+                        } as CalendarEvent));
+                }),
         [allItems, selectedTechnicien]
     );
 
@@ -673,6 +678,15 @@ export default function Planning() {
             return d.isAfter(selectedWeekStart.subtract(1, 'day')) && d.isBefore(weekEnd);
         });
     }, [calendarEvents, selectedWeekStart]);
+
+    const legendTechniciens = useMemo(() => {
+        const map = new Map<number, TechnicienEntity>();
+        calendarEvents.forEach((ev) => {
+            const t = techniciens.find((x) => x.id === ev.technicienId);
+            if (t) map.set(t.id, t);
+        });
+        return Array.from(map.values());
+    }, [calendarEvents, techniciens]);
 
     const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
@@ -1093,6 +1107,15 @@ export default function Planning() {
                             </Space>
                         }
                     >
+                        <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+                            <span><Badge status="success" /> Planifiées (semaine) : <strong>{weekEvents.length}</strong></span>
+                            {legendTechniciens.map((t) => (
+                                <Tag key={t.id} color={getTechnicienColor([t])}>
+                                    {`${t.prenom || ''} ${t.nom || ''}`.trim() || `Technicien #${t.id}`}
+                                </Tag>
+                            ))}
+                        </div>
+                        {weekEvents.length === 0 && !loading && <Empty description="Aucune prestation planifiée cette semaine" />}
                         <div style={{ overflowX: 'auto' }}>
                             <div style={{ display: 'grid', gridTemplateColumns: `80px repeat(${TOTAL_HOURS}, 1fr)`, minWidth: TOTAL_HOURS * 80 + 80 }}>
                                 {/* Header row: hours */}
@@ -1252,7 +1275,7 @@ export default function Planning() {
                                                         </div>
                                                     );
 
-                                                    const eventRow = allItems.find((r) => r.key === ev.eventId);
+                                                    const eventRow = allItems.find((r) => r.key === ev.rowKey);
                                                     // Ligne de séparation visuelle entre deux couloirs de techniciens
                                                     // différents pour améliorer la lisibilité du planning (affichée une
                                                     // seule fois par ligne, même si plusieurs tâches y sont alignées).
