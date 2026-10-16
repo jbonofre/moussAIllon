@@ -1,9 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Collapse, Descriptions, Drawer, Empty, Input, List, Segmented, Space, Spin, Tag, message } from 'antd';
-import { CarOutlined, CheckCircleOutlined, ReloadOutlined, ShopOutlined, ToolOutlined } from '@ant-design/icons';
+import { Button, Card, Collapse, Descriptions, Drawer, Empty, Image, Input, List, Segmented, Space, Spin, Tag, message } from 'antd';
+import { AppstoreOutlined, CarOutlined, CheckCircleOutlined, PictureOutlined, ReloadOutlined, ShopOutlined, ToolOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import api from './api.ts';
 
 type ParcType = 'bateaux' | 'moteurs' | 'remorques';
+type ViewMode = 'list' | 'mosaic';
+
+const VIEW_STORAGE_KEY = 'technicien-parc-view';
 
 interface Client {
     id?: number;
@@ -33,6 +36,7 @@ interface Materiel {
     remorques?: Modele[];
     equipements?: string[];
     datePretRecuperation?: string | null;
+    images?: string[];
 }
 
 interface ChecklistItem {
@@ -97,6 +101,11 @@ const matches = (type: ParcType, m: Materiel, q: string) => {
     return haystack.includes(q.toLowerCase());
 };
 
+const placeholderStyle = (size: number | string, height: number, fontSize: number): React.CSSProperties => ({
+    width: size, height, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    background: 'rgba(0,0,0,0.04)', color: 'rgba(0,0,0,0.25)', fontSize, borderRadius: 4,
+});
+
 const dateFr = (v?: string) => {
     if (!v) return '-';
     const d = new Date(v);
@@ -108,6 +117,13 @@ export default function Parc() {
     const [items, setItems] = useState<Materiel[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState('');
+    const [view, setView] = useState<ViewMode>(() => {
+        try {
+            return localStorage.getItem(VIEW_STORAGE_KEY) === 'list' ? 'list' : 'mosaic';
+        } catch {
+            return 'mosaic';
+        }
+    });
     const [selected, setSelected] = useState<Materiel | null>(null);
     const [prestations, setPrestations] = useState<Prestation[]>([]);
     const [prestationsLoading, setPrestationsLoading] = useState(false);
@@ -129,6 +145,15 @@ export default function Parc() {
         setSelected(null);
         fetchItems();
     }, [fetchItems]);
+
+    const changeView = (v: ViewMode) => {
+        setView(v);
+        try {
+            localStorage.setItem(VIEW_STORAGE_KEY, v);
+        } catch {
+            /* stockage indisponible */
+        }
+    };
 
     const openDetail = async (materiel: Materiel) => {
         setSelected(materiel);
@@ -193,25 +218,75 @@ export default function Parc() {
                     />
                     <Button icon={<ReloadOutlined />} onClick={fetchItems} aria-label="Actualiser" />
                 </Space.Compact>
-                <Spin spinning={loading}>
-                    <List
-                        grid={{ gutter: 12, xs: 1, sm: 1, md: 2, lg: 3, xl: 3, xxl: 4 }}
-                        dataSource={filtered}
-                        locale={{ emptyText: <Empty description="Aucun élément dans le parc" /> }}
-                        renderItem={(m) => (
-                            <List.Item>
-                                <Card size="small" hoverable onClick={() => openDetail(m)}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                                        <span style={{ fontWeight: 'bold' }}>{titre(type, m)}</span>
-                                        {m.datePretRecuperation && (
-                                            <Tag color="green" icon={<CheckCircleOutlined />}>Prêt</Tag>
-                                        )}
-                                    </div>
-                                    <div style={{ color: '#666', fontSize: 13 }}>{sousTitre(type, m) || '-'}</div>
-                                </Card>
-                            </List.Item>
-                        )}
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                    <Segmented
+                        value={view}
+                        onChange={(v) => changeView(v as ViewMode)}
+                        options={[
+                            { value: 'list', icon: <UnorderedListOutlined />, label: 'Liste' },
+                            { value: 'mosaic', icon: <AppstoreOutlined />, label: 'Mosaïque' },
+                        ]}
                     />
+                </div>
+                <Spin spinning={loading}>
+                    {filtered.length === 0 && !loading ? (
+                        <Empty description="Aucun élément dans le parc" />
+                    ) : view === 'mosaic' ? (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 12 }}>
+                            {filtered.map((m) => {
+                                const url = m.images?.[0];
+                                return (
+                                    <Card
+                                        key={m.id}
+                                        size="small"
+                                        hoverable
+                                        styles={{ body: { padding: 12 } }}
+                                        style={{ overflow: 'hidden' }}
+                                        onClick={() => openDetail(m)}
+                                        cover={url ? (
+                                            <Image src={url} preview={false} height={160} width="100%" style={{ objectFit: 'cover', display: 'block' }} />
+                                        ) : (
+                                            <div style={placeholderStyle('100%', 160, 40)}><PictureOutlined /></div>
+                                        )}
+                                    >
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                                            <span style={{ fontWeight: 'bold', wordBreak: 'break-word' }}>{titre(type, m)}</span>
+                                            {m.datePretRecuperation && (
+                                                <Tag color="green" icon={<CheckCircleOutlined />}>Prêt</Tag>
+                                            )}
+                                        </div>
+                                        <div style={{ color: '#666', fontSize: 13 }}>{sousTitre(type, m) || '-'}</div>
+                                    </Card>
+                                );
+                            })}
+                        </div>
+                    ) : (
+                        <List
+                            bordered
+                            dataSource={filtered}
+                            renderItem={(m) => {
+                                const url = m.images?.[0];
+                                return (
+                                    <List.Item style={{ cursor: 'pointer' }} onClick={() => openDetail(m)}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, width: '100%' }}>
+                                            {url ? (
+                                                <Image src={url} preview={false} width={48} height={48} style={{ objectFit: 'cover', borderRadius: 4 }} />
+                                            ) : (
+                                                <div style={placeholderStyle(48, 48, 20)}><PictureOutlined /></div>
+                                            )}
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <div style={{ fontWeight: 'bold' }}>{titre(type, m)}</div>
+                                                <div style={{ color: '#666', fontSize: 13 }}>{sousTitre(type, m) || '-'}</div>
+                                            </div>
+                                            {m.datePretRecuperation && (
+                                                <Tag color="green" icon={<CheckCircleOutlined />}>Prêt</Tag>
+                                            )}
+                                        </div>
+                                    </List.Item>
+                                );
+                            }}
+                        />
+                    )}
                 </Spin>
             </Space>
 
@@ -224,6 +299,15 @@ export default function Parc() {
             >
                 {selected && (
                     <>
+                        {(selected.images || []).length > 0 && (
+                            <Image.PreviewGroup>
+                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+                                    {(selected.images || []).map((url) => (
+                                        <Image key={url} src={url} width={96} height={96} style={{ objectFit: 'cover', borderRadius: 4 }} />
+                                    ))}
+                                </div>
+                            </Image.PreviewGroup>
+                        )}
                         <Descriptions bordered size="small" column={1} items={detailItems(selected)} />
                         <h4 style={{ margin: '20px 0 8px' }}>Tâches des prestations</h4>
                         <Spin spinning={prestationsLoading}>
