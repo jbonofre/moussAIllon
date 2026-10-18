@@ -1558,18 +1558,17 @@ export default function Comptoir() {
                     : item
             ));
             if (currentProduitLines.length === 0) {
-                form.setFieldValue('produits', [{}]);
-                return;
+                currentProduitLines = [{}];
+            } else {
+                const lastProduitLine = currentProduitLines[currentProduitLines.length - 1];
+                const isLastLineComplete = !!lastProduitLine?.produitRef && (lastProduitLine?.quantite || 0) > 0;
+                if (isLastLineComplete) {
+                    currentProduitLines = [...currentProduitLines, {}];
+                }
             }
-            const lastProduitLine = currentProduitLines[currentProduitLines.length - 1];
-            const isLastLineComplete = !!lastProduitLine?.produitRef && (lastProduitLine?.quantite || 0) > 0;
-            if (isLastLineComplete) {
-                currentProduitLines = [...currentProduitLines, {}];
-            }
+            // Les montants sont recalculés plus bas, y compris quand la ligne vient d'être complétée
+            // (quantité de 1 par défaut) : sinon ils restent à 0 jusqu'à ce que la quantité soit modifiée.
             form.setFieldValue('produits', currentProduitLines);
-            if (isLastLineComplete) {
-                return;
-            }
         }
 
         if (changedValues.montantTTC !== undefined) {

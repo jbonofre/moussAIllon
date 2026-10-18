@@ -73,6 +73,18 @@ const choisirDansLaDerniereLigne = async (modal: HTMLElement, libelle: string) =
     fireEvent.click(option);
 };
 
+describe('Comptoir - saisie des produits', () => {
+    it('calcule le montant dès la saisie d\'un produit, pour une quantité de 1', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
+
+        await waitFor(() => expect(lignesProduits(modal)).toHaveLength(2));
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
+        expect(within(modal).getByLabelText('Prix vente TTC')).toHaveValue('12.00');
+    });
+});
+
 describe('Comptoir - packages', () => {
     it('peuple la vente avec le contenu du package choisi', async () => {
         const modal = await ouvrirNouvelleVente();

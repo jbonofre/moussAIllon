@@ -78,6 +78,19 @@ const choisir = async (modal: HTMLElement, placeholder: string, libelle: string)
 
 const choisirDansLaLigneVide = (modal: HTMLElement, libelle: string) => choisir(modal, PLACEHOLDER_LIGNE, libelle);
 
+describe('Transactions - saisie des lignes', () => {
+    it('calcule le montant dès la saisie d\'un produit, pour une quantité de 1', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+
+        expect(await within(modal).findByText('AN-1 - Anode zinc')).toBeInTheDocument();
+        expect(within(modal).getByText(PLACEHOLDER_LIGNE)).toBeInTheDocument();
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
+        expect(within(modal).getByLabelText('Prix vente TTC')).toHaveValue('12.00');
+    });
+});
+
 describe('Transactions - packages', () => {
     it('peuple la transaction avec le contenu du package choisi', async () => {
         const modal = await ouvrirNouvelleVente();
