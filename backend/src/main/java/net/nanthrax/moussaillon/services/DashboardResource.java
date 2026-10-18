@@ -11,6 +11,7 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.TechnicienEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 import net.nanthrax.moussaillon.persistence.VenteForfaitEntity;
 import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
@@ -27,17 +28,20 @@ public class DashboardResource {
         LocalDate now = LocalDate.now();
         LocalDate startOfMonth = now.withDayOfMonth(1);
         Timestamp monthStart = Timestamp.valueOf(startOfMonth.atStartOfDay());
-        Timestamp monthStartTimestamp = Timestamp.valueOf(startOfMonth.atStartOfDay());
+        Timestamp nextMonthStart = Timestamp.valueOf(startOfMonth.plusMonths(1).atStartOfDay());
 
-        // CA du mois: sum of prixVenteTTC for PAYEE ventes this month
-        List<VenteEntity> ventesDuMois = VenteEntity.list("status = ?1 and date >= ?2", VenteEntity.Status.FACTURE_PAYEE, monthStart);
-        data.caDuMois = ventesDuMois.stream().mapToDouble(v -> v.prixVenteTTC).sum();
+        // CA du mois : somme des prixVenteTTC des factures payées ce mois-ci, rattachées à leur
+        // date de paiement (à défaut la date de la vente, pour les factures payées sans cette date)
+        List<VenteEntity> ventesDuMois = VenteEntity.list(
+                "status = ?1 and coalesce(dateFacturePayee, date) >= ?2 and coalesce(dateFacturePayee, date) < ?3",
+                VenteEntity.Status.FACTURE_PAYEE, monthStart, nextMonthStart);
+        data.caDuMois = Math.round(ventesDuMois.stream().mapToDouble(v -> v.prixVenteTTC).sum() * 100.0) / 100.0;
 
-        // Interventions ouvertes (forfaits + services EN_ATTENTE or EN_COURS)
-        long forfaitsOuverts = VenteForfaitEntity.count("status in (?1, ?2)",
-                VenteForfaitEntity.Status.EN_ATTENTE, VenteForfaitEntity.Status.EN_COURS);
-        long servicesOuverts = VenteServiceEntity.count("status in (?1, ?2)",
-                VenteServiceEntity.Status.EN_ATTENTE, VenteServiceEntity.Status.EN_COURS);
+        // Interventions ouvertes : forfaits + services ni terminés ni annulés
+        long forfaitsOuverts = VenteForfaitEntity.count("status not in (?1, ?2)",
+                VenteForfaitEntity.Status.TERMINEE, VenteForfaitEntity.Status.ANNULEE);
+        long servicesOuverts = VenteServiceEntity.count("status not in (?1, ?2)",
+                VenteServiceEntity.Status.TERMINEE, VenteServiceEntity.Status.ANNULEE);
         data.interventionsOuvertes = (int) (forfaitsOuverts + servicesOuverts);
 
         // Retards > 48h
@@ -144,19 +148,22 @@ public class DashboardResource {
             data.stockAlerts.add(alert);
         }
 
-        // Objectifs mensuels
-        List<VenteForfaitEntity> forfaitsDuMois = VenteForfaitEntity.list("dateDebut >= ?1", monthStartTimestamp);
-        List<VenteServiceEntity> servicesDuMois = VenteServiceEntity.list("dateDebut >= ?1", monthStartTimestamp);
+        // Objectifs mensuels : heures réelles des interventions terminées ce mois-ci,
+        // rapportées à la somme des objectifs d'heures mensuels des techniciens
+        List<VenteForfaitEntity> forfaitsDuMois = VenteForfaitEntity.list("dateDebut >= ?1", monthStart);
+        List<VenteServiceEntity> servicesDuMois = VenteServiceEntity.list("dateDebut >= ?1", monthStart);
         double totalReelle = forfaitsDuMois.stream()
                 .filter(vf -> vf.status == VenteForfaitEntity.Status.TERMINEE).mapToDouble(vf -> vf.dureeReelle).sum()
                 + servicesDuMois.stream()
                 .filter(vs -> vs.status == VenteServiceEntity.Status.TERMINEE).mapToDouble(vs -> vs.dureeReelle).sum();
-        data.heuresAtelierPct = totalReelle > 0 ? (int) Math.min(100, Math.round(totalReelle)) : 0;
+        double cibleHeures = TechnicienEntity.<TechnicienEntity>listAll().stream()
+                .filter(t -> t.cibleHeures != null).mapToDouble(t -> t.cibleHeures).sum();
+        data.heuresAtelier = Math.round(totalReelle * 10.0) / 10.0;
+        data.heuresAtelierCible = cibleHeures > 0 ? cibleHeures : null;
+        data.heuresAtelierPct = cibleHeures > 0 ? (int) Math.min(100, Math.round(totalReelle / cibleHeures * 100)) : 0;
 
-        // Ventes payees
-        long ventesTotal = VenteEntity.count("date >= ?1", monthStart);
-        long ventesPayees = VenteEntity.count("status = ?1 and date >= ?2", VenteEntity.Status.FACTURE_PAYEE, monthStart);
-        data.ventesComptoirPct = ventesTotal > 0 ? (int) Math.round((double) ventesPayees / ventesTotal * 100) : 0;
+        // Ventes comptoir : nombre de ventes saisies au comptoir ce mois-ci (hors transactions/prestations)
+        data.ventesComptoir = VenteEntity.count("comptoir = true and date >= ?1 and date < ?2", monthStart, nextMonthStart);
 
         // Contrats de maintenance
         long itemsTotal = forfaitsDuMois.size() + servicesDuMois.size();
@@ -191,7 +198,9 @@ public class DashboardResource {
         public List<InterventionRow> interventions;
         public List<StockAlert> stockAlerts;
         public int heuresAtelierPct;
-        public int ventesComptoirPct;
+        public double heuresAtelier;
+        public Double heuresAtelierCible;
+        public long ventesComptoir;
         public int contratsMaintenancePct;
         public int bateauxDansLeChantier;
         public int bateauxEntreesSemaine;

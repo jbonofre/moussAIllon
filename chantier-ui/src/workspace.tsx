@@ -1,6 +1,6 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, theme as antdTheme, Switch as AntSwitch } from 'antd';
+import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
 import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
@@ -52,6 +52,8 @@ function hasRole(roles: string, role: string): boolean {
 function SideMenu(props) {
 
     const [ collapsed, setCollapsed ] = useState(false);
+    // Sous le breakpoint md, le menu est replié à largeur nulle et s'ouvre par-dessus le contenu
+    const [ isMobile, setIsMobile ] = useState(false);
     const [ siderWidth, setSiderWidth ] = useState(() => {
         const saved = localStorage.getItem('siderWidth');
         return saved ? parseInt(saved, 10) : 200;
@@ -134,17 +136,26 @@ function SideMenu(props) {
                 collapsible={true}
                 collapsed={collapsed}
                 onCollapse={newValue => setCollapsed(newValue)}
-                width={siderWidth}
+                breakpoint="md"
+                onBreakpoint={setIsMobile}
+                collapsedWidth={isMobile ? 0 : 80}
+                width={isMobile ? 240 : siderWidth}
+                style={isMobile ? { position: 'absolute', top: 0, bottom: 0, insetInlineStart: 0, zIndex: 100 } : undefined}
             >
                 <Menu
                     theme={props.theme === 'DARK' ? 'dark' : 'light'}
                     items={menuItems}
                     selectedKeys={[props.currentPage]}
                     mode="inline"
-                    onClick={({ key }) => { if (key.startsWith('/')) props.onNavigate(key); }}
+                    onClick={({ key }) => {
+                        if (key.startsWith('/')) {
+                            props.onNavigate(key);
+                            if (isMobile) setCollapsed(true);
+                        }
+                    }}
                 />
             </Layout.Sider>
-            {!collapsed && (
+            {!collapsed && !isMobile && (
                 <div
                     className="sider-resize-handle"
                     onMouseDown={handleMouseDown}
@@ -162,6 +173,8 @@ function Header(props) {
     const [ preferencesForm ] = Form.useForm();
     const [ selectedTheme, setSelectedTheme ] = useState<UserTheme>(props.theme || 'LIGHT');
     const [ formDirty, setFormDirty ] = useState(false);
+    // Sous le breakpoint md, le logo est réduit et la recherche prend la place restante
+    const isMobile = Grid.useBreakpoint().md === false;
 
     const handlePreferencesCancel = () => {
         if (formDirty) {
@@ -199,15 +212,15 @@ function Header(props) {
             lineHeight: '72px',
             background: props.theme === 'DARK' ? '#1f1f1f' : '#fff',
             color: props.theme === 'DARK' ? '#f5f5f5' : undefined,
-            padding: "0 24px",
+            padding: isMobile ? "0 12px" : "0 24px",
             margin: "16px 20px 8px",
             borderRadius: 14,
             boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
         }}>
-            <Row align="middle" justify="center" wrap={false} style={{ height: '100%' }}>
-                <Col span={3}><Image src={process.env.PUBLIC_URL + '/logo.png'} preview={false} width={75}/></Col>
-                <Col span={19}><GlobalSearch /></Col>
-                <Col span={2}><Menu items={menuUser} onClick={(e) => {
+            <Row align="middle" justify="center" wrap={false} gutter={isMobile ? 8 : 0} style={{ height: '100%' }}>
+                <Col {...(isMobile ? { flex: 'none' } : { span: 3 })}><Image src={process.env.PUBLIC_URL + '/logo.png'} preview={false} width={isMobile ? 44 : 75}/></Col>
+                <Col {...(isMobile ? { flex: 'auto' } : { span: 19 })}><GlobalSearch /></Col>
+                <Col {...(isMobile ? { flex: '48px' } : { span: 2 })}><Menu items={menuUser} onClick={(e) => {
                     if (e.key === 'deconnexion') {
                         props.setUser(null);
                     }
