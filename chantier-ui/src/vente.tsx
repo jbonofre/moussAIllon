@@ -206,6 +206,7 @@ interface ProduitCatalogueEntity {
     tva?: number;
     montantTVA?: number;
     prixVenteTTC?: number;
+    ajoutAutomatiqueIntervention?: boolean;
 }
 
 interface CatalogueBateauEntity {
@@ -587,6 +588,10 @@ const defaultVente: VenteFormValues = {
     indemniteForfaitaire: 40,
 };
 
+// Une intervention est un forfait ou un service : la main d'oeuvre passe par eux
+const compterInterventions = (lignes: LigneUnifiee[]) =>
+    lignes.filter((l) => (l.type === 'forfait' || l.type === 'service') && l.itemId).length;
+
 const formatEuro = (value?: number) => `${(value || 0).toFixed(2)} EUR`;
 const getSoldeDu = (vente: { status?: string; prixVenteTTC?: number; paiements?: Array<{ montant: number }> }) => {
     if (vente.status === 'FACTURE_PAYEE') return 0;
@@ -646,6 +651,8 @@ export default function Vente() {
     const [formDirty, setFormDirty] = useState(false);
     const suppressDirtyRef = React.useRef(false);
     const savedLinesRef = React.useRef<string[]>([]);
+    // Nombre d'interventions déjà connues, pour détecter l'ajout d'un forfait ou d'un service
+    const interventionsConnuesRef = React.useRef(0);
     const [isEdit, setIsEdit] = useState(false);
     const [currentVente, setCurrentVente] = useState<VenteEntity | null>(null);
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
@@ -1712,6 +1719,7 @@ export default function Vente() {
         (vente.venteRemorquesCatalogue || []).forEach((l) => {
             if (l.remorque?.id) lignes.push({ type: 'remorque', itemId: l.remorque.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
         });
+        interventionsConnuesRef.current = compterInterventions(lignes);
         form.resetFields();
         form.setFieldsValue({
             status: vente.status || 'DEVIS',
@@ -1916,6 +1924,7 @@ export default function Vente() {
             setCurrentVente(null);
             setRappelHistorique([]);
             snapshotSavedLines(null);
+            interventionsConnuesRef.current = 0;
             form.resetFields();
             form.setFieldsValue({ ...defaultVente, date: getTodayDayjs() });
             setFormDirty(false);
@@ -2665,18 +2674,40 @@ export default function Vente() {
         { key: 'payplug', label: 'Payer via PayPlug', onClick: () => handlePayment(vente, 'payplug') },
     ]);
 
+    // Dès qu'une intervention (forfait ou service) est ajoutée, ajoute les produits marqués
+    // « ajout automatique aux interventions » absents de la vente (ex. : traitement des déchets).
+    // Seul l'ajout d'une intervention déclenche : un produit automatique retiré à la main n'est pas remis.
+    const ajouterProduitsAutomatiques = (allProduits: ProduitCatalogueEntity[]) => {
+        const lignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+        const nbInterventions = compterInterventions(lignes);
+        const interventionAjoutee = nbInterventions > interventionsConnuesRef.current;
+        interventionsConnuesRef.current = nbInterventions;
+        if (!interventionAjoutee) return;
+        const produitsPresents = new Set(lignes.filter((l) => l.type === 'produit').map((l) => l.itemId));
+        const aAjouter = allProduits.filter((p) => p.ajoutAutomatiqueIntervention && !produitsPresents.has(p.id));
+        if (aAjouter.length === 0) return;
+        const lignesAuto: LigneUnifiee[] = aAjouter.map((p) => ({ type: 'produit', itemId: p.id, quantite: 1 }));
+        const derniere = lignes[lignes.length - 1];
+        const derniereVide = !!derniere && !derniere.type && !derniere.itemId;
+        form.setFieldValue('lignes', derniereVide
+            ? [...lignes.slice(0, -1), ...lignesAuto, derniere]
+            : [...lignes, ...lignesAuto, { quantite: 1 }]);
+        message.info(`Ajouté automatiquement à l'intervention : ${aAjouter.map((p) => p.designation).join(', ')}`);
+    };
+
     const recalculateFromLines = (
         remiseSource: 'amount' | 'percentage' | 'auto' = 'auto',
         overrides?: { forfaits?: ForfaitEntity[]; produits?: ProduitCatalogueEntity[]; services?: ServiceEntity[] }
     ) => {
+        const allForfaits = overrides?.forfaits ?? forfaits;
+        const allProduits = overrides?.produits ?? produits;
+        const allServices = overrides?.services ?? services;
+
+        ajouterProduitsAutomatiques(allProduits);
         const allLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
         let remise = form.getFieldValue('remise') || 0;
         let remisePourcentage = form.getFieldValue('remisePourcentage') || 0;
         const tva = form.getFieldValue('tva') || 0;
-
-        const allForfaits = overrides?.forfaits ?? forfaits;
-        const allProduits = overrides?.produits ?? produits;
-        const allServices = overrides?.services ?? services;
 
         let totalTTC = 0;
         allLignes.forEach((line) => {

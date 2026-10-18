@@ -112,6 +112,32 @@ public class ProduitCatalogueResourceTest {
     }
 
     @Test
+    void testProduitAjoutAutomatiqueIntervention() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Traitement des dechets\",\"categorie\":\"Divers\",\"prixVenteTTC\":12.0}")
+            .when().post("/catalogue/produits")
+            .then()
+            .statusCode(200)
+            .body("ajoutAutomatiqueIntervention", is(false))
+            .extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Traitement des dechets\",\"categorie\":\"Divers\",\"prixVenteTTC\":12.0,\"ajoutAutomatiqueIntervention\":true}")
+            .when().put("/catalogue/produits/" + id)
+            .then()
+            .statusCode(200)
+            .body("ajoutAutomatiqueIntervention", is(true));
+
+        given()
+            .when().get("/catalogue/produits/" + id)
+            .then()
+            .statusCode(200)
+            .body("ajoutAutomatiqueIntervention", is(true));
+    }
+
+    @Test
     void testRechercherProduits() {
         given()
             .queryParam("q", "huile")

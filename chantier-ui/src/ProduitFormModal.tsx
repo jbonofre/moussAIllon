@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Rate, Row, Col, Button, Modal, Form, Input, InputNumber, Select, Space, Spin, message } from 'antd';
+import { Rate, Row, Col, Button, Modal, Form, Input, InputNumber, Select, Space, Spin, Checkbox, message } from 'antd';
 import { DeleteOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -30,6 +30,7 @@ export interface ProduitCatalogueEntity {
     tva?: number;
     montantTVA?: number;
     prixVenteTTC?: number;
+    ajoutAutomatiqueIntervention?: boolean;
 }
 
 const defaultProduit: ProduitCatalogueEntity = {
@@ -50,7 +51,8 @@ const defaultProduit: ProduitCatalogueEntity = {
     prixVenteHT: 0,
     tva: 20,
     montantTVA: 0,
-    prixVenteTTC: 0
+    prixVenteTTC: 0,
+    ajoutAutomatiqueIntervention: false
 };
 
 export interface ProduitFormModalProps {
@@ -251,6 +253,13 @@ export default function ProduitFormModal({ open, produit, onClose, onSaved }: Pr
                                 </>
                             )}
                         </Form.List>
+                    </Form.Item>
+                    <Form.Item
+                        name="ajoutAutomatiqueIntervention"
+                        valuePropName="checked"
+                        extra="Ce produit est ajouté automatiquement à toute prestation comportant un forfait ou un service (ex. : traitement des déchets)."
+                    >
+                        <Checkbox>Ajouter automatiquement aux interventions</Checkbox>
                     </Form.Item>
                     <Form.Item name="description" label="Description">
                         <Input.TextArea rows={3} placeholder="Description du produit" allowClear />

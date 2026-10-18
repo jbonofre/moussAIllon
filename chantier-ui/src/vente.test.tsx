@@ -133,3 +133,58 @@ describe('Transactions - packages', () => {
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('0.00');
     });
 });
+
+describe('Transactions - produits ajoutés automatiquement aux interventions', () => {
+    const traitementDechets = { id: 2, designation: 'Traitement des déchets', ref: 'DECHETS', stock: 0, prixVenteTTC: 15, ajoutAutomatiqueIntervention: true };
+    const LIGNE_DECHETS = 'DECHETS - Traitement des déchets';
+
+    beforeEach(() => {
+        const avecDechets: Record<string, any[]> = { ...donnees, '/catalogue/produits': [produit, traitementDechets] };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({ data: avecDechets[url] || [] }) as any);
+    });
+
+    it("ajoute le produit automatique dès qu'une intervention est saisie", async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
+        await choisirDansLaLigneVide(modal, 'FORFAIT-001 - Hivernage');
+
+        expect(await within(modal).findByText(LIGNE_DECHETS)).toBeInTheDocument();
+        // la saisie se poursuit sur une ligne vide, après la ligne ajoutée
+        expect(within(modal).getAllByText(PLACEHOLDER_LIGNE)).toHaveLength(1);
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('315.00');
+
+        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
+            venteForfaits: [expect.objectContaining({ forfait: expect.objectContaining({ nom: 'Hivernage' }) })],
+            venteProduits: [expect.objectContaining({ produit: expect.objectContaining({ designation: 'Traitement des déchets' }), quantite: 1 })],
+            montantTTC: 315,
+        })));
+    });
+
+    it("n'ajoute pas le produit automatique sans intervention", async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+
+        await within(modal).findByText('AN-1 - Anode zinc');
+        expect(within(modal).queryByText(LIGNE_DECHETS)).not.toBeInTheDocument();
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
+    });
+
+    it('ne remet pas le produit automatique retiré à la main', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisirDansLaLigneVide(modal, 'FORFAIT-001 - Hivernage');
+        const ligneDechets = (await within(modal).findByText(LIGNE_DECHETS)).closest('.ant-space') as HTMLElement;
+        fireEvent.click(ligneDechets.querySelector('.anticon-delete')!.closest('button')!);
+
+        await waitFor(() => expect(within(modal).queryByText(LIGNE_DECHETS)).not.toBeInTheDocument());
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('300.00');
+
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+        await within(modal).findByText('AN-1 - Anode zinc');
+        expect(within(modal).queryByText(LIGNE_DECHETS)).not.toBeInTheDocument();
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('312.00');
+    });
+});

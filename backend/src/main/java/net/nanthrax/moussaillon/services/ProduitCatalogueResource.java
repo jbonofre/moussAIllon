@@ -585,6 +585,7 @@ public class ProduitCatalogueResource {
         entity.tva = produit.tva;
         entity.montantTVA = produit.montantTVA;
         entity.prixVenteTTC = produit.prixVenteTTC;
+        entity.ajoutAutomatiqueIntervention = produit.ajoutAutomatiqueIntervention;
 
         return entity;
     }
