@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
-import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, Input, InputNumber, Select, Space, Popconfirm, message, Divider, Tag, Segmented } from 'antd';
+import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, Input, InputNumber, Select, Space, Popconfirm, message, Divider, Tag, Segmented, Checkbox } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
@@ -98,6 +98,7 @@ const defaultValues: Record<TypeProduit, CatalogueEntity> = {
         stockMini: 0,
         emplacement: '',
         emplacementMagasin: '',
+        ajoutAutomatiqueIntervention: false,
     },
     bateau: {
         ...defaultCommun,
@@ -745,6 +746,7 @@ const CatalogueProduits: React.FC = () => {
                         <Image width={32} height={32} style={{ objectFit: 'cover' }} src={record.images[0]} />
                     )}
                     {record.designation}
+                    {record.ajoutAutomatiqueIntervention && <Tag color="cyan">Auto. interventions</Tag>}
                 </Space>
             ),
             sorter: (a: LigneCatalogue, b: LigneCatalogue) => (a.designation || '').localeCompare(b.designation || ''),
@@ -1031,6 +1033,15 @@ const CatalogueProduits: React.FC = () => {
                                                 </>
                                             )}
                                         </Form.List>
+                                    </Form.Item>
+                                )}
+                                {typeCourant === 'produit' && (
+                                    <Form.Item
+                                        name="ajoutAutomatiqueIntervention"
+                                        valuePropName="checked"
+                                        extra="Ce produit est ajouté automatiquement à toute prestation comportant un forfait ou un service (ex. : traitement des déchets)."
+                                    >
+                                        <Checkbox>Ajouter automatiquement aux interventions</Checkbox>
                                     </Form.Item>
                                 )}
                                 {typeCourant !== 'produit' && (

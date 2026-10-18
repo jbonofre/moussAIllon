@@ -51,4 +51,9 @@ public class ProduitCatalogueEntity extends PanacheEntity {
 
     public double prixVenteTTC;
 
+    // Ajouté automatiquement à toute prestation comportant une intervention (forfait ou service),
+    // par exemple une participation au traitement des déchets
+    @Column(columnDefinition = "boolean default false")
+    public boolean ajoutAutomatiqueIntervention;
+
 }
