@@ -1,5 +1,5 @@
 import { fetchWithAuth } from './api.ts';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDownOutlined, ArrowUpOutlined, ClockCircleOutlined, WarningOutlined, AimOutlined, PlusOutlined, CalendarOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Alert, Badge, Button, Card, Col, Empty, List, Progress, Row, Space, Spin, Statistic, Table, Tag, Typography } from 'antd';
 import { Column, Pie } from '@ant-design/charts';
@@ -24,6 +24,8 @@ type StockAlert = {
     color: string;
 };
 
+const STOCK_ALERTES_MAX = 10;
+
 type DashboardData = {
     caDuMois: number;
     interventionsOuvertes: number;
@@ -32,7 +34,9 @@ type DashboardData = {
     interventions: InterventionRow[];
     stockAlerts: StockAlert[];
     heuresAtelierPct: number;
-    ventesComptoirPct: number;
+    heuresAtelier: number;
+    heuresAtelierCible: number | null;
+    ventesComptoir: number;
     contratsMaintenancePct: number;
     bateauxDansLeChantier: number;
     bateauxEntreesSemaine: number;
@@ -217,6 +221,14 @@ export default function Dashboard({ user }: { user?: string }) {
     const [ventesParJour, setVentesParJour] = useState<{ date: string; ventes: number }[]>([]);
     const [caParJour, setCaParJour] = useState<{ date: string; ca: number }[]>([]);
     const { navigate } = useNavigation();
+    const [largeurGraphique, setLargeurGraphique] = useState(0);
+    const observateurGraphique = useRef<ResizeObserver | null>(null);
+    const refGraphique = useCallback((el: HTMLDivElement | null) => {
+        observateurGraphique.current?.disconnect();
+        if (!el || typeof ResizeObserver === 'undefined') return;
+        observateurGraphique.current = new ResizeObserver(([entry]) => setLargeurGraphique(entry.contentRect.width));
+        observateurGraphique.current.observe(el);
+    }, []);
 
     const loadData = useCallback(() => {
         setLoading(true);
@@ -227,12 +239,8 @@ export default function Dashboard({ user }: { user?: string }) {
             .then((ventes: Array<Record<string, unknown>>) => {
                 setWarnings(buildWarnings(ventes));
                 const now = dayjs();
-                const startOfMonth = now.startOf('month');
-                const caDuMois = ventes
-                    .filter(v => v.status === 'PAYEE' && v.date && dayjs(v.date as string).isAfter(startOfMonth))
-                    .reduce((sum, v) => sum + ((v.prixVenteTTC as number) || 0), 0);
 
-                // Ventes par jour (30 derniers jours)
+                // Ventes et CA par jour (30 derniers jours)
                 const depuis = now.subtract(30, 'day').startOf('day');
                 const countParJour: Record<string, number> = {};
                 const caParJourMap: Record<string, number> = {};
@@ -241,14 +249,19 @@ export default function Dashboard({ user }: { user?: string }) {
                     countParJour[key] = 0;
                     caParJourMap[key] = 0;
                 }
+                const dansLaPeriode = (value: unknown): string | null => {
+                    const d = value ? dayjs(value as string) : null;
+                    if (!d || !d.isValid() || d.isBefore(depuis, 'day')) return null;
+                    const key = d.format('DD/MM');
+                    return key in countParJour ? key : null;
+                };
                 for (const v of ventes) {
-                    const d = v.date ? dayjs(v.date as string) : null;
-                    if (d && d.isValid() && !d.isBefore(depuis, 'day')) {
-                        const key = d.format('DD/MM');
-                        if (key in countParJour) {
-                            countParJour[key]++;
-                            caParJourMap[key] += (v.prixVenteTTC as number) || 0;
-                        }
+                    const venteKey = dansLaPeriode(v.date);
+                    if (venteKey) countParJour[venteKey]++;
+                    // Même règle que le CA du mois : factures payées, à leur date de paiement
+                    if (v.status === 'FACTURE_PAYEE') {
+                        const caKey = dansLaPeriode(v.dateFacturePayee || v.date);
+                        if (caKey) caParJourMap[caKey] += (v.prixVenteTTC as number) || 0;
                     }
                 }
                 setVentesParJour(
@@ -257,8 +270,6 @@ export default function Dashboard({ user }: { user?: string }) {
                 setCaParJour(
                     Object.entries(caParJourMap).map(([date, ca]) => ({ date, ca: Math.round(ca * 100) / 100 }))
                 );
-
-                return caDuMois;
             });
 
         const clientsPromise = fetchWithAuth('/clients')
@@ -282,8 +293,8 @@ export default function Dashboard({ user }: { user?: string }) {
             ventesPromise,
             clientsPromise,
         ])
-            .then(([d, caDuMois]: [DashboardData, number]) => {
-                setData({ ...d, caDuMois });
+            .then(([d]: [DashboardData, void, void]) => {
+                setData(d);
                 setLastUpdated(dayjs().format('DD/MM/YYYY HH:mm'));
             })
             .catch(() => setError("Impossible de charger les données du tableau de bord."))
@@ -313,6 +324,15 @@ export default function Dashboard({ user }: { user?: string }) {
     if (!data) {
         return null;
     }
+
+    // Une date affichée toutes les `pasDates` barres (~44 px par date) pour que l'axe reste lisible sur mobile
+    const pasDates = largeurGraphique > 0
+        ? Math.max(1, Math.ceil((ventesParJour.length * 44) / Math.max(largeurGraphique - 60, 1)))
+        : 1;
+    const axeDates = {
+        labelAutoRotate: false,
+        labelFormatter: (v: string, i: number) => (i % pasDates === 0 ? v : ''),
+    };
 
     const dateLabel = (() => {
         const formatted = new Intl.DateTimeFormat('fr-FR', {
@@ -470,6 +490,7 @@ export default function Dashboard({ user }: { user?: string }) {
                         rowKey="key"
                         pagination={{ pageSize: 5 }}
                         size="small"
+                        scroll={{ x: 'max-content' }}
                     />
                 </Card>
             )}
@@ -482,13 +503,14 @@ export default function Dashboard({ user }: { user?: string }) {
                             dataSource={data.interventions}
                             pagination={false}
                             size="small"
+                            scroll={{ x: 'max-content' }}
                         />
                     </Card>
                 </Col>
                 <Col xs={24} xl={8}>
                     <Card title="Stock à surveiller" style={{ height: '100%' }}>
                         <List
-                            dataSource={data.stockAlerts}
+                            dataSource={data.stockAlerts.slice(0, STOCK_ALERTES_MAX)}
                             renderItem={(item) => (
                                 <List.Item>
                                     <Space style={{ width: '100%', justifyContent: 'space-between' }}>
@@ -497,24 +519,31 @@ export default function Dashboard({ user }: { user?: string }) {
                                     </Space>
                                 </List.Item>
                             )}
+                            footer={data.stockAlerts.length > STOCK_ALERTES_MAX && (
+                                <Button type="link" style={{ padding: 0 }} onClick={() => navigate('/catalogue/produits')}>
+                                    Voir les {data.stockAlerts.length} produits en alerte
+                                </Button>
+                            )}
                         />
                     </Card>
                 </Col>
             </Row>
 
             <Card title="Ventes par jour (30 derniers jours)">
+                <div ref={refGraphique}>
                 {ventesParJour.length > 0 ? (
                     <Column
                         data={ventesParJour}
                         xField="date"
                         yField="ventes"
                         height={300}
-                        axis={{ x: { labelAutoRotate: false } }}
+                        axis={{ x: axeDates }}
                         style={{ radiusEndMax: 4 }}
                     />
                 ) : (
                     <Empty description="Aucune donnée" />
                 )}
+                </div>
             </Card>
 
             <Card title="Chiffre d'affaires par jour (30 derniers jours)">
@@ -524,7 +553,7 @@ export default function Dashboard({ user }: { user?: string }) {
                         xField="date"
                         yField="ca"
                         height={300}
-                        axis={{ x: { labelAutoRotate: false }, y: { labelFormatter: (v: number) => `${v} €` } }}
+                        axis={{ x: axeDates, y: { labelFormatter: (v: number) => `${v} €` } }}
                         style={{ radiusEndMax: 4, fill: '#52c41a' }}
                         tooltip={{ items: [{ channel: 'y', name: 'CA TTC', valueFormatter: (v: number) => `${v} €` }] }}
                     />
@@ -556,11 +585,23 @@ export default function Dashboard({ user }: { user?: string }) {
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
                             <div>
                                 <Text>Heures atelier facturées</Text>
-                                <Progress percent={data.heuresAtelierPct} status="active" />
+                                {data.heuresAtelierCible != null ? (
+                                    <>
+                                        <Text type="secondary"> ({data.heuresAtelier} h / {data.heuresAtelierCible} h)</Text>
+                                        <Progress percent={data.heuresAtelierPct} status="active" />
+                                    </>
+                                ) : (
+                                    <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+                                        {data.heuresAtelier} h réalisées · aucun objectif d'heures défini sur les techniciens
+                                    </Paragraph>
+                                )}
                             </div>
                             <div>
                                 <Text>Ventes comptoir</Text>
-                                <Progress percent={data.ventesComptoirPct} />
+                                <Paragraph style={{ marginBottom: 0 }}>
+                                    <Text strong style={{ fontSize: 20 }}>{data.ventesComptoir}</Text>
+                                    <Text type="secondary"> vente{data.ventesComptoir > 1 ? 's' : ''} ce mois-ci</Text>
+                                </Paragraph>
                             </div>
                             <div>
                                 <Text>Contrats de maintenance</Text>
