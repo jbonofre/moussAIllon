@@ -24,6 +24,8 @@ type StockAlert = {
     color: string;
 };
 
+const STOCK_ALERTES_MAX = 10;
+
 type DashboardData = {
     caDuMois: number;
     interventionsOuvertes: number;
@@ -508,7 +510,7 @@ export default function Dashboard({ user }: { user?: string }) {
                 <Col xs={24} xl={8}>
                     <Card title="Stock à surveiller" style={{ height: '100%' }}>
                         <List
-                            dataSource={data.stockAlerts}
+                            dataSource={data.stockAlerts.slice(0, STOCK_ALERTES_MAX)}
                             renderItem={(item) => (
                                 <List.Item>
                                     <Space style={{ width: '100%', justifyContent: 'space-between' }}>
@@ -516,6 +518,11 @@ export default function Dashboard({ user }: { user?: string }) {
                                         <Badge color={item.color} text={item.niveau} />
                                     </Space>
                                 </List.Item>
+                            )}
+                            footer={data.stockAlerts.length > STOCK_ALERTES_MAX && (
+                                <Button type="link" style={{ padding: 0 }} onClick={() => navigate('/catalogue/produits')}>
+                                    Voir les {data.stockAlerts.length} produits en alerte
+                                </Button>
                             )}
                         />
                     </Card>

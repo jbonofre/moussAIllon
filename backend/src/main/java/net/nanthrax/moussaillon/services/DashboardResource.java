@@ -53,7 +53,7 @@ public class DashboardResource {
         data.retards48h = (int) (forfaitsRetard + servicesRetard);
 
         // Alertes stock
-        List<ProduitCatalogueEntity> produitsEnAlerte = ProduitCatalogueEntity.list("stock <= stockMini");
+        List<ProduitCatalogueEntity> produitsEnAlerte = ProduitCatalogueEntity.list("stock <= stockMini order by stock, designation");
         data.alertesStock = produitsEnAlerte.size();
 
         // Interventions du jour (started today OR planned/scheduled for today)
@@ -138,7 +138,7 @@ public class DashboardResource {
         data.bateauxEntreesSemaine = bateauxSemaine.size();
         data.bateauxEnAttenteIntervention = bateauxEnAttente.size();
 
-        // Stock a surveiller
+        // Stock a surveiller (les plus bas d'abord)
         data.stockAlerts = new ArrayList<>();
         for (ProduitCatalogueEntity produit : produitsEnAlerte) {
             StockAlert alert = new StockAlert();
