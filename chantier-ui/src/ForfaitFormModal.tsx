@@ -19,6 +19,7 @@ import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { bateauClientOptions, moteurClientOptions, filterClientOption } from './forfait-clients.ts';
+import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from './forfait-lignes.ts';
 
 interface ProduitCatalogueEntity {
     id: number;
@@ -37,6 +38,7 @@ interface ProduitCatalogueEntity {
     tva?: number;
     montantTVA?: number;
     prixVenteTTC?: number;
+    referencesFournisseurs?: string[];
 }
 
 interface MainOeuvreEntity {
@@ -131,12 +133,12 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
     );
 
     const produitOptions = useMemo(
-        () => produits.map((p) => ({ value: p.id, label: p.designation })),
+        () => produitLigneOptions(produits),
         [produits]
     );
 
     const mainOeuvreOptions = useMemo(
-        () => mainOeuvresList.map((mo) => ({ value: mo.id, label: mo.reference ? `${mo.reference} - ${mo.nom}` : mo.nom })),
+        () => mainOeuvreLigneOptions(mainOeuvresList),
         [mainOeuvresList]
     );
 
@@ -145,7 +147,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
             Promise.all([
                 api.get('/catalogue/moteurs'),
                 api.get('/catalogue/bateaux'),
-                api.get('/catalogue/produits'),
+                api.get('/catalogue/produits/search'),
                 api.get('/main-oeuvres'),
                 api.get('/bateaux'),
                 api.get('/moteurs'),
@@ -586,7 +588,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                                                                     }]}
                                                                     style={{ width: 520 }}
                                                                 >
-                                                                    <Select allowClear showSearch options={produitOptions} placeholder="Produit" />
+                                                                    <Select allowClear showSearch options={produitOptions} filterOption={filterLigneOption} placeholder="Produit (réf. interne, réf. fournisseur, désignation)" />
                                                                 </Form.Item>
                                                                 <Form.Item
                                                                     {...field}
@@ -647,7 +649,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                                                                     }]}
                                                                     style={{ width: 520 }}
                                                                 >
-                                                                    <Select allowClear showSearch options={mainOeuvreOptions} placeholder="Main d'Oeuvre" />
+                                                                    <Select allowClear showSearch options={mainOeuvreOptions} filterOption={filterLigneOption} placeholder="Main d'Oeuvre (référence, nom)" />
                                                                 </Form.Item>
                                                                 <Form.Item
                                                                     {...field}
