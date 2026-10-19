@@ -21,6 +21,7 @@ jest.setTimeout(60000);
 const produit = { id: 1, designation: 'Anode zinc', ref: 'AN-1', stock: 10, prixVenteTTC: 12 };
 const bateau = { id: 1, designation: 'Cap Camarat 6.5', stock: 1, prixVenteTTC: 45000 };
 const moteur = { id: 1, designation: 'F115 XB', stock: 2, prixVenteTTC: 13000 };
+const forfait = { id: 1, nom: 'Hivernage', reference: 'FORFAIT-001', prixTTC: 300 };
 
 const donnees: Record<string, any[]> = {
     '/catalogue/packages': [
@@ -35,6 +36,16 @@ const donnees: Record<string, any[]> = {
             ],
         },
         { id: 8, designation: 'Pack vide', ref: 'PKG-000008', lignes: [] },
+        {
+            id: 9,
+            designation: 'Pack entretien',
+            ref: 'PKG-000009',
+            lignes: [
+                { id: 4, forfait, quantite: 1 },
+                { id: 5, produit, quantite: 2 },
+            ],
+        },
+        { id: 10, designation: 'Pack hivernage', ref: 'PKG-000010', lignes: [{ id: 6, forfait, quantite: 1 }] },
     ],
     '/catalogue/produits': [produit],
     '/catalogue/bateaux': [bateau],
@@ -122,6 +133,30 @@ describe('Comptoir - packages', () => {
         await waitFor(() => expect(lignesProduits(modal)).toHaveLength(5));
         expect(within(modal).getAllByText('AN-1 - Anode zinc')).toHaveLength(2);
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('58060.00');
+    });
+
+    it('ne reprend que les articles d\'un package contenant un forfait', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisirDansLaDerniereLigne(modal, 'PKG-000009 - Pack entretien');
+
+        expect(await screen.findByText('Les forfaits du package ne sont pas repris dans une vente comptoir.')).toBeInTheDocument();
+        await waitFor(() => expect(lignesProduits(modal)).toHaveLength(2));
+        expect(within(modal).getByTitle('AN-1 - Anode zinc')).toBeInTheDocument();
+        expect(within(modal).queryByTitle(/Hivernage/)).not.toBeInTheDocument();
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('24.00');
+    });
+
+    it('laisse la vente inchangée pour un package ne contenant que des forfaits', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisirDansLaDerniereLigne(modal, 'PKG-000010 - Pack hivernage');
+
+        expect(await screen.findByText('Les forfaits du package ne sont pas repris dans une vente comptoir.')).toBeInTheDocument();
+        expect(screen.queryByText('Ce package ne contient aucun article.')).not.toBeInTheDocument();
+        expect(lignesProduits(modal)).toHaveLength(1);
+        await waitFor(() => expect(within(modal).queryByText('PKG-000010 - Pack hivernage')).not.toBeInTheDocument());
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('0.00');
     });
 
     it('laisse la vente inchangée pour un package sans article', async () => {

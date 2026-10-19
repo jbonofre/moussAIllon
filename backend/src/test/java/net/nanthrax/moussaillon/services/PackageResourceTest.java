@@ -223,6 +223,64 @@ public class PackageResourceTest {
     }
 
     @Test
+    void testCreerPackageAvecForfait() {
+        int id = creer("Pack entretien et anodes", "["
+            + "{\"forfait\":{\"id\":100},\"quantite\":1},"
+            + "{\"produit\":{\"id\":100},\"quantite\":2}]");
+
+        given()
+            .when().get("/catalogue/packages/" + id)
+            .then()
+            .statusCode(200)
+            .body("lignes.size()", is(2))
+            .body("lignes[0].forfait.id", is(100))
+            .body("lignes[0].forfait.nom", is("Pack entretien complet"))
+            .body("lignes[0].forfait.prixTTC", is(300.0f))
+            .body("lignes[1].produit.id", is(100));
+    }
+
+    @Test
+    void testCreerPackageAvecForfaitInconnu() {
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Pack forfait inconnu\",\"lignes\":[{\"forfait\":{\"id\":9999},\"quantite\":1}]}")
+            .when().post("/catalogue/packages")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    void testCreerPackageAvecLigneDesignantUnForfaitEtUnArticle() {
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Pack forfait et article\",\"lignes\":[{\"forfait\":{\"id\":100},\"produit\":{\"id\":100},\"quantite\":1}]}")
+            .when().post("/catalogue/packages")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    void testSupprimerUnForfaitLeRetireDesPackages() {
+        int forfaitId = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Forfait du package\",\"reference\":\"REF-PKG\"}")
+            .when().post("/forfaits")
+            .then().statusCode(201).extract().path("id");
+        int id = creer("Pack forfait supprime", "["
+            + "{\"forfait\":{\"id\":" + forfaitId + "},\"quantite\":1},"
+            + "{\"moteur\":{\"id\":100},\"quantite\":1}]");
+
+        given().when().delete("/forfaits/" + forfaitId).then().statusCode(204);
+
+        given()
+            .when().get("/catalogue/packages/" + id)
+            .then()
+            .statusCode(200)
+            .body("lignes.size()", is(1))
+            .body("lignes[0].moteur.id", is(100));
+    }
+
+    @Test
     void testConversionRefuseePourUnArticleDePackage() {
         int heliceId = given()
             .contentType("application/json")

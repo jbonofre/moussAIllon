@@ -12,7 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 
 /**
- * Regroupement d'articles du catalogue (produits, bateaux, moteurs, hélices, remorques).
+ * Regroupement d'articles du catalogue (produits, bateaux, moteurs, hélices, remorques) et de forfaits.
  * Un package sert de modèle : l'ajouter à une vente y recopie ses lignes.
  */
 @Entity

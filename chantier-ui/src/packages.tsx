@@ -9,6 +9,7 @@ import {
     TYPES_ARTICLE_PACKAGE,
     TypeArticlePackage,
     articlesDuPackage,
+    forfaitVersArticle,
     totalPackageTTC,
 } from './package-lignes.ts';
 
@@ -25,6 +26,7 @@ const TYPES_ARTICLE: Record<TypeArticlePackage, TypeArticleConfig> = {
     moteur: { label: 'Moteur', pluriel: 'Moteurs', endpoint: '/catalogue/moteurs', color: 'purple' },
     helice: { label: 'Hélice', pluriel: 'Hélices', endpoint: '/catalogue/helices', color: 'blue' },
     remorque: { label: 'Remorque', pluriel: 'Remorques', endpoint: '/catalogue/remorques', color: 'gold' },
+    forfait: { label: 'Forfait', pluriel: 'Forfaits', endpoint: '/forfaits', color: 'geekblue' },
 };
 
 // Une ligne du formulaire désigne son article par une référence « type:id »
@@ -67,6 +69,7 @@ export default function Packages() {
         moteur: [],
         helice: [],
         remorque: [],
+        forfait: [],
     });
     const [loading, setLoading] = useState(false);
     const [modalVisible, setModalVisible] = useState(false);
@@ -92,13 +95,10 @@ export default function Packages() {
     const fetchCatalogue = async () => {
         try {
             const reponses = await Promise.all(TYPES_ARTICLE_PACKAGE.map((type) => api.get(TYPES_ARTICLE[type].endpoint)));
-            setCatalogue({
-                produit: reponses[0].data || [],
-                bateau: reponses[1].data || [],
-                moteur: reponses[2].data || [],
-                helice: reponses[3].data || [],
-                remorque: reponses[4].data || [],
-            });
+            setCatalogue(Object.fromEntries(TYPES_ARTICLE_PACKAGE.map((type, index) => {
+                const articles = reponses[index].data || [];
+                return [type, type === 'forfait' ? articles.map(forfaitVersArticle) : articles];
+            })) as Record<TypeArticlePackage, ArticlePackage[]>);
         } catch {
             message.error('Erreur lors du chargement du catalogue.');
         }
@@ -337,7 +337,7 @@ export default function Packages() {
                     <Form.Item name="description" label="Description">
                         <Input.TextArea rows={3} placeholder="Description" allowClear />
                     </Form.Item>
-                    <Form.Item label="Contenu du package" extra="Ces lignes sont recopiées dans la vente comptoir ou la transaction qui utilise le package, au prix catalogue du moment.">
+                    <Form.Item label="Contenu du package" extra="Ces lignes sont recopiées dans la vente comptoir ou la transaction qui utilise le package, au prix catalogue du moment. Les forfaits ne sont repris que dans une transaction.">
                         <div style={{ display: 'flex', gap: 8, marginBottom: 4, color: '#8c8c8c' }}>
                             <div style={{ flex: 1 }}>Article</div>
                             <div style={{ width: COLONNES.type }}>Type</div>
@@ -368,7 +368,7 @@ export default function Packages() {
                                                                 filterOption={(input, option) =>
                                                                     ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
                                                                 }
-                                                                placeholder="Rechercher produit, bateau, moteur, hélice ou remorque"
+                                                                placeholder="Rechercher produit, bateau, moteur, hélice, remorque ou forfait"
                                                             />
                                                         </Form.Item>
                                                         <div style={{ width: COLONNES.type }}>

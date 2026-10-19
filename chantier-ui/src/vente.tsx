@@ -2791,7 +2791,10 @@ export default function Vente() {
             return;
         }
         const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
-        const lignesPackage: LigneUnifiee[] = articles.map(({ type, article, quantite }) => ({ type, itemId: article.id, quantite }));
+        // Comme à la saisie d'une ligne, un forfait du package est à planifier
+        const lignesPackage: LigneUnifiee[] = articles.map(({ type, article, quantite }) => (
+            type === 'forfait' ? { type, itemId: article.id, quantite, status: 'EN_ATTENTE' } : { type, itemId: article.id, quantite }
+        ));
         const updated = [...currentLignes.slice(0, lineIndex), ...lignesPackage, ...currentLignes.slice(lineIndex + 1)];
         const lastLine = updated[updated.length - 1];
         if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {

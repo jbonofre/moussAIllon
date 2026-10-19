@@ -18,6 +18,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
+import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
 
 @Path("/forfaits")
 @ApplicationScoped
@@ -78,7 +79,8 @@ public class ForfaitResource {
         if (entity == null) {
             throw new WebApplicationException("Le forfait (" + id + ") n'est pas trouve", 404);
         }
-
+        // Un package ne peut pas proposer un forfait supprimé : on retire les lignes concernées
+        PackageLigneEntity.delete("forfait.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }

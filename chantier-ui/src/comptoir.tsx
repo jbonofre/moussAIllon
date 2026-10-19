@@ -1525,9 +1525,14 @@ export default function Comptoir() {
             const packageId = parsePackageRef(line?.produitRef);
             if (packageId === undefined) return [line];
             const pack = packages.find((p) => p.id === packageId);
-            const articles = articlesDuPackage(pack);
+            const contenu = articlesDuPackage(pack);
+            // Une vente comptoir ne porte pas de forfait : seuls les articles du package y sont recopiés
+            const articles = contenu.filter(({ type }) => type !== 'forfait');
+            if (articles.length < contenu.length) {
+                message.warning('Les forfaits du package ne sont pas repris dans une vente comptoir.');
+            }
             if (articles.length === 0) {
-                message.info('Ce package ne contient aucun article.');
+                if (contenu.length === 0) message.info('Ce package ne contient aucun article.');
                 return [{ ...line, produitRef: undefined }];
             }
             message.success(`Package « ${pack!.designation} » ajouté à la vente`);
