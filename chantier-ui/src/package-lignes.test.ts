@@ -30,6 +30,21 @@ describe('package-lignes', () => {
         expect(articlesDuPackage({ designation: 'Sans ligne' })).toEqual([]);
     });
 
+    it('présente un forfait comme un article, avec son nom, sa référence et son prix TTC', () => {
+        const entretien: PackageEntity = {
+            designation: 'Pack entretien',
+            lignes: [
+                { forfait: { id: 3, nom: 'Hivernage', reference: 'FORFAIT-001', prixTTC: 300 }, quantite: 1 },
+                { produit: { id: 1, designation: 'Anode zinc', prixVenteTTC: 12.1 }, quantite: 2 },
+            ],
+        };
+        expect(articlesDuPackage(entretien)).toEqual([
+            { type: 'forfait', article: { id: 3, designation: 'Hivernage', ref: 'FORFAIT-001', prixVenteTTC: 300 }, quantite: 1 },
+            { type: 'produit', article: { id: 1, designation: 'Anode zinc', prixVenteTTC: 12.1 }, quantite: 2 },
+        ]);
+        expect(totalPackageTTC(entretien)).toBe(324.2);
+    });
+
     it('calcule le total TTC au prix catalogue', () => {
         expect(totalPackageTTC(pack)).toBe(58048.4);
         expect(totalPackageTTC({ designation: 'Vide', lignes: [] })).toBe(0);

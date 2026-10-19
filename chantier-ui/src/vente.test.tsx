@@ -39,6 +39,15 @@ const donnees: Record<string, any[]> = {
             ],
         },
         { id: 8, designation: 'Pack vide', ref: 'PKG-000008', lignes: [] },
+        {
+            id: 9,
+            designation: 'Pack entretien',
+            ref: 'PKG-000009',
+            lignes: [
+                { id: 4, forfait, quantite: 1 },
+                { id: 5, produit, quantite: 2 },
+            ],
+        },
     ],
     '/catalogue/produits': [produit],
     '/catalogue/bateaux': [bateau],
@@ -119,6 +128,25 @@ describe('Transactions - packages', () => {
             venteProduits: [expect.objectContaining({ produit: expect.objectContaining({ designation: 'Anode zinc' }), quantite: 4 })],
             montantTTC: 58348,
             prixVenteTTC: 58348,
+        })));
+    });
+
+    it('ajoute les forfaits du package, à planifier', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
+        await choisirDansLaLigneVide(modal, 'PKG-000009 - Pack entretien');
+
+        expect(await within(modal).findByText('FORFAIT-001 - Hivernage')).toBeInTheDocument();
+        expect(within(modal).getByText('AN-1 - Anode zinc')).toBeInTheDocument();
+        expect(within(modal).queryByText('PKG-000009 - Pack entretien')).not.toBeInTheDocument();
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('324.00');
+
+        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
+            venteForfaits: [expect.objectContaining({ forfait: expect.objectContaining({ nom: 'Hivernage' }), quantite: 1, status: 'EN_ATTENTE' })],
+            venteProduits: [expect.objectContaining({ produit: expect.objectContaining({ designation: 'Anode zinc' }), quantite: 2 })],
+            montantTTC: 324,
         })));
     });
 

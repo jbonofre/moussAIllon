@@ -18,6 +18,7 @@ const bateau = { id: 1, designation: 'Cap Camarat 6.5', prixVenteTTC: 45000 };
 const moteur = { id: 1, designation: 'F115 XB', prixVenteTTC: 13000 };
 const helice = { id: 1, designation: 'Alu 13x19', prixVenteTTC: 150 };
 const remorque = { id: 1, designation: 'Satellite 750', prixVenteTTC: 1900 };
+const forfait = { id: 1, nom: 'Hivernage', reference: 'FORFAIT-001', prixTTC: 300 };
 
 const pack = {
     id: 7,
@@ -38,6 +39,7 @@ const donnees: Record<string, any[]> = {
     '/catalogue/moteurs': [moteur],
     '/catalogue/helices': [helice],
     '/catalogue/remorques': [remorque],
+    '/forfaits': [forfait],
 };
 
 const mockedApi = api as jest.Mocked<typeof api>;
@@ -55,9 +57,11 @@ const renderPackages = async () => {
     await screen.findByText('Pack prêt à naviguer');
 };
 
-// La liste déroulante d'une ligne déjà renseignée reste dans le DOM, masquée : on choisit dans celle qui est ouverte
-const choisirArticle = async (combobox: HTMLElement, libelle: string) => {
+// La liste déroulante d'une ligne déjà renseignée reste dans le DOM, masquée : on choisit dans celle qui est ouverte.
+// Elle est virtualisée : une recherche fait apparaître les options des derniers groupes.
+const choisirArticle = async (combobox: HTMLElement, libelle: string, recherche?: string) => {
     fireEvent.mouseDown(combobox);
+    if (recherche) fireEvent.change(combobox, { target: { value: recherche } });
     const option = await waitFor(() => {
         const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
             .find((element) => element.textContent === libelle);
@@ -110,6 +114,51 @@ describe('Packages', () => {
                 ],
             }),
         ));
+    });
+
+    it('ajoute un forfait au package, à son prix TTC', async () => {
+        await renderPackages();
+        expect(mockedApi.get).toHaveBeenCalledWith('/forfaits');
+        fireEvent.click(document.querySelector('.anticon-plus-circle')!.closest('button')!);
+        expect(await screen.findByText('Ajouter un package')).toBeInTheDocument();
+        const modal = document.querySelector('.ant-modal') as HTMLElement;
+
+        fireEvent.change(within(modal).getByLabelText('Désignation'), { target: { value: 'Pack entretien' } });
+        await choisirArticle(within(modal).getAllByRole('combobox')[0], 'FORFAIT-001 - Hivernage', 'hivernage');
+        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(2));
+        expect(within(modal).getByText('Forfait')).toBeInTheDocument();
+        await choisirArticle(within(modal).getAllByRole('combobox')[1], 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(3));
+        expect(await within(modal).findByText('312.00 €')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith(
+            '/catalogue/packages',
+            expect.objectContaining({
+                designation: 'Pack entretien',
+                lignes: [
+                    { forfait: { id: 1 }, quantite: 1 },
+                    { produit: { id: 1 }, quantite: 1 },
+                ],
+            }),
+        ));
+    });
+
+    it('liste le forfait d\'un package avec son nom et l\'inclut dans le prix', async () => {
+        donnees['/catalogue/packages'] = [pack, {
+            id: 9,
+            designation: 'Pack entretien',
+            lignes: [{ id: 4, forfait, quantite: 1 }, { id: 5, produit, quantite: 2 }],
+        }];
+        try {
+            await renderPackages();
+            const row = screen.getByText('Pack entretien').closest('tr') as HTMLElement;
+            expect(within(row).getByText('Hivernage')).toBeInTheDocument();
+            expect(within(row).getByText('2 × Anode zinc')).toBeInTheDocument();
+            expect(within(row).getByText('324.00 €')).toBeInTheDocument();
+        } finally {
+            donnees['/catalogue/packages'] = [pack];
+        }
     });
 
     it('refuse un package sans article', async () => {

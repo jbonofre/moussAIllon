@@ -19,6 +19,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.PackageEntity;
@@ -108,7 +109,7 @@ public class PackageResource {
 
     /**
      * Reconstruit les lignes à partir des articles réellement présents au catalogue : le client n'envoie
-     * que des identifiants, et une ligne doit désigner un article, et un seul.
+     * que des identifiants, et une ligne doit désigner un article (ou un forfait), et un seul.
      */
     private List<PackageLigneEntity> resoudreLignes(List<PackageLigneEntity> lignes) {
         List<PackageLigneEntity> result = new ArrayList<>();
@@ -141,8 +142,12 @@ public class PackageResource {
                 resolue.remorque = article(ligne.remorque.id, id -> RemorqueCatalogueEntity.findById(id), "remorque");
                 articles++;
             }
+            if (ligne.forfait != null) {
+                resolue.forfait = article(ligne.forfait.id, id -> ForfaitEntity.findById(id), "forfait");
+                articles++;
+            }
             if (articles != 1) {
-                throw new WebApplicationException("Chaque ligne du package doit désigner un article du catalogue, et un seul", 400);
+                throw new WebApplicationException("Chaque ligne du package doit désigner un article du catalogue ou un forfait, et un seul", 400);
             }
             resolue.quantite = Math.max(1, ligne.quantite);
             result.add(resolue);
