@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Col, Row, Spin, Statistic, Table, Tag, message } from 'antd';
 import api from './api.ts';
+import { paginationConfig } from './pagination.ts';
 
 type Mouvement = {
     id: number;
@@ -107,7 +108,7 @@ const ProduitHistorique = ({ produitId }: { produitId?: number }) => {
                     columns={columns}
                     dataSource={mouvements}
                     bordered
-                    pagination={{ pageSize: 10 }}
+                    pagination={paginationConfig()}
                 />
             </Spin>
         </Card>

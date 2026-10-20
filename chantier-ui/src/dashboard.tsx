@@ -6,6 +6,7 @@ import { Column, Pie } from '@ant-design/charts';
 import dayjs from 'dayjs';
 import { useNavigation } from './navigation-context.tsx';
 import { VERSION_LABEL } from './version.ts';
+import { paginationConfig } from './pagination.ts';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -488,7 +489,7 @@ export default function Dashboard({ user }: { user?: string }) {
                         columns={warningColumns}
                         dataSource={warnings}
                         rowKey="key"
-                        pagination={{ pageSize: 5 }}
+                        pagination={paginationConfig(5)}
                         size="small"
                         scroll={{ x: 'max-content' }}
                     />

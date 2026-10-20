@@ -23,6 +23,7 @@ import dayjs from 'dayjs';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
+import { paginationConfig } from './pagination.ts';
 
 type TaskStatus = 'EN_ATTENTE' | 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'INCIDENT' | 'ANNULEE';
 
@@ -657,7 +658,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                     dataSource={filteredItems}
                     columns={columns}
                     loading={loading}
-                    pagination={{ pageSize: 10 }}
+                    pagination={paginationConfig()}
                     bordered
                 />
             </Card>
@@ -681,7 +682,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                         dataSource={nonAffectees}
                         columns={nonAffecteesColumns}
                         loading={loadingNonAffectees}
-                        pagination={{ pageSize: 10 }}
+                        pagination={paginationConfig()}
                         bordered
                     />
                 )}

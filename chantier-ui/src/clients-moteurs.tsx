@@ -40,6 +40,7 @@ import { useNavigation } from './navigation-context.tsx';
 import HistoriqueOperations from './historique-operations.tsx';
 import PrestationsList from './PrestationsList.tsx';
 import ForfaitsAssocies from './ForfaitsAssocies.tsx';
+import { paginationConfig } from './pagination.ts';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -427,7 +428,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
           columns={columns}
           dataSource={moteurs}
           bordered
-          pagination={{ pageSize: 10 }}
+          pagination={paginationConfig()}
           onRow={(record) => ({
             onClick: (e) => {
               if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;

@@ -31,6 +31,7 @@ import {
     StopOutlined,
 } from '@ant-design/icons';
 import { fetchWithAuth } from './api.ts';
+import { paginationConfig } from './pagination.ts';
 
 const { TextArea } = Input;
 
@@ -868,7 +869,7 @@ export default function Avoirs() {
                 loading={loading}
                 dataSource={filteredAvoirs}
                 columns={columns}
-                pagination={{ pageSize: 15 }}
+                pagination={paginationConfig()}
                 bordered
                 onRow={(record) => ({
                     onClick: (e) => {

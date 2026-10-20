@@ -15,6 +15,7 @@ import ForfaitFormModal from './ForfaitFormModal.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import ImportCsvButton from './ImportCsvButton.tsx';
+import { paginationConfig } from './pagination.ts';
 
 // --- Types ---
 
@@ -891,7 +892,7 @@ const CatalogueProduits: React.FC = () => {
                             columns={columns}
                             dataSource={lignes}
                             loading={loading}
-                            pagination={{ pageSize: 10 }}
+                            pagination={paginationConfig()}
                             bordered
                             onRow={(record) => ({
                                 onClick: (e) => {

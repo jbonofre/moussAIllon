@@ -31,6 +31,7 @@ const { TextArea } = Input;
 import api from "./api.ts";
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
+import { paginationConfig } from './pagination.ts';
 
 const { Option } = Select;
 
@@ -370,7 +371,7 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
           columns={columns}
           dataSource={bateauxAssocies}
           bordered
-          pagination={{ pageSize: 10 }}
+          pagination={paginationConfig()}
         />
       </Spin>
 
