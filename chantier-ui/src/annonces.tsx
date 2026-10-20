@@ -18,6 +18,7 @@ import { DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, SendOutl
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { useNavigation } from './navigation-context.tsx';
+import { paginationConfig } from './pagination.ts';
 
 interface ClientEntity {
     id: number;
@@ -379,7 +380,7 @@ export default function Annonces() {
                 dataSource={filteredAnnonces}
                 columns={columns}
                 loading={loading}
-                pagination={{ pageSize: 10 }}
+                pagination={paginationConfig()}
                 bordered
                 onRow={(record) => ({
                     onClick: (e) => {

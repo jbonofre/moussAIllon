@@ -5,6 +5,7 @@ import { Line } from '@ant-design/charts';
 import axios from 'axios';
 import api from './api.ts';
 import dayjs from 'dayjs';
+import { paginationConfig } from './pagination.ts';
 
 type PlanningStatus = 'EN_ATTENTE' | 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'INCIDENT' | 'ANNULEE';
 
@@ -1409,7 +1410,7 @@ export default function Planning() {
                                 loading={loading}
                                 dataSource={pendingItems}
                                 columns={pendingColumns}
-                                pagination={{ pageSize: 6 }}
+                                pagination={paginationConfig(6)}
                                 bordered
                                 onRow={(record) => ({
                                     draggable: true,
@@ -1450,7 +1451,7 @@ export default function Planning() {
                                 loading={loading}
                                 dataSource={lateItems}
                                 columns={dayColumns}
-                                pagination={{ pageSize: 6 }}
+                                pagination={paginationConfig(6)}
                                 bordered
                             />
                         </Card>
@@ -1471,7 +1472,7 @@ export default function Planning() {
                                 loading={loading}
                                 dataSource={enCoursItems}
                                 columns={dayColumns}
-                                pagination={{ pageSize: 6 }}
+                                pagination={paginationConfig(6)}
                                 bordered
                             />
                         ) : (
@@ -1490,7 +1491,7 @@ export default function Planning() {
                                 loading={loading}
                                 dataSource={plannedItems}
                                 columns={dayColumns}
-                                pagination={{ pageSize: 8 }}
+                                pagination={paginationConfig(8)}
                                 bordered
                             />
                         ) : (
@@ -1539,7 +1540,7 @@ export default function Planning() {
                                         ) : null
                                     }
                                 ]}
-                                pagination={{ pageSize: 8 }}
+                                pagination={paginationConfig(8)}
                                 bordered
                             />
                         ) : (

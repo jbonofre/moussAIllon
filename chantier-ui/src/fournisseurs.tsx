@@ -33,6 +33,7 @@ import FournisseurMoteurs from "./fournisseur-moteurs.tsx";
 import FournisseurRemorques from "./fournisseur-remorques.tsx";
 import FournisseurProduits from "./fournisseur-produits.tsx";
 import CommandesFournisseur from "./commandes-fournisseur.tsx";
+import { paginationConfig } from "./pagination.ts";
 
 const style: React.CSSProperties = { padding: '8px 0' };
 const { TextArea } = Input;
@@ -259,7 +260,7 @@ const Fournisseurs = () => {
         </Row>
         <Row gutter={[16, 16]}>
           <Col span={24}>
-            <MosaicTable rowKey="id" columns={columns} dataSource={fournisseurs} loading={loading} bordered pagination={{ pageSize: 10 }} />
+            <MosaicTable rowKey="id" columns={columns} dataSource={fournisseurs} loading={loading} bordered pagination={paginationConfig()} />
           </Col>
         </Row>
       </Card>

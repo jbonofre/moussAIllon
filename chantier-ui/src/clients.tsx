@@ -46,6 +46,7 @@ import DocumentUpload from "./DocumentUpload.tsx";
 import PrestationsList from "./PrestationsList.tsx";
 import HistoriqueOperations from "./historique-operations.tsx";
 import ImportCsvButton from "./ImportCsvButton.tsx";
+import { paginationConfig } from "./pagination.ts";
 
 const { Option } = Select;
 const { Search } = Input;
@@ -362,7 +363,7 @@ function Clients() {
           columns={columns}
           dataSource={clients}
           bordered
-          pagination={{ pageSize: 10 }}
+          pagination={paginationConfig()}
           onRow={(record) => ({
             onClick: (e) => {
               if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;

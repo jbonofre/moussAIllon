@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
+import { paginationConfig } from './pagination.ts';
 
 interface BateauClientEntity {
     id: number;
@@ -286,7 +287,7 @@ export default function PetitesAnnonces({ clientId, initialPhotos, initialBateau
                     rowKey="id"
                     dataSource={displayedAnnonces}
                     columns={columns}
-                    pagination={{ pageSize: 10 }}
+                    pagination={paginationConfig()}
                     bordered
                 />
             </Spin>

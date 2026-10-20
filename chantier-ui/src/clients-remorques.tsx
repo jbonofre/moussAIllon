@@ -38,6 +38,7 @@ import dayjs from "dayjs";
 import { useNavigation } from './navigation-context.tsx';
 import HistoriqueOperations from './historique-operations.tsx';
 import PrestationsList from './PrestationsList.tsx';
+import { paginationConfig } from './pagination.ts';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -384,7 +385,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
           columns={columns}
           dataSource={remorques}
           bordered
-          pagination={{ pageSize: 10 }}
+          pagination={paginationConfig()}
           onRow={(record) => ({
             onClick: (e) => {
               if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;

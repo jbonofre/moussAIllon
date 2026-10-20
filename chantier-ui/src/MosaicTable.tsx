@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Table, Segmented, Card, Pagination, Empty, Image } from "antd";
-import type { TableProps } from "antd";
+import type { TableProps, TablePaginationConfig } from "antd";
 import { UnorderedListOutlined, AppstoreOutlined, PictureOutlined } from "@ant-design/icons";
+import { paginationConfig, DEFAULT_PAGE_SIZE } from "./pagination.ts";
 
 type Mode = "list" | "mosaic";
 
@@ -44,8 +45,19 @@ function MosaicTable<T extends object>(props: MosaicTableProps<T>) {
     }
   });
   const [page, setPage] = useState(1);
-  const pageSizeCfg = pagination && typeof pagination === "object" ? pagination.pageSize ?? 10 : 10;
-  const [pageSize, setPageSize] = useState<number>(pageSizeCfg);
+  const paginated = pagination !== false;
+  const paginationObj: TablePaginationConfig = pagination && typeof pagination === "object" ? pagination : {};
+  const [pageSize, setPageSize] = useState<number>(() => paginationObj.pageSize ?? paginationObj.defaultPageSize ?? DEFAULT_PAGE_SIZE);
+  // Le nombre de lignes par page choisi est conservé quand on bascule entre liste et mosaïque.
+  const listPagination: TablePaginationConfig | false = paginated && {
+    ...paginationConfig(paginationObj.defaultPageSize ?? paginationObj.pageSize),
+    ...paginationObj,
+    pageSize,
+    onChange: (p, s) => {
+      setPageSize(s);
+      paginationObj.onChange?.(p, s);
+    },
+  };
 
   useEffect(() => {
     try {
@@ -111,7 +123,7 @@ function MosaicTable<T extends object>(props: MosaicTableProps<T>) {
           {...rest}
           columns={listColumns}
           dataSource={dataSource}
-          pagination={pagination}
+          pagination={listPagination}
           onRow={onRow}
           rowKey={rowKey}
           loading={loading}
@@ -138,7 +150,6 @@ function MosaicTable<T extends object>(props: MosaicTableProps<T>) {
   const rowKeyOf = (record: any, index: number) =>
     typeof rowKey === "function" ? rowKey(record) : rowKey ? record[rowKey as string] : index;
 
-  const paginated = pagination !== false;
   const start = (page - 1) * pageSize;
   const visible = paginated ? data.slice(start, start + pageSize) : data;
 
@@ -217,13 +228,14 @@ function MosaicTable<T extends object>(props: MosaicTableProps<T>) {
         })}
       </div>
       {data.length === 0 && !loading && <Empty style={{ margin: 24 }} />}
-      {paginated && data.length > pageSize && (
+      {listPagination && data.length > 0 && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
           <Pagination
             current={page}
             pageSize={pageSize}
             total={data.length}
-            showSizeChanger={false}
+            showSizeChanger={listPagination.showSizeChanger}
+            pageSizeOptions={listPagination.pageSizeOptions}
             onChange={(p, s) => {
               setPage(p);
               setPageSize(s);

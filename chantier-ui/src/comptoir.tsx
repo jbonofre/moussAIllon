@@ -43,6 +43,7 @@ import ImageUpload from './ImageUpload.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
+import { paginationConfig } from './pagination.ts';
 
 interface ClientEntity {
     id: number;
@@ -1838,7 +1839,7 @@ export default function Comptoir() {
                 dataSource={filteredVentes}
                 columns={columns}
                 loading={loading}
-                pagination={{ pageSize: 10 }}
+                pagination={paginationConfig()}
                 bordered
                 onRow={(record) => ({
                     onClick: (e) => {

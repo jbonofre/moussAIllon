@@ -3,6 +3,7 @@ import MosaicTable from "./MosaicTable.tsx";
 import { Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber, Popconfirm, message } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from './api.ts';
+import { paginationConfig } from './pagination.ts';
 
 interface MainOeuvreEntity {
     id?: number;
@@ -230,7 +231,7 @@ export default function MainOeuvres() {
                         dataSource={mainOeuvres}
                         columns={columns}
                         loading={loading}
-                        pagination={{ pageSize: 10 }}
+                        pagination={paginationConfig()}
                         bordered
                         onRow={(record) => ({
                             onClick: (e) => {
