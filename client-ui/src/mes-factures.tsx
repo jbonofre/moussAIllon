@@ -3,6 +3,7 @@ import { Button, Card, Checkbox, Divider, Modal, Space, Table, Tag, Spin, messag
 import { CheckCircleOutlined, CreditCardOutlined, EyeOutlined, PrinterOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
+import { paginationConfig } from './pagination.ts';
 
 interface ProduitRef { id: number; designation: string; ref?: string; prixVenteTTC?: number }
 interface CompositionRef {
@@ -678,7 +679,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                     rowKey="id"
                     dataSource={ventes}
                     columns={columns}
-                    pagination={{ pageSize: 10 }}
+                    pagination={paginationConfig()}
                     bordered
                 />
             </Spin>

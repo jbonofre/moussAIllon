@@ -3,6 +3,7 @@ import MosaicTable from "./MosaicTable.tsx";
 import React, { useEffect, useState } from 'react';
 import { Space, Table, Button, Input, Form, Modal, Avatar, Spin, Select, Popconfirm, message, Row, Col } from 'antd';
 import { UserOutlined, PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { paginationConfig } from './pagination.ts';
 
 const style: React.CSSProperties = { padding: '8px 0' };
 const { Search } = Input;
@@ -310,7 +311,7 @@ export default function Utilisateurs() {
                         rowKey="name"
                         dataSource={users}
                         columns={columns}
-                        pagination={{ pageSize: 8, showSizeChanger: false }}
+                        pagination={paginationConfig()}
                         onRow={(record) => ({
                             onClick: (e) => {
                                 if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;

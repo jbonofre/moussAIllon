@@ -3,6 +3,7 @@ import MosaicTable from "./MosaicTable.tsx";
 import { Space, Table, Button, Input, InputNumber, Form, Modal, Card, Row, Col, Popconfirm, message, Drawer, Statistic, Progress, Divider, Spin, Checkbox, ColorPicker } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, UserOutlined, BarChartOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, WarningOutlined, EuroCircleOutlined, KeyOutlined, MailOutlined } from '@ant-design/icons';
 import api from './api.ts';
+import { paginationConfig } from './pagination.ts';
 
 // --- Types ---
 
@@ -312,7 +313,7 @@ const Techniciens: React.FC = () => {
                             columns={columns}
                             dataSource={techniciens}
                             loading={loading}
-                            pagination={{ pageSize: 10 }}
+                            pagination={paginationConfig()}
                             bordered
                             onRow={(record) => ({
                                 onClick: (e) => {

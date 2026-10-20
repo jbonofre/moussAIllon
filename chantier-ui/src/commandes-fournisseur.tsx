@@ -30,6 +30,7 @@ import {
 import api from "./api.ts";
 import dayjs from "dayjs";
 import { useNavigation } from "./navigation-context.tsx";
+import { paginationConfig } from "./pagination.ts";
 
 const { Option } = Select;
 const { TextArea, Search } = Input;
@@ -618,7 +619,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
             dataSource={commandes}
             loading={loading}
             bordered
-            pagination={{ pageSize: 10 }}
+            pagination={paginationConfig()}
             onRow={(record) => ({
               onClick: (e) => {
                 if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;

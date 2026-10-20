@@ -23,6 +23,7 @@ import { bateauClientOptions, moteurClientOptions, filterClientOption } from './
 import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from './forfait-lignes.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
+import { paginationConfig } from './pagination.ts';
 
 interface MoteurCatalogueEntity {
     id: number;
@@ -755,7 +756,7 @@ export default function Forfaits() {
                         dataSource={forfaits}
                         columns={columns}
                         loading={loading}
-                        pagination={{ pageSize: 10 }}
+                        pagination={paginationConfig()}
                         bordered
                         onRow={(record) => ({
                             onClick: (e) => {

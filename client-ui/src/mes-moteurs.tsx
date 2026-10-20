@@ -4,6 +4,7 @@ import { PictureOutlined, TagsOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
+import { paginationConfig } from './pagination.ts';
 
 interface MoteurClientEntity {
     id: number;
@@ -231,7 +232,7 @@ export default function MesMoteurs({ clientId, onCreateAnnonce }: MesMoteursProp
                     rowKey="id"
                     dataSource={moteurs}
                     columns={columns}
-                    pagination={{ pageSize: 10 }}
+                    pagination={paginationConfig()}
                     bordered
                     expandable={{
                         expandedRowRender,

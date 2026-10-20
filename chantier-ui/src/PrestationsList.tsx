@@ -4,6 +4,7 @@ import { EyeOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useNavigation } from './navigation-context.tsx';
 import PretRecuperationTag from './PretRecuperationTag.tsx';
+import { paginationConfig } from './pagination.ts';
 
 interface Vente {
     id: number;
@@ -137,7 +138,7 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
                     dataSource={ventes}
                     columns={columns}
                     size="small"
-                    pagination={{ pageSize: 5, hideOnSinglePage: true }}
+                    pagination={ventes.length > 5 ? paginationConfig(5) : false}
                     locale={{ emptyText: 'Aucune prestation' }}
                 />
             </Spin>
