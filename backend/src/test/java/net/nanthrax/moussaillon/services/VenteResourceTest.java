@@ -255,6 +255,29 @@ public class VenteResourceTest {
             .statusCode(400);
     }
 
+    @Test
+    void testPrestationLanceePasseEnFactureEnAttente() {
+        String body = "{\"status\":\"DEVIS\",\"bonPourAccord\":true,\"prixVenteTTC\":200.0,"
+                + "\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"%s\"}]}";
+
+        int id = given()
+            .contentType("application/json")
+            .body(String.format(body, "PLANIFIEE"))
+            .when().post("/ventes")
+            .then().statusCode(201)
+            .body("status", is("DEVIS"))
+            .extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body(String.format(body, "EN_COURS"))
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("status", is("FACTURE_EN_ATTENTE"))
+            .body("dateFactureEnAttente", notNullValue());
+    }
+
     // --- Numérotation et champs légaux ---
 
     @Test

@@ -596,6 +596,7 @@ public class TechnicienPortalResource {
         }
 
         pretRecuperationService.evaluer(parentVente);
+        VenteResource.passerEnFactureEnAttenteSiLancee(parentVente);
 
         // Decrement stock
         if (vf.status == VenteForfaitEntity.Status.EN_COURS && parentVente != null && !parentVente.stockDecremented) {
@@ -676,6 +677,7 @@ public class TechnicienPortalResource {
         }
 
         pretRecuperationService.evaluer(parentVente);
+        VenteResource.passerEnFactureEnAttenteSiLancee(parentVente);
 
         // Decrement stock
         if (vs.status == VenteServiceEntity.Status.EN_COURS && parentVente != null && !parentVente.stockDecremented) {
