@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { message } from 'antd';
 import '@testing-library/jest-dom';
 import Comptoir from './comptoir.tsx';
 import api from './api.ts';
@@ -58,6 +59,11 @@ beforeEach(() => {
     jest.clearAllMocks();
     mockedApi.get.mockImplementation((url: string) => Promise.resolve({ data: donnees[url] || [] }) as any);
     mockedApi.post.mockImplementation((_url: string, body: any) => Promise.resolve({ data: { ...body, id: 42 } }) as any);
+});
+
+afterEach(() => {
+    // Les toasts antd vivent hors de l'arbre React : on les purge pour qu'ils ne fuient pas d'un test à l'autre
+    message.destroy();
 });
 
 const ouvrirNouvelleVente = async (): Promise<HTMLElement> => {
