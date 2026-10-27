@@ -39,7 +39,7 @@ import java.util.Set;
 @Consumes(MediaType.APPLICATION_JSON)
 public class ProduitCatalogueResource {
 
-    private static final String CATEGORIE_IMPORT_DEFAUT = "Non classé";
+    private static final String CATEGORIE_DEFAUT = "Non classé";
     private static final String TYPE_IMPORT_DEFAUT = "Non classé";
 
     @Inject
@@ -88,6 +88,57 @@ public class ProduitCatalogueResource {
             produit.ref = ReferenceInterne.generer("PRD", produit.id);
         }
         return produit;
+    }
+
+    /**
+     * Crée au catalogue l'article saisi sur une ligne libre de vente (comptoir ou prestation).
+     * Seuls la référence, la désignation, le prix de vente TTC et la TVA sont saisis : l'article est
+     * classé dans la catégorie par défaut, sans stock, et sa référence est générée si elle est absente.
+     */
+    static ProduitCatalogueEntity creerArticleALaVolee(ProduitCatalogueEntity saisi) {
+        String designation = saisi.designation == null ? "" : saisi.designation.trim();
+        if (designation.isEmpty()) {
+            throw requeteInvalide("La désignation de l'article saisi sur une ligne libre est requise");
+        }
+        // La désignation est unique au catalogue : un article existant se choisit dans la liste
+        if (ProduitCatalogueEntity.count("LOWER(designation) = ?1", designation.toLowerCase()) > 0) {
+            throw requeteInvalide("L'article « " + designation + " » existe déjà au catalogue : sélectionnez-le dans la liste");
+        }
+        String ref = ReferenceInterne.absente(saisi.ref) ? null : saisi.ref.trim();
+        if (ref != null && ProduitCatalogueEntity.count("LOWER(ref) = ?1", ref.toLowerCase()) > 0) {
+            throw requeteInvalide("La référence « " + ref + " » est déjà utilisée au catalogue");
+        }
+        if (saisi.tva < 0 || saisi.tva > 100) {
+            throw requeteInvalide("La TVA de l'article « " + designation + " » doit être comprise entre 0 et 100 %");
+        }
+        if (saisi.prixVenteTTC < 0) {
+            throw requeteInvalide("Le prix de l'article « " + designation + " » ne peut pas être négatif");
+        }
+
+        assurerValeurReference("CATEGORIE_PRODUIT", CATEGORIE_DEFAUT);
+        ProduitCatalogueEntity article = new ProduitCatalogueEntity();
+        article.designation = designation;
+        article.ref = ref;
+        article.categorie = CATEGORIE_DEFAUT;
+        article.tva = saisi.tva;
+        article.prixVenteTTC = arrondi(saisi.prixVenteTTC);
+        article.montantTVA = arrondi(article.prixVenteTTC / (100 + article.tva) * article.tva);
+        article.prixVenteHT = arrondi(article.prixVenteTTC - article.montantTVA);
+        article.persist();
+        if (article.ref == null) {
+            article.ref = ReferenceInterne.generer("PRD", article.id);
+        }
+        return article;
+    }
+
+    private static double arrondi(double montant) {
+        return Math.round(montant * 100.0) / 100.0;
+    }
+
+    private static WebApplicationException requeteInvalide(String message) {
+        return new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                .entity(Map.of("message", message))
+                .build());
     }
 
     @POST
@@ -199,7 +250,7 @@ public class ProduitCatalogueResource {
         return valeurs;
     }
 
-    private void assurerValeurReference(String type, String valeur) {
+    private static void assurerValeurReference(String type, String valeur) {
         if (ReferenceValeurEntity.count("type = ?1 and valeur = ?2", type, valeur) == 0) {
             ReferenceValeurEntity reference = new ReferenceValeurEntity();
             reference.type = type;
@@ -212,7 +263,7 @@ public class ProduitCatalogueResource {
     private ImportResult importerLignes(List<String> lines, Map<String, Integer> headers,
             Map<String, CatalogueTypeDetector.Type> typesConnus, Map<String, CatalogueTypeDetector.Detection> detections,
             ImportResult result) {
-        assurerValeurReference("CATEGORIE_PRODUIT", CATEGORIE_IMPORT_DEFAUT);
+        assurerValeurReference("CATEGORIE_PRODUIT", CATEGORIE_DEFAUT);
 
         // Evite les collisions avec la contrainte d'unicité sur 'designation' (EBP autorise les libellés
         // en double, ex. "VIS" x14) en désambiguïsant avec le code article, garanti unique.
@@ -303,7 +354,7 @@ public class ProduitCatalogueResource {
         if (isNew) {
             entity = new ProduitCatalogueEntity();
             entity.ref = ligne.ref;
-            entity.categorie = CATEGORIE_IMPORT_DEFAUT;
+            entity.categorie = CATEGORIE_DEFAUT;
         }
 
         String designation = ligne.designation;

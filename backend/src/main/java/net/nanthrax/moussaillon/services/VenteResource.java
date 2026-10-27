@@ -418,6 +418,7 @@ public class VenteResource {
         if (vente.dateDevis == null) {
             vente.dateDevis = new Timestamp(System.currentTimeMillis());
         }
+        creerArticlesALaVolee(vente.venteProduits);
         passerEnFactureEnAttenteSiLancee(vente);
         vente.persist();
         return Response.status(Response.Status.CREATED).entity(vente).build();
@@ -636,6 +637,7 @@ public class VenteResource {
         }
 
         // Update venteProduits (new line entity with quantite + remise per line)
+        creerArticlesALaVolee(vente.venteProduits);
         entity.venteProduits.clear();
         if (vente.venteProduits != null && !vente.venteProduits.isEmpty()) {
             for (VenteProduitEntity incoming : vente.venteProduits) {
@@ -1206,6 +1208,19 @@ public class VenteResource {
                     rc.dateCreation = now;
                     rc.persist();
                 }
+            }
+        }
+    }
+
+    /**
+     * Une ligne libre porte un article sans identifiant : il est créé au catalogue avec la vente,
+     * dans la même transaction, et la ligne y est rattachée.
+     */
+    private void creerArticlesALaVolee(List<VenteProduitEntity> lignes) {
+        if (lignes == null) return;
+        for (VenteProduitEntity ligne : lignes) {
+            if (ligne.produit != null && ligne.produit.id == null) {
+                ligne.produit = ProduitCatalogueResource.creerArticleALaVolee(ligne.produit);
             }
         }
     }

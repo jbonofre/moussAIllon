@@ -53,6 +53,15 @@ import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteMod
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
 import { paginationConfig } from './pagination.ts';
+import {
+    ArticleALaVolee,
+    LigneLibre,
+    articleALaVolee,
+    erreurDesignationLibre,
+    erreurRefLibre,
+    insererLigneLibre,
+    nouvelleLigneLibre,
+} from './ligne-libre.ts';
 
 interface ClientEntity {
     id: number;
@@ -352,7 +361,8 @@ interface SocieteData {
 
 interface VenteProduitLigne {
     id?: number;
-    produit?: ProduitCatalogueEntity;
+    // Sans identifiant, l'article d'une ligne libre est créé au catalogue par le backend
+    produit?: ProduitCatalogueEntity | ArticleALaVolee;
     quantite: number;
     remise?: number;
     remisePourcentage?: number;
@@ -453,6 +463,8 @@ type LigneType = 'forfait' | 'service' | 'produit' | 'bateau' | 'moteur' | 'heli
 interface LigneUnifiee {
     type?: LigneType;
     itemId?: number;
+    // Article saisi à la volée, sans type ni identifiant : créé au catalogue à l'enregistrement
+    libre?: LigneLibre;
     quantite?: number;
     remise?: number;
     remisePourcentage?: number;
@@ -469,6 +481,8 @@ interface LigneUnifiee {
     images?: string[];
     documents?: string[];
 }
+
+const estLigneVide = (ligne?: LigneUnifiee) => !ligne?.type && !ligne?.itemId && !ligne?.libre;
 
 interface VenteFormValues {
     status: VenteStatus;
@@ -1096,7 +1110,7 @@ export default function Vente() {
     // Utilise par les boutons « Ajouter Forfait » / « Ajouter Service » sous la liste des lignes.
     const findOrCreateEmptyLineIndex = (): number => {
         const currentLines: LigneUnifiee[] = form.getFieldValue('lignes') || [];
-        const emptyIndex = currentLines.findIndex((l) => !l?.type && !l?.itemId);
+        const emptyIndex = currentLines.findIndex((l) => estLigneVide(l));
         if (emptyIndex >= 0) {
             return emptyIndex;
         }
@@ -1104,6 +1118,16 @@ export default function Vente() {
         form.setFieldValue('lignes', updated);
         return updated.length - 1;
     };
+
+    const ajouterLigneLibre = () => {
+        const lignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+        form.setFieldValue('lignes', insererLigneLibre(lignes, { libre: nouvelleLigneLibre(), quantite: 1 }, { quantite: 1 }, estLigneVide));
+        setFormDirty(true);
+    };
+
+    const autresLignesLibres = (index: number): LigneLibre[] =>
+        ((form.getFieldValue('lignes') || []) as LigneUnifiee[])
+            .flatMap((ligne, i) => (i !== index && ligne?.libre ? [ligne.libre] : []));
 
     const handleNewProduitSave = async () => {
         try {
@@ -1555,7 +1579,7 @@ export default function Vente() {
                 const existingForfaitIds = new Set(currentLignes.filter((l) => l.type === 'forfait' && l.itemId).map((l) => l.itemId));
                 const newForfaits = matchingForfaits.filter((f) => !existingForfaitIds.has(f.id));
                 if (newForfaits.length > 0) {
-                    const filledLines = currentLignes.filter((l) => l.type && l.itemId);
+                    const filledLines = currentLignes.filter((l) => (l.type && l.itemId) || l.libre);
                     const newLines: LigneUnifiee[] = [
                         ...filledLines,
                         ...newForfaits.map((f) => ({ type: 'forfait' as LigneType, itemId: f.id, quantite: 1, status: 'EN_ATTENTE' as PlanningStatus })),
@@ -1765,6 +1789,11 @@ export default function Vente() {
         const allLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
         const lines: Array<{ type: string; reference?: string; nom: string; quantite: number; prixTTC: number }> = [];
         allLignes.forEach((line) => {
+            if (line.libre) {
+                const quantite = line.quantite || 1;
+                lines.push({ type: 'Produit', reference: line.libre.ref?.trim() || '-', nom: (line.libre.designation || '').trim(), quantite, prixTTC: (line.libre.prixVenteTTC || 0) * quantite });
+                return;
+            }
             if (!line.type || !line.itemId) return;
             const quantite = line.quantite || 1;
             if (line.type === 'forfait') {
@@ -1876,8 +1905,8 @@ export default function Vente() {
     const handleModalCancel = () => {
         const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
         const currentKeys = currentLignes
-            .filter((l) => l.type && l.itemId)
-            .map((l) => `${l.type}:${l.itemId}`)
+            .filter((l) => (l.type && l.itemId) || l.libre?.designation?.trim())
+            .map((l) => (l.libre ? `libre:${l.libre.designation}` : `${l.type}:${l.itemId}`))
             .sort();
         const linesChanged = JSON.stringify(currentKeys) !== JSON.stringify(savedLinesRef.current);
 
@@ -1950,6 +1979,7 @@ export default function Vente() {
         const moteurLines = allLignes.filter((l) => l.type === 'moteur');
         const heliceLines = allLignes.filter((l) => l.type === 'helice');
         const remorqueLines = allLignes.filter((l) => l.type === 'remorque');
+        const lignesLibres = (values.lignes || []).filter((l) => l.libre);
 
         return {
             status: values.status,
@@ -2011,15 +2041,24 @@ export default function Vente() {
                     documents: line.documents || existingVs?.documents || [],
                 };
             }),
-            venteProduits: produitLines.flatMap<VenteProduitLigne>((line) => {
-                const produit = produits.find((p) => p.id === line.itemId);
-                return produit ? [{
-                    produit,
+            venteProduits: [
+                ...produitLines.flatMap<VenteProduitLigne>((line) => {
+                    const produit = produits.find((p) => p.id === line.itemId);
+                    return produit ? [{
+                        produit,
+                        quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                        remise: line.remise || 0,
+                        remisePourcentage: line.remisePourcentage || 0,
+                    }] : [];
+                }),
+                // Articles saisis à la volée : le backend les crée au catalogue
+                ...lignesLibres.map<VenteProduitLigne>((line) => ({
+                    produit: articleALaVolee(line.libre!),
                     quantite: Math.max(1, Math.floor(line.quantite || 1)),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
-                }] : [];
-            }),
+                })),
+            ],
             venteBateauxCatalogue: bateauLines.flatMap<VenteBateauCatalogueLigne>((line) => {
                 const bateau = catalogueBateaux.find((b) => b.id === line.itemId);
                 return bateau ? [{
@@ -2102,11 +2141,21 @@ export default function Vente() {
                 snapshotSavedLines(res.data);
                 populateForm(res.data);
             }
+            const crees = (values.lignes || []).flatMap((l) => (l.libre ? [(l.libre.designation || '').trim()] : []));
+            if (crees.length > 0) {
+                message.info(`Ajouté au catalogue : ${crees.join(', ')}`);
+            }
             setFormDirty(false);
             setTimeout(() => { suppressDirtyRef.current = false; }, 0);
             fetchVentes();
-        } catch {
-            // Les erreurs de validation sont affichees par le formulaire.
+        } catch (error) {
+            suppressDirtyRef.current = false;
+            // Les erreurs de validation sont affichees par le formulaire ; celles du serveur
+            // (par exemple un article de ligne libre déjà au catalogue) le sont en message.
+            const serveur = (error as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
+            if (serveur?.message || serveur?.error) {
+                message.error(serveur.message || serveur.error);
+            }
         }
     };
 
@@ -2698,7 +2747,7 @@ export default function Vente() {
         if (aAjouter.length === 0) return;
         const lignesAuto: LigneUnifiee[] = aAjouter.map((p) => ({ type: 'produit', itemId: p.id, quantite: 1 }));
         const derniere = lignes[lignes.length - 1];
-        const derniereVide = !!derniere && !derniere.type && !derniere.itemId;
+        const derniereVide = !!derniere && estLigneVide(derniere);
         form.setFieldValue('lignes', derniereVide
             ? [...lignes.slice(0, -1), ...lignesAuto, derniere]
             : [...lignes, ...lignesAuto, { quantite: 1 }]);
@@ -2722,11 +2771,13 @@ export default function Vente() {
         let totalTTC = 0;
         let totalOccasionTTC = 0;
         allLignes.forEach((line) => {
-            if (!line.type || !line.itemId) return;
+            if (!line.libre && (!line.type || !line.itemId)) return;
             const quantite = Math.max(1, Math.floor(line.quantite || 1));
             let brut = 0;
             let article: { prixVenteTTC?: number; occasion?: boolean } | undefined;
-            if (line.type === 'forfait') {
+            if (line.libre) {
+                brut = (line.libre.prixVenteTTC || 0) * quantite;
+            } else if (line.type === 'forfait') {
                 brut = (allForfaits.find((f) => f.id === line.itemId)?.prixTTC || 0) * quantite;
             } else if (line.type === 'service') {
                 brut = (allServices.find((s) => s.id === line.itemId)?.prixTTC || 0) * quantite;
@@ -2777,9 +2828,10 @@ export default function Vente() {
         changedLignes.forEach((changed, index) => {
             if (!changed) return;
             const line = currentLines[index];
-            if (!line || !line.type || !line.itemId) return;
+            if (!line || (!line.libre && (!line.type || !line.itemId))) return;
             let pu = 0;
-            if (line.type === 'forfait') pu = forfaits.find((f) => f.id === line.itemId)?.prixTTC || 0;
+            if (line.libre) pu = line.libre.prixVenteTTC || 0;
+            else if (line.type === 'forfait') pu = forfaits.find((f) => f.id === line.itemId)?.prixTTC || 0;
             else if (line.type === 'service') pu = services.find((s) => s.id === line.itemId)?.prixTTC || 0;
             else if (line.type === 'produit') pu = produits.find((p) => p.id === line.itemId)?.prixVenteTTC || 0;
             else if (line.type === 'bateau') pu = catalogueBateaux.find((b) => b.id === line.itemId)?.prixVenteTTC || 0;
@@ -2839,7 +2891,7 @@ export default function Vente() {
                 form.setFieldValue('lignes', [{ quantite: 1 }]);
             } else {
                 const lastLine = currentLignes[currentLignes.length - 1];
-                const isLastLineComplete = !!lastLine?.type && !!lastLine?.itemId && (lastLine?.quantite || 0) > 0;
+                const isLastLineComplete = ((!!lastLine?.type && !!lastLine?.itemId) || !!lastLine?.libre) && (lastLine?.quantite || 0) > 0;
                 if (isLastLineComplete) {
                     form.setFieldValue('lignes', [...currentLignes, { quantite: 1 }]);
                 }
@@ -3428,7 +3480,8 @@ export default function Vente() {
                                                     const ligne: LigneUnifiee = form.getFieldValue(['lignes', field.name]) || {};
                                                     const lineType = ligne.type;
                                                     const itemId = ligne.itemId;
-                                                    const isEmptyLine = !lineType || !itemId;
+                                                    const libre = ligne.libre;
+                                                    const isEmptyLine = !libre && (!lineType || !itemId);
                                                     const isForfaitOrService = lineType === 'forfait' || lineType === 'service';
 
                                                     const getUnitPrice = () => {
@@ -3469,6 +3522,44 @@ export default function Vente() {
                                                         >
                                                             <InputNumber />
                                                         </Form.Item>
+                                                        {libre && (
+                                                            <Form.Item
+                                                                name={[field.name, 'libre', 'ref']}
+                                                                rules={[{
+                                                                    validator: async (_, value) => {
+                                                                        const erreur = erreurRefLibre(value, produits, autresLignesLibres(field.name));
+                                                                        if (erreur) throw new Error(erreur);
+                                                                    }
+                                                                }]}
+                                                                style={{ width: 110 }}
+                                                            >
+                                                                <Input autoFocus placeholder="Réf." title="Référence (générée si vide)" />
+                                                            </Form.Item>
+                                                        )}
+                                                        {libre && (
+                                                            <Form.Item
+                                                                name={[field.name, 'libre', 'designation']}
+                                                                rules={[{
+                                                                    validator: async (_, value) => {
+                                                                        const erreur = erreurDesignationLibre(value, produits, autresLignesLibres(field.name));
+                                                                        if (erreur) throw new Error(erreur);
+                                                                    }
+                                                                }]}
+                                                                style={{ width: 222 }}
+                                                            >
+                                                                <Input placeholder="Désignation" />
+                                                            </Form.Item>
+                                                        )}
+                                                        {libre && (
+                                                            <Form.Item
+                                                                name={[field.name, 'libre', 'tva']}
+                                                                rules={[{ required: true, message: 'TVA requise' }]}
+                                                                style={{ width: 92 }}
+                                                            >
+                                                                <InputNumber addonAfter="%" min={0} max={100} step={1} style={{ width: '100%' }} placeholder="TVA" />
+                                                            </Form.Item>
+                                                        )}
+                                                        {!libre && (
                                                         <Form.Item style={{ width: 440 }}>
                                                             {lineType === 'service' ? (
                                                                 <Input disabled value={services.find((s) => s.id === itemId)?.nom || ''} placeholder="Service" />
@@ -3517,12 +3608,18 @@ export default function Vente() {
                                                                 />
                                                             )}
                                                         </Form.Item>
+                                                        )}
+                                                        {libre && (
+                                                            <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
+                                                                Nouvel article
+                                                            </Tag>
+                                                        )}
                                                         {lineType && (
                                                             <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
                                                                 {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
                                                             </Tag>
                                                         )}
-                                                        {!isEmptyLine && (
+                                                        {!isEmptyLine && !libre && (
                                                             <FicheCataloguePopover
                                                                 type={lineType}
                                                                 itemId={itemId}
@@ -3543,7 +3640,7 @@ export default function Vente() {
                                                                 {
                                                                     validator: async (_, value) => {
                                                                         const line: LigneUnifiee = form.getFieldValue(['lignes', field.name]);
-                                                                        if (!line?.type && !line?.itemId && (value === undefined || value === null)) {
+                                                                        if (estLigneVide(line) && (value === undefined || value === null)) {
                                                                             return;
                                                                         }
                                                                         if (!value || value <= 0) {
@@ -3556,6 +3653,15 @@ export default function Vente() {
                                                         >
                                                             <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
                                                         </Form.Item>
+                                                        {libre ? (
+                                                            <Form.Item
+                                                                name={[field.name, 'libre', 'prixVenteTTC']}
+                                                                rules={[{ required: true, message: 'Prix requis' }]}
+                                                                style={{ width: 110 }}
+                                                            >
+                                                                <InputNumber addonAfter="EUR" min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
+                                                            </Form.Item>
+                                                        ) : (
                                                         <Form.Item noStyle shouldUpdate>
                                                             {() => {
                                                                 const pu = getUnitPrice();
@@ -3566,6 +3672,7 @@ export default function Vente() {
                                                                 );
                                                             }}
                                                         </Form.Item>
+                                                        )}
                                                         <Form.Item
                                                             name={[field.name, 'remisePourcentage']}
                                                             style={{ width: 100 }}
@@ -3580,7 +3687,8 @@ export default function Vente() {
                                                         </Form.Item>
                                                         <Form.Item noStyle shouldUpdate>
                                                             {() => {
-                                                                const pu = getUnitPrice() || 0;
+                                                                // Le prix d'une ligne libre se lit à chaque saisie : la liste ne se redessine pas pour autant
+                                                                const pu = (libre ? form.getFieldValue(['lignes', field.name, 'libre', 'prixVenteTTC']) : getUnitPrice()) || 0;
                                                                 const quantite = form.getFieldValue(['lignes', field.name, 'quantite']) || 0;
                                                                 const remise = form.getFieldValue(['lignes', field.name, 'remise']) || 0;
                                                                 const brut = pu * quantite;
@@ -3668,6 +3776,13 @@ export default function Vente() {
                                                     </Button>
                                                     <Button icon={<PlusOutlined />} onClick={() => openNewServiceModal(findOrCreateEmptyLineIndex())}>
                                                         Ajouter Service
+                                                    </Button>
+                                                    <Button
+                                                        icon={<PlusOutlined />}
+                                                        title="Saisir un article absent du catalogue : il y est créé à l'enregistrement de la vente"
+                                                        onClick={ajouterLigneLibre}
+                                                    >
+                                                        Ajouter une ligne libre
                                                     </Button>
                                                 </Space>
                                             </>

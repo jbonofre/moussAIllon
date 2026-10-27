@@ -100,6 +100,59 @@ describe('Transactions - saisie des lignes', () => {
     });
 });
 
+describe('Transactions - ligne libre', () => {
+    const saisir = (champ: HTMLElement, valeur: string) => fireEvent.change(champ, { target: { value: valeur } });
+
+    it('crée au catalogue l\'article saisi sur une ligne libre, à l\'enregistrement de la transaction', async () => {
+        const articleCree = { id: 77, ref: 'MAN-6', designation: 'Manille inox', categorie: 'Non classé', stock: 0, prixVenteTTC: 4.5, tva: 20 };
+        mockedApi.post.mockImplementation((_url: string, body: any) => Promise.resolve({
+            data: { ...body, id: 42, venteProduits: [{ id: 1, produit: articleCree, quantite: 2, remise: 0 }] },
+        }) as any);
+        const modal = await ouvrirNouvelleVente();
+
+        await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
+        fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
+        const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ant-space') as HTMLElement;
+        expect(within(ligne).getByPlaceholderText('TVA')).toHaveValue('20');
+        saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
+        saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
+        saisir(within(ligne).getByPlaceholderText('P.U.'), '4.5');
+        saisir(within(ligne).getByPlaceholderText('Qte'), '2');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('9.00'));
+        // la ligne de saisie d'un article du catalogue reste disponible
+        expect(within(modal).getAllByText(PLACEHOLDER_LIGNE)).toHaveLength(1);
+
+        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
+            venteProduits: [expect.objectContaining({ produit: { ref: 'MAN-6', designation: 'Manille inox', prixVenteTTC: 4.5, tva: 20 }, quantite: 2 })],
+            montantTTC: 9,
+        })));
+
+        // la ligne désigne désormais l'article créé au catalogue
+        expect(await screen.findByText('Ajouté au catalogue : Manille inox')).toBeInTheDocument();
+        expect(await within(modal).findByText('MAN-6 - Manille inox')).toBeInTheDocument();
+        expect(within(modal).queryByPlaceholderText('Réf.')).not.toBeInTheDocument();
+    });
+
+    it('affiche le refus du serveur', async () => {
+        mockedApi.post.mockRejectedValue({ response: { status: 400, data: { message: 'La référence « MAN-6 » est déjà utilisée au catalogue' } } });
+        const modal = await ouvrirNouvelleVente();
+
+        await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
+        fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
+        const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ant-space') as HTMLElement;
+        saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
+        saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
+        saisir(within(ligne).getByPlaceholderText('P.U.'), '4.5');
+        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+
+        expect(await screen.findByText('La référence « MAN-6 » est déjà utilisée au catalogue')).toBeInTheDocument();
+        // la ligne libre reste à corriger
+        expect(within(modal).getByPlaceholderText('Réf.')).toHaveValue('MAN-6');
+    });
+});
+
 describe('Transactions - packages', () => {
     it('peuple la transaction avec le contenu du package choisi', async () => {
         const modal = await ouvrirNouvelleVente();

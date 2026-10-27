@@ -102,6 +102,59 @@ describe('Comptoir - saisie des produits', () => {
     });
 });
 
+describe('Comptoir - ligne libre', () => {
+    const saisir = (champ: HTMLElement, valeur: string) => fireEvent.change(champ, { target: { value: valeur } });
+
+    const ajouterLigneLibre = async (modal: HTMLElement): Promise<HTMLElement> => {
+        fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
+        return (await within(modal).findByPlaceholderText('Réf.')).closest('.ant-space') as HTMLElement;
+    };
+
+    it('crée au catalogue l\'article saisi sur une ligne libre, à l\'enregistrement de la vente', async () => {
+        const articleCree = { id: 77, ref: 'MAN-6', designation: 'Manille inox', categorie: 'Non classé', stock: 0, prixVenteTTC: 4.5, tva: 20 };
+        mockedApi.post.mockImplementation((_url: string, body: any) => Promise.resolve({
+            data: { ...body, id: 42, venteProduits: [{ id: 1, produit: articleCree, quantite: 2, remise: 0 }] },
+        }) as any);
+        const modal = await ouvrirNouvelleVente();
+
+        const ligne = await ajouterLigneLibre(modal);
+        expect(within(ligne).getByPlaceholderText('TVA')).toHaveValue('20');
+        saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
+        saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
+        saisir(within(ligne).getByPlaceholderText('P.U.'), '4.5');
+        saisir(within(ligne).getByPlaceholderText('Qte'), '2');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('9.00'));
+        // la ligne de saisie d'un article du catalogue reste disponible
+        expect(lignesProduits(modal)).toHaveLength(1);
+
+        fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
+            venteProduits: [expect.objectContaining({ produit: { ref: 'MAN-6', designation: 'Manille inox', prixVenteTTC: 4.5, tva: 20 }, quantite: 2 })],
+            montantTTC: 9,
+            prixVenteTTC: 9,
+        })));
+
+        // la ligne désigne désormais l'article créé au catalogue
+        expect(await screen.findByText('Ajouté au catalogue : Manille inox')).toBeInTheDocument();
+        expect(await within(modal).findByTitle('MAN-6 - Manille inox')).toBeInTheDocument();
+        expect(within(modal).queryByPlaceholderText('Réf.')).not.toBeInTheDocument();
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('9.00');
+    });
+
+    it('refuse un article déjà au catalogue, sans enregistrer la vente', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        const ligne = await ajouterLigneLibre(modal);
+        saisir(within(ligne).getByPlaceholderText('Désignation'), ' anode ZINC ');
+        saisir(within(ligne).getByPlaceholderText('P.U.'), '12');
+        fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+
+        expect(await within(modal).findByText('Article déjà au catalogue')).toBeInTheDocument();
+        expect(mockedApi.post).not.toHaveBeenCalled();
+    });
+});
+
 describe('Comptoir - packages', () => {
     it('peuple la vente avec le contenu du package choisi', async () => {
         const modal = await ouvrirNouvelleVente();

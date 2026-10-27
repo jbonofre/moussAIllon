@@ -8,7 +8,7 @@ MoussAIllon centralise l'ensemble des metiers d'un chantier naval dans une seule
 
 - **Gestion clients** - fiches, bateaux, moteurs, remorques, historique
 - **Catalogue & parc** - bateaux, moteurs, helices, remorques, produits (neuf et occasion), packages regroupant ces articles et des forfaits pour peupler une vente comptoir ou une transaction
-- **Ventes & facturation** - forfaits, comptoir, transactions, paiement en ligne (Stripe, PayPlug)
+- **Ventes & facturation** - forfaits, comptoir, transactions, lignes libres créant l'article au catalogue à la volée, paiement en ligne (Stripe, PayPlug)
 - **Fournisseurs** - referentiel multi-types (bateaux, moteurs, helices, produits, remorques)
 - **Equipe & planning** - gestion des techniciens, planification des interventions
 - **Petites annonces** - publication et gestion d'annonces
