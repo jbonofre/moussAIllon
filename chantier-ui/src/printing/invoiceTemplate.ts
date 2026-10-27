@@ -39,6 +39,8 @@ export interface InvoicePrintLine {
     remise: number;
     remisePct: number;
     totalPrixTTC: number;
+    // Article d'occasion : vendu sans TVA, quel que soit le taux de la vente.
+    occasion?: boolean;
     // Composition d'un forfait/service, imprimée en retrait sous la ligne.
     details?: InvoicePrintDetailLine[];
 }
@@ -136,7 +138,7 @@ export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPri
                 <td>${escapeHtml(line.label)}</td>
                 <td class="num">${line.quantite}</td>
                 ${showPrices ? `<td class="num">${remisePct > 0 ? remisePct.toFixed(2) : '-'}</td>` : ''}
-                ${showPrices ? `<td class="num">${tva != null ? tva.toFixed(2) : '-'}</td>` : ''}
+                ${showPrices ? `<td class="num">${line.occasion ? (0).toFixed(2) : tva != null ? tva.toFixed(2) : '-'}</td>` : ''}
                 ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.puTTC))}</td>` : ''}
                 ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.totalPrixTTC))}</td>` : ''}
             </tr>${(line.details || []).map((detail) => `
@@ -151,15 +153,31 @@ export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPri
       </table>`;
 };
 
-export const buildTvaBreakdownHtml = (params: { tva?: number; montantHT?: number; montantTVA?: number }) => `
+// Montant des lignes d'occasion, vendues sans TVA : il est sorti de la base HT du taux de la vente.
+export const montantOccasion = (lines: InvoicePrintLine[]) =>
+    lines.filter((line) => line.occasion).reduce((sum, line) => sum + line.totalPrixTTC, 0);
+
+export const buildTvaBreakdownHtml = (params: { tva?: number; montantHT?: number; montantTVA?: number; montantOccasion?: number }) => {
+    const occasion = params.montantOccasion || 0;
+    const baseTaxable = (params.montantHT || 0) - occasion;
+    // [taux, base HT, montant TVA] ; la ligne du taux de la vente est omise si tout est d'occasion
+    const rows: Array<[string, number, number]> = [];
+    if (occasion <= 0 || baseTaxable > 0.005) {
+        rows.push([params.tva != null ? params.tva.toFixed(2) : '-', baseTaxable, params.montantTVA || 0]);
+    }
+    if (occasion > 0) {
+        rows.push(['0.00 (occasion)', occasion, 0]);
+    }
+    return `
     <table class="tva-box">
         <thead><tr><th>Taux</th><th class="num">Base HT</th><th class="num">Montant TVA</th></tr></thead>
-        <tbody><tr>
-            <td>${params.tva != null ? params.tva.toFixed(2) : '-'}</td>
-            <td class="num">${escapeHtml(formatEuro(params.montantHT))}</td>
-            <td class="num">${escapeHtml(formatEuro(params.montantTVA))}</td>
-        </tr></tbody>
+        <tbody>${rows.map(([taux, base, montant]) => `<tr>
+            <td>${escapeHtml(taux)}</td>
+            <td class="num">${escapeHtml(formatEuro(base))}</td>
+            <td class="num">${escapeHtml(formatEuro(montant))}</td>
+        </tr>`).join('')}</tbody>
     </table>`;
+};
 
 export const buildTotalsHtml = (params: {
     remise?: number;

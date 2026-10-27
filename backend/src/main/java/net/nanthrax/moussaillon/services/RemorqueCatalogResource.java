@@ -127,6 +127,7 @@ public class RemorqueCatalogResource {
         entity.tva = remorque.tva;
         entity.montantTVA = remorque.montantTVA;
         entity.prixVenteTTC = remorque.prixVenteTTC;
+        entity.occasion = remorque.occasion;
         entity.images = remorque.images;
         entity.documents = remorque.documents;
         // Panache will flush the update at transaction end

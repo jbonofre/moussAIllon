@@ -1,4 +1,4 @@
-import { buildCompositionDetails, buildInvoiceTableHtml, InvoicePrintLine } from './invoiceTemplate.ts';
+import { buildCompositionDetails, buildInvoiceTableHtml, buildTvaBreakdownHtml, InvoicePrintLine, montantOccasion } from './invoiceTemplate.ts';
 
 describe('invoiceTemplate', () => {
     const forfait = {
@@ -74,5 +74,38 @@ describe('invoiceTemplate', () => {
 
         expect(rows(html)[1]).toEqual({ detail: true, cells: ['<b>', 'A & B', '0.3'] });
         expect(html).toContain('&lt;b&gt;');
+    });
+
+    it('imprime une TVA à 0 % sur les articles d\'occasion', () => {
+        const occasion: InvoicePrintLine = {
+            type: 'Moteur', reference: 'MOT-1', label: 'F115 occasion', quantite: 1,
+            puTTC: 6000, remise: 0, remisePct: 0, totalPrixTTC: 6000, occasion: true,
+        };
+        const html = buildInvoiceTableHtml([forfaitLine([]), occasion], { showPrices: true, tva: 20 });
+
+        expect(rows(html).map((row) => row.cells[4])).toEqual(['20.00', '0.00']);
+        expect(montantOccasion([forfaitLine([]), occasion])).toBe(6000);
+    });
+
+    it('sépare la base des articles d\'occasion dans le récapitulatif TVA', () => {
+        // 700 TTC soumis à 20 % (583.33 HT + 116.67 TVA) et 6000 d'occasion sans TVA
+        const html = buildTvaBreakdownHtml({ tva: 20, montantHT: 6583.33, montantTVA: 116.67, montantOccasion: 6000 });
+
+        expect(rows(html).map((row) => row.cells)).toEqual([
+            ['20.00', '583.33 EUR', '116.67 EUR'],
+            ['0.00 (occasion)', '6000.00 EUR', '0.00 EUR'],
+        ]);
+    });
+
+    it('ne garde que la ligne occasion si toute la vente est d\'occasion', () => {
+        const html = buildTvaBreakdownHtml({ tva: 20, montantHT: 6000, montantTVA: 0, montantOccasion: 6000 });
+
+        expect(rows(html).map((row) => row.cells)).toEqual([['0.00 (occasion)', '6000.00 EUR', '0.00 EUR']]);
+    });
+
+    it('garde une seule ligne au taux de la vente sans article d\'occasion', () => {
+        const html = buildTvaBreakdownHtml({ tva: 20, montantHT: 100, montantTVA: 20 });
+
+        expect(rows(html).map((row) => row.cells)).toEqual([['20.00', '100.00 EUR', '20.00 EUR']]);
     });
 });

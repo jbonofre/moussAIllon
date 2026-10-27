@@ -27,10 +27,10 @@ jest.setTimeout(60000);
 // Même identifiant dans chaque référentiel : les lignes doivent rester distinctes
 const catalogue: Record<string, any[]> = {
     '/catalogue/produits': [{ id: 1, designation: 'Anode zinc', categorie: 'Accastillage', ref: 'AN-1', stock: 4, prixVenteTTC: 12 }],
-    '/catalogue/bateaux': [{ id: 1, designation: 'Cap Camarat 6.5', type: 'Open', stock: 1, prixVenteTTC: 45000, options: [] }],
+    '/catalogue/bateaux': [{ id: 1, designation: 'Cap Camarat 6.5', type: 'Open', stock: 1, prixVenteHT: 37500, tva: 20, montantTVA: 7500, prixVenteTTC: 45000, options: [] }],
     '/catalogue/moteurs': [{ id: 1, designation: 'F115 XB', type: 'Hors-bord', stock: 2, prixVenteTTC: 13000, helicesCompatibles: [{ id: 1, designation: 'Alu 13x19' }] }],
     '/catalogue/helices': [{ id: 1, designation: 'Alu 13x19', prixVenteTTC: 150 }],
-    '/catalogue/remorques': [{ id: 1, designation: 'Satellite 750', stock: 1, prixVenteTTC: 1900 }],
+    '/catalogue/remorques': [{ id: 1, designation: 'Satellite 750', stock: 1, prixVenteTTC: 1900, occasion: true }],
 };
 
 const mockedApi = api as jest.Mocked<typeof api>;
@@ -191,5 +191,30 @@ describe('CatalogueProduits', () => {
         expect(await screen.findByText('Supprimer cette remorque ?')).toBeInTheDocument();
         fireEvent.click(screen.getByRole('button', { name: 'Oui' }));
         await waitFor(() => expect(mockedApi.delete).toHaveBeenCalledWith('/catalogue/remorques/1'));
+    });
+
+    it('signale les articles d\'occasion dans la liste', async () => {
+        await renderCatalogue();
+        const remorque = screen.getByText('Satellite 750').closest('tr') as HTMLElement;
+        expect(within(remorque).getByText('Occasion')).toBeInTheDocument();
+        const bateau = screen.getByText('Cap Camarat 6.5').closest('tr') as HTMLElement;
+        expect(within(bateau).queryByText('Occasion')).not.toBeInTheDocument();
+    });
+
+    it('passe la TVA à 0 % pour un article d\'occasion', async () => {
+        await renderCatalogue();
+        fireEvent.click(screen.getByText('Cap Camarat 6.5'));
+        expect(await screen.findByText('Modifier un bateau')).toBeInTheDocument();
+        expect(screen.getByLabelText('TVA (%)')).not.toBeDisabled();
+
+        fireEvent.click(screen.getByLabelText('Occasion'));
+        await waitFor(() => expect(screen.getByLabelText('TVA (%)')).toBeDisabled(), { timeout: 10000 });
+        expect(screen.getByLabelText('TVA (%)')).toHaveValue('0.00');
+
+        fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith(
+            '/catalogue/bateaux/1',
+            expect.objectContaining({ occasion: true, tva: 0, montantTVA: 0, prixVenteHT: 37500, prixVenteTTC: 37500 }),
+        ));
     });
 });

@@ -10,7 +10,9 @@ import {
     computeRemisePct,
     INVOICE_PRINT_STYLES,
     InvoicePrintLine,
+    montantOccasion,
 } from './printing/invoiceTemplate.ts';
+import { calculerTvaVente } from './tva-vente.ts';
 import {
     Alert,
     Button,
@@ -117,6 +119,7 @@ interface ProduitCatalogueEntity {
     tva?: number;
     montantTVA?: number;
     prixVenteTTC?: number;
+    occasion?: boolean;
 }
 
 interface CatalogueBateauEntity {
@@ -124,6 +127,7 @@ interface CatalogueBateauEntity {
     designation: string;
     prixVenteTTC?: number;
     stock?: number;
+    occasion?: boolean;
 }
 
 interface CatalogueMoteurEntity {
@@ -131,6 +135,7 @@ interface CatalogueMoteurEntity {
     designation: string;
     prixVenteTTC?: number;
     stock?: number;
+    occasion?: boolean;
 }
 
 interface CatalogueHeliceEntity {
@@ -138,6 +143,7 @@ interface CatalogueHeliceEntity {
     designation: string;
     prixVenteTTC?: number;
     stock?: number;
+    occasion?: boolean;
 }
 
 interface CatalogueRemorqueEntity {
@@ -145,6 +151,7 @@ interface CatalogueRemorqueEntity {
     designation: string;
     prixVenteTTC?: number;
     stock?: number;
+    occasion?: boolean;
 }
 
 
@@ -588,18 +595,21 @@ export default function Comptoir() {
         },
     ], [packages, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
 
-    const getCatalogueItemPrice = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): number => {
-        if (!ref) return 0;
+    const getCatalogueItem = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): { prixVenteTTC?: number; occasion?: boolean } | undefined => {
+        if (!ref) return undefined;
         const [type, idStr] = ref.split(':');
         const id = parseInt(idStr, 10);
-        if (isNaN(id)) return 0;
-        if (type === 'produit') return allProduits.find((p) => p.id === id)?.prixVenteTTC || 0;
-        if (type === 'bateau') return catalogueBateaux.find((b) => b.id === id)?.prixVenteTTC || 0;
-        if (type === 'moteur') return catalogueMoteurs.find((m) => m.id === id)?.prixVenteTTC || 0;
-        if (type === 'helice') return catalogueHelices.find((h) => h.id === id)?.prixVenteTTC || 0;
-        if (type === 'remorque') return catalogueRemorques.find((r) => r.id === id)?.prixVenteTTC || 0;
-        return 0;
+        if (isNaN(id)) return undefined;
+        if (type === 'produit') return allProduits.find((p) => p.id === id);
+        if (type === 'bateau') return catalogueBateaux.find((b) => b.id === id);
+        if (type === 'moteur') return catalogueMoteurs.find((m) => m.id === id);
+        if (type === 'helice') return catalogueHelices.find((h) => h.id === id);
+        if (type === 'remorque') return catalogueRemorques.find((r) => r.id === id);
+        return undefined;
     };
+
+    const getCatalogueItemPrice = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): number =>
+        getCatalogueItem(ref, allProduits)?.prixVenteTTC || 0;
 
     const getProduitEmplacement = (ref?: string): React.ReactNode | undefined => {
         if (!ref) return undefined;
@@ -1266,7 +1276,7 @@ export default function Comptoir() {
             const puTTC = s.prixTTC || 0;
             lines.push({ type: 'Service', reference: '', label: s.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
         });
-        const fromCatalogue = (item: { designation?: string; prixVenteTTC?: number; ref?: string } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
+        const fromCatalogue = (item: { designation?: string; prixVenteTTC?: number; ref?: string; occasion?: boolean } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
             const puTTC = item?.prixVenteTTC || 0;
             const brut = puTTC * quantite;
             const label = item?.designation || '';
@@ -1276,6 +1286,7 @@ export default function Comptoir() {
                 puTTC,
                 remise, remisePct: remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - remise),
+                occasion: !!item?.occasion,
             });
         };
         (vente.venteProduits || []).forEach((l) => l.produit && fromCatalogue(l.produit, 'Produit', l.quantite || 1, l.remise || 0, l.remisePourcentage));
@@ -1318,7 +1329,7 @@ export default function Comptoir() {
 
         const tableHtml = buildInvoiceTableHtml(lines, { showPrices: true, tva: vente.tva });
 
-        const tvaBreakdownHtml = buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA });
+        const tvaBreakdownHtml = buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA, montantOccasion: montantOccasion(lines) });
 
         const bancaireHtml = isFacture && societe?.bancaire ? `
             <div class="bancaire-box">
@@ -1469,14 +1480,17 @@ export default function Comptoir() {
             const prixUnitaire = getCatalogueItemPrice(line.produitRef, overrides?.produits);
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
+        const occasionTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number; remise?: number }) => {
+            const article = getCatalogueItem(line.produitRef, overrides?.produits);
+            return article?.occasion ? sum + sumLine(article.prixVenteTTC || 0, line.quantite || 1, line.remise || 0) : sum;
+        }, 0);
         const servicesTTC = serviceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number; remise?: number }) => {
             const prixUnitaire = services.find((item) => item.id === line.serviceId)?.prixTTC || 0;
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
 
         const montantTTC = Math.round(((forfaitsTTC + produitsTTC + servicesTTC) + Number.EPSILON) * 100) / 100;
-        const montantTVA = Math.round((((montantTTC / (100 + tva)) * tva) + Number.EPSILON) * 100) / 100;
-        const montantHT = Math.round(((montantTTC - montantTVA) + Number.EPSILON) * 100) / 100;
+        const { montantTVA, montantHT } = calculerTvaVente(montantTTC, occasionTTC, tva);
 
         if (remiseSource === 'percentage') {
             remise = Math.round((((montantTTC * remisePourcentage) / 100) + Number.EPSILON) * 100) / 100;

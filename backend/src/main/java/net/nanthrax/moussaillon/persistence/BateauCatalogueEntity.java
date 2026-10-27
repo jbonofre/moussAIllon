@@ -5,6 +5,8 @@ import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
@@ -82,6 +84,10 @@ public class BateauCatalogueEntity extends PanacheEntity {
 
     public double prixVenteTTC;
 
+    // Un article d'occasion est vendu sans TVA (voir appliquerTvaOccasion)
+    @Column(columnDefinition = "boolean default false")
+    public boolean occasion;
+
     @OneToMany
     @JsonbTransient
     public List<FournisseurEntity> fournisseurs = new ArrayList<>();
@@ -89,5 +95,20 @@ public class BateauCatalogueEntity extends PanacheEntity {
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     @JoinColumn(name = "bateau_catalogue_id")
     public List<BateauOptionEntity> options = new ArrayList<>();
+
+    // Appliqué à chaque enregistrement, quelle qu'en soit l'origine (formulaire, import CSV, conversion de type...)
+    @PrePersist
+    @PreUpdate
+    void appliquerTvaOccasion() {
+        if (occasion) {
+            // Sans TVA, le prix TTC est le prix HT (repris du TTC si seul celui-ci est renseigné)
+            if (prixVenteHT == 0) {
+                prixVenteHT = prixVenteTTC;
+            }
+            prixVenteTTC = prixVenteHT;
+            tva = 0;
+            montantTVA = 0;
+        }
+    }
 
 }

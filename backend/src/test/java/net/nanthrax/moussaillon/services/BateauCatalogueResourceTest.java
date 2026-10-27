@@ -138,4 +138,20 @@ public class BateauCatalogueResourceTest {
             .then()
             .statusCode(404);
     }
+
+    @Test
+    void testBateauOccasionSansTva() {
+        // Seul le prix TTC est renseigné : sans TVA, le prix HT lui est égal
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Bateau Occasion\",\"type\":\"Open\",\"occasion\":true,\"tva\":20.0,\"prixVenteTTC\":15000.0}")
+            .when().post("/catalogue/bateaux")
+            .then()
+            .statusCode(201)
+            .body("occasion", is(true))
+            .body("tva", is(0.0f))
+            .body("montantTVA", is(0.0f))
+            .body("prixVenteHT", is(15000.0f))
+            .body("prixVenteTTC", is(15000.0f));
+    }
 }

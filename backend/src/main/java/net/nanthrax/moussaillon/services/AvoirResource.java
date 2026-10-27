@@ -194,7 +194,8 @@ public class AvoirResource {
                 ligne.designation = vp.produit.designation != null ? vp.produit.designation : "Produit";
                 ligne.quantite = Math.max(1, vp.quantite);
                 ligne.prixUnitaireHT = vp.produit.prixVenteHT;
-                ligne.tva = vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
+                // Un article d'occasion est vendu sans TVA : son avoir non plus
+                ligne.tva = vp.produit.occasion ? 0 : vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
                 double brutTTC = vp.produit.prixVenteTTC * ligne.quantite;
                 double netTTC = Math.max(0, brutTTC - vp.remise);
                 double ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;

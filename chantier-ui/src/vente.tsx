@@ -11,7 +11,9 @@ import {
     computeRemisePct,
     INVOICE_PRINT_STYLES,
     InvoicePrintLine,
+    montantOccasion,
 } from './printing/invoiceTemplate.ts';
+import { calculerTvaVente } from './tva-vente.ts';
 import {
     Alert,
     Button,
@@ -207,6 +209,7 @@ interface ProduitCatalogueEntity {
     montantTVA?: number;
     prixVenteTTC?: number;
     ajoutAutomatiqueIntervention?: boolean;
+    occasion?: boolean;
 }
 
 interface CatalogueBateauEntity {
@@ -214,6 +217,7 @@ interface CatalogueBateauEntity {
     designation: string;
     prixVenteTTC?: number;
     stock?: number;
+    occasion?: boolean;
 }
 
 interface CatalogueMoteurEntity {
@@ -221,6 +225,7 @@ interface CatalogueMoteurEntity {
     designation: string;
     prixVenteTTC?: number;
     stock?: number;
+    occasion?: boolean;
 }
 
 interface CatalogueHeliceEntity {
@@ -228,6 +233,7 @@ interface CatalogueHeliceEntity {
     designation: string;
     prixVenteTTC?: number;
     stock?: number;
+    occasion?: boolean;
 }
 
 interface CatalogueRemorqueEntity {
@@ -235,6 +241,7 @@ interface CatalogueRemorqueEntity {
     designation: string;
     prixVenteTTC?: number;
     stock?: number;
+    occasion?: boolean;
 }
 
 
@@ -2431,9 +2438,10 @@ export default function Vente() {
                 puTTC,
                 remise, remisePct: vp.remisePourcentage ?? computeRemisePct(remise, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - remise),
+                occasion: !!vp.produit?.occasion,
             };
         };
-        const lineFromCatalogue = (item: { designation?: string; prixVenteTTC?: number } | undefined, typeLabel: string, qty: number, remise: number, remisePourcentage?: number) => {
+        const lineFromCatalogue = (item: { designation?: string; prixVenteTTC?: number; occasion?: boolean } | undefined, typeLabel: string, qty: number, remise: number, remisePourcentage?: number) => {
             const puTTC = item?.prixVenteTTC || 0;
             const quantite = qty || 1;
             const brut = puTTC * quantite;
@@ -2442,6 +2450,7 @@ export default function Vente() {
                 puTTC,
                 remise: remise || 0, remisePct: remisePourcentage ?? computeRemisePct(remise || 0, puTTC, quantite),
                 totalPrixTTC: Math.max(0, brut - (remise || 0)),
+                occasion: !!item?.occasion,
             };
         };
         const forfaitLines = (vente.venteForfaits || []).map(lineFromForfait);
@@ -2492,7 +2501,7 @@ export default function Vente() {
         const tableHtml = buildInvoiceTableHtml(lines, { showPrices, tva: vente.tva });
 
         const tvaBreakdownHtml = showPrices
-            ? buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA })
+            ? buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA, montantOccasion: montantOccasion(lines) })
             : '';
 
         const bancaireHtml = isFacture && societe?.bancaire ? `
@@ -2710,31 +2719,39 @@ export default function Vente() {
         const tva = form.getFieldValue('tva') || 0;
 
         let totalTTC = 0;
+        let totalOccasionTTC = 0;
         allLignes.forEach((line) => {
             if (!line.type || !line.itemId) return;
             const quantite = Math.max(1, Math.floor(line.quantite || 1));
             let brut = 0;
+            let article: { prixVenteTTC?: number; occasion?: boolean } | undefined;
             if (line.type === 'forfait') {
                 brut = (allForfaits.find((f) => f.id === line.itemId)?.prixTTC || 0) * quantite;
             } else if (line.type === 'service') {
                 brut = (allServices.find((s) => s.id === line.itemId)?.prixTTC || 0) * quantite;
             } else if (line.type === 'produit') {
-                brut = (allProduits.find((p) => p.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                article = allProduits.find((p) => p.id === line.itemId);
             } else if (line.type === 'bateau') {
-                brut = (catalogueBateaux.find((b) => b.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                article = catalogueBateaux.find((b) => b.id === line.itemId);
             } else if (line.type === 'moteur') {
-                brut = (catalogueMoteurs.find((m) => m.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                article = catalogueMoteurs.find((m) => m.id === line.itemId);
             } else if (line.type === 'helice') {
-                brut = (catalogueHelices.find((h) => h.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                article = catalogueHelices.find((h) => h.id === line.itemId);
             } else if (line.type === 'remorque') {
-                brut = (catalogueRemorques.find((r) => r.id === line.itemId)?.prixVenteTTC || 0) * quantite;
+                article = catalogueRemorques.find((r) => r.id === line.itemId);
             }
-            totalTTC += Math.max(0, brut - (line.remise || 0));
+            if (article) {
+                brut = (article.prixVenteTTC || 0) * quantite;
+            }
+            const net = Math.max(0, brut - (line.remise || 0));
+            totalTTC += net;
+            if (article?.occasion) {
+                totalOccasionTTC += net;
+            }
         });
 
         const montantTTC = Math.round((totalTTC + Number.EPSILON) * 100) / 100;
-        const montantTVA = Math.round((((montantTTC / (100 + tva)) * tva) + Number.EPSILON) * 100) / 100;
-        const montantHT = Math.round(((montantTTC - montantTVA) + Number.EPSILON) * 100) / 100;
+        const { montantTVA, montantHT } = calculerTvaVente(montantTTC, totalOccasionTTC, tva);
 
         if (remiseSource === 'percentage') {
             remise = Math.round((((montantTTC * remisePourcentage) / 100) + Number.EPSILON) * 100) / 100;
