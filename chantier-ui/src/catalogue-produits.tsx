@@ -1016,14 +1016,14 @@ const CatalogueProduits: React.FC = () => {
                                     <DocumentUpload />
                                 </Form.Item>
                                 {typeCourant === 'produit' && (
-                                    <Form.Item label="Références complémentaires">
+                                    <Form.Item label="Codes barres">
                                         <Form.List name="refs">
                                             {(fields, { add, remove }) => (
                                                 <>
                                                     {fields.map(({ key, name, ...restField }) => (
                                                         <Space key={key} align="baseline">
                                                             <Form.Item {...restField} name={[name]} style={{ flex: 1 }}>
-                                                                <Input placeholder="Réf. complémentaire" style={{ width: 200 }} />
+                                                                <Input placeholder="Code barre" style={{ width: 200 }} />
                                                             </Form.Item>
                                                             <Button icon={<DeleteOutlined />} danger onClick={() => remove(name)} />
                                                         </Space>

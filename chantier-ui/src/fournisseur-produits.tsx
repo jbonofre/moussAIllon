@@ -763,7 +763,7 @@ const FournisseurProduits = ({
           <Form.Item name="images" label="Images">
             <ImageUpload />
           </Form.Item>
-          <Form.Item name="refs" label="Références complémentaires">
+          <Form.Item name="refs" label="Codes barres">
             <Form.List name="refs">
               {(fields, { add, remove }) => (
                 <>
@@ -775,7 +775,7 @@ const FournisseurProduits = ({
                         fieldKey={[field.fieldKey ?? field.key]}
                         style={{ flex: 1 }}
                       >
-                        <Input placeholder="Réf. complémentaire" style={{ width: 200 }} />
+                        <Input placeholder="Code barre" style={{ width: 200 }} />
                       </Form.Item>
                       <Button icon={<DeleteOutlined />} danger onClick={() => remove(field.name)} />
                     </Space>

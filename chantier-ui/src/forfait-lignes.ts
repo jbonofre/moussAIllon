@@ -8,7 +8,7 @@ export interface LigneOption {
 
 const searchText = (parts: Array<string | undefined | null>) => parts.filter(Boolean).join(' ').toLowerCase();
 
-// Un produit se recherche par référence interne (et complémentaires), référence fournisseur ou désignation.
+// Un produit se recherche par référence interne (et codes barres), référence fournisseur ou désignation.
 // Les références fournisseur ne sont renseignées que par /catalogue/produits/search.
 export const produitLigneOptions = (produits: any[]): LigneOption[] =>
     produits.map((p) => ({

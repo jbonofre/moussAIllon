@@ -790,14 +790,14 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                     <Form.Item name="images" label="Images">
                         <ImageUpload />
                     </Form.Item>
-                    <Form.Item name="refs" label="Références complémentaires">
+                    <Form.Item name="refs" label="Codes barres">
                         <Form.List name="refs">
                             {(fields, { add, remove: removeRef }) => (
                                 <>
                                     {fields.map((field) => (
                                         <Space key={field.key} align="baseline">
                                             <Form.Item {...field} name={[field.name]} style={{ flex: 1 }}>
-                                                <Input placeholder="Réf. complémentaire" style={{ width: 200 }} />
+                                                <Input placeholder="Code barre" style={{ width: 200 }} />
                                             </Form.Item>
                                             <Button icon={<DeleteOutlined />} danger onClick={() => removeRef(field.name)} />
                                         </Space>
