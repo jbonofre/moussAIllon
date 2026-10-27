@@ -50,6 +50,9 @@ interface SocieteData {
     telephone?: string;
     email?: string;
     bancaire?: string;
+    banque?: string;
+    iban?: string;
+    bic?: string;
 }
 
 interface ClientData {
@@ -480,10 +483,17 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                 </tr>`).join('')}</tbody>
             </table>` : '';
 
-        const bancaireHtml = isFacture && societe?.bancaire ? `
+        const bancaireLines = [
+            societe?.banque ? `Banque : ${societe.banque}` : '',
+            societe?.iban ? `IBAN : ${societe.iban}` : '',
+            societe?.bic ? `BIC : ${societe.bic}` : '',
+            societe?.bancaire || '',
+        ].filter(Boolean);
+        const bancaireHtml = isFacture && bancaireLines.length > 0 ? `
             <div class="bancaire-box">
                 <div class="bancaire-title">Coordonnées bancaires société :</div>
-                <div style="white-space:pre-line">${escapeHtml(societe.bancaire)}</div>
+                <div style="white-space:pre-line">${escapeHtml(bancaireLines.join('
+'))}</div>
             </div>` : '';
 
         const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);

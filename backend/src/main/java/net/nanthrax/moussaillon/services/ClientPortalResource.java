@@ -174,6 +174,9 @@ public class ClientPortalResource {
         impression.telephone = entity.telephone;
         impression.email = entity.email;
         impression.bancaire = entity.bancaire;
+        impression.banque = entity.banque;
+        impression.iban = entity.iban;
+        impression.bic = entity.bic;
         return impression;
     }
 

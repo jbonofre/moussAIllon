@@ -60,6 +60,9 @@ public class SocieteResource {
         entity.telephone = societe.telephone;
         entity.email = societe.email;
         entity.bancaire = societe.bancaire;
+        entity.banque = societe.banque;
+        entity.iban = societe.iban;
+        entity.bic = societe.bic;
         entity.images = societe.images;
         entity.stripePaymentLinkMensuel = societe.stripePaymentLinkMensuel;
         entity.stripePaymentLinkAnnuel = societe.stripePaymentLinkAnnuel;

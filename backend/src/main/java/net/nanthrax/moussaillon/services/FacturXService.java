@@ -16,6 +16,7 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
+import org.mustangproject.BankDetails;
 import org.mustangproject.Invoice;
 import org.mustangproject.Item;
 import org.mustangproject.Product;
@@ -173,10 +174,21 @@ public class FacturXService {
                     String.format("Indemnité forfaitaire de recouvrement : %.0f €", indemniteForf), margin, y - 3);
 
                 // Coordonnées bancaires
-                if (societe != null && societe.bancaire != null && !societe.bancaire.isBlank()) {
+                if (societe != null && hasCoordonneesBancaires(societe)) {
                     y -= 10;
                     y = drawText(cs, fontGras, 9, "Coordonnées bancaires :", margin, y);
-                    drawText(cs, fontNormal, 9, societe.bancaire.replace("\n", " | "), margin, y - 3);
+                    if (societe.banque != null && !societe.banque.isBlank()) {
+                        y = drawText(cs, fontNormal, 9, "Banque : " + societe.banque, margin, y - 3);
+                    }
+                    if (societe.iban != null && !societe.iban.isBlank()) {
+                        y = drawText(cs, fontNormal, 9, "IBAN : " + societe.iban, margin, y - 3);
+                    }
+                    if (societe.bic != null && !societe.bic.isBlank()) {
+                        y = drawText(cs, fontNormal, 9, "BIC : " + societe.bic, margin, y - 3);
+                    }
+                    if (societe.bancaire != null && !societe.bancaire.isBlank()) {
+                        drawText(cs, fontNormal, 9, societe.bancaire.replace("\n", " | "), margin, y - 3);
+                    }
                 }
             }
 
@@ -184,6 +196,13 @@ public class FacturXService {
             doc.save(baos);
             return baos.toByteArray();
         }
+    }
+
+    private static boolean hasCoordonneesBancaires(SocieteEntity s) {
+        return (s.bancaire != null && !s.bancaire.isBlank())
+            || (s.banque != null && !s.banque.isBlank())
+            || (s.iban != null && !s.iban.isBlank())
+            || (s.bic != null && !s.bic.isBlank());
     }
 
     private Invoice construireInvoice(VenteEntity vente, SocieteEntity societe) {
@@ -207,6 +226,11 @@ public class FacturXService {
         if (societe != null) {
             if (societe.siret  != null) emetteur.addTaxID(societe.siret);
             if (societe.numerotva != null) emetteur.addVATID(societe.numerotva);
+            if (societe.iban != null && !societe.iban.isBlank()) {
+                emetteur.addBankDetails(new BankDetails(
+                    societe.iban.replaceAll("\\s", ""),
+                    societe.bic != null && !societe.bic.isBlank() ? societe.bic.replaceAll("\\s", "") : null));
+            }
         }
         invoice.setSender(emetteur);
 

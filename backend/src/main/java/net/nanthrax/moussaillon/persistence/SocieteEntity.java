@@ -38,6 +38,12 @@ public class SocieteEntity extends PanacheEntity {
 
     public String bancaire;
 
+    public String banque;
+
+    public String iban;
+
+    public String bic;
+
     public List<String> images = new ArrayList<>();
 
     // Date de création du compte (sert de date d'activation de l'abonnement).
