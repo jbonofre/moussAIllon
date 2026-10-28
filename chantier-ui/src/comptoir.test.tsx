@@ -76,7 +76,7 @@ const ouvrirNouvelleVente = async (): Promise<HTMLElement> => {
 
 const lignesProduits = (modal: HTMLElement) =>
     Array.from(modal.querySelectorAll('.ant-select'))
-        .filter((select) => select.closest('.ant-form-item')?.closest('.ant-space'));
+        .filter((select) => select.closest('.ant-form-item')?.closest('.ligne-vente'));
 
 const choisirDansLaDerniereLigne = async (modal: HTMLElement, libelle: string) => {
     const lignes = lignesProduits(modal);
@@ -106,7 +106,7 @@ describe('Comptoir - ligne libre', () => {
 
     const ajouterLigneLibre = async (modal: HTMLElement): Promise<HTMLElement> => {
         fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
-        return (await within(modal).findByPlaceholderText('Réf.')).closest('.ant-space') as HTMLElement;
+        return (await within(modal).findByPlaceholderText('Réf.')).closest('.ligne-vente') as HTMLElement;
     };
 
     it('crée au catalogue l\'article saisi sur une ligne libre, à l\'enregistrement de la vente', async () => {
