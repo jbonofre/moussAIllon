@@ -48,9 +48,9 @@ import PrestationsList from "./PrestationsList.tsx";
 import HistoriqueOperations from "./historique-operations.tsx";
 import ImportCsvButton from "./ImportCsvButton.tsx";
 import { paginationConfig } from "./pagination.ts";
+import SearchAutoComplete from "./SearchAutoComplete.tsx";
 
 const { Option } = Select;
-const { Search } = Input;
 
 interface Client {
   id?: number;
@@ -311,11 +311,9 @@ function Clients() {
   return (
     <Card title="Clients">
       <Space style={{ marginBottom: 16 }}>
-        <Search
-          placeholder="Recherche"
-          enterButton
+        <SearchAutoComplete
           style={{ width: 600 }}
-          allowClear={true}
+          searchUrl="/clients/search"
           onSearch={async (value) => {
             setLoading(true);
             try {

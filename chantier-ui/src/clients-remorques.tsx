@@ -39,9 +39,9 @@ import { useNavigation } from './navigation-context.tsx';
 import HistoriqueOperations from './historique-operations.tsx';
 import PrestationsList from './PrestationsList.tsx';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from "./SearchAutoComplete.tsx";
 
 const { Option } = Select;
-const { Search } = Input;
 
 const formatAnnee = (anneeDebut: number, anneeFin: number) => {
   if (!anneeDebut) return '';
@@ -370,12 +370,11 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
   return (
     <Card title="Remorques Clients">
       <Space style={{ marginBottom: 16 }}>
-        <Search
-          placeholder="Recherche"
-          enterButton
-          allowClear={true}
+        <SearchAutoComplete
           style={{ width: 600 }}
           onSearch={(q: string) => fetchRemorques(q)}
+          searchUrl="/remorques/search"
+          labelOf={(r) => r.immatriculation}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
       </Space>

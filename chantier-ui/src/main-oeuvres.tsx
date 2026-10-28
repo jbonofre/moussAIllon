@@ -4,6 +4,7 @@ import { Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber, 
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 interface MainOeuvreEntity {
     id?: number;
@@ -204,11 +205,10 @@ export default function MainOeuvres() {
             <Row gutter={[16, 16]}>
                 <Col span={24}>
                     <Space>
-                        <Input.Search
-                            placeholder="Recherche"
-                            enterButton
-                            allowClear
+                        <SearchAutoComplete
                             style={{ width: 600 }}
+                            searchUrl="/main-oeuvres/search"
+                            labelOf={(m) => m.nom}
                             onSearch={(value) => {
                                 setSearchQuery(value);
                                 fetchMainOeuvres(value);

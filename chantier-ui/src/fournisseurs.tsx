@@ -34,10 +34,10 @@ import FournisseurRemorques from "./fournisseur-remorques.tsx";
 import FournisseurProduits from "./fournisseur-produits.tsx";
 import CommandesFournisseur from "./commandes-fournisseur.tsx";
 import { paginationConfig } from "./pagination.ts";
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 const style: React.CSSProperties = { padding: '8px 0' };
 const { TextArea } = Input;
-const { Search } = Input;
 
 type Fournisseur = {
   id?: number;
@@ -252,7 +252,7 @@ const Fournisseurs = () => {
           <Col span={24}>
             <div style={style}>
               <Space>
-                <Search allowClear placeholder="Rechercher" enterButton={<SearchOutlined />} style={{ width: 600 }} onSearch={handleSearch} />
+                <SearchAutoComplete placeholder="Rechercher" enterButton={<SearchOutlined />} style={{ width: 600 }} onSearch={handleSearch} searchUrl="/catalogue/fournisseurs/search" />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleNew} />
               </Space>
             </div>

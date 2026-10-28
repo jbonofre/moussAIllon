@@ -43,9 +43,9 @@ import HistoriqueOperations from './historique-operations.tsx';
 import PrestationsList from './PrestationsList.tsx';
 import ForfaitsAssocies from './ForfaitsAssocies.tsx';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from "./SearchAutoComplete.tsx";
 
 const { Option } = Select;
-const { Search } = Input;
 
 const formatAnnee = (anneeDebut: number, anneeFin: number) => {
   if (!anneeDebut) return '';
@@ -548,12 +548,11 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   return (
     <Card title="Bateaux Clients">
       <Space style={{ marginBottom: 16 }}>
-        <Search
-          placeholder="Recherche"
-          enterButton
-          allowClear={true}
+        <SearchAutoComplete
           style={{ width: 600 }}
           onSearch={fetchBateaux}
+          searchUrl="/bateaux/search"
+          labelOf={(b) => b.name}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
       </Space>

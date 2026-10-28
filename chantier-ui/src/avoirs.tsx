@@ -32,6 +32,7 @@ import {
 } from '@ant-design/icons';
 import { fetchWithAuth } from './api.ts';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 const { TextArea } = Input;
 
@@ -821,14 +822,12 @@ export default function Avoirs() {
     return (
         <Card title="Gestion des avoirs">
             <Space style={{ marginBottom: 16 }}>
-                <Input.Search
-                    placeholder="Recherche"
-                    enterButton
-                    allowClear
+                <SearchAutoComplete
                     style={{ width: 600 }}
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onSearch={(value) => setSearchQuery(value)}
+                    onChange={setSearchQuery}
+                    onSearch={setSearchQuery}
+                    source={avoirs.flatMap((a) => [a.reference, a.client?.nom, a.motif])}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
             </Space>

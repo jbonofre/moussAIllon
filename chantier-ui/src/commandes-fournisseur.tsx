@@ -31,9 +31,10 @@ import api from "./api.ts";
 import dayjs from "dayjs";
 import { useNavigation } from "./navigation-context.tsx";
 import { paginationConfig } from "./pagination.ts";
+import SearchAutoComplete from "./SearchAutoComplete.tsx";
 
 const { Option } = Select;
-const { TextArea, Search } = Input;
+const { TextArea } = Input;
 
 type Fournisseur = {
   id: number;
@@ -605,7 +606,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
         <Col span={24}>
           <div style={{ paddingBottom: 16 }}>
             <Space>
-              <Search allowClear placeholder="Rechercher" enterButton={<SearchOutlined />} style={{ width: 600 }} onSearch={handleSearch} />
+              <SearchAutoComplete placeholder="Rechercher" enterButton={<SearchOutlined />} style={{ width: 600 }} onSearch={handleSearch} searchUrl="/commandes-fournisseur/search" labelOf={(c) => c.reference} />
               <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleNew} />
             </Space>
           </div>

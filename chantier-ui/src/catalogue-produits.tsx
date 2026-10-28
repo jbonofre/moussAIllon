@@ -16,6 +16,7 @@ import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import ImportCsvButton from './ImportCsvButton.tsx';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 // --- Types ---
 
@@ -879,12 +880,10 @@ const CatalogueProduits: React.FC = () => {
                 <Row gutter={[16, 16]}>
                     <Col span={24}>
                         <Space wrap>
-                            <Input.Search
-                                placeholder="Recherche"
-                                enterButton
-                                allowClear
+                            <SearchAutoComplete
                                 style={{ width: 600 }}
-                                onSearch={(value) => setRecherche(value)}
+                                onSearch={setRecherche}
+                                source={lignes.map((ligne) => ligne.designation)}
                             />
                             <Segmented
                                 value={typeFiltre}

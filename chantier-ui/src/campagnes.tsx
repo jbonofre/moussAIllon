@@ -19,6 +19,7 @@ import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import dayjs from 'dayjs';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 interface Campagne {
     id: number;
@@ -393,14 +394,12 @@ export default function Campagnes() {
     return (
         <Card title="Campagnes marketing">
             <Space style={{ marginBottom: 16 }}>
-                <Input.Search
-                    placeholder="Recherche"
-                    enterButton
-                    allowClear
+                <SearchAutoComplete
                     style={{ width: 600 }}
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onSearch={(value) => setSearchQuery(value)}
+                    onChange={setSearchQuery}
+                    onSearch={setSearchQuery}
+                    source={campagnes.flatMap((c) => [c.nom, c.sujet])}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
             </Space>

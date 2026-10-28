@@ -63,6 +63,7 @@ import {
     insererLigneLibre,
     nouvelleLigneLibre,
 } from './ligne-libre.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 interface ClientEntity {
     id: number;
@@ -3195,14 +3196,12 @@ export default function Vente() {
     return (
         <Card title="Transactions/Prestations">
             <Space style={{ marginBottom: 16 }}>
-                <Input.Search
-                    placeholder="Recherche"
-                    enterButton
-                    allowClear
+                <SearchAutoComplete
                     style={{ width: 600 }}
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onSearch={(value) => setSearchQuery(value)}
+                    onChange={setSearchQuery}
+                    onSearch={setSearchQuery}
+                    source={ventes.map((v) => v.client?.nom)}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
                 <Button
