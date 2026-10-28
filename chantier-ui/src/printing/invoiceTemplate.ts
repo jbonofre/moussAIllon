@@ -156,8 +156,8 @@ export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPri
       </table>`;
 };
 
-export const buildBancaireHtml = (societe: InvoicePrintSociete | undefined, isFacture: boolean) => {
-    if (!isFacture || !societe) return '';
+export const buildBancaireHtml = (societe: InvoicePrintSociete | undefined) => {
+    if (!societe) return '';
     const lines = [
         societe.banque ? `Banque : ${societe.banque}` : '',
         societe.iban ? `IBAN : ${societe.iban}` : '',
