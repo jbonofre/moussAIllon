@@ -248,7 +248,7 @@ export default function ProduitFormModal({ open, produit, onClose, onSaved }: Pr
                                         </Space>
                                     ))}
                                     <Button type="dashed" onClick={() => add()} block style={{ marginTop: 8 }}>
-                                        Ajouter une référence
+                                        Ajouter un code barre
                                     </Button>
                                 </>
                             )}
