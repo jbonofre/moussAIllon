@@ -402,7 +402,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
         okText="Enregistrer"
         cancelText="Fermer"
         destroyOnHidden
-                width="95vw"
+                width="61.75vw"
       >
         <Form layout="vertical" form={form} initialValues={defaultRemorque} onValuesChange={() => setFormDirty(true)}>
           <Row gutter={16}>
@@ -436,6 +436,8 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
             <DocumentUpload />
           </Form.Item>
           {/* Association avec un modèle du catalogue */}
+          <Row gutter={16}>
+            <Col span={12}>
           <Form.Item label="Modèle catalogue" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="modeleId" noStyle>
@@ -457,6 +459,8 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
               />
             </Space.Compact>
           </Form.Item>
+            </Col>
+            <Col span={12}>
           <Form.Item label="Propriétaire" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="proprietaireId" noStyle>
@@ -478,6 +482,8 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
               />
             </Space.Compact>
           </Form.Item>
+            </Col>
+          </Row>
         </Form>
         {editing && editing.id && (
           <>

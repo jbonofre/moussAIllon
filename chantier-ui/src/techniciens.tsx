@@ -330,7 +330,7 @@ const Techniciens: React.FC = () => {
                             onOk={handleModalOk}
                             onCancel={handleModalCancel}
                             maskClosable={false}
-                width="95vw"
+                width="48vw"
                             okText="Enregistrer"
                             cancelText="Fermer"
                             destroyOnClose

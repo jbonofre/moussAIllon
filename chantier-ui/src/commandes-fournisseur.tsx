@@ -103,6 +103,7 @@ type ArticleItem = {
   type: ArticleType;
   id: number;
   label: string;
+  designation: string;
   reference?: string;
   prixAchatHT: number;
   tva: number;
@@ -230,6 +231,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           type: "produit" as ArticleType,
           id: fp.produit.id,
           label: `${fp.produit.designation}${fp.reference ? ` — Réf: ${fp.reference}` : ""}`,
+          designation: fp.produit.designation,
           reference: fp.reference,
           prixAchatHT: fp.prixAchatHT,
           tva: fp.tva,
@@ -239,6 +241,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           type: "bateau" as ArticleType,
           id: fb.bateau.id,
           label: fb.bateau.designation,
+          designation: fb.bateau.designation,
           prixAchatHT: fb.prixAchatHT,
           tva: fb.tva,
         })),
@@ -247,6 +250,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           type: "moteur" as ArticleType,
           id: fm.moteur.id,
           label: fm.moteur.designation,
+          designation: fm.moteur.designation,
           prixAchatHT: fm.prixAchatHT,
           tva: fm.tva,
         })),
@@ -255,6 +259,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
           type: "helice" as ArticleType,
           id: fh.helice.id,
           label: fh.helice.designation,
+          designation: fh.helice.designation,
           prixAchatHT: fh.prixAchatHT,
           tva: fh.tva,
         })),
@@ -637,7 +642,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
         onCancel={handleModalCancel}
         onOk={handleModalOk}
         destroyOnHidden
-                width="95vw"
+                width="62vw"
         title={editing ? "Modifier la commande" : "Nouvelle commande fournisseur"}
         okText="Enregistrer"
         cancelText="Fermer"
@@ -742,114 +747,108 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
 
           {lignes.map((ligne, index) => {
             const selectedArticle = articles.find((a) => a.key === ligne.articleKey);
+            const premiereLigne = index === 0;
+            const decalageEntete = premiereLigne ? 30 : 0;
+            const options = [
+              { label: "Produits", type: "produit" },
+              { label: "Bateaux", type: "bateau" },
+              { label: "Moteurs", type: "moteur" },
+              { label: "Hélices", type: "helice" },
+            ]
+              .map((g) => ({
+                label: g.label,
+                options: articles
+                  .filter((a) => a.type === g.type)
+                  .map((a) => ({ value: a.key, label: a.label, ref: a.reference || "-", designation: a.designation })),
+              }))
+              .filter((g) => g.options.length > 0);
             return (
-            <Row gutter={8} key={index} align="middle" style={{ marginBottom: 8 }}>
-              <Col span={7}>
-                <Select
-                  showSearch
-                  placeholder="Article"
-                  optionFilterProp="label"
-                  value={ligne.articleKey}
-                  onChange={(val) => handleLigneChange(index, "articleKey", val)}
-                  style={{ width: "100%" }}
-                  options={[
-                    { label: "Produits", options: articles.filter((a) => a.type === "produit").map((a) => ({ value: a.key, label: a.label })) },
-                    { label: "Bateaux", options: articles.filter((a) => a.type === "bateau").map((a) => ({ value: a.key, label: a.label })) },
-                    { label: "Moteurs", options: articles.filter((a) => a.type === "moteur").map((a) => ({ value: a.key, label: a.label })) },
-                    { label: "Hélices", options: articles.filter((a) => a.type === "helice").map((a) => ({ value: a.key, label: a.label })) },
-                  ].filter((g) => g.options.length > 0)}
-                />
-              </Col>
-              <Col span={3}>
-                <Input
-                  placeholder="Réf. fournisseur"
-                  value={selectedArticle?.reference || ""}
-                  disabled
-                />
-              </Col>
-              <Col span={3}>
-                <InputNumber
-                  min={0}
-                  placeholder="Qté"
-                  value={ligne.quantite || undefined}
-                  onChange={(val) => handleLigneChange(index, "quantite", val || 0)}
-                  style={{ width: "100%" }}
-                />
-              </Col>
-              <Col span={4}>
-                <InputNumber
-                  min={0}
-                  placeholder="Prix unit. HT"
-                  value={ligne.prixUnitaireHT}
-                  onChange={(val) => handleLigneChange(index, "prixUnitaireHT", val || 0)}
-                  style={{ width: "100%" }}
-                  addonAfter="€"
-                />
-              </Col>
-              <Col span={2}>
-                <InputNumber
-                  min={0}
-                  max={100}
-                  placeholder="TVA %"
-                  value={ligne.tva}
-                  onChange={(val) => handleLigneChange(index, "tva", val || 0)}
-                  style={{ width: "100%" }}
-                  addonAfter="%"
-                />
-              </Col>
-              <Col span={3}>
-                <InputNumber
-                  value={ligne.prixTotalTTC}
-                  disabled
-                  style={{ width: "100%" }}
-                  addonAfter="€"
-                />
-              </Col>
-              <Col span={2}>
-                <Button
-                  icon={<MinusCircleOutlined />}
-                  danger
-                  onClick={() => handleRemoveLigne(index)}
-                  size="small"
-                />
-              </Col>
-            </Row>
+              <div key={index} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                <Form.Item label={premiereLigne ? "Référence" : undefined} style={{ width: 120, flex: "none", marginBottom: 8 }}>
+                  <Select
+                    allowClear
+                    showSearch
+                    placeholder="Réf."
+                    value={ligne.articleKey}
+                    options={options}
+                    optionLabelProp="ref"
+                    filterOption={(input, option: any) => (option?.ref || "").toLowerCase().includes(input.toLowerCase())}
+                    onChange={(val) => handleLigneChange(index, "articleKey", val)}
+                  />
+                </Form.Item>
+                <Form.Item label={premiereLigne ? "Désignation" : undefined} style={{ flex: "1 1 0", minWidth: 120, marginBottom: 8 }}>
+                  <Select
+                    allowClear
+                    showSearch
+                    placeholder="Article (réf., désignation)"
+                    value={ligne.articleKey}
+                    options={options}
+                    optionLabelProp="designation"
+                    filterOption={(input, option: any) => (option?.label || "").toLowerCase().includes(input.toLowerCase())}
+                    onChange={(val) => handleLigneChange(index, "articleKey", val)}
+                    notFoundContent={null}
+                  />
+                </Form.Item>
+                <Form.Item label={premiereLigne ? "PU HT €" : undefined} style={{ width: 90, flex: "none", marginBottom: 8 }}>
+                  <InputNumber
+                    min={0}
+                    placeholder="P.U."
+                    value={ligne.prixUnitaireHT}
+                    onChange={(val) => handleLigneChange(index, "prixUnitaireHT", val || 0)}
+                    style={{ width: "100%" }}
+                  />
+                </Form.Item>
+                <Form.Item label={premiereLigne ? "Quantité" : undefined} style={{ width: 70, flex: "none", marginBottom: 8 }}>
+                  <InputNumber
+                    min={0}
+                    placeholder="Qte"
+                    value={ligne.quantite || undefined}
+                    onChange={(val) => handleLigneChange(index, "quantite", val || 0)}
+                    style={{ width: "100%" }}
+                  />
+                </Form.Item>
+                <Form.Item label={premiereLigne ? "TVA %" : undefined} style={{ width: 70, flex: "none", marginBottom: 8 }}>
+                  <InputNumber
+                    min={0}
+                    max={100}
+                    value={ligne.tva}
+                    onChange={(val) => handleLigneChange(index, "tva", val || 0)}
+                    style={{ width: "100%" }}
+                  />
+                </Form.Item>
+                <Form.Item label={premiereLigne ? "Total TTC €" : undefined} style={{ width: 90, flex: "none", marginBottom: 8 }}>
+                  <InputNumber value={ligne.prixTotalTTC} disabled style={{ width: "100%" }} />
+                </Form.Item>
+                <div style={{ width: 32, flex: "none", marginTop: decalageEntete, minHeight: 32 }}>
+                  {lignes.length > 1 && (
+                    <Button danger icon={<MinusCircleOutlined />} title="Supprimer la ligne" onClick={() => handleRemoveLigne(index)} />
+                  )}
+                </div>
+              </div>
             );
           })}
 
-
-          <Divider orientation="left">Totaux</Divider>
-
-          <Row gutter={16}>
-            <Col span={6}>
-              <Form.Item label="Port total (€)" name="portTotal">
-                <InputNumber
-                  min={0}
-                  style={{ width: "100%" }}
-                  onChange={(val) => recalcTotals(lignes, val || 0)}
-                />
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginTop: 16 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <Form.Item label="Notes" name="notes" style={{ marginBottom: 0 }}>
+                <TextArea rows={5} />
               </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="Montant HT (€)" name="montantHT">
+            </div>
+            <div style={{ width: 280, flex: "none" }}>
+              <Form.Item label={<strong>Port total (€)</strong>} name="portTotal" layout="horizontal" labelCol={{ flex: "0 0 150px" }} wrapperCol={{ flex: "0 0 130px" }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                <InputNumber min={0} style={{ width: "100%" }} onChange={(val) => recalcTotals(lignes, val || 0)} />
+              </Form.Item>
+              <Form.Item label={<strong>Montant HT (€)</strong>} name="montantHT" layout="horizontal" labelCol={{ flex: "0 0 150px" }} wrapperCol={{ flex: "0 0 130px" }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
                 <InputNumber disabled style={{ width: "100%" }} />
               </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="Montant TVA (€)" name="montantTVA">
+              <Form.Item label={<strong>Montant TVA (€)</strong>} name="montantTVA" layout="horizontal" labelCol={{ flex: "0 0 150px" }} wrapperCol={{ flex: "0 0 130px" }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
                 <InputNumber disabled style={{ width: "100%" }} />
               </Form.Item>
-            </Col>
-            <Col span={6}>
-              <Form.Item label="Montant TTC (€)" name="montantTTC">
+              <Form.Item label={<strong>Montant TTC (€)</strong>} name="montantTTC" layout="horizontal" labelCol={{ flex: "0 0 150px" }} wrapperCol={{ flex: "0 0 130px" }} labelAlign="right" colon={false} style={{ marginBottom: 0, width: 280 }}>
                 <InputNumber disabled style={{ width: "100%" }} />
               </Form.Item>
-            </Col>
-          </Row>
-
-          <Form.Item label="Notes" name="notes">
-            <TextArea rows={2} />
-          </Form.Item>
+            </div>
+          </div>
         </Form>
       </Modal>
 

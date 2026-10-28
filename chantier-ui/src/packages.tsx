@@ -51,9 +51,6 @@ const defaultPackage: PackageFormValues = {
     lignes: [{}],
 };
 
-// Largeurs des colonnes d'une ligne de package : l'article occupe le reste de la largeur
-const COLONNES = { type: 100, quantite: 110, prixUnitaire: 160, total: 170, action: 32 };
-
 const formatEuro = (value?: number) => `${(value || 0).toFixed(2)} €`;
 
 const parseArticleRef = (articleRef?: string): { type: TypeArticlePackage; id: number } | null => {
@@ -119,11 +116,16 @@ export default function Packages() {
                 options: catalogue[type].map((article) => ({
                     value: `${type}:${article.id}`,
                     label: article.ref ? `${article.ref} - ${article.designation}` : article.designation,
+                    ref: article.ref || '',
+                    designation: article.designation,
                     searchText: `${article.ref || ''} ${article.designation}`.toLowerCase(),
                 })),
             })),
         [catalogue]
     );
+
+    const filtrerArticles = (input: string, option?: { searchText?: string }) =>
+        (option?.searchText || '').includes(input.toLowerCase());
 
     const getArticle = (articleRef?: string): ArticlePackage | undefined => {
         const parsed = parseArticleRef(articleRef);
@@ -320,7 +322,7 @@ export default function Packages() {
                 cancelText="Fermer"
                 maskClosable={false}
                 destroyOnHidden
-                width="95vw"
+                width="62vw"
             >
                 <Form form={form} layout="vertical" initialValues={defaultPackage} onValuesChange={onValuesChange}>
                     <Row gutter={16}>
@@ -339,14 +341,6 @@ export default function Packages() {
                         <Input.TextArea rows={3} placeholder="Description" allowClear />
                     </Form.Item>
                     <Form.Item label="Contenu du package" extra="Ces lignes sont recopiées dans la vente comptoir ou la transaction qui utilise le package, au prix catalogue du moment. Les forfaits ne sont repris que dans une transaction.">
-                        <div style={{ display: 'flex', gap: 8, marginBottom: 4, color: '#8c8c8c' }}>
-                            <div style={{ flex: 1 }}>Article</div>
-                            <div style={{ width: COLONNES.type }}>Type</div>
-                            <div style={{ width: COLONNES.quantite }}>Quantité</div>
-                            <div style={{ width: COLONNES.prixUnitaire }}>P.U. TTC</div>
-                            <div style={{ width: COLONNES.total }}>Total TTC</div>
-                            <div style={{ width: COLONNES.action }} />
-                        </div>
                         <Form.List name="lignes">
                             {(fields, { remove }) => (
                                 <>
@@ -355,37 +349,44 @@ export default function Packages() {
                                             {() => {
                                                 const ligne: PackageLigneForm = form.getFieldValue(['lignes', field.name]) || {};
                                                 const parsed = parseArticleRef(ligne.articleRef);
+                                                const premiereLigne = field.name === 0;
                                                 const prixUnitaire = getArticle(ligne.articleRef)?.prixVenteTTC;
                                                 const total = prixUnitaire !== undefined
                                                     ? Math.round((prixUnitaire * Math.max(1, Math.floor(ligne.quantite || 1)) + Number.EPSILON) * 100) / 100
                                                     : undefined;
                                                 return (
                                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                                                        <Form.Item name={[field.name, 'articleRef']} style={{ flex: 1, minWidth: 0, marginBottom: 0 }}>
+                                                        <Form.Item name={[field.name, 'articleRef']} label={premiereLigne ? 'Référence' : undefined} style={{ width: 130, flex: 'none', marginBottom: 8 }}>
                                                             <Select
                                                                 allowClear
                                                                 showSearch
                                                                 options={articleOptions}
-                                                                filterOption={(input, option) =>
-                                                                    ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
-                                                                }
+                                                                optionLabelProp="ref"
+                                                                filterOption={filtrerArticles}
+                                                                placeholder="Réf."
+                                                            />
+                                                        </Form.Item>
+                                                        <Form.Item name={[field.name, 'articleRef']} label={premiereLigne ? 'Désignation' : undefined} style={{ flex: '1 1 0', minWidth: 160, marginBottom: 8 }}>
+                                                            <Select
+                                                                allowClear
+                                                                showSearch
+                                                                options={articleOptions}
+                                                                optionLabelProp="designation"
+                                                                filterOption={filtrerArticles}
                                                                 placeholder="Rechercher produit, bateau, moteur, hélice, remorque ou forfait"
                                                             />
                                                         </Form.Item>
-                                                        <div style={{ width: COLONNES.type }}>
-                                                            {parsed && <Tag color={TYPES_ARTICLE[parsed.type].color}>{TYPES_ARTICLE[parsed.type].label}</Tag>}
-                                                        </div>
-                                                        <Form.Item name={[field.name, 'quantite']} style={{ width: COLONNES.quantite, marginBottom: 0 }}>
+                                                        <Form.Item label={premiereLigne ? 'PU TTC €' : undefined} style={{ width: 95, flex: 'none', marginBottom: 8 }}>
+                                                            <InputNumber value={prixUnitaire} disabled style={{ width: '100%' }} placeholder="P.U." />
+                                                        </Form.Item>
+                                                        <Form.Item name={[field.name, 'quantite']} label={premiereLigne ? 'Quantité' : undefined} style={{ width: 70, flex: 'none', marginBottom: 8 }}>
                                                             <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
                                                         </Form.Item>
-                                                        <Form.Item style={{ width: COLONNES.prixUnitaire, marginBottom: 0 }}>
-                                                            <InputNumber addonAfter="€" value={prixUnitaire} disabled style={{ width: '100%' }} placeholder="P.U." />
-                                                        </Form.Item>
-                                                        <Form.Item style={{ width: COLONNES.total, marginBottom: 0 }}>
-                                                            <InputNumber addonAfter="€" value={total} disabled style={{ width: '100%' }} placeholder="Total" />
+                                                        <Form.Item label={premiereLigne ? 'Total €' : undefined} style={{ width: 100, flex: 'none', marginBottom: 8 }}>
+                                                            <InputNumber value={total} disabled style={{ width: '100%' }} placeholder="Total" />
                                                         </Form.Item>
                                                         {/* La ligne de saisie vide en fin de liste n'a rien à retirer */}
-                                                        <div style={{ width: COLONNES.action }}>
+                                                        <div style={{ width: 32, flex: 'none', marginTop: premiereLigne ? 30 : 0 }}>
                                                             {(parsed || field.name < fields.length - 1) && (
                                                                 <Button danger icon={<DeleteOutlined />} title="Retirer du package" onClick={() => remove(field.name)} />
                                                             )}

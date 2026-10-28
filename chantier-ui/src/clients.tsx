@@ -354,7 +354,7 @@ function Clients() {
         okText="Enregistrer"
         cancelText="Fermer"
         destroyOnHidden
-                width="95vw"
+                width="47.5vw"
       >
         {editing && editing.id && editing.soldeDu != null && editing.soldeDu > 0 && (
           <Alert

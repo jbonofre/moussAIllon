@@ -952,7 +952,7 @@ const CatalogueProduits: React.FC = () => {
                             onOk={handleModalOk}
                             onCancel={handleModalCancel}
                             maskClosable={false}
-                            width="95vw"
+                            width="61.75vw"
                             okText="Enregistrer"
                             cancelText="Fermer"
                             destroyOnHidden

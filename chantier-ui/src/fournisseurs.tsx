@@ -272,7 +272,7 @@ const Fournisseurs = () => {
         title={editing ? "Modifier Fournisseur" : "Nouveau Fournisseur"}
         okText="Enregistrer"
         cancelText="Fermer"
-                width="95vw"
+        width="62vw"
         maskClosable={false}
         confirmLoading={loading}
       >

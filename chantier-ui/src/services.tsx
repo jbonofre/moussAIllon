@@ -798,7 +798,7 @@ export default function Services() {
                 cancelText="Fermer"
                 maskClosable={false}
                 destroyOnHidden
-                width="95vw"
+                width="48vw"
             >
                 <Form form={newMainOeuvreForm} layout="vertical" initialValues={defaultNewMainOeuvre} onValuesChange={(...args) => { setNewMainOeuvreFormDirty(true); onNewMainOeuvreValuesChange(...args); }}>
                     <Form.Item name="reference" label="Référence">
