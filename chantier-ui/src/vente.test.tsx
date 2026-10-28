@@ -129,6 +129,81 @@ describe('Transactions - référence', () => {
     });
 });
 
+describe('Transactions - onglet Produits & Paiements', () => {
+    it('regroupe la note, les montants et les conditions de paiement avec les lignes', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        const onglet = within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }).closest('[role="tabpanel"]') as HTMLElement;
+        expect(onglet).not.toBeNull();
+        expect(within(onglet).getByLabelText('Note')).toBeInTheDocument();
+        expect(within(onglet).getByLabelText('Montant TTC')).toBeInTheDocument();
+        expect(within(onglet).getByLabelText("Date d'échéance")).toBeInTheDocument();
+        expect(within(onglet).getByLabelText('Conditions de paiement')).toBeInTheDocument();
+        expect(within(onglet).getByLabelText('Pénalités de retard')).toBeInTheDocument();
+        expect(within(onglet).getByLabelText('Indemnité forfaitaire (€)')).toBeInTheDocument();
+    });
+});
+
+describe('Transactions - création de service', () => {
+    it("choisit une main d'œuvre par sa référence et calcule le prix et la durée du service", async () => {
+        const mainOeuvre = { id: 1, reference: 'MO-1', nom: 'Mécanique', prixTTC: 60 };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/main-oeuvres' ? [mainOeuvre] : (donnees[url] || []),
+        }) as any);
+        const transaction = await ouvrirNouvelleVente();
+        fireEvent.click(within(transaction).getByRole('button', { name: /Ajouter Service/ }));
+        await screen.findByText('Créer un service');
+        const modal = Array.from(document.querySelectorAll('.ant-modal')).find((m) => m.textContent?.includes('Créer un service')) as HTMLElement;
+
+        const reference = within(modal.querySelector('.ligne-article') as HTMLElement).getAllByRole('combobox')[0];
+        fireEvent.mouseDown(reference);
+        fireEvent.change(reference, { target: { value: 'mo-1' } });
+        const option = await waitFor(() => {
+            const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+                .filter((element) => element.textContent === 'MO-1 - Mécanique');
+            expect(found).toHaveLength(1);
+            return found[0] as HTMLElement;
+        });
+        fireEvent.click(option);
+
+        // la saisie se poursuit sur une ligne vide
+        await waitFor(() => expect(modal.querySelectorAll('.ligne-article')).toHaveLength(2));
+        expect(within(modal.querySelector('.ligne-article') as HTMLElement).getByText('Mécanique')).toBeInTheDocument();
+        expect(within(modal).getByLabelText('Prix TTC')).toHaveValue('60.00');
+        expect(within(modal).getByLabelText('Durée estimée')).toHaveValue('1.00');
+    });
+});
+
+describe('Transactions - création de forfait', () => {
+    it('présente les produits inclus comme les lignes de la transaction et calcule le prix du forfait', async () => {
+        const transaction = await ouvrirNouvelleVente();
+        fireEvent.click(within(transaction).getByRole('button', { name: /Créer Forfait/ }));
+        await screen.findByText('Créer un forfait');
+        const modal = Array.from(document.querySelectorAll('.ant-modal')).find((m) => m.textContent?.includes('Créer un forfait')) as HTMLElement;
+
+        // la première liste est celle des produits inclus
+        const designation = within(modal.querySelector('.ligne-article') as HTMLElement).getAllByRole('combobox')[1];
+        fireEvent.mouseDown(designation);
+        const option = await waitFor(() => {
+            const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+                .find((element) => element.textContent === 'AN-1 - Anode zinc');
+            expect(found).toBeTruthy();
+            return found as HTMLElement;
+        });
+        fireEvent.click(option);
+
+        const premiere = await waitFor(() => {
+            const lignes = modal.querySelectorAll('.ligne-article');
+            // une ligne vide est ajoutée après le produit, la main d'œuvre garde sa ligne de saisie
+            expect(lignes).toHaveLength(3);
+            return lignes[0] as HTMLElement;
+        });
+        expect(within(premiere).getByText('AN-1')).toBeInTheDocument();
+        expect(within(premiere).getByText('Anode zinc')).toBeInTheDocument();
+        expect(within(modal).getByLabelText('Prix TTC')).toHaveValue('12.00');
+    });
+});
+
 describe('Transactions - lignes forfait', () => {
     it("n'affiche pas les techniciens mais conserve ceux affectés au planning", async () => {
         const technicien = { id: 5, prenom: 'Paul', nom: 'Martin' };

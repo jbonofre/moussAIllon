@@ -40,7 +40,7 @@ import {
     Dropdown,
     message
 } from 'antd';
-import type { MenuProps } from 'antd';
+import type { FormInstance, MenuProps } from 'antd';
 import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
@@ -863,11 +863,6 @@ export default function Vente() {
         [forfaits]
     );
 
-    const produitOptions = useMemo(
-        () => produits.map((produit) => ({ value: produit.id, label: produit.designation })),
-        [produits]
-    );
-
     const serviceOptions = useMemo(
         () => services.map((service) => ({ value: service.id, label: service.nom })),
         [services]
@@ -993,16 +988,6 @@ export default function Vente() {
         setFormDirty(true);
         recalculateFromLines('auto');
     };
-
-    const mainOeuvreOptions = useMemo(
-        () => mainOeuvres.map((mo) => ({ value: mo.id, label: mo.reference ? `${mo.reference} - ${mo.nom}` : mo.nom })),
-        [mainOeuvres]
-    );
-
-    const produitOptionsForService = useMemo(
-        () => produits.map((p) => ({ value: p.id, label: p.designation })),
-        [produits]
-    );
 
     const fetchVentes = async () => {
         setLoading(true);
@@ -1421,6 +1406,122 @@ export default function Vente() {
             newServiceForm.setFieldValue('montantTVA', montantTVA);
             newServiceForm.setFieldValue('prixHT', Math.round(((prixTTC - montantTVA) + Number.EPSILON) * 100) / 100);
         }
+    };
+
+    // Lignes de main d'œuvre ou de produits des modals service et forfait, présentées comme celles d'une transaction
+    const renderLignesArticles = (
+        form: FormInstance,
+        onValuesChange: (changedValues: Record<string, unknown>) => void,
+        liste: 'mainOeuvres' | 'produits',
+    ) => {
+        const estProduit = liste === 'produits';
+        const champ = estProduit ? 'produitId' : 'mainOeuvreId';
+        const articles = estProduit
+            ? produits.map((p) => ({ id: p.id, ref: p.ref, designation: p.designation, prix: p.prixVenteTTC, stock: p.stock, stockMini: p.stockMini }))
+            : mainOeuvres.map((mo) => ({ id: mo.id, ref: mo.reference, designation: mo.nom, prix: mo.prixTTC, stock: undefined, stockMini: undefined }));
+        const options = articles.map((a) => ({
+            value: a.id,
+            label: a.ref ? `${a.ref} - ${a.designation}` : a.designation,
+            ref: a.ref || '-',
+            designation: a.designation,
+        }));
+        // Le choix par la référence passe par le formulaire : mêmes calculs (prix, durée, ligne suivante) que par la désignation
+        const choisirParReference = (index: number, id?: number) => {
+            form.setFieldValue([liste, index, champ], id);
+            onValuesChange({ [liste]: form.getFieldValue(liste) });
+        };
+        return (
+            <Form.List name={liste}>
+                {(fields, { remove }) => (
+                    <>
+                        {fields.map((field) => (
+                            <Form.Item key={field.key} noStyle shouldUpdate>
+                                {() => {
+                                    // Entêtes affichées une seule fois, au-dessus de la première ligne
+                                    const premiereLigne = field.name === 0;
+                                    const decalageEntete = premiereLigne ? 30 : 0;
+                                    const ligne = form.getFieldValue([liste, field.name]) || {};
+                                    const article = articles.find((a) => a.id === ligne[champ]);
+                                    const total = article
+                                        ? Math.round(((article.prix || 0) * (ligne.quantite || 0) + Number.EPSILON) * 100) / 100
+                                        : undefined;
+                                    const stock = article?.stock ?? 0;
+                                    const couleurStock = stock === 0 ? 'red' : (stock < (ligne.quantite || 0) || stock < (article?.stockMini ?? 0)) ? 'orange' : 'green';
+                                    return (
+                                        <div className="ligne-article" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                            <Form.Item label={premiereLigne ? 'Référence' : undefined} style={{ width: 120, flex: 'none', marginBottom: 8 }}>
+                                                <Select
+                                                    allowClear
+                                                    showSearch
+                                                    value={ligne[champ] ?? null}
+                                                    options={options}
+                                                    optionLabelProp="ref"
+                                                    placeholder="Réf."
+                                                    filterOption={(input, option) => (option?.ref || '').toLowerCase().includes(input.toLowerCase())}
+                                                    onSearch={estProduit ? handleProduitSearch : undefined}
+                                                    onChange={(id?: number) => choisirParReference(field.name, id)}
+                                                />
+                                            </Form.Item>
+                                            <Form.Item
+                                                name={[field.name, champ]}
+                                                label={premiereLigne ? 'Désignation' : undefined}
+                                                style={{ flex: '1 1 0', minWidth: 120, marginBottom: 8 }}
+                                            >
+                                                <Select
+                                                    allowClear
+                                                    showSearch
+                                                    options={options}
+                                                    optionLabelProp="designation"
+                                                    placeholder={estProduit ? 'Produit (réf., désignation)' : "Main d'œuvre (réf., nom)"}
+                                                    filterOption={(input, option) => (option?.label || '').toLowerCase().includes(input.toLowerCase())}
+                                                    onSearch={estProduit ? handleProduitSearch : undefined}
+                                                    notFoundContent={null}
+                                                />
+                                            </Form.Item>
+                                            <Form.Item label={premiereLigne ? 'PU TTC €' : undefined} style={{ width: 80, flex: 'none', marginBottom: 8 }}>
+                                                <InputNumber value={article?.prix} disabled style={{ width: '100%' }} placeholder="P.U." />
+                                            </Form.Item>
+                                            <Form.Item
+                                                name={[field.name, 'quantite']}
+                                                label={premiereLigne ? 'Quantité' : undefined}
+                                                style={{ width: 70, flex: 'none', marginBottom: 8 }}
+                                            >
+                                                <InputNumber min={estProduit ? 1 : 0.25} step={estProduit ? 1 : 0.25} style={{ width: '100%' }} placeholder="Qte" />
+                                            </Form.Item>
+                                            <Form.Item label={premiereLigne ? 'Total €' : undefined} style={{ width: 75, flex: 'none', marginBottom: 8 }}>
+                                                <InputNumber value={total} disabled style={{ width: '100%' }} />
+                                            </Form.Item>
+                                            {estProduit && (
+                                                <Form.Item label={premiereLigne ? 'Stock' : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }}>
+                                                    {article && (
+                                                        <Tag color={couleurStock} style={{ marginRight: 0, minWidth: 40, textAlign: 'center', lineHeight: '30px', height: 32 }}>{stock}</Tag>
+                                                    )}
+                                                </Form.Item>
+                                            )}
+                                            {/* Zone d'actions de largeur fixe : les colonnes restent alignées d'une ligne à l'autre */}
+                                            <div style={{ width: estProduit ? 62 : 32, flex: 'none', marginTop: decalageEntete, display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
+                                                {estProduit && article && (
+                                                    <FicheCataloguePopover
+                                                        type="produit"
+                                                        itemId={article.id}
+                                                        produits={produits}
+                                                        navigate={navigate}
+                                                        onProduitSaved={handleProduitSaved}
+                                                    />
+                                                )}
+                                                {fields.length > 1 && (
+                                                    <Button style={{ marginLeft: 'auto' }} danger icon={<DeleteOutlined />} title="Supprimer la ligne" onClick={() => remove(field.name)} />
+                                                )}
+                                            </div>
+                                        </div>
+                                    );
+                                }}
+                            </Form.Item>
+                        ))}
+                    </>
+                )}
+            </Form.List>
+        );
     };
 
     const openNewForfaitModal = (lineIndex: number) => {
@@ -3445,6 +3546,7 @@ export default function Vente() {
                                 key: 'lignes',
                                 label: 'Produits & Paiements',
                                 children: (
+                                    <>
                                     <Form.List name="lignes">
                                         {(fields, { remove }) => (
                                             <>
@@ -3747,6 +3849,167 @@ export default function Vente() {
                                             </>
                                         )}
                                     </Form.List>
+
+                                        <Form.Item noStyle name="montantTTC"><input type="hidden" /></Form.Item>
+                                        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, width: 940, maxWidth: '100%' }}>
+                                            <div style={{ flex: 1, minWidth: 0 }}>
+                                                <Form.Item name="note" label="Note" style={{ marginBottom: 0 }}>
+                                                    <Input.TextArea rows={6} allowClear placeholder="Note libre (visible sur le devis et la facture)" />
+                                                </Form.Item>
+                                            </div>
+                                            <div style={{ width: 280, flex: 'none' }}>
+                                                <Form.Item name="montantHT" label={<strong>Montant HT (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="remisePourcentage" label={<strong>Remise (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="remise" label={<strong>Remise (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="tva" label={<strong>TVA (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="montantTVA" label={<strong>Montant TVA</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="prixVenteTTC" label={<strong>Montant TTC</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item
+                                                    label={<strong>Solde dû</strong>}
+                                                    layout="horizontal"
+                                                    labelCol={{ flex: '0 0 150px' }}
+                                                    wrapperCol={{ flex: '0 0 130px' }}
+                                                    labelAlign="right"
+                                                    colon={false}
+                                                    style={{ marginBottom: 8, width: 280 }}
+                                                >
+                                                    <Form.Item noStyle shouldUpdate={(prev, cur) => prev.prixVenteTTC !== cur.prixVenteTTC}>
+                                                        {() => {
+                                                            const totalPaye = (currentVente?.paiements ?? []).reduce((sum, p) => sum + p.montant, 0);
+                                                            const soldeDu = Math.max(0, Math.round(((form.getFieldValue('prixVenteTTC') || 0) - totalPaye) * 100) / 100);
+                                                            return <InputNumber value={soldeDu} disabled step={0.01} style={{ width: '100%' }} />;
+                                                        }}
+                                                    </Form.Item>
+                                                </Form.Item>
+                                            </div>
+                                        </div>
+
+                                        {(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE') && (
+                                        <div style={{ marginBottom: 16 }}>
+                                                            {isEdit && (
+                                                                <>
+                                                                    {(() => {
+                                                                        const ps = currentVente?.paiements ?? [];
+                                                                        const totalPaye = ps.reduce((s, p) => s + p.montant, 0);
+                                                                        const totalFacture = currentVente?.prixVenteTTC ?? 0;
+                                                                        const restant = Math.round((totalFacture - totalPaye) * 100) / 100;
+                                                                        const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+                                                                        return (
+                                                                            <>
+                                                                                <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                                                                                    <Col>
+                                                                                        <Space>
+                                                                                            <span>Total facture : <strong>{formatEuro(totalFacture)}</strong></span>
+                                                                                            <span>Total payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
+                                                                                            {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
+                                                                                        </Space>
+                                                                                    </Col>
+                                                                                    <Col>
+                                                                                        <Button
+                                                                                            type="primary"
+                                                                                            icon={<PlusCircleOutlined />}
+                                                                                            onClick={openPaiementModal}
+                                                                                            disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                                        >
+                                                                                            Ajouter un paiement
+                                                                                        </Button>
+                                                                                    </Col>
+                                                                                </Row>
+                                                                                <Table
+                                                                                    rowKey="id"
+                                                                                    size="small"
+                                                                                    bordered
+                                                                                    pagination={false}
+                                                                                    dataSource={ps}
+                                                                                    locale={{ emptyText: 'Aucun paiement enregistré' }}
+                                                                                    columns={[
+                                                                                        { title: 'Date', dataIndex: 'date', width: 190, render: (v: string | undefined, r: VentePaiement) => (
+                    <Space>
+                    <span>{formatDate(v)}</span>
+                    <Button size="small" type="text" icon={<EditOutlined />} title="Modifier la date" disabled={watchedStatus === 'FACTURE_PAYEE'} onClick={() => r.id && setEditPaiement({ id: r.id, date: r.date ? dayjs(r.date) : dayjs() })} />
+                    </Space>
+                    ) },
+                                                                                        { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
+                                                                                        {
+                                                                                            title: 'Avoir',
+                                                                                            key: 'avoir',
+                                                                                            render: (_: unknown, r: VentePaiement) =>
+                                                                                                r.avoirId ? `#${r.avoirId} — ${r.avoirMotif ?? ''}` : '-',
+                                                                                        },
+                                                                                        { title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const, render: (v: number) => formatEuro(v) },
+                                                                                        { title: 'Notes', dataIndex: 'notes', render: (v: string) => v ?? '-' },
+                                                                                        {
+                                                                                            title: '',
+                                                                                            key: 'remove',
+                                                                                            width: 50,
+                                                                                            render: (_: unknown, r: VentePaiement) => (
+                                                                                                <Popconfirm
+                                                                                                    title="Supprimer ce paiement ?"
+                                                                                                    onConfirm={() => r.id && handleRemovePaiement(r.id)}
+                                                                                                    okText="Supprimer"
+                                                                                                    cancelText="Annuler"
+                                                                                                    disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                                                >
+                                                                                                    <Button
+                                                                                                        size="small"
+                                                                                                        danger
+                                                                                                        icon={<DeleteOutlined />}
+                                                                                                        disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                                                    />
+                                                                                                </Popconfirm>
+                                                                                            ),
+                                                                                        },
+                                                                                    ]}
+                                                                                />
+                                                                            </>
+                                                                        );
+                                                                    })()}
+                                                                </>
+                                                            )}
+                                                            {!isEdit && (
+                                                                <div style={{ color: '#8c8c8c' }}>Enregistrez d'abord la facture pour gérer les paiements.</div>
+                                                            )}
+                                        </div>
+                                        )}
+
+                                        <Row gutter={16}>
+                                            <Col span={6}>
+                                                <Form.Item name="dateEcheance" label="Date d'échéance">
+                                                    <DatePicker style={{ width: '100%' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={18}>
+                                                <Form.Item name="conditionsPaiement" label="Conditions de paiement">
+                                                    <Input placeholder="ex : 30 jours nets, comptant…" />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+
+                                        <Row gutter={16}>
+                                            <Col span={12}>
+                                                <Form.Item name="penalitesRetard" label="Pénalités de retard">
+                                                    <Input placeholder="ex : 1,5 fois le taux d'intérêt légal en vigueur" />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={6}>
+                                                <Form.Item name="indemniteForfaitaire" label="Indemnité forfaitaire (€)">
+                                                    <InputNumber addonAfter="EUR" min={0} step={1} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+                                    </>
                                 )
                             },
                             {
@@ -3901,166 +4164,6 @@ export default function Vente() {
                             },
                         ]}
                     />
-
-                    <Form.Item noStyle name="montantTTC"><input type="hidden" /></Form.Item>
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, width: 940, maxWidth: '100%' }}>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <Form.Item name="note" label="Note" style={{ marginBottom: 0 }}>
-                                <Input.TextArea rows={6} allowClear placeholder="Note libre (visible sur le devis et la facture)" />
-                            </Form.Item>
-                        </div>
-                        <div style={{ width: 280, flex: 'none' }}>
-                            <Form.Item name="montantHT" label={<strong>Montant HT (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
-                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                            <Form.Item name="remisePourcentage" label={<strong>Remise (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
-                                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                            <Form.Item name="remise" label={<strong>Remise (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
-                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                            <Form.Item name="tva" label={<strong>TVA (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
-                                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                            <Form.Item name="montantTVA" label={<strong>Montant TVA</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
-                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                            <Form.Item name="prixVenteTTC" label={<strong>Montant TTC</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
-                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                            <Form.Item
-                                label={<strong>Solde dû</strong>}
-                                layout="horizontal"
-                                labelCol={{ flex: '0 0 150px' }}
-                                wrapperCol={{ flex: '0 0 130px' }}
-                                labelAlign="right"
-                                colon={false}
-                                style={{ marginBottom: 8, width: 280 }}
-                            >
-                                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.prixVenteTTC !== cur.prixVenteTTC}>
-                                    {() => {
-                                        const totalPaye = (currentVente?.paiements ?? []).reduce((sum, p) => sum + p.montant, 0);
-                                        const soldeDu = Math.max(0, Math.round(((form.getFieldValue('prixVenteTTC') || 0) - totalPaye) * 100) / 100);
-                                        return <InputNumber value={soldeDu} disabled step={0.01} style={{ width: '100%' }} />;
-                                    }}
-                                </Form.Item>
-                            </Form.Item>
-                        </div>
-                    </div>
-
-                    {(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE') && (
-                    <div style={{ marginBottom: 16 }}>
-                                        {isEdit && (
-                                            <>
-                                                {(() => {
-                                                    const ps = currentVente?.paiements ?? [];
-                                                    const totalPaye = ps.reduce((s, p) => s + p.montant, 0);
-                                                    const totalFacture = currentVente?.prixVenteTTC ?? 0;
-                                                    const restant = Math.round((totalFacture - totalPaye) * 100) / 100;
-                                                    const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
-                                                    return (
-                                                        <>
-                                                            <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
-                                                                <Col>
-                                                                    <Space>
-                                                                        <span>Total facture : <strong>{formatEuro(totalFacture)}</strong></span>
-                                                                        <span>Total payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
-                                                                        {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
-                                                                    </Space>
-                                                                </Col>
-                                                                <Col>
-                                                                    <Button
-                                                                        type="primary"
-                                                                        icon={<PlusCircleOutlined />}
-                                                                        onClick={openPaiementModal}
-                                                                        disabled={watchedStatus === 'FACTURE_PAYEE'}
-                                                                    >
-                                                                        Ajouter un paiement
-                                                                    </Button>
-                                                                </Col>
-                                                            </Row>
-                                                            <Table
-                                                                rowKey="id"
-                                                                size="small"
-                                                                bordered
-                                                                pagination={false}
-                                                                dataSource={ps}
-                                                                locale={{ emptyText: 'Aucun paiement enregistré' }}
-                                                                columns={[
-                                                                    { title: 'Date', dataIndex: 'date', width: 190, render: (v: string | undefined, r: VentePaiement) => (
-<Space>
-<span>{formatDate(v)}</span>
-<Button size="small" type="text" icon={<EditOutlined />} title="Modifier la date" disabled={watchedStatus === 'FACTURE_PAYEE'} onClick={() => r.id && setEditPaiement({ id: r.id, date: r.date ? dayjs(r.date) : dayjs() })} />
-</Space>
-) },
-                                                                    { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
-                                                                    {
-                                                                        title: 'Avoir',
-                                                                        key: 'avoir',
-                                                                        render: (_: unknown, r: VentePaiement) =>
-                                                                            r.avoirId ? `#${r.avoirId} — ${r.avoirMotif ?? ''}` : '-',
-                                                                    },
-                                                                    { title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const, render: (v: number) => formatEuro(v) },
-                                                                    { title: 'Notes', dataIndex: 'notes', render: (v: string) => v ?? '-' },
-                                                                    {
-                                                                        title: '',
-                                                                        key: 'remove',
-                                                                        width: 50,
-                                                                        render: (_: unknown, r: VentePaiement) => (
-                                                                            <Popconfirm
-                                                                                title="Supprimer ce paiement ?"
-                                                                                onConfirm={() => r.id && handleRemovePaiement(r.id)}
-                                                                                okText="Supprimer"
-                                                                                cancelText="Annuler"
-                                                                                disabled={watchedStatus === 'FACTURE_PAYEE'}
-                                                                            >
-                                                                                <Button
-                                                                                    size="small"
-                                                                                    danger
-                                                                                    icon={<DeleteOutlined />}
-                                                                                    disabled={watchedStatus === 'FACTURE_PAYEE'}
-                                                                                />
-                                                                            </Popconfirm>
-                                                                        ),
-                                                                    },
-                                                                ]}
-                                                            />
-                                                        </>
-                                                    );
-                                                })()}
-                                            </>
-                                        )}
-                                        {!isEdit && (
-                                            <div style={{ color: '#8c8c8c' }}>Enregistrez d'abord la facture pour gérer les paiements.</div>
-                                        )}
-                    </div>
-                    )}
-
-                    <Row gutter={16}>
-                        <Col span={6}>
-                            <Form.Item name="dateEcheance" label="Date d'échéance">
-                                <DatePicker style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={18}>
-                            <Form.Item name="conditionsPaiement" label="Conditions de paiement">
-                                <Input placeholder="ex : 30 jours nets, comptant…" />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="penalitesRetard" label="Pénalités de retard">
-                                <Input placeholder="ex : 1,5 fois le taux d'intérêt légal en vigueur" />
-                            </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="indemniteForfaitaire" label="Indemnité forfaitaire (€)">
-                                <InputNumber addonAfter="EUR" min={0} step={1} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
                 </Form>
 
                 <Modal
@@ -4187,7 +4290,7 @@ export default function Vente() {
                     onOk={handleNewServiceSave}
                     onCancel={makeInnerModalCancel(newServiceFormDirty, setNewServiceFormDirty, setNewServiceModalVisible)}
                     maskClosable={false}
-                width="95vw"
+                width="47.5vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden
@@ -4208,100 +4311,12 @@ export default function Vente() {
                                 {
                                     key: 'mainOeuvres',
                                     label: "Main d'Oeuvres",
-                                    children: (
-                                        <Form.List name="mainOeuvres">
-                                            {(fields, { remove }) => (
-                                                <>
-                                                    {fields.map((field, index) => (
-                                                        <Row gutter={8} key={field.key} align="middle">
-                                                            <Col span={16}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'mainOeuvreId']}
-                                                                    label={index === 0 ? "Main d'Oeuvre" : undefined}
-                                                                >
-                                                                    <Select
-                                                                        showSearch
-                                                                        allowClear
-                                                                        placeholder="Sélectionner une main d'oeuvre"
-                                                                        options={mainOeuvreOptions}
-                                                                        filterOption={(input, option) =>
-                                                                            (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                                        }
-                                                                    />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col span={5}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'quantite']}
-                                                                    label={index === 0 ? 'Quantité' : undefined}
-                                                                >
-                                                                    <InputNumber min={0.25} step={0.25} style={{ width: '100%' }} />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col span={3}>
-                                                                <Form.Item label={index === 0 ? ' ' : undefined}>
-                                                                    {fields.length > 1 && (
-                                                                        <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                                    )}
-                                                                </Form.Item>
-                                                            </Col>
-                                                        </Row>
-                                                    ))}
-                                                </>
-                                            )}
-                                        </Form.List>
-                                    )
+                                    children: renderLignesArticles(newServiceForm, onNewServiceValuesChange, 'mainOeuvres')
                                 },
                                 {
                                     key: 'produits',
                                     label: 'Produits',
-                                    children: (
-                                        <Form.List name="produits">
-                                            {(fields, { remove }) => (
-                                                <>
-                                                    {fields.map((field, index) => (
-                                                        <Row gutter={8} key={field.key} align="middle">
-                                                            <Col span={16}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'produitId']}
-                                                                    label={index === 0 ? 'Produit' : undefined}
-                                                                >
-                                                                    <Select
-                                                                        showSearch
-                                                                        allowClear
-                                                                        placeholder="Rechercher un produit par désignation, catégorie ou réf."
-                                                                        options={produitOptionsForService}
-                                                                        filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                                                                        onSearch={handleProduitSearch}
-                                                                        notFoundContent={null}
-                                                                    />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col span={5}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'quantite']}
-                                                                    label={index === 0 ? 'Quantité' : undefined}
-                                                                >
-                                                                    <InputNumber min={1} style={{ width: '100%' }} />
-                                                                </Form.Item>
-                                                            </Col>
-                                                            <Col span={3}>
-                                                                <Form.Item label={index === 0 ? ' ' : undefined}>
-                                                                    {fields.length > 1 && (
-                                                                        <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                                    )}
-                                                                </Form.Item>
-                                                            </Col>
-                                                        </Row>
-                                                    ))}
-                                                </>
-                                            )}
-                                        </Form.List>
-                                    )
+                                    children: renderLignesArticles(newServiceForm, onNewServiceValuesChange, 'produits')
                                 },
                                 {
                                     key: 'taches',
@@ -4347,7 +4362,7 @@ export default function Vente() {
                     onOk={handleNewForfaitSave}
                     onCancel={makeInnerModalCancel(newForfaitFormDirty, setNewForfaitFormDirty, setNewForfaitModalVisible)}
                     maskClosable={false}
-                width="95vw"
+                width="47.5vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden
@@ -4399,99 +4414,11 @@ export default function Vente() {
                                     children: (
                                         <>
                                             <Form.Item label="Produits inclus">
-                                                <Form.List name="produits">
-                                                    {(fields, { remove }) => (
-                                                        <>
-                                                            {fields.map((field) => {
-                                                                const produitId = newForfaitForm.getFieldValue(['produits', field.name, 'produitId']);
-                                                                return (
-                                                                <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                                                                    <Form.Item
-                                                                        {...field}
-                                                                        name={[field.name, 'produitId']}
-                                                                        style={{ width: 520 }}
-                                                                    >
-                                                                        <Select
-                                                                            allowClear
-                                                                            showSearch
-                                                                            options={produitOptions}
-                                                                            filterOption={(input, option) => (option?.label ?? '').toLowerCase().includes(input.toLowerCase())}
-                                                                            onSearch={handleProduitSearch}
-                                                                            notFoundContent={null}
-                                                                            placeholder="Rechercher un produit par désignation, catégorie ou réf."
-                                                                        />
-                                                                    </Form.Item>
-                                                                    <Form.Item
-                                                                        {...field}
-                                                                        name={[field.name, 'quantite']}
-                                                                        style={{ width: 180 }}
-                                                                    >
-                                                                        <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
-                                                                    </Form.Item>
-                                                                    <Form.Item noStyle shouldUpdate>
-                                                                        {({ getFieldValue }) => {
-                                                                            const pid = getFieldValue(['produits', field.name, 'produitId']);
-                                                                            const quantite = getFieldValue(['produits', field.name, 'quantite']) || 0;
-                                                                            const prixUnitaireTTC = produits.find((p) => p.id === pid)?.prixVenteTTC || 0;
-                                                                            const prixTTC = Math.round(((prixUnitaireTTC * quantite) + Number.EPSILON) * 100) / 100;
-                                                                            return (
-                                                                                <Form.Item style={{ width: 180 }}>
-                                                                                    <InputNumber addonAfter="EUR" value={prixTTC} style={{ width: '100%' }} disabled />
-                                                                                </Form.Item>
-                                                                            );
-                                                                        }}
-                                                                    </Form.Item>
-                                                                    <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                                </Space>
-                                                                );
-                                                            })}
-                                                        </>
-                                                    )}
-                                                </Form.List>
+                                                {renderLignesArticles(newForfaitForm, onNewForfaitValuesChange, 'produits')}
                                             </Form.Item>
 
                                             <Form.Item label="Main d'Oeuvres incluses">
-                                                <Form.List name="mainOeuvres">
-                                                    {(fields, { remove }) => (
-                                                        <>
-                                                            {fields.map((field) => {
-                                                                const moId = newForfaitForm.getFieldValue(['mainOeuvres', field.name, 'mainOeuvreId']);
-                                                                return (
-                                                                <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                                                                    <Form.Item
-                                                                        {...field}
-                                                                        name={[field.name, 'mainOeuvreId']}
-                                                                        style={{ width: 520 }}
-                                                                    >
-                                                                        <Select allowClear showSearch options={mainOeuvreOptions} placeholder="Main d'Oeuvre" />
-                                                                    </Form.Item>
-                                                                    <Form.Item
-                                                                        {...field}
-                                                                        name={[field.name, 'quantite']}
-                                                                        style={{ width: 180 }}
-                                                                    >
-                                                                        <InputNumber min={0.25} step={0.25} style={{ width: '100%' }} placeholder="Qte" />
-                                                                    </Form.Item>
-                                                                    <Form.Item noStyle shouldUpdate>
-                                                                        {({ getFieldValue }) => {
-                                                                            const mid = getFieldValue(['mainOeuvres', field.name, 'mainOeuvreId']);
-                                                                            const quantite = getFieldValue(['mainOeuvres', field.name, 'quantite']) || 0;
-                                                                            const prixUnitaireTTC = mainOeuvres.find((mo) => mo.id === mid)?.prixTTC || 0;
-                                                                            const prixTTC = Math.round(((prixUnitaireTTC * quantite) + Number.EPSILON) * 100) / 100;
-                                                                            return (
-                                                                                <Form.Item style={{ width: 180 }}>
-                                                                                    <InputNumber addonAfter="EUR" value={prixTTC} style={{ width: '100%' }} disabled />
-                                                                                </Form.Item>
-                                                                            );
-                                                                        }}
-                                                                    </Form.Item>
-                                                                    <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                                </Space>
-                                                                );
-                                                            })}
-                                                        </>
-                                                    )}
-                                                </Form.List>
+                                                {renderLignesArticles(newForfaitForm, onNewForfaitValuesChange, 'mainOeuvres')}
                                             </Form.Item>
                                         </>
                                     )
