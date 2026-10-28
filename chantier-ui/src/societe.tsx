@@ -100,7 +100,16 @@ export default function Societe(props) {
                     <Form.Item name="email" label="Email">
                         <Input allowClear={true} />
                     </Form.Item>
-                    <Form.Item name="bancaire" label="Coordonnées bancaires">
+                    <Form.Item name="banque" label="Banque">
+                        <Input allowClear={true} />
+                    </Form.Item>
+                    <Form.Item name="iban" label="IBAN">
+                        <Input allowClear={true} />
+                    </Form.Item>
+                    <Form.Item name="bic" label="BIC">
+                        <Input allowClear={true} />
+                    </Form.Item>
+                    <Form.Item name="bancaire" label="Coordonnées bancaires (texte libre)">
                         <TextArea rows={6} allowClear={true} />
                     </Form.Item>
                     <Form.Item name="images" label="Images">

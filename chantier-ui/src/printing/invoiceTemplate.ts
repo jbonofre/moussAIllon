@@ -14,6 +14,9 @@ export interface InvoicePrintSociete {
     telephone?: string;
     email?: string;
     bancaire?: string;
+    banque?: string;
+    iban?: string;
+    bic?: string;
     images?: string[];
 }
 
@@ -151,6 +154,22 @@ export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPri
         }).join('')}
         </tbody>
       </table>`;
+};
+
+export const buildBancaireHtml = (societe: InvoicePrintSociete | undefined, isFacture: boolean) => {
+    if (!isFacture || !societe) return '';
+    const lines = [
+        societe.banque ? `Banque : ${societe.banque}` : '',
+        societe.iban ? `IBAN : ${societe.iban}` : '',
+        societe.bic ? `BIC : ${societe.bic}` : '',
+        societe.bancaire || '',
+    ].filter(Boolean);
+    if (lines.length === 0) return '';
+    return `
+    <div class="bancaire-box">
+        <div class="bancaire-title">Coordonnées bancaires société :</div>
+        <div style="white-space:pre-line">${escapeHtml(lines.join('\n'))}</div>
+    </div>`;
 };
 
 // Montant des lignes d'occasion, vendues sans TVA : il est sorti de la base HT du taux de la vente.
