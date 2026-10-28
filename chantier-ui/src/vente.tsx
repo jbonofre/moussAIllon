@@ -2558,7 +2558,7 @@ export default function Vente() {
             ? buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA, montantOccasion: montantOccasion(lines) })
             : '';
 
-        const bancaireHtml = buildBancaireHtml(societe, isFacture);
+        const bancaireHtml = buildBancaireHtml(societe);
 
         const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
         // Une facture déjà marquée payée est considérée soldée même si le détail des
