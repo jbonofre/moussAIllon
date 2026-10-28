@@ -445,7 +445,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
         okText="Enregistrer"
         cancelText="Fermer"
         destroyOnHidden
-                width="95vw"
+                width="61.75vw"
       >
         <div style={{ marginBottom: 12 }}>
           <AiPhotoIdentify productType="moteur" onApply={handleAiIdentify} />
@@ -478,6 +478,8 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
           <Form.Item label="Date fin garantie" name="dateFinDeGuarantie">
             <DatePicker format="YYYY-MM-DD" style={{ width: "100%" }} />
           </Form.Item>
+          <Row gutter={16}>
+            <Col span={12}>
           <Form.Item label="Modèle catalogue" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="modeleId" noStyle>
@@ -499,6 +501,8 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
               />
             </Space.Compact>
           </Form.Item>
+            </Col>
+            <Col span={12}>
           <Form.Item label="Propriétaire" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="proprietaireId" noStyle>
@@ -520,6 +524,8 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
               />
             </Space.Compact>
           </Form.Item>
+            </Col>
+          </Row>
           <Form.Item label="Images" name="images">
             <ImageUpload />
           </Form.Item>

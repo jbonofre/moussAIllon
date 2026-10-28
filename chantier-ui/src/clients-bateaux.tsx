@@ -598,7 +598,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         okText="Enregistrer"
         cancelText="Fermer"
         destroyOnHidden
-                width="95vw"
+                width="61.75vw"
       >
         <div style={{ marginBottom: 12 }}>
           <AiPhotoIdentify productType="bateau" onApply={handleAiIdentify} />
@@ -672,6 +672,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
             <DocumentUpload />
           </Form.Item>
           {/* Association avec un bateau du catalogue */}
+          <Row gutter={16}>
+            <Col span={12}>
           <Form.Item label="Modèle catalogue" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="modeleId" noStyle>
@@ -693,6 +695,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               />
             </Space.Compact>
           </Form.Item>
+            </Col>
+            <Col span={12}>
           <Form.Item label="Propriétaires" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="proprietaires" noStyle>
@@ -715,6 +719,10 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               />
             </Space.Compact>
           </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
           <Form.Item label="Moteurs" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="moteurs" noStyle>
@@ -737,6 +745,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               />
             </Space.Compact>
           </Form.Item>
+            </Col>
+            <Col span={12}>
           <Form.Item label="Hélices" name="helices">
             <Select
               mode="multiple"
@@ -748,6 +758,10 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               options={heliceSelectOptions}
             />
           </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
           <Form.Item label="Remorques" style={{ marginBottom: 0 }}>
             <Space.Compact style={{ width: "100%" }}>
               <Form.Item name="remorques" noStyle>
@@ -770,6 +784,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               />
             </Space.Compact>
           </Form.Item>
+            </Col>
+            <Col span={12}>
           <Form.Item label="Équipements" name="equipements">
             <Select
               mode="tags"
@@ -779,6 +795,10 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               allowClear
             />
           </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
           <Form.Item label="Options installées" name="options">
             <Select
               mode="multiple"
@@ -789,6 +809,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
               notFoundContent="Aucune option disponible pour ce modèle"
             />
           </Form.Item>
+            </Col>
+          </Row>
         </Form>
         {editing && editing.id && (
           <>

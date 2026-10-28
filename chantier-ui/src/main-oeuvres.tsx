@@ -252,7 +252,7 @@ export default function MainOeuvres() {
                 cancelText="Fermer"
                 maskClosable={false}
                 destroyOnHidden
-                width="95vw"
+                width="48vw"
             >
                 <Form
                     form={form}

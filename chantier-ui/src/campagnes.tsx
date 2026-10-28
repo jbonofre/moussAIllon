@@ -2,11 +2,13 @@ import React, { useEffect, useState } from 'react';
 import {
     Button,
     Card,
+    Col,
     DatePicker,
     Form,
     Input,
     Modal,
     Popconfirm,
+    Row,
     Select,
     Space,
     Table,
@@ -426,7 +428,7 @@ export default function Campagnes() {
                 onOk={handleSave}
                 okText={editing ? 'Mettre à jour' : 'Créer'}
                 cancelText="Fermer"
-                width="95vw"
+                width="48vw"
                 destroyOnHidden
             >
                 <Form form={form} layout="vertical" onValuesChange={(changed) => {
@@ -442,12 +444,18 @@ export default function Campagnes() {
                     <Form.Item name="nom" label="Nom de la campagne" rules={[{ required: true, message: 'Le nom est requis' }]}>
                         <Input placeholder="Ex: Promotion hivernage 2026" />
                     </Form.Item>
-                    <Form.Item name="canal" label="Canal" rules={[{ required: true, message: 'Le canal est requis' }]}>
-                        <Select options={canalOptions} />
-                    </Form.Item>
-                    <Form.Item name="cible" label="Cible" rules={[{ required: true, message: 'La cible est requise' }]}>
-                        <Select options={cibleOptions} />
-                    </Form.Item>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                            <Form.Item name="canal" label="Canal" rules={[{ required: true, message: 'Le canal est requis' }]}>
+                                <Select options={canalOptions} />
+                            </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                            <Form.Item name="cible" label="Cible" rules={[{ required: true, message: 'La cible est requise' }]}>
+                                <Select options={cibleOptions} />
+                            </Form.Item>
+                        </Col>
+                    </Row>
                     {selectedCible === 'PROPRIETAIRE_BATEAU_DESIGNATION' && (
                         <Form.Item name="cibleFiltre" label="Désignation" rules={[{ required: true, message: 'La désignation est requise' }]}>
                             <Select
@@ -528,7 +536,7 @@ export default function Campagnes() {
                 open={detailOpen}
                 onCancel={() => setDetailOpen(false)}
                 footer={null}
-                width="95vw"
+                width="48vw"
             >
                 {detailCampagne && (
                     <div>

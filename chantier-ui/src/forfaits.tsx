@@ -4,6 +4,7 @@ import {
     Button,
     Card,
     Col,
+    Divider,
     Form,
     Input,
     InputNumber,
@@ -21,6 +22,7 @@ import { DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined } from '
 import api from './api.ts';
 import { bateauClientOptions, moteurClientOptions, filterClientOption } from './forfait-clients.ts';
 import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from './forfait-lignes.ts';
+import LignesArticles from './LignesArticles.tsx';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { paginationConfig } from './pagination.ts';
@@ -778,7 +780,7 @@ export default function Forfaits() {
                 cancelText="Fermer"
                 maskClosable={false}
                 destroyOnHidden
-                width="95vw"
+                width="62vw"
             >
                 <Form form={form} layout="vertical" initialValues={defaultForfait} onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }}>
                     <Form.Item
@@ -861,161 +863,48 @@ export default function Forfaits() {
                                 label: "Produits & Main d'Oeuvres",
                                 children: (
                                     <>
-                                        <Form.Item label="Produits inclus">
-                                            <Form.List name="produits">
-                                                {(fields, { remove }) => (
-                                                    <>
-                                                        {fields.map((field) => {
-                                                            const produitId = form.getFieldValue(['produits', field.name, 'produitId']);
-                                                            const isEmptyLine = !produitId;
-                                                            return (
-                                                            <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'produitId']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async (_, value) => {
-                                                                                const line = form.getFieldValue(['produits', field.name]);
-                                                                                const quantite = Number(line?.quantite || 0);
-                                                                                if (!value && quantite > 0) {
-                                                                                    throw new Error('Produit requis');
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    ]}
-                                                                    style={{ width: 520 }}
-                                                                >
-                                                                    <Select allowClear showSearch options={produitOptions} filterOption={filterLigneOption} placeholder="Produit (réf. interne, réf. fournisseur, désignation)" />
-                                                                </Form.Item>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'quantite']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async (_, value) => {
-                                                                                const line = form.getFieldValue(['produits', field.name]);
-                                                                                if (!line?.produitId && (value === undefined || value === null)) {
-                                                                                    return;
-                                                                                }
-                                                                                if (!value || value <= 0) {
-                                                                                    throw new Error('Quantite requise');
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    ]}
-                                                                    style={{ width: 180 }}
-                                                                >
-                                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
-                                                                </Form.Item>
-                                                                <Form.Item noStyle shouldUpdate>
-                                                                    {({ getFieldValue }) => {
-                                                                        const pid = getFieldValue(['produits', field.name, 'produitId']);
-                                                                        const quantite = getFieldValue(['produits', field.name, 'quantite']) || 0;
-                                                                        const prixUnitaireTTC = produits.find((produit) => produit.id === pid)?.prixVenteTTC || 0;
-                                                                        const prixTTC = Math.round(((prixUnitaireTTC * quantite) + Number.EPSILON) * 100) / 100;
-
-                                                                        return (
-                                                                            <Form.Item style={{ width: 180 }}>
-                                                                                <InputNumber
-                                                                                    addonAfter="EUR"
-                                                                                    value={prixTTC}
-                                                                                    style={{ width: '100%' }}
-                                                                                    disabled
-                                                                                />
-                                                                            </Form.Item>
-                                                                        );
-                                                                    }}
-                                                                </Form.Item>
-                                                                {isEmptyLine && (
-                                                                    <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
-                                                                )}
-                                                                <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                            </Space>
-                                                            );
-                                                        })}
-                                                    </>
-                                                )}
-                                            </Form.List>
-                                        </Form.Item>
-
-                                        <Form.Item label="Main d'Oeuvres incluses">
-                                            <Form.List name="mainOeuvres">
-                                                {(fields, { remove }) => (
-                                                    <>
-                                                        {fields.map((field) => {
-                                                            const mainOeuvreId = form.getFieldValue(['mainOeuvres', field.name, 'mainOeuvreId']);
-                                                            const isEmptyLine = !mainOeuvreId;
-                                                            return (
-                                                            <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'mainOeuvreId']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async (_, value) => {
-                                                                                const line = form.getFieldValue(['mainOeuvres', field.name]);
-                                                                                const quantite = Number(line?.quantite || 0);
-                                                                                if (!value && quantite > 0) {
-                                                                                    throw new Error("Main d'oeuvre requise");
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    ]}
-                                                                    style={{ width: 520 }}
-                                                                >
-                                                                    <Select allowClear showSearch options={mainOeuvreOptions} filterOption={filterLigneOption} placeholder="Main d'Oeuvre (référence, nom)" />
-                                                                </Form.Item>
-                                                                <Form.Item
-                                                                    {...field}
-                                                                    name={[field.name, 'quantite']}
-                                                                    rules={[
-                                                                        {
-                                                                            validator: async (_, value) => {
-                                                                                const line = form.getFieldValue(['mainOeuvres', field.name]);
-                                                                                if (!line?.mainOeuvreId && (value === undefined || value === null)) {
-                                                                                    return;
-                                                                                }
-                                                                                if (!value || value <= 0) {
-                                                                                    throw new Error('Quantite requise');
-                                                                                }
-                                                                            }
-                                                                        }
-                                                                    ]}
-                                                                    style={{ width: 180 }}
-                                                                >
-                                                                    <InputNumber min={0.25} step={0.25} style={{ width: '100%' }} placeholder="Qte" />
-                                                                </Form.Item>
-                                                                <Form.Item noStyle shouldUpdate>
-                                                                    {({ getFieldValue }) => {
-                                                                        const moId = getFieldValue(['mainOeuvres', field.name, 'mainOeuvreId']);
-                                                                        const quantite = getFieldValue(['mainOeuvres', field.name, 'quantite']) || 0;
-                                                                        const prixUnitaireTTC = mainOeuvresList.find((mo) => mo.id === moId)?.prixTTC || 0;
-                                                                        const prixTTC = Math.round(((prixUnitaireTTC * quantite) + Number.EPSILON) * 100) / 100;
-
-                                                                        return (
-                                                                            <Form.Item style={{ width: 180 }}>
-                                                                                <InputNumber
-                                                                                    addonAfter="EUR"
-                                                                                    value={prixTTC}
-                                                                                    style={{ width: '100%' }}
-                                                                                    disabled
-                                                                                />
-                                                                            </Form.Item>
-                                                                        );
-                                                                    }}
-                                                                </Form.Item>
-                                                                {isEmptyLine && (
-                                                                    <Button icon={<PlusOutlined />} title="Créer une main d'oeuvre" onClick={() => openNewMainOeuvreModal(field.name)} />
-                                                                )}
-                                                                <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                            </Space>
-                                                            );
-                                                        })}
-                                                    </>
-                                                )}
-                                            </Form.List>
-                                        </Form.Item>
+                                        <div style={{ fontWeight: 600, marginBottom: 4 }}>Produits inclus</div>
+                                        <LignesArticles
+                                            form={form}
+                                            onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }}
+                                            liste="produits"
+                                            produits={produits}
+                                            mainOeuvres={mainOeuvresList}
+                                            onCreate={openNewProduitModal}
+                                        />
+                                        <Divider style={{ margin: '8px 0 16px' }} />
+                                        <div style={{ fontWeight: 600, marginBottom: 4 }}>Main d'Oeuvres incluses</div>
+                                        <LignesArticles
+                                            form={form}
+                                            onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }}
+                                            liste="mainOeuvres"
+                                            produits={produits}
+                                            mainOeuvres={mainOeuvresList}
+                                            onCreate={openNewMainOeuvreModal}
+                                        />
+                                        <Divider style={{ margin: '8px 0 16px' }} />
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                            <div style={{ width: 280, flex: 'none' }}>
+                                                <Form.Item name="prixHT" label={<strong>Montant HT (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="remise" label={<strong>Remise (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="remiseEuros" label={<strong>Remise (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="tva" label={<strong>TVA (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="montantTVA" label={<strong>Montant TVA</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item name="prixTTC" label={<strong>Montant TTC</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                                    <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                            </div>
+                                        </div>
                                     </>
                                 )
                             },
@@ -1048,42 +937,6 @@ export default function Forfaits() {
                             }
                         ]}
                     />
-
-                    <Row gutter={16}>
-                        <Col span={12}>
-                            <Form.Item name="remise" label="Remise">
-                                <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={12}>
-                            <Form.Item name="remiseEuros" label="Remise">
-                                <InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={6}>
-                            <Form.Item name="prixHT" label="Prix HT">
-                                <InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="tva" label="TVA">
-                                <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="montantTVA" label="Montant TVA">
-                                <InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="prixTTC" label="Prix TTC">
-                                <InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
 
                 </Form>
 
@@ -1165,7 +1018,7 @@ export default function Forfaits() {
                     onOk={handleNewMainOeuvreSave}
                     onCancel={handleNewMainOeuvreCancel}
                     maskClosable={false}
-                width="95vw"
+                width="48vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden

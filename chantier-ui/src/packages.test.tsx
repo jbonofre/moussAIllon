@@ -59,6 +59,9 @@ const renderPackages = async () => {
 
 // La liste déroulante d'une ligne déjà renseignée reste dans le DOM, masquée : on choisit dans celle qui est ouverte.
 // Elle est virtualisée : une recherche fait apparaître les options des derniers groupes.
+// Chaque ligne a deux sélecteurs (référence puis désignation) : on pilote celui de la désignation
+const designations = (modal: HTMLElement) => within(modal).getAllByRole('combobox').filter((_, i) => i % 2 === 1);
+
 const choisirArticle = async (combobox: HTMLElement, libelle: string, recherche?: string) => {
     fireEvent.mouseDown(combobox);
     if (recherche) fireEvent.change(combobox, { target: { value: recherche } });
@@ -88,19 +91,19 @@ describe('Packages', () => {
         expect(await screen.findByText('Ajouter un package')).toBeInTheDocument();
         const modal = document.querySelector('.ant-modal') as HTMLElement;
 
-        fireEvent.change(within(modal).getByLabelText('Désignation'), { target: { value: 'Pack motorisation' } });
+        fireEvent.change(within(modal).getByLabelText('Désignation', { selector: '#designation' }), { target: { value: 'Pack motorisation' } });
         // une seule ligne, vide, sans bouton d'ajout ni de suppression
-        expect(within(modal).getAllByRole('combobox')).toHaveLength(1);
+        expect(designations(modal)).toHaveLength(1);
         expect(within(modal).queryByRole('button', { name: /Ajouter un article/ })).not.toBeInTheDocument();
         expect(within(modal).queryByTitle('Retirer du package')).not.toBeInTheDocument();
 
         // choisir un article pré-remplit la quantité et ouvre la ligne de saisie suivante
-        await choisirArticle(within(modal).getAllByRole('combobox')[0], 'F115 XB');
-        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(2));
+        await choisirArticle(designations(modal)[0], 'F115 XB');
+        await waitFor(() => expect(designations(modal)).toHaveLength(2));
         expect(within(modal).getAllByPlaceholderText('Qte')[0]).toHaveValue('1');
         expect(within(modal).getAllByTitle('Retirer du package')).toHaveLength(1);
-        await choisirArticle(within(modal).getAllByRole('combobox')[1], 'Alu 13x19');
-        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(3));
+        await choisirArticle(designations(modal)[1], 'Alu 13x19');
+        await waitFor(() => expect(designations(modal)).toHaveLength(3));
         expect(await within(modal).findByText('13150.00 €')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -123,12 +126,13 @@ describe('Packages', () => {
         expect(await screen.findByText('Ajouter un package')).toBeInTheDocument();
         const modal = document.querySelector('.ant-modal') as HTMLElement;
 
-        fireEvent.change(within(modal).getByLabelText('Désignation'), { target: { value: 'Pack entretien' } });
-        await choisirArticle(within(modal).getAllByRole('combobox')[0], 'FORFAIT-001 - Hivernage', 'hivernage');
-        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(2));
-        expect(within(modal).getByText('Forfait')).toBeInTheDocument();
-        await choisirArticle(within(modal).getAllByRole('combobox')[1], 'AN-1 - Anode zinc');
-        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(3));
+        fireEvent.change(within(modal).getByLabelText('Désignation', { selector: '#designation' }), { target: { value: 'Pack entretien' } });
+        await choisirArticle(designations(modal)[0], 'FORFAIT-001 - Hivernage', 'hivernage');
+        await waitFor(() => expect(designations(modal)).toHaveLength(2));
+        expect(within(modal).getByText('FORFAIT-001')).toBeInTheDocument();
+        expect(within(modal).getByText('Hivernage')).toBeInTheDocument();
+        await choisirArticle(designations(modal)[1], 'AN-1 - Anode zinc');
+        await waitFor(() => expect(designations(modal)).toHaveLength(3));
         expect(await within(modal).findByText('312.00 €')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -166,7 +170,7 @@ describe('Packages', () => {
         fireEvent.click(document.querySelector('.anticon-plus-circle')!.closest('button')!);
         expect(await screen.findByText('Ajouter un package')).toBeInTheDocument();
         const modal = document.querySelector('.ant-modal') as HTMLElement;
-        fireEvent.change(within(modal).getByLabelText('Désignation'), { target: { value: 'Pack vide' } });
+        fireEvent.change(within(modal).getByLabelText('Désignation', { selector: '#designation' }), { target: { value: 'Pack vide' } });
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
         expect(await screen.findByText('Ajoutez au moins un article au package.')).toBeInTheDocument();
@@ -178,11 +182,12 @@ describe('Packages', () => {
         fireEvent.click(screen.getByText('Pack prêt à naviguer'));
         expect(await screen.findByText('Modifier un package')).toBeInTheDocument();
         const modal = document.querySelector('.ant-modal') as HTMLElement;
-        expect(within(modal).getByLabelText('Désignation')).toHaveValue('Pack prêt à naviguer');
-        expect(within(modal).getByText('AN-1 - Anode zinc')).toBeInTheDocument();
+        expect(within(modal).getByLabelText('Désignation', { selector: '#designation' })).toHaveValue('Pack prêt à naviguer');
+        expect(within(modal).getByText('AN-1')).toBeInTheDocument();
+        expect(within(modal).getByText('Anode zinc')).toBeInTheDocument();
         expect(within(modal).getByText('58048.00 €')).toBeInTheDocument();
         // les trois articles du package, puis la ligne de saisie vide
-        expect(within(modal).getAllByRole('combobox')).toHaveLength(4);
+        expect(designations(modal)).toHaveLength(4);
         expect(within(modal).getAllByTitle('Retirer du package')).toHaveLength(3);
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
@@ -208,7 +213,7 @@ describe('Packages', () => {
         const modal = document.querySelector('.ant-modal') as HTMLElement;
 
         fireEvent.click(within(modal).getAllByTitle('Retirer du package')[1]);
-        await waitFor(() => expect(within(modal).getAllByRole('combobox')).toHaveLength(3));
+        await waitFor(() => expect(designations(modal)).toHaveLength(3));
         expect(await within(modal).findByText('45048.00 €')).toBeInTheDocument();
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));

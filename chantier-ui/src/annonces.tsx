@@ -3,11 +3,13 @@ import MosaicTable from "./MosaicTable.tsx";
 import {
     Button,
     Card,
+    Col,
     Form,
     Input,
     InputNumber,
     Modal,
     Popconfirm,
+    Row,
     Select,
     Space,
     Table,
@@ -398,64 +400,94 @@ export default function Annonces() {
                 onOk={handleSave}
                 okText={editing ? 'Mettre a jour' : 'Publier'}
                 cancelText="Fermer"
-                width="95vw"
+                width="48vw"
             >
                 <Form form={form} layout="vertical" onValuesChange={() => setFormDirty(true)}>
-                    <Form.Item name="titre" label="Titre" rules={[{ required: true, message: 'Le titre est requis' }]}>
-                        <Input placeholder="Ex: Beneteau Flyer 7.7 - Excellent etat" />
-                    </Form.Item>
-                    <Form.Item name="clientId" label="Client">
-                        <Select
-                            allowClear
-                            showSearch
-                            placeholder="Selectionner un client"
-                            filterOption={(input, option) =>
-                                (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
-                            }
-                            options={clients.map((c) => ({
-                                value: c.id,
-                                label: clientLabel(c),
-                            }))}
-                        />
-                    </Form.Item>
-                    <Form.Item name="bateauId" label="Bateau associe">
-                        <Select
-                            allowClear
-                            showSearch
-                            placeholder="Selectionner un bateau"
-                            filterOption={(input, option) =>
-                                (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
-                            }
-                            options={bateaux.map((b) => ({
-                                value: b.id,
-                                label: bateauLabel(b),
-                            }))}
-                        />
-                    </Form.Item>
-                    <Form.Item name="description" label="Description">
-                        <Input.TextArea rows={4} placeholder="Description detaillee du bateau, equipements, etat, ..." />
-                    </Form.Item>
-                    <Form.Item name="prix" label="Prix de vente (EUR)" rules={[{ required: true, message: 'Le prix est requis' }]}>
-                        <InputNumber min={0} step={100} style={{ width: '100%' }} placeholder="Ex: 25000" />
-                    </Form.Item>
-                    <Form.Item name="contact" label="Email de contact">
-                        <Input placeholder="contact@email.com" />
-                    </Form.Item>
-                    <Form.Item name="telephone" label="Telephone">
-                        <Input placeholder="06 12 34 56 78" />
-                    </Form.Item>
-                    <Form.Item name="photos" label="Photos">
-                        <ImageUpload />
-                    </Form.Item>
-                    <Form.Item name="status" label="Statut">
-                        <Select
-                            options={[
-                                { value: 'ACTIVE', label: 'Active' },
-                                { value: 'VENDU', label: 'Vendu' },
-                                { value: 'EXPIRE', label: 'Expiree' },
-                            ]}
-                        />
-                    </Form.Item>
+                    <Row gutter={16}>
+                        <Col span={24}>
+                        <Form.Item name="titre" label="Titre" rules={[{ required: true, message: 'Le titre est requis' }]}>
+                            <Input placeholder="Ex: Beneteau Flyer 7.7 - Excellent etat" />
+                        </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                        <Form.Item name="clientId" label="Client">
+                            <Select
+                                allowClear
+                                showSearch
+                                placeholder="Selectionner un client"
+                                filterOption={(input, option) =>
+                                    (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
+                                }
+                                options={clients.map((c) => ({
+                                    value: c.id,
+                                    label: clientLabel(c),
+                                }))}
+                            />
+                        </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                        <Form.Item name="bateauId" label="Bateau associe">
+                            <Select
+                                allowClear
+                                showSearch
+                                placeholder="Selectionner un bateau"
+                                filterOption={(input, option) =>
+                                    (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
+                                }
+                                options={bateaux.map((b) => ({
+                                    value: b.id,
+                                    label: bateauLabel(b),
+                                }))}
+                            />
+                        </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={24}>
+                        <Form.Item name="description" label="Description">
+                            <Input.TextArea rows={4} placeholder="Description detaillee du bateau, equipements, etat, ..." />
+                        </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                        <Form.Item name="prix" label="Prix de vente (EUR)" rules={[{ required: true, message: 'Le prix est requis' }]}>
+                            <InputNumber min={0} step={100} style={{ width: '100%' }} placeholder="Ex: 25000" />
+                        </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                        <Form.Item name="status" label="Statut">
+                            <Select
+                                options={[
+                                    { value: 'ACTIVE', label: 'Active' },
+                                    { value: 'VENDU', label: 'Vendu' },
+                                    { value: 'EXPIRE', label: 'Expiree' },
+                                ]}
+                            />
+                        </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={12}>
+                        <Form.Item name="contact" label="Email de contact">
+                            <Input placeholder="contact@email.com" />
+                        </Form.Item>
+                        </Col>
+                        <Col span={12}>
+                        <Form.Item name="telephone" label="Telephone">
+                            <Input placeholder="06 12 34 56 78" />
+                        </Form.Item>
+                        </Col>
+                    </Row>
+                    <Row gutter={16}>
+                        <Col span={24}>
+                        <Form.Item name="photos" label="Photos">
+                            <ImageUpload />
+                        </Form.Item>
+                        </Col>
+                    </Row>
                 </Form>
             </Modal>
 
