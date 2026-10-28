@@ -230,7 +230,7 @@ export default function ProduitFormModal({ open, produit, onClose, onSaved }: Pr
                     <Form.Item name="documents" label="Documents">
                         <DocumentUpload />
                     </Form.Item>
-                    <Form.Item name="refs" label="Références complémentaires">
+                    <Form.Item name="refs" label="Codes barres">
                         <Form.List name="refs">
                             {(fields, { add, remove }) => (
                                 <>
@@ -242,13 +242,13 @@ export default function ProduitFormModal({ open, produit, onClose, onSaved }: Pr
                                                 fieldKey={[field.fieldKey ?? field.key]}
                                                 style={{ flex: 1 }}
                                             >
-                                                <Input placeholder="Réf. complémentaire" style={{ width: 200 }} />
+                                                <Input placeholder="Code barre" style={{ width: 200 }} />
                                             </Form.Item>
                                             <Button icon={<DeleteOutlined />} danger onClick={() => remove(field.name)} />
                                         </Space>
                                     ))}
                                     <Button type="dashed" onClick={() => add()} block style={{ marginTop: 8 }}>
-                                        Ajouter une référence
+                                        Ajouter un code barre
                                     </Button>
                                 </>
                             )}

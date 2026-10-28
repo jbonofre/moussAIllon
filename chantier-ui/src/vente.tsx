@@ -4021,7 +4021,7 @@ export default function Vente() {
                         <Form.Item name="documents" label="Documents">
                             <DocumentUpload />
                         </Form.Item>
-                        <Form.Item name="refs" label="Références complémentaires">
+                        <Form.Item name="refs" label="Codes barres">
                             <Form.List name="refs">
                                 {(fields, { add, remove: removeRef }) => (
                                     <>
@@ -4032,7 +4032,7 @@ export default function Vente() {
                                                     name={[field.name]}
                                                     style={{ flex: 1 }}
                                                 >
-                                                    <Input placeholder="Réf. complémentaire" style={{ width: 200 }} />
+                                                    <Input placeholder="Code barre" style={{ width: 200 }} />
                                                 </Form.Item>
                                                 <Button icon={<DeleteOutlined />} danger onClick={() => removeRef(field.name)} />
                                             </Space>
