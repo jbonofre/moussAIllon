@@ -19,6 +19,7 @@ import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { useNavigation } from './navigation-context.tsx';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 interface ClientEntity {
     id: number;
@@ -364,14 +365,12 @@ export default function Annonces() {
     return (
         <Card title="Petites annonces - Bateaux a vendre">
             <Space style={{ marginBottom: 16 }}>
-                <Input.Search
-                    placeholder="Recherche"
-                    enterButton
-                    allowClear
+                <SearchAutoComplete
                     style={{ width: 600 }}
                     value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    onSearch={(value) => setSearchQuery(value)}
+                    onChange={setSearchQuery}
+                    onSearch={setSearchQuery}
+                    source={annonces.flatMap((a) => [a.titre, a.client?.nom])}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
             </Space>

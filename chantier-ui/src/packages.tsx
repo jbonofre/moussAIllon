@@ -13,6 +13,7 @@ import {
     totalPackageTTC,
 } from './package-lignes.ts';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 interface TypeArticleConfig {
     label: string;
@@ -281,12 +282,11 @@ export default function Packages() {
             <Row gutter={[16, 16]}>
                 <Col span={24}>
                     <Space>
-                        <Input.Search
-                            placeholder="Recherche"
-                            enterButton
-                            allowClear
+                        <SearchAutoComplete
                             style={{ width: 600 }}
                             onSearch={(value) => fetchPackages(value)}
+                            searchUrl="/catalogue/packages/search"
+                            labelOf={(p) => p.designation}
                         />
                         <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
                     </Space>

@@ -24,6 +24,7 @@ import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from '
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 interface MoteurCatalogueEntity {
     id: number;
@@ -728,21 +729,20 @@ export default function Forfaits() {
             <Row gutter={[16, 16]}>
                 <Col span={24}>
                     <Space>
-                        <Input.Search
-                            placeholder="Recherche"
-                            enterButton
-                            allowClear
+                        <SearchAutoComplete
                             style={{ width: 600 }}
                             onSearch={(value) => {
                                 setSearchQuery(value);
                                 fetchForfaits(value);
                             }}
-                            onChange={(event) => {
-                                if (!event.target.value) {
+                            onChange={(value) => {
+                                if (!value) {
                                     setSearchQuery('');
                                     fetchForfaits();
                                 }
                             }}
+                            searchUrl="/forfaits/search"
+                            labelOf={(f) => f.nom}
                         />
                         <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
                     </Space>

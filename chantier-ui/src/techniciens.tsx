@@ -4,6 +4,7 @@ import { Space, Table, Button, Input, InputNumber, Form, Modal, Card, Row, Col, 
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, UserOutlined, BarChartOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, WarningOutlined, EuroCircleOutlined, KeyOutlined, MailOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 // --- Types ---
 
@@ -289,14 +290,14 @@ const Techniciens: React.FC = () => {
                 <Row gutter={[16, 16]}>
                     <Col span={24}>
                         <Space>
-                            <Input.Search
+                            <SearchAutoComplete
                                 placeholder="Rechercher un technicien (nom, prénom, email, téléphone)"
-                                enterButton
-                                allowClear
                                 style={{ width: 600 }}
                                 onSearch={handleSearch}
-                                onChange={(e) => {
-                                    if (!e.target.value) {
+                                searchUrl="/techniciens/search"
+                                labelOf={(t) => t.nom}
+                                onChange={(value) => {
+                                    if (!value) {
                                         setSearchQuery('');
                                         fetchTechniciens('');
                                     }

@@ -7,6 +7,7 @@ import {
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 interface MainOeuvreEntity {
     id: number;
@@ -531,11 +532,10 @@ export default function Services() {
             <Row gutter={[16, 16]}>
                 <Col span={24}>
                     <Space>
-                        <Input.Search
-                            placeholder="Recherche"
-                            enterButton
-                            allowClear
+                        <SearchAutoComplete
                             style={{ width: 600 }}
+                            searchUrl="/services/search"
+                            labelOf={(s) => s.nom}
                             onSearch={(value) => {
                                 setSearchQuery(value);
                                 fetchServices(value);

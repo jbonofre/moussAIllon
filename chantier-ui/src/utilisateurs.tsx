@@ -4,9 +4,9 @@ import React, { useEffect, useState } from 'react';
 import { Space, Table, Button, Input, Form, Modal, Avatar, Spin, Select, Popconfirm, message, Row, Col } from 'antd';
 import { UserOutlined, PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import { paginationConfig } from './pagination.ts';
+import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 const style: React.CSSProperties = { padding: '8px 0' };
-const { Search } = Input;
 
 const USER_ROLES = [
     { label: "Administrateur", value: "admin" },
@@ -290,10 +290,10 @@ export default function Utilisateurs() {
                 <Col span={24}>
                     <div style={style}>
                         <Space>
-                            <Search placeholder="Recherche" allowClear enterButton style={{ width: 600 }} onSearch={value => {
+                            <SearchAutoComplete style={{ width: 600 }} onSearch={value => {
                                 setSearch(value);
                                 fetchUsers(value);
-                            }} value={search} onChange={e => setSearch(e.target.value)}/>
+                            }} value={search} onChange={setSearch} searchUrl="/users/search" labelOf={(u) => u.name}/>
                             <Button type="primary" icon={<PlusCircleOutlined/>} onClick={() => {
                                 setEditUser(null);
                                 setModalOpen(true);
