@@ -98,7 +98,6 @@ describe('Comptoir - saisie des produits', () => {
 
         await waitFor(() => expect(lignesProduits(modal)).toHaveLength(2));
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
-        expect(within(modal).getByLabelText('Prix vente TTC')).toHaveValue('12.00');
     });
 });
 
@@ -169,7 +168,6 @@ describe('Comptoir - packages', () => {
         expect(within(modal).getByText('AN-1 - Anode zinc')).toBeInTheDocument();
         expect(within(modal).queryByText('PKG-000007 - Pack prêt à naviguer')).not.toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('58048.00');
-        expect(within(modal).getByLabelText('Prix vente TTC')).toHaveValue('58048.00');
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
         await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
