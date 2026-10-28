@@ -2322,6 +2322,23 @@ export default function Comptoir() {
                             <Form.Item name="prixVenteTTC" label={<strong>Montant TTC</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
                                 <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
+                            <Form.Item
+                                label={<strong>Solde dû</strong>}
+                                layout="horizontal"
+                                labelCol={{ flex: '0 0 150px' }}
+                                wrapperCol={{ flex: '0 0 130px' }}
+                                labelAlign="right"
+                                colon={false}
+                                style={{ marginBottom: 8, width: 280 }}
+                            >
+                                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.prixVenteTTC !== cur.prixVenteTTC}>
+                                    {() => {
+                                        const totalPaye = (currentVente?.paiements ?? []).reduce((sum, p) => sum + p.montant, 0);
+                                        const soldeDu = Math.max(0, Math.round(((form.getFieldValue('prixVenteTTC') || 0) - totalPaye) * 100) / 100);
+                                        return <InputNumber value={soldeDu} disabled step={0.01} style={{ width: '100%' }} />;
+                                    }}
+                                </Form.Item>
+                            </Form.Item>
                         </div>
                     </div>
 
@@ -2339,7 +2356,7 @@ export default function Comptoir() {
                                             <strong>Paiements</strong>
                                             <span>Total : <strong>{formatEuro(totalFacture)}</strong></span>
                                             <span>Payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
-                                            {restant > 0.005 && <span>Restant : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
+                                            {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
                                         </Space>
                                     </Col>
                                     <Col>
