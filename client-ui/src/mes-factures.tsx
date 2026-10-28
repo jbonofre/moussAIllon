@@ -492,8 +492,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
         const bancaireHtml = isFacture && bancaireLines.length > 0 ? `
             <div class="bancaire-box">
                 <div class="bancaire-title">Coordonnées bancaires société :</div>
-                <div style="white-space:pre-line">${escapeHtml(bancaireLines.join('
-'))}</div>
+                <div style="white-space:pre-line">${escapeHtml(bancaireLines.join('\n'))}</div>
             </div>` : '';
 
         const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
