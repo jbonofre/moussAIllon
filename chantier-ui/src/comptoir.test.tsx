@@ -141,15 +141,16 @@ describe('Comptoir - ligne libre', () => {
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('9.00');
     });
 
-    it('refuse un article déjà au catalogue, sans enregistrer la vente', async () => {
+    it('refuse une référence déjà au catalogue, sans enregistrer la vente', async () => {
         const modal = await ouvrirNouvelleVente();
 
         const ligne = await ajouterLigneLibre(modal);
-        saisir(within(ligne).getByPlaceholderText('Désignation'), ' anode ZINC ');
+        saisir(within(ligne).getByPlaceholderText('Réf.'), ' an-1 ');
+        saisir(within(ligne).getByPlaceholderText('Désignation'), 'Anode zinc');
         saisir(within(ligne).getByPlaceholderText('P.U.'), '12');
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer' }));
 
-        expect(await within(modal).findByText('Article déjà au catalogue')).toBeInTheDocument();
+        expect(await within(modal).findByText('Référence déjà utilisée')).toBeInTheDocument();
         expect(mockedApi.post).not.toHaveBeenCalled();
     });
 });
