@@ -100,10 +100,6 @@ public class ProduitCatalogueResource {
         if (designation.isEmpty()) {
             throw requeteInvalide("La désignation de l'article saisi sur une ligne libre est requise");
         }
-        // La désignation est unique au catalogue : un article existant se choisit dans la liste
-        if (ProduitCatalogueEntity.count("LOWER(designation) = ?1", designation.toLowerCase()) > 0) {
-            throw requeteInvalide("L'article « " + designation + " » existe déjà au catalogue : sélectionnez-le dans la liste");
-        }
         String ref = ReferenceInterne.absente(saisi.ref) ? null : saisi.ref.trim();
         if (ref != null && ProduitCatalogueEntity.count("LOWER(ref) = ?1", ref.toLowerCase()) > 0) {
             throw requeteInvalide("La référence « " + ref + " » est déjà utilisée au catalogue");

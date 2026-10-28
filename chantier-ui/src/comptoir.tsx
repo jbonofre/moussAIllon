@@ -662,9 +662,14 @@ export default function Comptoir() {
             .filter((p): p is ProduitCatalogueEntity => !!(p as ProduitCatalogueEntity | undefined)?.id);
         setProduits((prev) => mergeById(prev, vendus));
         const crees: string[] = [];
+        // Articles du catalogue déjà choisis sur des lignes : ils ne peuvent pas être ceux créés pour une ligne libre
+        const dejaAttribues = new Set<number>(lignes.flatMap((line) => {
+            const [type, id] = (line?.produitRef || '').split(':');
+            return type === 'produit' && !Number.isNaN(parseInt(id, 10)) ? [parseInt(id, 10)] : [];
+        }));
         const produitsLignes = lignes.map(({ libre, ...line }) => {
             if (!libre) return line;
-            const article = articleCreePourLigneLibre(libre, vendus);
+            const article = articleCreePourLigneLibre(libre, vendus, dejaAttribues);
             if (!article) return { ...line, libre };
             crees.push(article.designation);
             return { ...line, produitRef: `produit:${article.id}` };
@@ -2091,7 +2096,7 @@ export default function Comptoir() {
                                                             name={[field.name, 'libre', 'designation']}
                                                             rules={[{
                                                                 validator: async (_, value) => {
-                                                                    const erreur = erreurDesignationLibre(value, produits, autresLignesLibres(field.name));
+                                                                    const erreur = erreurDesignationLibre(value);
                                                                     if (erreur) throw new Error(erreur);
                                                                 }
                                                             }]}

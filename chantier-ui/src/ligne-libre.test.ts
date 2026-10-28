@@ -28,12 +28,10 @@ describe('ligne-libre', () => {
         expect(articleALaVolee({ designation: 'Bout' }).tva).toBe(20);
     });
 
-    it('exige une désignation absente du catalogue et des autres lignes libres', () => {
-        expect(erreurDesignationLibre('  ', catalogue, [])).toBe('Désignation requise');
-        expect(erreurDesignationLibre(undefined, catalogue, [])).toBe('Désignation requise');
-        expect(erreurDesignationLibre(' anode ZINC ', catalogue, [])).toBe('Article déjà au catalogue');
-        expect(erreurDesignationLibre('Manille', catalogue, [{ designation: 'manille ' }])).toBe('Déjà saisie sur une autre ligne');
-        expect(erreurDesignationLibre('Manille', catalogue, [{ designation: 'Bout' }])).toBeUndefined();
+    it('exige une désignation, sans la vouloir unique', () => {
+        expect(erreurDesignationLibre('  ')).toBe('Désignation requise');
+        expect(erreurDesignationLibre(undefined)).toBe('Désignation requise');
+        expect(erreurDesignationLibre('Anode zinc')).toBeUndefined();
     });
 
     it('accepte une référence vide, mais pas une référence déjà utilisée', () => {
@@ -49,6 +47,18 @@ describe('ligne-libre', () => {
         expect(articleCreePourLigneLibre({ designation: ' manille INOX' }, vendus)).toEqual({ id: 42, designation: 'Manille inox' });
         expect(articleCreePourLigneLibre({ designation: 'Bout' }, vendus)).toBeUndefined();
         expect(articleCreePourLigneLibre({ designation: 'Manille inox' }, [{ designation: 'Manille inox' }])).toBeUndefined();
+    });
+
+    it('distingue par la référence ou par l\'ordre des articles qui partagent une désignation', () => {
+        const vendus = [
+            { id: 1, ref: 'A-1', designation: 'Manille' },
+            { id: 2, ref: 'A-2', designation: 'Manille' },
+            { id: 3, ref: 'A-3', designation: 'Manille' },
+        ];
+        const attribues = new Set<number>([1]);
+        expect(articleCreePourLigneLibre({ ref: 'a-3', designation: 'Manille' }, vendus, attribues)?.id).toBe(3);
+        expect(articleCreePourLigneLibre({ designation: 'Manille' }, vendus, attribues)?.id).toBe(2);
+        expect(articleCreePourLigneLibre({ designation: 'Manille' }, vendus, attribues)).toBeUndefined();
     });
 
     it('insère la ligne libre avant la ligne vide de saisie', () => {
