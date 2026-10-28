@@ -32,6 +32,16 @@ public class VentePaiementEntity extends PanacheEntity {
 
     public String notes;
 
+    // Vrai lorsque le règlement apparaît sur un compte bancaire de la société (pointage manuel ou automatique)
+    @jakarta.persistence.Column(columnDefinition = "boolean default false")
+    public boolean rapproche;
+
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateRapprochement;
+
+    // MANUEL ou nom du connecteur bancaire ayant effectué le rapprochement
+    public String sourceRapprochement;
+
     @ManyToOne
     @JsonbTransient
     public AvoirEntity avoir;

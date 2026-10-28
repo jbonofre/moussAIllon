@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -16,6 +16,8 @@ import Produits from './catalogue-produits.tsx';
 import Fournisseurs from './fournisseurs.tsx';
 import Societe from './societe.tsx';
 import Facturation from './facturation.tsx';
+import Reglements from './reglements.tsx';
+import Connecteurs from './connecteurs.tsx';
 import Utilisateurs from './utilisateurs.tsx';
 import Forfaits from './forfaits.tsx';
 import Packages from './packages.tsx';
@@ -115,6 +117,10 @@ function SideMenu(props) {
       { key: 'market', label: 'Marketing', icon: <RocketOutlined/>, requiredRole: 'admin', children: [
         { key: '/annonces', label: 'Petites annonces', icon: <NotificationOutlined/> },
         { key: '/campagnes', label: 'Campagnes', icon: <SendOutlined/> }
+      ] },
+      { key: 'comptabilite', label: 'Comptabilité', icon: <AuditOutlined/>, requiredRole: 'admin', children: [
+        { key: '/reglements', label: 'Règlements', icon: <WalletOutlined/> },
+        { key: '/connecteurs', label: 'Connecteurs', icon: <ApiOutlined/> },
       ] },
       { key: 'parametrage', label: 'Paramétrage', icon: <SettingOutlined/>, requiredRole: 'admin', children: [
         { key: '/societe', label: 'Société', icon: <BankOutlined/> },
@@ -434,6 +440,17 @@ export default function Workspace(props) {
         setCurrentPage(page);
     }, []);
 
+    // Retour du consentement bancaire Powens : on revient sur la page Connecteurs avec l'identifiant de connexion
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const connecteur = params.get('powens_connecteur');
+        const connectionId = params.get('connection_id');
+        if (connecteur) {
+            window.history.replaceState({}, '', window.location.pathname);
+            navigate('/connecteurs', { powensConnecteur: Number(connecteur), connectionId: connectionId ? Number(connectionId) : null, powensError: params.get('error') });
+        }
+    }, [navigate]);
+
     useEffect(() => {
         fetchWithAuth(`/users/${encodeURIComponent(props.user)}`)
             .then((response) => {
@@ -481,6 +498,10 @@ export default function Workspace(props) {
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Societe /></ProtectedRoute>;
             case '/facturation':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Facturation /></ProtectedRoute>;
+            case '/reglements':
+                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Reglements /></ProtectedRoute>;
+            case '/connecteurs':
+                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Connecteurs /></ProtectedRoute>;
             case '/utilisateurs':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Utilisateurs /></ProtectedRoute>;
             case '/emails':
