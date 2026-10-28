@@ -97,4 +97,21 @@ public class CatalogueConversionResourceTest {
                 .body("designation", equalTo("Conv chaine"));
         }
     }
+
+    @Test
+    void conversionConserveLOccasion() {
+        int id = creer("/catalogue/helices",
+            "{\"designation\":\"Conv occasion\",\"occasion\":true,\"prixVenteHT\":90.0,\"tva\":20.0,\"prixVenteTTC\":108.0}");
+
+        int nouvelId = given().contentType("application/json")
+            .body(convertir(id, "helice", "remorque", null))
+            .when().post("/catalogue/convertir")
+            .then().statusCode(200)
+            .extract().path("id");
+
+        given().when().get("/catalogue/remorques/" + nouvelId).then().statusCode(200)
+            .body("occasion", equalTo(true))
+            .body("tva", equalTo(0.0f))
+            .body("prixVenteTTC", equalTo(90.0f));
+    }
 }

@@ -223,4 +223,31 @@ public class TechnicienPortalResourceTest {
             .statusCode(200)
             .body("$", notNullValue());
     }
+
+    @Test
+    void testAjouterProduitOccasionNeModifiePasLaTva() {
+        int produitId = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Occasion Technicien\",\"categorie\":\"Divers\",\"occasion\":true,\"prixVenteTTC\":50.0}")
+            .when().post("/catalogue/produits")
+            .then().statusCode(200).extract().path("id");
+
+        float montantTTCAvant = given().when().get("/ventes/100").then().statusCode(200).extract().path("montantTTC");
+
+        given()
+            .contentType("application/json")
+            .body("{\"produitId\":" + produitId + ",\"quantite\":2}")
+            .when().post("/technicien-portal/forfaits/100/produits")
+            .then()
+            .statusCode(200);
+
+        // Le TTC augmente du prix des articles d'occasion, mais la TVA ne porte que sur le reste de la vente
+        float tvaAttendue = Math.round(montantTTCAvant / 120.0 * 20.0 * 100.0) / 100.0f;
+        given()
+            .when().get("/ventes/100")
+            .then()
+            .statusCode(200)
+            .body("montantTTC", is(montantTTCAvant + 100.0f))
+            .body("montantTVA", is(tvaAttendue));
+    }
 }

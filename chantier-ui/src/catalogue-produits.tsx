@@ -87,6 +87,7 @@ const defaultCommun: CatalogueEntity = {
     tva: 20,
     montantTVA: 0,
     prixVenteTTC: 0,
+    occasion: false,
 };
 
 const CHAMPS_COMMUNS = Object.keys(defaultCommun);
@@ -451,6 +452,7 @@ const CatalogueProduits: React.FC = () => {
     const [typeCourant, setTypeCourant] = useState<TypeProduit>('produit');
     const [currentProduit, setCurrentProduit] = useState<CatalogueEntity | null>(null);
     const [form] = Form.useForm();
+    const occasion = Form.useWatch('occasion', form);
     const [formDirty, setFormDirty] = useState(false);
     const [forfaitModalVisible, setForfaitModalVisible] = useState(false);
     const [conversion, setConversion] = useState<{ cible: TypeProduit; categorie?: string } | null>(null);
@@ -755,8 +757,18 @@ const CatalogueProduits: React.FC = () => {
         {
             title: 'Type',
             dataIndex: 'typeProduit',
-            render: (type: TypeProduit) => <Tag color={TYPES_PRODUIT[type].color}>{TYPES_PRODUIT[type].label}</Tag>,
+            render: (type: TypeProduit, record: LigneCatalogue) => (
+                <Space size={4} wrap>
+                    <Tag color={TYPES_PRODUIT[type].color}>{TYPES_PRODUIT[type].label}</Tag>
+                    {record.occasion && <Tag color="green">Occasion</Tag>}
+                </Space>
+            ),
             sorter: (a: LigneCatalogue, b: LigneCatalogue) => TYPES_PRODUIT[a.typeProduit].label.localeCompare(TYPES_PRODUIT[b.typeProduit].label),
+            filters: [
+                { text: 'Neuf', value: false },
+                { text: 'Occasion', value: true },
+            ],
+            onFilter: (value: any, record: LigneCatalogue) => !!record.occasion === value,
         },
         {
             title: 'Catégorie',
@@ -824,7 +836,11 @@ const CatalogueProduits: React.FC = () => {
             form.setFieldValue('puissanceCv', arrondir(puissanceKw / CV_TO_KW_FACTOR));
         }
 
-        if (hasChanged('prixVenteHT') || hasChanged('tva')) {
+        // Un article d'occasion est vendu sans TVA ; redevenu neuf, il reprend le taux par défaut
+        if (hasChanged('occasion')) {
+            form.setFieldValue('tva', changedValues.occasion ? 0 : defaultCommun.tva);
+        }
+        if (hasChanged('prixVenteHT') || hasChanged('tva') || hasChanged('occasion')) {
             const prixVenteHT = form.getFieldValue('prixVenteHT') || 0;
             const tva = form.getFieldValue('tva') || 0;
             const montantTVA = arrondir(prixVenteHT * (tva / 100));
@@ -1090,6 +1106,13 @@ const CatalogueProduits: React.FC = () => {
                                         )}
                                     </>
                                 )}
+                                <Form.Item
+                                    name="occasion"
+                                    valuePropName="checked"
+                                    extra="Un article d'occasion est vendu sans TVA : la TVA est fixée à 0 %, y compris dans les ventes."
+                                >
+                                    <Checkbox>Occasion</Checkbox>
+                                </Form.Item>
                                 <Row gutter={16}>
                                     <Col span={12}>
                                         <Form.Item name="prixVenteHT" label="Prix de vente HT">
@@ -1098,12 +1121,12 @@ const CatalogueProduits: React.FC = () => {
                                     </Col>
                                     <Col span={12}>
                                         <Form.Item name="tva" label="TVA (%)">
-                                            <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} addonAfter="%" />
+                                            <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} addonAfter="%" disabled={occasion} />
                                         </Form.Item>
                                     </Col>
                                     <Col span={12}>
                                         <Form.Item name="montantTVA" label="Montant TVA">
-                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€"/>
+                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} addonAfter="€" disabled={occasion} />
                                         </Form.Item>
                                     </Col>
                                     <Col span={12}>

@@ -184,6 +184,7 @@ public class CatalogueConversionResource {
                 e.tva = c.tva;
                 e.montantTVA = c.montantTVA;
                 e.prixVenteTTC = c.prixVenteTTC;
+                e.occasion = c.occasion;
                 e.persist();
                 referenceParDefaut(e.id, e.ref, "PRD", r -> e.ref = r);
                 return e;
@@ -206,6 +207,7 @@ public class CatalogueConversionResource {
                 e.tva = c.tva;
                 e.montantTVA = c.montantTVA;
                 e.prixVenteTTC = c.prixVenteTTC;
+                e.occasion = c.occasion;
                 e.persist();
                 referenceParDefaut(e.id, e.ref, "BAT", r -> e.ref = r);
                 return e;
@@ -228,6 +230,7 @@ public class CatalogueConversionResource {
                 e.tva = c.tva;
                 e.montantTVA = c.montantTVA;
                 e.prixVenteTTC = c.prixVenteTTC;
+                e.occasion = c.occasion;
                 e.persist();
                 referenceParDefaut(e.id, e.ref, "MOT", r -> e.ref = r);
                 return e;
@@ -246,6 +249,7 @@ public class CatalogueConversionResource {
                 e.tva = c.tva;
                 e.montantTVA = c.montantTVA;
                 e.prixVenteTTC = c.prixVenteTTC;
+                e.occasion = c.occasion;
                 e.persist();
                 referenceParDefaut(e.id, e.ref, "HEL", r -> e.ref = r);
                 return e;
@@ -267,6 +271,7 @@ public class CatalogueConversionResource {
                 e.tva = c.tva;
                 e.montantTVA = c.montantTVA;
                 e.prixVenteTTC = c.prixVenteTTC;
+                e.occasion = c.occasion;
                 e.persist();
                 referenceParDefaut(e.id, e.ref, "REM", r -> e.ref = r);
                 return e;
@@ -298,6 +303,7 @@ public class CatalogueConversionResource {
         double tva;
         double montantTVA;
         double prixVenteTTC;
+        boolean occasion;
 
         static Commun de(PanacheEntity source) {
             Commun c = new Commun();
@@ -307,29 +313,34 @@ public class CatalogueConversionResource {
                 c.images = copie(e.images); c.documents = copie(e.documents);
                 c.stock = e.stock; c.stockAlerte = e.stockMini; c.emplacement = e.emplacement;
                 c.prixVenteHT = e.prixVenteHT; c.tva = e.tva; c.montantTVA = e.montantTVA; c.prixVenteTTC = e.prixVenteTTC;
+                c.occasion = e.occasion;
             } else if (source instanceof BateauCatalogueEntity e) {
                 c.designation = e.designation; c.ref = e.ref; c.description = e.description;
                 c.anneeDebut = e.anneeDebut; c.anneeFin = e.anneeFin; c.evaluation = e.evaluation;
                 c.images = copie(e.images); c.documents = copie(e.documents);
                 c.stock = e.stock; c.stockAlerte = e.stockAlerte; c.emplacement = e.emplacement;
                 c.prixVenteHT = e.prixVenteHT; c.tva = e.tva; c.montantTVA = e.montantTVA; c.prixVenteTTC = e.prixVenteTTC;
+                c.occasion = e.occasion;
             } else if (source instanceof MoteurCatalogueEntity e) {
                 c.designation = e.designation; c.ref = e.ref; c.description = e.description;
                 c.anneeDebut = e.anneeDebut; c.anneeFin = e.anneeFin; c.evaluation = e.evaluation;
                 c.images = copie(e.images); c.documents = copie(e.documents);
                 c.stock = e.stock; c.stockAlerte = e.stockAlerte; c.emplacement = e.emplacement;
                 c.prixVenteHT = e.prixVenteHT; c.tva = e.tva; c.montantTVA = e.montantTVA; c.prixVenteTTC = e.prixVenteTTC;
+                c.occasion = e.occasion;
             } else if (source instanceof HeliceCatalogueEntity e) {
                 c.designation = e.designation; c.ref = e.ref; c.description = e.description;
                 c.anneeDebut = e.anneeDebut; c.anneeFin = e.anneeFin; c.evaluation = e.evaluation;
                 c.images = copie(e.images); c.documents = copie(e.documents);
                 c.prixVenteHT = e.prixVenteHT; c.tva = e.tva; c.montantTVA = e.montantTVA; c.prixVenteTTC = e.prixVenteTTC;
+                c.occasion = e.occasion;
             } else if (source instanceof RemorqueCatalogueEntity e) {
                 c.designation = e.designation; c.ref = e.ref; c.description = e.description;
                 c.anneeDebut = e.anneeDebut; c.anneeFin = e.anneeFin; c.evaluation = e.evaluation;
                 c.images = copie(e.images); c.documents = copie(e.documents);
                 c.stock = e.stock; c.stockAlerte = e.stockAlerte; c.emplacement = e.emplacement;
                 c.prixVenteHT = e.prixVenteHT; c.tva = e.tva; c.montantTVA = e.montantTVA; c.prixVenteTTC = e.prixVenteTTC;
+                c.occasion = e.occasion;
             }
             return c;
         }

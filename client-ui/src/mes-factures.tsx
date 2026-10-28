@@ -5,7 +5,7 @@ import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
 import { paginationConfig } from './pagination.ts';
 
-interface ProduitRef { id: number; designation: string; ref?: string; prixVenteTTC?: number }
+interface ProduitRef { id: number; designation: string; ref?: string; prixVenteTTC?: number; occasion?: boolean }
 interface CompositionRef {
     mainOeuvres?: Array<{ mainOeuvre?: { reference?: string; nom?: string }; quantite?: number }>;
     produits?: Array<{ produit?: ProduitRef; quantite?: number }>;
@@ -164,6 +164,8 @@ interface DocLine {
     remise: number;
     remisePct: number;
     totalTTC: number;
+    // Article d'occasion : vendu sans TVA, quel que soit le taux de la vente.
+    occasion?: boolean;
     // Composition d'un forfait/service, imprimée en retrait sous la ligne.
     details?: DocDetailLine[];
 }
@@ -238,6 +240,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
             quantite: qty, prixUnitaire: pu,
             remise, remisePct: vp.remisePourcentage ?? remisePourcentFacture(remise, pu, qty),
             totalTTC: Math.max(0, pu * qty - remise),
+            occasion: !!vp.produit.occasion,
         });
     });
 
@@ -270,6 +273,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         lines.push({
             key: `p-${id}`, type: 'Produit', reference: produit.ref || '', designation: produit.designation,
             quantite, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu * quantite,
+            occasion: !!produit.occasion,
         });
     });
 
@@ -442,7 +446,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                         <td>${escapeHtml(line.type)} — ${escapeHtml(line.designation)}</td>
                         <td class="num">${line.quantite}</td>
                         ${showPrices ? `<td class="num">${remisePct > 0 ? remisePct.toFixed(2) : '-'}</td>` : ''}
-                        ${showPrices ? `<td class="num">${vente.tva != null ? vente.tva.toFixed(2) : '-'}</td>` : ''}
+                        ${showPrices ? `<td class="num">${line.occasion ? (0).toFixed(2) : vente.tva != null ? vente.tva.toFixed(2) : '-'}</td>` : ''}
                         ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.prixUnitaire))}</td>` : ''}
                         ${showPrices ? `<td class="num">${escapeHtml(formatEuro(line.totalTTC))}</td>` : ''}
                     </tr>${(line.details || []).map((detail) => `
@@ -457,14 +461,23 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
               </table>`
             : '<p>Aucun élément</p>';
 
+        // Les articles d'occasion, vendus sans TVA, ont leur propre ligne à 0 %
+        const montantOccasion = lines.filter((line) => line.occasion).reduce((sum, line) => sum + line.totalTTC, 0);
+        const baseTaxable = (vente.montantHT || 0) - montantOccasion;
+        const tvaRows: Array<[string, number, number]> = [
+            ...(montantOccasion <= 0 || baseTaxable > 0.005
+                ? [[vente.tva != null ? vente.tva.toFixed(2) : '-', baseTaxable, vente.montantTVA || 0] as [string, number, number]]
+                : []),
+            ...(montantOccasion > 0 ? [['0.00 (occasion)', montantOccasion, 0] as [string, number, number]] : []),
+        ];
         const tvaBreakdownHtml = showPrices ? `
             <table class="tva-box">
                 <thead><tr><th>Taux</th><th class="num">Base HT</th><th class="num">Montant TVA</th></tr></thead>
-                <tbody><tr>
-                    <td>${vente.tva != null ? vente.tva.toFixed(2) : '-'}</td>
-                    <td class="num">${escapeHtml(formatEuro(vente.montantHT))}</td>
-                    <td class="num">${escapeHtml(formatEuro(vente.montantTVA))}</td>
-                </tr></tbody>
+                <tbody>${tvaRows.map(([taux, base, montant]) => `<tr>
+                    <td>${escapeHtml(taux)}</td>
+                    <td class="num">${escapeHtml(formatEuro(base))}</td>
+                    <td class="num">${escapeHtml(formatEuro(montant))}</td>
+                </tr>`).join('')}</tbody>
             </table>` : '';
 
         const bancaireHtml = isFacture && societe?.bancaire ? `

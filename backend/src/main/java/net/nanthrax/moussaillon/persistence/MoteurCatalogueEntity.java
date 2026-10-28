@@ -6,6 +6,8 @@ import java.util.List;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
@@ -78,5 +80,24 @@ public class MoteurCatalogueEntity extends PanacheEntity {
     public double montantTVA;
 
     public double prixVenteTTC;
+
+    // Un article d'occasion est vendu sans TVA (voir appliquerTvaOccasion)
+    @Column(columnDefinition = "boolean default false")
+    public boolean occasion;
+
+    // Appliqué à chaque enregistrement, quelle qu'en soit l'origine (formulaire, import CSV, conversion de type...)
+    @PrePersist
+    @PreUpdate
+    void appliquerTvaOccasion() {
+        if (occasion) {
+            // Sans TVA, le prix TTC est le prix HT (repris du TTC si seul celui-ci est renseigné)
+            if (prixVenteHT == 0) {
+                prixVenteHT = prixVenteTTC;
+            }
+            prixVenteTTC = prixVenteHT;
+            tva = 0;
+            montantTVA = 0;
+        }
+    }
 
 }

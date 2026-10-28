@@ -595,4 +595,52 @@ public class ProduitCatalogueResourceTest {
             .body("size()", is(1))
             .body("[0].stock", is(2));
     }
+
+    @Test
+    void testProduitOccasionSansTva() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Occasion\",\"categorie\":\"Divers\",\"occasion\":true,"
+                + "\"prixVenteHT\":100.0,\"tva\":20.0,\"montantTVA\":20.0,\"prixVenteTTC\":120.0}")
+            .when().post("/catalogue/produits")
+            .then()
+            .statusCode(200)
+            .body("occasion", is(true))
+            .body("tva", is(0.0f))
+            .body("montantTVA", is(0.0f))
+            .body("prixVenteHT", is(100.0f))
+            .body("prixVenteTTC", is(100.0f))
+            .extract().path("id");
+
+        // La TVA reste à 0 % même si elle est envoyée en modification
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Occasion\",\"categorie\":\"Divers\",\"occasion\":true,"
+                + "\"prixVenteHT\":80.0,\"tva\":20.0,\"montantTVA\":16.0,\"prixVenteTTC\":96.0}")
+            .when().put("/catalogue/produits/" + id)
+            .then()
+            .statusCode(200)
+            .body("tva", is(0.0f))
+            .body("prixVenteTTC", is(80.0f));
+
+        given()
+            .when().get("/catalogue/produits/" + id)
+            .then()
+            .statusCode(200)
+            .body("tva", is(0.0f))
+            .body("montantTVA", is(0.0f))
+            .body("prixVenteTTC", is(80.0f));
+
+        // Redevenu neuf, l'article reprend la TVA saisie
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Occasion\",\"categorie\":\"Divers\",\"occasion\":false,"
+                + "\"prixVenteHT\":80.0,\"tva\":20.0,\"montantTVA\":16.0,\"prixVenteTTC\":96.0}")
+            .when().put("/catalogue/produits/" + id)
+            .then()
+            .statusCode(200)
+            .body("occasion", is(false))
+            .body("tva", is(20.0f))
+            .body("prixVenteTTC", is(96.0f));
+    }
 }

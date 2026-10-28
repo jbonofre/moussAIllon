@@ -97,6 +97,7 @@ public class MoteurCatalogueResource {
         entity.tva = moteur.tva;
         entity.montantTVA = moteur.montantTVA;
         entity.prixVenteTTC = moteur.prixVenteTTC;
+        entity.occasion = moteur.occasion;
         List<HeliceCatalogueEntity> helices = resolveHelices(moteur.helicesCompatibles);
         entity.helicesCompatibles.clear();
         entity.helicesCompatibles.addAll(helices);

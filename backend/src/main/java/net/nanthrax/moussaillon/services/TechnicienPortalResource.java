@@ -909,9 +909,29 @@ public class TechnicienPortalResource {
     private static void appliquerDeltaMontant(VenteEntity vente, double deltaTTC) {
         vente.montantTTC = arrondi(vente.montantTTC + deltaTTC);
         double tva = vente.tva;
-        vente.montantTVA = (100.0 + tva) != 0.0 ? arrondi(vente.montantTTC / (100.0 + tva) * tva) : 0.0;
+        // Les articles d'occasion sont vendus sans TVA : le taux de la vente ne s'applique qu'au reste
+        double baseTaxableTTC = Math.max(0.0, vente.montantTTC - montantOccasionTTC(vente));
+        vente.montantTVA = (100.0 + tva) != 0.0 ? arrondi(baseTaxableTTC / (100.0 + tva) * tva) : 0.0;
         vente.montantHT = arrondi(vente.montantTTC - vente.montantTVA);
         vente.prixVenteTTC = arrondi(vente.montantTTC - vente.remise);
+    }
+
+    // Montant TTC (remises de ligne déduites) des articles d'occasion de la vente
+    private static double montantOccasionTTC(VenteEntity vente) {
+        return vente.venteProduits.stream().filter(l -> l.produit != null && l.produit.occasion)
+                    .mapToDouble(l -> netLigneTTC(l.produit.prixVenteTTC, l.quantite, l.remise)).sum()
+                + vente.venteBateauxCatalogue.stream().filter(l -> l.bateau != null && l.bateau.occasion)
+                    .mapToDouble(l -> netLigneTTC(l.bateau.prixVenteTTC, l.quantite, l.remise)).sum()
+                + vente.venteMoteursCatalogue.stream().filter(l -> l.moteur != null && l.moteur.occasion)
+                    .mapToDouble(l -> netLigneTTC(l.moteur.prixVenteTTC, l.quantite, l.remise)).sum()
+                + vente.venteHelicesCatalogue.stream().filter(l -> l.helice != null && l.helice.occasion)
+                    .mapToDouble(l -> netLigneTTC(l.helice.prixVenteTTC, l.quantite, l.remise)).sum()
+                + vente.venteRemorquesCatalogue.stream().filter(l -> l.remorque != null && l.remorque.occasion)
+                    .mapToDouble(l -> netLigneTTC(l.remorque.prixVenteTTC, l.quantite, l.remise)).sum();
+    }
+
+    private static double netLigneTTC(double prixTTC, int quantite, double remise) {
+        return Math.max(0.0, prixTTC * Math.max(1, quantite) - remise);
     }
 
     private static double arrondi(double valeur) {
