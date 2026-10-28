@@ -2,6 +2,7 @@ import { fetchWithAuth } from './api.ts';
 import React, { useEffect, useState } from 'react';
 import { Space, Table, Button, Input, Form, Modal, Select, Popconfirm, message, Row, Col, InputNumber } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { paginationConfig } from './pagination.ts';
 
 const style: React.CSSProperties = { padding: '8px 0' };
 
@@ -212,7 +213,7 @@ export default function ReferenceValeurs() {
                         dataSource={valeurs}
                         columns={columns}
                         loading={loading}
-                        pagination={{ pageSize: 20, showSizeChanger: false }}
+                        pagination={paginationConfig()}
                     />
                 </Col>
             </Row>

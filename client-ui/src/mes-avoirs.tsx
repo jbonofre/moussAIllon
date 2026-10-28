@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Button, Card, Divider, Modal, Space, Spin, Table, Tag, message } from 'antd';
 import { EyeOutlined, PrinterOutlined } from '@ant-design/icons';
 import api from './api.ts';
+import { paginationConfig } from './pagination.ts';
 
 interface ClientRef { id: number; nom: string }
 interface VenteRef { id: number; status?: string }
@@ -240,7 +241,7 @@ export default function MesAvoirs({ clientId }: MesAvoirsProps) {
                     rowKey="id"
                     dataSource={avoirs}
                     columns={columns}
-                    pagination={{ pageSize: 10 }}
+                    pagination={paginationConfig()}
                     bordered
                     locale={{ emptyText: 'Aucun avoir à afficher' }}
                 />

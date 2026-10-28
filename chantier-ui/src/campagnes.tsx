@@ -18,6 +18,7 @@ import api from './api.ts';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 import dayjs from 'dayjs';
+import { paginationConfig } from './pagination.ts';
 
 interface Campagne {
     id: number;
@@ -408,7 +409,7 @@ export default function Campagnes() {
                 dataSource={filteredCampagnes}
                 columns={columns}
                 loading={loading}
-                pagination={{ pageSize: 10 }}
+                pagination={paginationConfig()}
                 bordered
                 onRow={(record) => ({
                     onClick: (e) => {
@@ -558,7 +559,7 @@ export default function Campagnes() {
                             dataSource={destinataires}
                             columns={destColumns}
                             loading={destLoading}
-                            pagination={{ pageSize: 5 }}
+                            pagination={paginationConfig(10)}
                             size="small"
                             bordered
                         />
@@ -568,7 +569,7 @@ export default function Campagnes() {
                             dataSource={historique}
                             columns={historiqueColumns}
                             loading={historiqueLoading}
-                            pagination={{ pageSize: 5 }}
+                            pagination={paginationConfig(10)}
                             size="small"
                             bordered
                             locale={{ emptyText: 'Aucun envoi effectué' }}

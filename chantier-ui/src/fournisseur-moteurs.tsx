@@ -29,6 +29,7 @@ import {
 import api from "./api.ts";
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
+import { paginationConfig } from './pagination.ts';
 
 const { Option } = Select;
 
@@ -442,7 +443,7 @@ const FournisseurMoteurs = ({
           columns={columns}
           dataSource={moteursAssocies}
           bordered
-          pagination={{ pageSize: 10 }}
+          pagination={paginationConfig()}
         />
       </Spin>
 

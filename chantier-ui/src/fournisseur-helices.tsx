@@ -30,6 +30,7 @@ import {
 } from "@ant-design/icons";
 import api from "./api.ts";
 import ImageUpload from './ImageUpload.tsx';
+import { paginationConfig } from './pagination.ts';
 
 const { Option } = Select;
 
@@ -381,7 +382,7 @@ const FournisseurHelices = ({
           columns={columns}
           dataSource={helicesAssociees}
           bordered
-          pagination={{ pageSize: 10 }}
+          pagination={paginationConfig()}
         />
       </Spin>
 

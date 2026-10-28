@@ -6,6 +6,7 @@ import {
 } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import api from './api.ts';
+import { paginationConfig } from './pagination.ts';
 
 interface MainOeuvreEntity {
     id: number;
@@ -557,7 +558,7 @@ export default function Services() {
                         dataSource={services}
                         columns={columns}
                         loading={loading}
-                        pagination={{ pageSize: 10 }}
+                        pagination={paginationConfig()}
                         bordered
                         onRow={(record) => ({
                             onClick: (e) => {

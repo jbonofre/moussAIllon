@@ -26,6 +26,7 @@ import {
   ShrinkOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
+import { paginationConfig } from "./pagination.ts";
 
 const { Option } = Select;
 
@@ -385,7 +386,7 @@ const FournisseurRemorques = ({
           columns={columns}
           dataSource={remorquesAssocies}
           bordered
-          pagination={{ pageSize: 10 }}
+          pagination={paginationConfig()}
         />
       </Spin>
 
