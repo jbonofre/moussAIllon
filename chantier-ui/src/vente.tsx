@@ -41,7 +41,7 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, LeftOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RightOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
@@ -624,6 +624,13 @@ const getSoldeDu = (vente: { status?: string; prixVenteTTC?: number; paiements?:
     if (vente.status === 'FACTURE_PAYEE') return 0;
     const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
     return Math.max(0, Math.round(((vente.prixVenteTTC || 0) - totalPaye) * 100) / 100);
+};
+const referenceTransaction = (vente: VenteEntity) => {
+    if (vente.numeroFacture) return vente.numeroFacture;
+    if (!vente.id) return '-';
+    const parsed = vente.date ? new Date(vente.date) : new Date();
+    const year = Number.isNaN(parsed.getTime()) ? new Date().getFullYear() : parsed.getFullYear();
+    return `FACT-${year}-${String(vente.id).padStart(5, '0')}`;
 };
 const formatDatePrint = (value?: string) => {
     if (!value) return '-';
@@ -3032,10 +3039,16 @@ export default function Vente() {
 
     const columns = [
         {
+            title: 'Référence',
+            dataIndex: 'id',
+            sorter: (a: VenteEntity, b: VenteEntity) => (a.id || 0) - (b.id || 0),
+            render: (_value: number, record: VenteEntity) => referenceTransaction(record)
+        },
+        {
             title: 'Date',
             dataIndex: 'date',
             sorter: (a: VenteEntity, b: VenteEntity) => (a.date || '').localeCompare(b.date || ''),
-            render: (value: string) => formatDate(value)
+            render: (value: string) => formatDatePrint(value)
         },
         {
             title: 'Origine',
@@ -3137,68 +3150,6 @@ export default function Vente() {
             }
         },
         {
-            title: 'Mode de paiement',
-            dataIndex: 'modePaiement',
-            sorter: (a: VenteEntity, b: VenteEntity) => (a.modePaiement || '').localeCompare(b.modePaiement || ''),
-            filters: modePaiementOptions.map(opt => ({ text: opt.label, value: opt.value })),
-            onFilter: (value: unknown, record: VenteEntity) => record.modePaiement === value,
-            render: (value: ModePaiement) => value ? (modePaiementOptions.find(opt => opt.value === value)?.label || value) : '-'
-        },
-        {
-            title: 'Fournisseur',
-            key: 'commandesFournisseur',
-            width: 170,
-            render: (_: unknown, record: VenteEntity) => {
-                const linked = record.id ? (linkedCommandesByVente.get(record.id) || []) : [];
-                if (linked.length === 0) {
-                    return (
-                        <Button
-                            size="small"
-                            icon={<ShoppingCartOutlined />}
-                            title="Créer une commande fournisseur liée à cette vente"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenCommandeFournisseur(record);
-                            }}
-                        >
-                            Commander
-                        </Button>
-                    );
-                }
-                return (
-                    <Space direction="vertical" size={2}>
-                        {linked.map((cf) => (
-                            <Tag
-                                key={cf.id}
-                                color="purple"
-                                icon={<ShoppingCartOutlined />}
-                                style={{ cursor: 'pointer' }}
-                                title={`Voir la commande fournisseur ${cf.reference} (${cf.fournisseur?.nom || ''})`}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate('/commandes-fournisseur');
-                                }}
-                            >
-                                {cf.reference}
-                            </Tag>
-                        ))}
-                        <Button
-                            type="link"
-                            size="small"
-                            style={{ padding: 0, height: 'auto', fontSize: 12 }}
-                            icon={<PlusOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenCommandeFournisseur(record);
-                            }}
-                        >
-                            Autre commande
-                        </Button>
-                    </Space>
-                );
-            }
-        },
-        {
             title: 'Actions',
             key: 'actions',
             render: (_: unknown, record: VenteEntity) => (
@@ -3208,7 +3159,6 @@ export default function Vente() {
                         <Button title="Télécharger Factur-X (PDF/A-3 + XML)" icon={<DownloadOutlined />} onClick={() => handleDownloadFacturX(record)} />
                     )}
                     <Button title="Envoyer par email" icon={<MailOutlined />} onClick={() => handleEmail(record)} />
-                    <Button title="Créer une commande fournisseur" icon={<ShoppingCartOutlined />} onClick={() => handleOpenCommandeFournisseur(record)} />
                     <Dropdown menu={{ items: paymentMenuItems(record) }} placement="bottomRight" disabled={record.status !== 'FACTURE_PRETE'}>
                         <Button title="Lien de paiement" icon={<CreditCardOutlined />} disabled={record.status !== 'FACTURE_PRETE'} />
                     </Dropdown>
@@ -3290,6 +3240,14 @@ export default function Vente() {
                 open={modalVisible}
                 onCancel={handleModalCancel}
                 footer={[
+                    <div key="steps" style={{ textAlign: 'left', marginBottom: 12 }}>
+                        <Steps
+                            current={venteStepIndex(watchedStatus || 'DEVIS', watchedBonPourAccord)}
+                            size="small"
+                            items={venteStepItems(currentVente)}
+                            onChange={isReadOnly ? undefined : (step) => goToStep(step)}
+                        />
+                    </div>,
                     <Button
                         key="print"
                         icon={<PrinterOutlined />}
@@ -3340,29 +3298,6 @@ export default function Vente() {
                             Générer un avoir
                         </Button>,
                     ] : []),
-                    ...(!isReadOnly ? [<div key="step-nav" style={{ flex: 1, textAlign: 'left' }}>
-                        <Button
-                            icon={<LeftOutlined />}
-                            disabled={venteStepIndex(watchedStatus || 'DEVIS', watchedBonPourAccord) <= 0}
-                            onClick={() => {
-                                const current = venteStepIndex(watchedStatus || 'DEVIS', watchedBonPourAccord);
-                                if (current > 0) goToStep(current - 1);
-                            }}
-                        >
-                            Précédent
-                        </Button>
-                        <Button
-                            style={{ marginLeft: 8 }}
-                            disabled={venteStepIndex(watchedStatus || 'DEVIS', watchedBonPourAccord) >= 4}
-                            onClick={() => {
-                                const current = venteStepIndex(watchedStatus || 'DEVIS', watchedBonPourAccord);
-                                if (current < 4) goToStep(current + 1);
-                            }}
-                        >
-                            Suivant
-                            <RightOutlined />
-                        </Button>
-                    </div>] : []),
                     <Button key="cancel" onClick={handleModalCancel}>
                         Fermer
                     </Button>,
@@ -3442,7 +3377,7 @@ export default function Vente() {
                                 <DatePicker showTime format="DD/MM/YYYY HH:mm" style={{ width: '100%' }} />
                             </Form.Item>
                         </Col>
-                        {/* modePaiement géré via l'onglet Paiements */}
+                        {/* modePaiement géré dans la section Paiements sous les montants */}
                     </Row>
 
                     <Row gutter={16}>
@@ -3506,7 +3441,7 @@ export default function Vente() {
                         items={[
                             {
                                 key: 'lignes',
-                                label: 'Lignes',
+                                label: 'Produits & Paiements',
                                 children: (
                                     <Form.List name="lignes">
                                         {(fields, { remove }) => (
@@ -3919,102 +3854,6 @@ export default function Vente() {
                                     </>
                                 )
                             },
-                            ...(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE' ? [{
-                                key: 'paiements',
-                                label: (() => {
-                                    const ps = currentVente?.paiements ?? [];
-                                    const total = ps.reduce((s, p) => s + p.montant, 0);
-                                    const restant = (currentVente?.prixVenteTTC ?? 0) - total;
-                                    return `Paiements${ps.length > 0 ? ` (${ps.length})` : ''}${restant > 0.005 ? ` — ${restant.toFixed(2)} € restant` : ' ✓'}`;
-                                })(),
-                                children: (
-                                    <div>
-                                        {isEdit && (
-                                            <>
-                                                {(() => {
-                                                    const ps = currentVente?.paiements ?? [];
-                                                    const totalPaye = ps.reduce((s, p) => s + p.montant, 0);
-                                                    const totalFacture = currentVente?.prixVenteTTC ?? 0;
-                                                    const restant = Math.round((totalFacture - totalPaye) * 100) / 100;
-                                                    const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
-                                                    return (
-                                                        <>
-                                                            <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
-                                                                <Col>
-                                                                    <Space>
-                                                                        <span>Total facture : <strong>{formatEuro(totalFacture)}</strong></span>
-                                                                        <span>Total payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
-                                                                        {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
-                                                                    </Space>
-                                                                </Col>
-                                                                <Col>
-                                                                    <Button
-                                                                        type="primary"
-                                                                        icon={<PlusCircleOutlined />}
-                                                                        onClick={openPaiementModal}
-                                                                        disabled={watchedStatus === 'FACTURE_PAYEE'}
-                                                                    >
-                                                                        Ajouter un paiement
-                                                                    </Button>
-                                                                </Col>
-                                                            </Row>
-                                                            <Table
-                                                                rowKey="id"
-                                                                size="small"
-                                                                bordered
-                                                                pagination={false}
-                                                                dataSource={ps}
-                                                                locale={{ emptyText: 'Aucun paiement enregistré' }}
-                                                                columns={[
-                                                                    { title: 'Date', dataIndex: 'date', width: 190, render: (v: string | undefined, r: VentePaiement) => (
-<Space>
-<span>{formatDate(v)}</span>
-<Button size="small" type="text" icon={<EditOutlined />} title="Modifier la date" disabled={watchedStatus === 'FACTURE_PAYEE'} onClick={() => r.id && setEditPaiement({ id: r.id, date: r.date ? dayjs(r.date) : dayjs() })} />
-</Space>
-) },
-                                                                    { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
-                                                                    {
-                                                                        title: 'Avoir',
-                                                                        key: 'avoir',
-                                                                        render: (_: unknown, r: VentePaiement) =>
-                                                                            r.avoirId ? `#${r.avoirId} — ${r.avoirMotif ?? ''}` : '-',
-                                                                    },
-                                                                    { title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const, render: (v: number) => formatEuro(v) },
-                                                                    { title: 'Notes', dataIndex: 'notes', render: (v: string) => v ?? '-' },
-                                                                    {
-                                                                        title: '',
-                                                                        key: 'remove',
-                                                                        width: 50,
-                                                                        render: (_: unknown, r: VentePaiement) => (
-                                                                            <Popconfirm
-                                                                                title="Supprimer ce paiement ?"
-                                                                                onConfirm={() => r.id && handleRemovePaiement(r.id)}
-                                                                                okText="Supprimer"
-                                                                                cancelText="Annuler"
-                                                                                disabled={watchedStatus === 'FACTURE_PAYEE'}
-                                                                            >
-                                                                                <Button
-                                                                                    size="small"
-                                                                                    danger
-                                                                                    icon={<DeleteOutlined />}
-                                                                                    disabled={watchedStatus === 'FACTURE_PAYEE'}
-                                                                                />
-                                                                            </Popconfirm>
-                                                                        ),
-                                                                    },
-                                                                ]}
-                                                            />
-                                                        </>
-                                                    );
-                                                })()}
-                                            </>
-                                        )}
-                                        {!isEdit && (
-                                            <div style={{ color: '#8c8c8c' }}>Enregistrez d'abord la facture pour gérer les paiements.</div>
-                                        )}
-                                    </div>
-                                ),
-                            }] : []),
                             {
                                 key: 'images',
                                 label: 'Images & Documents',
@@ -4129,6 +3968,94 @@ export default function Vente() {
                             </Form.Item>
                         </div>
                     </div>
+
+                    {(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE') && (
+                    <div style={{ marginBottom: 16 }}>
+                                        {isEdit && (
+                                            <>
+                                                {(() => {
+                                                    const ps = currentVente?.paiements ?? [];
+                                                    const totalPaye = ps.reduce((s, p) => s + p.montant, 0);
+                                                    const totalFacture = currentVente?.prixVenteTTC ?? 0;
+                                                    const restant = Math.round((totalFacture - totalPaye) * 100) / 100;
+                                                    const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
+                                                    return (
+                                                        <>
+                                                            <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                                                                <Col>
+                                                                    <Space>
+                                                                        <span>Total facture : <strong>{formatEuro(totalFacture)}</strong></span>
+                                                                        <span>Total payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
+                                                                        {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
+                                                                    </Space>
+                                                                </Col>
+                                                                <Col>
+                                                                    <Button
+                                                                        type="primary"
+                                                                        icon={<PlusCircleOutlined />}
+                                                                        onClick={openPaiementModal}
+                                                                        disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                    >
+                                                                        Ajouter un paiement
+                                                                    </Button>
+                                                                </Col>
+                                                            </Row>
+                                                            <Table
+                                                                rowKey="id"
+                                                                size="small"
+                                                                bordered
+                                                                pagination={false}
+                                                                dataSource={ps}
+                                                                locale={{ emptyText: 'Aucun paiement enregistré' }}
+                                                                columns={[
+                                                                    { title: 'Date', dataIndex: 'date', width: 190, render: (v: string | undefined, r: VentePaiement) => (
+<Space>
+<span>{formatDate(v)}</span>
+<Button size="small" type="text" icon={<EditOutlined />} title="Modifier la date" disabled={watchedStatus === 'FACTURE_PAYEE'} onClick={() => r.id && setEditPaiement({ id: r.id, date: r.date ? dayjs(r.date) : dayjs() })} />
+</Space>
+) },
+                                                                    { title: 'Mode', dataIndex: 'mode', width: 110, render: (v: string) => modeLabels[v] ?? v },
+                                                                    {
+                                                                        title: 'Avoir',
+                                                                        key: 'avoir',
+                                                                        render: (_: unknown, r: VentePaiement) =>
+                                                                            r.avoirId ? `#${r.avoirId} — ${r.avoirMotif ?? ''}` : '-',
+                                                                    },
+                                                                    { title: 'Montant', dataIndex: 'montant', width: 120, align: 'right' as const, render: (v: number) => formatEuro(v) },
+                                                                    { title: 'Notes', dataIndex: 'notes', render: (v: string) => v ?? '-' },
+                                                                    {
+                                                                        title: '',
+                                                                        key: 'remove',
+                                                                        width: 50,
+                                                                        render: (_: unknown, r: VentePaiement) => (
+                                                                            <Popconfirm
+                                                                                title="Supprimer ce paiement ?"
+                                                                                onConfirm={() => r.id && handleRemovePaiement(r.id)}
+                                                                                okText="Supprimer"
+                                                                                cancelText="Annuler"
+                                                                                disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                            >
+                                                                                <Button
+                                                                                    size="small"
+                                                                                    danger
+                                                                                    icon={<DeleteOutlined />}
+                                                                                    disabled={watchedStatus === 'FACTURE_PAYEE'}
+                                                                                />
+                                                                            </Popconfirm>
+                                                                        ),
+                                                                    },
+                                                                ]}
+                                                            />
+                                                        </>
+                                                    );
+                                                })()}
+                                            </>
+                                        )}
+                                        {!isEdit && (
+                                            <div style={{ color: '#8c8c8c' }}>Enregistrez d'abord la facture pour gérer les paiements.</div>
+                                        )}
+                    </div>
+                    )}
 
                     <Row gutter={16}>
                         <Col span={6}>
