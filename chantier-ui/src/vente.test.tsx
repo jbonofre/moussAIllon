@@ -93,10 +93,31 @@ describe('Transactions - saisie des lignes', () => {
 
         await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
 
-        expect(await within(modal).findByText('AN-1 - Anode zinc')).toBeInTheDocument();
+        expect(await within(modal).findByText('Anode zinc')).toBeInTheDocument();
         expect(within(modal).getByText(PLACEHOLDER_LIGNE)).toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
-        expect(within(modal).getByLabelText('Prix vente TTC')).toHaveValue('12.00');
+    });
+});
+
+describe('Transactions - recherche par référence', () => {
+    it('retrouve un article en saisissant sa référence dans le champ Référence', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        const select = within(modal).getAllByText('Réf.')[0].closest('.ant-select') as HTMLElement;
+        const champ = within(select).getByRole('combobox');
+        fireEvent.mouseDown(champ);
+        fireEvent.change(champ, { target: { value: 'an-1' } });
+        const option = await waitFor(() => {
+            const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+                .filter((element) => element.textContent === 'AN-1 - Anode zinc');
+            expect(found).toHaveLength(1);
+            return found[0] as HTMLElement;
+        });
+        fireEvent.click(option);
+
+        expect(await within(modal).findByText('Anode zinc')).toBeInTheDocument();
+        expect(within(modal).getByText('AN-1')).toBeInTheDocument();
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
     });
 });
 
@@ -113,7 +134,6 @@ describe('Transactions - ligne libre', () => {
         await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
         fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
         const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ant-space') as HTMLElement;
-        expect(within(ligne).getByPlaceholderText('TVA')).toHaveValue('20');
         saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
         saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
         saisir(within(ligne).getByPlaceholderText('P.U.'), '4.5');
@@ -131,7 +151,7 @@ describe('Transactions - ligne libre', () => {
 
         // la ligne désigne désormais l'article créé au catalogue
         expect(await screen.findByText('Ajouté au catalogue : Manille inox')).toBeInTheDocument();
-        expect(await within(modal).findByText('MAN-6 - Manille inox')).toBeInTheDocument();
+        expect(await within(modal).findByText('Manille inox')).toBeInTheDocument();
         expect(within(modal).queryByPlaceholderText('Réf.')).not.toBeInTheDocument();
     });
 
@@ -160,14 +180,14 @@ describe('Transactions - packages', () => {
 
         await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
         await choisirDansLaLigneVide(modal, 'FORFAIT-001 - Hivernage');
-        await within(modal).findByText('FORFAIT-001 - Hivernage');
+        await within(modal).findByText('Hivernage');
         await choisirDansLaLigneVide(modal, 'PKG-000007 - Pack prêt à naviguer');
 
         expect(await within(modal).findByText('Cap Camarat 6.5')).toBeInTheDocument();
         expect(within(modal).getByText('F115 XB')).toBeInTheDocument();
-        expect(within(modal).getByText('AN-1 - Anode zinc')).toBeInTheDocument();
+        expect(within(modal).getByText('Anode zinc')).toBeInTheDocument();
         // le forfait déjà saisi est conservé, et la saisie se poursuit sur une ligne vide
-        expect(within(modal).getByText('FORFAIT-001 - Hivernage')).toBeInTheDocument();
+        expect(within(modal).getByText('Hivernage')).toBeInTheDocument();
         expect(within(modal).queryByText('PKG-000007 - Pack prêt à naviguer')).not.toBeInTheDocument();
         expect(within(modal).getByText(PLACEHOLDER_LIGNE)).toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('58348.00');
@@ -190,8 +210,8 @@ describe('Transactions - packages', () => {
         await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
         await choisirDansLaLigneVide(modal, 'PKG-000009 - Pack entretien');
 
-        expect(await within(modal).findByText('FORFAIT-001 - Hivernage')).toBeInTheDocument();
-        expect(within(modal).getByText('AN-1 - Anode zinc')).toBeInTheDocument();
+        expect(await within(modal).findByText('Hivernage')).toBeInTheDocument();
+        expect(within(modal).getByText('Anode zinc')).toBeInTheDocument();
         expect(within(modal).queryByText('PKG-000009 - Pack entretien')).not.toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('324.00');
 
@@ -217,7 +237,7 @@ describe('Transactions - packages', () => {
 
 describe('Transactions - produits ajoutés automatiquement aux interventions', () => {
     const traitementDechets = { id: 2, designation: 'Traitement des déchets', ref: 'DECHETS', stock: 0, prixVenteTTC: 15, ajoutAutomatiqueIntervention: true };
-    const LIGNE_DECHETS = 'DECHETS - Traitement des déchets';
+    const LIGNE_DECHETS = 'Traitement des déchets';
 
     beforeEach(() => {
         const avecDechets: Record<string, any[]> = { ...donnees, '/catalogue/produits': [produit, traitementDechets] };
@@ -248,7 +268,7 @@ describe('Transactions - produits ajoutés automatiquement aux interventions', (
 
         await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
 
-        await within(modal).findByText('AN-1 - Anode zinc');
+        await within(modal).findByText('Anode zinc');
         expect(within(modal).queryByText(LIGNE_DECHETS)).not.toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
     });
@@ -264,7 +284,7 @@ describe('Transactions - produits ajoutés automatiquement aux interventions', (
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('300.00');
 
         await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
-        await within(modal).findByText('AN-1 - Anode zinc');
+        await within(modal).findByText('Anode zinc');
         expect(within(modal).queryByText(LIGNE_DECHETS)).not.toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('312.00');
     });

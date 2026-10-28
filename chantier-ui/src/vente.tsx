@@ -874,6 +874,8 @@ export default function Vente() {
                 options: packages.map((pack) => ({
                     value: `package:${pack.id}`,
                     label: getPackageLabel(pack),
+                    designation: pack.designation,
+                    ref: pack.ref,
                     searchText: `${pack.ref || ''} ${pack.designation}`.toLowerCase(),
                 })),
             }] : []),
@@ -882,6 +884,8 @@ export default function Vente() {
                 options: forfaits.map((f) => ({
                     value: `forfait:${f.id}`,
                     label: f.reference ? `${f.reference} - ${f.nom}` : f.nom,
+                    designation: f.nom,
+                    ref: f.reference,
                     searchText: `${f.reference || ''} ${f.nom}`.toLowerCase(),
                 })),
             },
@@ -890,6 +894,8 @@ export default function Vente() {
                 options: produits.map((p) => ({
                     value: `produit:${p.id}`,
                     label: p.ref ? `${p.ref} - ${p.designation}` : p.designation,
+                    designation: p.designation,
+                    ref: p.ref,
                     searchText: `${p.ref || ''} ${p.designation} ${(p.refs || []).join(' ')} ${(p.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
                 })),
             },
@@ -897,7 +903,9 @@ export default function Vente() {
                 label: 'Bateaux',
                 options: catalogueBateaux.map((b) => ({
                     value: `bateau:${b.id}`,
-                    label: b.designation,
+                    label: b.ref ? `${b.ref} - ${b.designation}` : b.designation,
+                    designation: b.designation,
+                    ref: b.ref,
                     searchText: `${b.ref || ''} ${b.designation} ${(b.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
                 })),
             },
@@ -905,7 +913,9 @@ export default function Vente() {
                 label: 'Moteurs',
                 options: catalogueMoteurs.map((m) => ({
                     value: `moteur:${m.id}`,
-                    label: m.designation,
+                    label: m.ref ? `${m.ref} - ${m.designation}` : m.designation,
+                    designation: m.designation,
+                    ref: m.ref,
                     searchText: `${m.ref || ''} ${m.designation} ${(m.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
                 })),
             },
@@ -913,7 +923,9 @@ export default function Vente() {
                 label: 'Hélices',
                 options: catalogueHelices.map((h) => ({
                     value: `helice:${h.id}`,
-                    label: h.designation,
+                    label: h.ref ? `${h.ref} - ${h.designation}` : h.designation,
+                    designation: h.designation,
+                    ref: h.ref,
                     searchText: `${h.ref || ''} ${h.designation} ${(h.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
                 })),
             },
@@ -921,7 +933,9 @@ export default function Vente() {
                 label: 'Remorques',
                 options: catalogueRemorques.map((r) => ({
                     value: `remorque:${r.id}`,
-                    label: r.designation,
+                    label: r.ref ? `${r.ref} - ${r.designation}` : r.designation,
+                    designation: r.designation,
+                    ref: r.ref,
                     searchText: `${r.ref || ''} ${r.designation} ${(r.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
                 })),
             },
@@ -940,6 +954,37 @@ export default function Vente() {
     const toLigneCompositeValue = (type?: LigneType, itemId?: number): string | undefined => {
         if (!type || !itemId) return undefined;
         return `${type}:${itemId}`;
+    };
+
+    const changerLigne = (index: number, compositeValue: string) => {
+        const packageId = parsePackageRef(compositeValue);
+        if (packageId !== undefined) {
+            deplierPackage(index, packageId);
+            return;
+        }
+        const parsed = parseLigneValue(compositeValue);
+        const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
+        const updated = [...currentLignes];
+        if (parsed) {
+            const isPlanifiable = parsed.type === 'forfait' || parsed.type === 'service';
+            // Le statut de planification et les techniciens ne concernent que les
+            // forfaits/services : on les réinitialise quand la ligne devient un
+            // produit ou un article catalogue, sinon la mention « en attente »
+            // persiste sur la ligne (#398).
+            const planningReset: Partial<LigneUnifiee> = isPlanifiable
+                ? { status: 'EN_ATTENTE' }
+                : { status: undefined, technicienIds: undefined };
+            updated[index] = { ...updated[index], type: parsed.type, itemId: parsed.id, ...planningReset };
+            const lastLine = updated[updated.length - 1];
+            if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
+                updated.push({ quantite: 1 });
+            }
+        } else {
+            updated[index] = { quantite: updated[index]?.quantite || 1 };
+        }
+        form.setFieldValue('lignes', updated);
+        setFormDirty(true);
+        recalculateFromLines('auto');
     };
 
     const mainOeuvreOptions = useMemo(
@@ -1112,7 +1157,7 @@ export default function Vente() {
     };
 
     // Renvoie l'index de la premiere ligne vide (sans type ni article), en en creant une si besoin.
-    // Utilise par les boutons « Ajouter Forfait » / « Ajouter Service » sous la liste des lignes.
+    // Utilise par les boutons « Créer Forfait » / « Ajouter Service » sous la liste des lignes.
     const findOrCreateEmptyLineIndex = (): number => {
         const currentLines: LigneUnifiee[] = form.getFieldValue('lignes') || [];
         const emptyIndex = currentLines.findIndex((l) => estLigneVide(l));
@@ -3321,15 +3366,6 @@ export default function Vente() {
                     <Button key="cancel" onClick={handleModalCancel}>
                         Fermer
                     </Button>,
-                    ...(currentVente?.id ? [
-                        <Button
-                            key="commande-fournisseur"
-                            icon={<ShoppingCartOutlined />}
-                            onClick={() => handleOpenCommandeFournisseur(currentVente)}
-                        >
-                            Commande fournisseur
-                        </Button>
-                    ] : []),
                     ...(!isReadOnly ? [
                         <Button key="discard" onClick={() => { setFormDirty(false); setModalVisible(false); }}>
                             Annuler
@@ -3341,7 +3377,7 @@ export default function Vente() {
                 ]}
                 maskClosable={false}
                 destroyOnHidden
-                width="95vw"
+                width="80vw"
             >
                 <Form form={form} layout="vertical" initialValues={defaultVente} onValuesChange={onValuesChange} disabled={isReadOnly}>
                     <Form.Item noStyle name="status"><input type="hidden" /></Form.Item>
@@ -3507,8 +3543,11 @@ export default function Vente() {
                                                         )
                                                         : undefined;
 
+                                                    // Entêtes affichées une seule fois, au-dessus de la première ligne
+                                                    const premiereLigne = field.name === 0;
+                                                    const decalageEntete = premiereLigne ? 30 : 0;
                                                     return (
-                                                    <Space key={field.key} align="baseline" style={{ display: 'flex', marginBottom: 8, flexWrap: 'nowrap' }}>
+                                                    <Space key={field.key} align="start" style={{ display: 'flex', marginBottom: 0, flexWrap: 'nowrap' }}>
                                                         <Form.Item
                                                             name={[field.name, 'type']}
                                                             hidden
@@ -3530,7 +3569,8 @@ export default function Vente() {
                                                                         if (erreur) throw new Error(erreur);
                                                                     }
                                                                 }]}
-                                                                style={{ width: 110 }}
+                                                                label={premiereLigne ? "Réf." : undefined}
+                                                            style={{ width: 110, marginBottom: 8 }}
                                                             >
                                                                 <Input autoFocus placeholder="Réf." title="Référence (générée si vide)" />
                                                             </Form.Item>
@@ -3540,26 +3580,40 @@ export default function Vente() {
                                                                 name={[field.name, 'libre', 'designation']}
                                                                 rules={[{
                                                                     validator: async (_, value) => {
-                                                                        const erreur = erreurDesignationLibre(value, produits, autresLignesLibres(field.name));
+                                                                        const erreur = erreurDesignationLibre(value);
                                                                         if (erreur) throw new Error(erreur);
                                                                     }
                                                                 }]}
-                                                                style={{ width: 222 }}
+                                                                label={premiereLigne ? "Désignation" : undefined}
+                                                            style={{ width: 222, marginBottom: 8 }}
                                                             >
                                                                 <Input placeholder="Désignation" />
                                                             </Form.Item>
                                                         )}
-                                                        {libre && (
-                                                            <Form.Item
-                                                                name={[field.name, 'libre', 'tva']}
-                                                                rules={[{ required: true, message: 'TVA requise' }]}
-                                                                style={{ width: 92 }}
-                                                            >
-                                                                <InputNumber addonAfter="%" min={0} max={100} step={1} style={{ width: '100%' }} placeholder="TVA" />
-                                                            </Form.Item>
+                                                        {libre && <Form.Item name={[field.name, 'libre', 'tva']} hidden><InputNumber /></Form.Item>}
+                                                        {!libre && (
+                                                        <Form.Item label={premiereLigne ? "Référence" : undefined} style={{ width: 150, marginBottom: 8 }}>
+                                                            {lineType === 'service' ? (
+                                                                <Input disabled />
+                                                            ) : (
+                                                                <Select
+                                                                    allowClear
+                                                                    showSearch
+                                                                    value={toLigneCompositeValue(lineType, itemId) ?? null}
+                                                                    options={ligneUnifieeOptions}
+                                                                    optionLabelProp="ref"
+                                                                    placeholder="Réf."
+                                                                    onSearch={handleProduitSearch}
+                                                                    filterOption={(input, option) =>
+                                                                        ((option as { ref?: string } | undefined)?.ref || '').toLowerCase().includes(input.toLowerCase())
+                                                                    }
+                                                                    onChange={(compositeValue: string) => changerLigne(field.name, compositeValue)}
+                                                                />
+                                                            )}
+                                                        </Form.Item>
                                                         )}
                                                         {!libre && (
-                                                        <Form.Item style={{ width: 440 }}>
+                                                        <Form.Item label={premiereLigne ? "Désignation" : undefined} style={{ width: 330, marginBottom: 8 }}>
                                                             {lineType === 'service' ? (
                                                                 <Input disabled value={services.find((s) => s.id === itemId)?.nom || ''} placeholder="Service" />
                                                             ) : (
@@ -3569,69 +3623,37 @@ export default function Vente() {
                                                                     // null plutôt qu'undefined : sinon le sélecteur garde affiché un package sans article
                                                                     value={toLigneCompositeValue(lineType, itemId) ?? null}
                                                                     options={ligneUnifieeOptions}
+                                                                    optionLabelProp="designation"
                                                                     placeholder="Package, forfait, produit, bateau, moteur..."
                                                                     onSearch={handleProduitSearch}
                                                                     filterOption={(input, option) =>
                                                                         ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
                                                                     }
-                                                                    onChange={(compositeValue: string) => {
-                                                                        const packageId = parsePackageRef(compositeValue);
-                                                                        if (packageId !== undefined) {
-                                                                            deplierPackage(field.name, packageId);
-                                                                            return;
-                                                                        }
-                                                                        const parsed = parseLigneValue(compositeValue);
-                                                                        const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
-                                                                        const updated = [...currentLignes];
-                                                                        if (parsed) {
-                                                                            const isPlanifiable = parsed.type === 'forfait' || parsed.type === 'service';
-                                                                            // Le statut de planification et les techniciens ne concernent que les
-                                                                            // forfaits/services : on les réinitialise quand la ligne devient un
-                                                                            // produit ou un article catalogue, sinon la mention « en attente »
-                                                                            // persiste sur la ligne (#398).
-                                                                            const planningReset: Partial<LigneUnifiee> = isPlanifiable
-                                                                                ? { status: 'EN_ATTENTE' }
-                                                                                : { status: undefined, technicienIds: undefined };
-                                                                            updated[field.name] = { ...updated[field.name], type: parsed.type, itemId: parsed.id, ...planningReset };
-                                                                            const lastLine = updated[updated.length - 1];
-                                                                            if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
-                                                                                updated.push({ quantite: 1 });
-                                                                            }
-                                                                        } else {
-                                                                            updated[field.name] = { quantite: updated[field.name]?.quantite || 1 };
-                                                                        }
-                                                                        form.setFieldValue('lignes', updated);
-                                                                        setFormDirty(true);
-                                                                        recalculateFromLines('auto');
-                                                                    }}
+                                                                    onChange={(compositeValue: string) => changerLigne(field.name, compositeValue)}
                                                                 />
                                                             )}
                                                         </Form.Item>
                                                         )}
-                                                        {libre && (
-                                                            <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
-                                                                Nouvel article
-                                                            </Tag>
-                                                        )}
-                                                        {lineType && (
-                                                            <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
-                                                                {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
-                                                            </Tag>
-                                                        )}
-                                                        {!isEmptyLine && !libre && (
-                                                            <FicheCataloguePopover
-                                                                type={lineType}
-                                                                itemId={itemId}
-                                                                produits={produits}
-                                                                catalogueBateaux={catalogueBateaux}
-                                                                catalogueMoteurs={catalogueMoteurs}
-                                                                catalogueHelices={catalogueHelices}
-                                                                catalogueRemorques={catalogueRemorques}
-                                                                forfaits={forfaits}
-                                                                services={services}
-                                                                navigate={navigate}
-                                                                onProduitSaved={handleProduitSaved}
-                                                            />
+                                                        {libre ? (
+                                                            <Form.Item
+                                                                name={[field.name, 'libre', 'prixVenteTTC']}
+                                                                rules={[{ required: true, message: 'Prix requis' }]}
+                                                                label={premiereLigne ? "PU TTC (EUR)" : undefined}
+                                                            style={{ width: 110, marginBottom: 8 }}
+                                                            >
+                                                                <InputNumber min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
+                                                            </Form.Item>
+                                                        ) : (
+                                                        <Form.Item noStyle shouldUpdate>
+                                                            {() => {
+                                                                const pu = getUnitPrice();
+                                                                return (
+                                                                    <Form.Item label={premiereLigne ? "PU TTC (EUR)" : undefined} style={{ width: 110, marginBottom: 8 }}>
+                                                                        <InputNumber value={pu ?? undefined} style={{ width: '100%' }} disabled placeholder="P.U." />
+                                                                    </Form.Item>
+                                                                );
+                                                            }}
+                                                        </Form.Item>
                                                         )}
                                                         <Form.Item
                                                             name={[field.name, 'quantite']}
@@ -3648,41 +3670,24 @@ export default function Vente() {
                                                                     }
                                                                 }
                                                             ]}
-                                                            style={{ width: 80 }}
+                                                            label={premiereLigne ? "Quantité" : undefined}
+                                                            style={{ width: 90, marginBottom: 8 }}
                                                         >
                                                             <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
                                                         </Form.Item>
-                                                        {libre ? (
-                                                            <Form.Item
-                                                                name={[field.name, 'libre', 'prixVenteTTC']}
-                                                                rules={[{ required: true, message: 'Prix requis' }]}
-                                                                style={{ width: 110 }}
-                                                            >
-                                                                <InputNumber addonAfter="EUR" min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
-                                                            </Form.Item>
-                                                        ) : (
-                                                        <Form.Item noStyle shouldUpdate>
-                                                            {() => {
-                                                                const pu = getUnitPrice();
-                                                                return (
-                                                                    <Form.Item style={{ width: 100 }}>
-                                                                        <InputNumber addonAfter="EUR" value={pu ?? undefined} style={{ width: '100%' }} disabled placeholder="P.U." />
-                                                                    </Form.Item>
-                                                                );
-                                                            }}
-                                                        </Form.Item>
-                                                        )}
                                                         <Form.Item
                                                             name={[field.name, 'remisePourcentage']}
-                                                            style={{ width: 100 }}
+                                                            label={premiereLigne ? "Remise (%)" : undefined}
+                                                            style={{ width: 110, marginBottom: 8 }}
                                                         >
-                                                            <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
+                                                            <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
                                                         </Form.Item>
                                                         <Form.Item
                                                             name={[field.name, 'remise']}
-                                                            style={{ width: 110 }}
+                                                            label={premiereLigne ? "Remise (EUR)" : undefined}
+                                                            style={{ width: 130, marginBottom: 8 }}
                                                         >
-                                                            <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
+                                                            <InputNumber min={0} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
                                                         </Form.Item>
                                                         <Form.Item noStyle shouldUpdate>
                                                             {() => {
@@ -3693,8 +3698,8 @@ export default function Vente() {
                                                                 const brut = pu * quantite;
                                                                 const total = Math.max(0, Math.round(((brut - remise) + Number.EPSILON) * 100) / 100);
                                                                 return (
-                                                                    <Form.Item style={{ width: 110 }}>
-                                                                        <InputNumber addonAfter="EUR" value={total} style={{ width: '100%' }} disabled />
+                                                                    <Form.Item label={premiereLigne ? "Total (EUR)" : undefined} style={{ width: 130, marginBottom: 8 }}>
+                                                                        <InputNumber value={total} style={{ width: '100%' }} disabled />
                                                                     </Form.Item>
                                                                 );
                                                             }}
@@ -3706,73 +3711,111 @@ export default function Vente() {
                                                                 let stockMini = 0;
                                                                 if (lineType === 'produit') {
                                                                     const produit = produits.find((p) => p.id === itemId);
-                                                                    if (!produit) return null;
+                                                                    if (!produit) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
                                                                     stock = produit.stock ?? 0;
                                                                     stockMini = produit.stockMini ?? 0;
                                                                 } else if (lineType === 'bateau') {
                                                                     const item = catalogueBateaux.find((b) => b.id === itemId);
-                                                                    if (!item) return null;
+                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
                                                                     stock = item.stock ?? 0;
                                                                 } else if (lineType === 'moteur') {
                                                                     const item = catalogueMoteurs.find((m) => m.id === itemId);
-                                                                    if (!item) return null;
+                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
                                                                     stock = item.stock ?? 0;
                                                                 } else if (lineType === 'helice') {
                                                                     const item = catalogueHelices.find((h) => h.id === itemId);
-                                                                    if (!item) return null;
+                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
                                                                     stock = item.stock ?? 0;
                                                                 } else if (lineType === 'remorque') {
                                                                     const item = catalogueRemorques.find((r) => r.id === itemId);
-                                                                    if (!item) return null;
+                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
                                                                     stock = item.stock ?? 0;
                                                                 } else {
-                                                                    return null;
+                                                                    return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
                                                                 }
                                                                 const color = stock === 0 ? 'red' : (stock < quantite || stock < stockMini) ? 'orange' : 'green';
-                                                                return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
+                                                                return (
+                                                            <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }}>
+                                                                <Tag color={color} style={{ marginRight: 0, minWidth: 40, textAlign: 'center', lineHeight: '30px', height: 32 }}>{stock}</Tag>
+                                                            </Form.Item>
+                                                        );
                                                             }}
                                                         </Form.Item>
+                                                        {libre && (
+                                                            <div style={{ marginTop: decalageEntete }}>
+                                                        <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
+                                                                Nouvel article
+                                                            </Tag>
+                                                        </div>
+                                                        )}
+                                                        {lineType && (
+                                                            <div style={{ marginTop: decalageEntete }}>
+                                                        <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
+                                                                {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
+                                                            </Tag>
+                                                        </div>
+                                                        )}
+                                                        {!isEmptyLine && !libre && (
+                                                            <div style={{ marginTop: decalageEntete }}>
+                                                        <FicheCataloguePopover
+                                                                type={lineType}
+                                                                itemId={itemId}
+                                                                produits={produits}
+                                                                catalogueBateaux={catalogueBateaux}
+                                                                catalogueMoteurs={catalogueMoteurs}
+                                                                catalogueHelices={catalogueHelices}
+                                                                catalogueRemorques={catalogueRemorques}
+                                                                forfaits={forfaits}
+                                                                services={services}
+                                                                navigate={navigate}
+                                                                onProduitSaved={handleProduitSaved}
+                                                            />
+                                                        </div>
+                                                        )}
                                                         {isForfaitOrService && (
                                                             <>
                                                                 <Form.Item
                                                                     name={[field.name, 'status']}
-                                                                    style={{ width: 130 }}
+                                                                    label={premiereLigne ? "Statut" : undefined}
+                                                                style={{ width: 130, marginBottom: 8 }}
                                                                 >
                                                                     <Select allowClear options={planningStatusOptions} placeholder="Statut" />
                                                                 </Form.Item>
-                                                                <Form.Item
-                                                                    name={[field.name, 'technicienIds']}
-                                                                    style={{ width: 200 }}
-                                                                >
-                                                                    <Select mode="multiple" allowClear showSearch options={technicienOptions} placeholder="Techniciens" disabled={!watchedBonPourAccord} />
-                                                                </Form.Item>
+                                                                {lineType === 'forfait' ? (
+                                                                    <Form.Item
+                                                                        name={[field.name, 'technicienIds']}
+                                                                        label={premiereLigne ? "Techniciens" : undefined}
+                                                                    style={{ width: 200, marginBottom: 8 }}
+                                                                    >
+                                                                        <Select mode="multiple" allowClear showSearch options={technicienOptions} placeholder="Techniciens" disabled={!watchedBonPourAccord} />
+                                                                    </Form.Item>
+                                                                ) : (
+                                                                    <Form.Item name={[field.name, 'technicienIds']} hidden><Select mode="multiple" /></Form.Item>
+                                                                )}
                                                             </>
                                                         )}
                                                         {isEmptyLine ? (
-                                                            <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
+                                                            <Button style={{ marginTop: decalageEntete }} icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
                                                         ) : (
                                                             <>
                                                                 {lineType === 'service' && itemId && (
-                                                                    <Button icon={<EditOutlined />} title="Modifier le service" onClick={() => openEditServiceModal(itemId)} />
+                                                                    <Button style={{ marginTop: decalageEntete }} icon={<EditOutlined />} title="Modifier le service" onClick={() => openEditServiceModal(itemId)} />
                                                                 )}
                                                                 {isForfaitOrService && (
-                                                                    <Button icon={<CalendarOutlined />} title="Planifier" disabled={!watchedBonPourAccord} onClick={() => { setModalVisible(false); navigate('/planning'); }} />
+                                                                    <Button style={{ marginTop: decalageEntete }} icon={<CalendarOutlined />} title="Planifier" disabled={!watchedBonPourAccord} onClick={() => { setModalVisible(false); navigate('/planning'); }} />
                                                                 )}
                                                             </>
                                                         )}
                                                         {emplacement && (
                                                             <Popover content={emplacement} title="Emplacements" trigger="click">
-                                                                <Button icon={<EnvironmentOutlined />} title="Emplacements de la pièce" />
+                                                                <Button style={{ marginTop: decalageEntete }} icon={<EnvironmentOutlined />} title="Emplacements de la pièce" />
                                                             </Popover>
                                                         )}
-                                                        <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
+                                                        <Button style={{ marginTop: decalageEntete }} danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
                                                     </Space>
                                                     );
                                                 })}
                                                 <Space style={{ marginTop: -12, marginBottom: 16, marginLeft: 16 }}>
-                                                    <Button icon={<PlusOutlined />} onClick={() => openNewForfaitModal(findOrCreateEmptyLineIndex())}>
-                                                        Ajouter Forfait
-                                                    </Button>
                                                     <Button icon={<PlusOutlined />} onClick={() => openNewServiceModal(findOrCreateEmptyLineIndex())}>
                                                         Ajouter Service
                                                     </Button>
@@ -3782,6 +3825,9 @@ export default function Vente() {
                                                         onClick={ajouterLigneLibre}
                                                     >
                                                         Ajouter une ligne libre
+                                                    </Button>
+                                                    <Button icon={<PlusOutlined />} onClick={() => openNewForfaitModal(findOrCreateEmptyLineIndex())}>
+                                                        Créer Forfait
                                                     </Button>
                                                 </Space>
                                             </>
@@ -3898,7 +3944,7 @@ export default function Vente() {
                                                                     <Space>
                                                                         <span>Total facture : <strong>{formatEuro(totalFacture)}</strong></span>
                                                                         <span>Total payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
-                                                                        {restant > 0.005 && <span>Restant : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
+                                                                        {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
                                                                     </Space>
                                                                 </Col>
                                                                 <Col>
@@ -4038,46 +4084,51 @@ export default function Vente() {
                         ]}
                     />
 
-                    <Row gutter={16}>
-                        <Col span={6}>
-                            <Form.Item name="montantHT" label="Montant HT">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                    <Form.Item noStyle name="montantTTC"><input type="hidden" /></Form.Item>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, width: 940, maxWidth: '100%' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <Form.Item name="note" label="Note" style={{ marginBottom: 0 }}>
+                                <Input.TextArea rows={6} allowClear placeholder="Note libre (visible sur le devis et la facture)" />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="tva" label="TVA (%)">
-                                <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                        </div>
+                        <div style={{ width: 280, flex: 'none' }}>
+                            <Form.Item name="montantHT" label={<strong>Montant HT (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="montantTVA" label="Montant TVA">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="remisePourcentage" label={<strong>Remise (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="montantTTC" label="Montant TTC">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="remise" label={<strong>Remise (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={6} offset={6}>
-                            <Form.Item name="remisePourcentage" label="Remise (%)">
-                                <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="tva" label={<strong>TVA (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="remise" label="Remise (EUR)">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="montantTVA" label={<strong>Montant TVA</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="prixVenteTTC" label="Prix vente TTC">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="prixVenteTTC" label={<strong>Montant TTC</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                    </Row>
+                            <Form.Item
+                                label={<strong>Solde dû</strong>}
+                                layout="horizontal"
+                                labelCol={{ flex: '0 0 150px' }}
+                                wrapperCol={{ flex: '0 0 130px' }}
+                                labelAlign="right"
+                                colon={false}
+                                style={{ marginBottom: 8, width: 280 }}
+                            >
+                                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.prixVenteTTC !== cur.prixVenteTTC}>
+                                    {() => {
+                                        const totalPaye = (currentVente?.paiements ?? []).reduce((sum, p) => sum + p.montant, 0);
+                                        const soldeDu = Math.max(0, Math.round(((form.getFieldValue('prixVenteTTC') || 0) - totalPaye) * 100) / 100);
+                                        return <InputNumber value={soldeDu} disabled step={0.01} style={{ width: '100%' }} />;
+                                    }}
+                                </Form.Item>
+                            </Form.Item>
+                        </div>
+                    </div>
 
                     <Row gutter={16}>
                         <Col span={6}>
@@ -4101,14 +4152,6 @@ export default function Vente() {
                         <Col span={6}>
                             <Form.Item name="indemniteForfaitaire" label="Indemnité forfaitaire (€)">
                                 <InputNumber addonAfter="EUR" min={0} step={1} style={{ width: '100%' }} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={24}>
-                            <Form.Item name="note" label="Note">
-                                <Input.TextArea rows={3} allowClear placeholder="Note libre (visible sur le devis et la facture)" />
                             </Form.Item>
                         </Col>
                     </Row>

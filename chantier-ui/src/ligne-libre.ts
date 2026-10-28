@@ -36,18 +36,9 @@ interface ArticleCatalogue {
 
 const normaliser = (valeur?: string) => (valeur || '').trim().toLowerCase();
 
-// Comme au backend, la désignation est unique au catalogue, sans tenir compte de la casse
-export const erreurDesignationLibre = (
-    designation: string | undefined,
-    catalogue: ArticleCatalogue[],
-    autresLignesLibres: LigneLibre[],
-): string | undefined => {
-    const saisie = normaliser(designation);
-    if (!saisie) return 'Désignation requise';
-    if (catalogue.some((article) => normaliser(article.designation) === saisie)) return 'Article déjà au catalogue';
-    if (autresLignesLibres.some((ligne) => normaliser(ligne.designation) === saisie)) return 'Déjà saisie sur une autre ligne';
-    return undefined;
-};
+// Seule la référence est unique au catalogue : plusieurs articles peuvent partager une désignation
+export const erreurDesignationLibre = (designation: string | undefined): string | undefined =>
+    normaliser(designation) ? undefined : 'Désignation requise';
 
 // La référence est facultative (générée par le backend), mais ne doit pas désigner un autre article
 export const erreurRefLibre = (
@@ -62,10 +53,20 @@ export const erreurRefLibre = (
     return undefined;
 };
 
-// Article créé pour une ligne libre, retrouvé par sa désignation parmi les produits de la vente enregistrée
-export const articleCreePourLigneLibre = <P extends ArticleCatalogue>(ligne: LigneLibre, produitsVendus: P[]): P | undefined => {
+// Article créé pour une ligne libre, retrouvé parmi les produits de la vente enregistrée : par sa référence
+// quand elle est saisie, sinon par sa désignation (non unique) en écartant les articles déjà attribués
+// (lignes du catalogue de la vente, lignes libres précédentes).
+export const articleCreePourLigneLibre = <P extends ArticleCatalogue>(
+    ligne: LigneLibre,
+    produitsVendus: P[],
+    dejaAttribues: Set<number> = new Set(),
+): P | undefined => {
+    const ref = normaliser(ligne.ref);
     const designation = normaliser(ligne.designation);
-    return produitsVendus.find((produit) => !!produit.id && normaliser(produit.designation) === designation);
+    const article = produitsVendus.find((produit) => !!produit.id && !dejaAttribues.has(produit.id)
+        && (ref ? normaliser(produit.ref) === ref : normaliser(produit.designation) === designation));
+    if (article?.id) dejaAttribues.add(article.id);
+    return article;
 };
 
 // La ligne libre prend place avant la ligne vide de saisie qui termine la liste, recréée au besoin

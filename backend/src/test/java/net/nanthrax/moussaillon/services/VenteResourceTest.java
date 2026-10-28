@@ -520,14 +520,15 @@ public class VenteResourceTest {
     }
 
     @Test
-    void testLigneLibreDesignationDejaAuCatalogueRefusee() {
+    void testLigneLibreDesignationDejaAuCatalogueAcceptee() {
         given()
             .contentType("application/json")
             .body(venteAvecLignesLibres("{\"designation\":\"motul huile moteur 4T\",\"prixVenteTTC\":30.0,\"tva\":20.0}"))
             .when().post("/ventes")
             .then()
-            .statusCode(400)
-            .body("message", containsString("existe déjà au catalogue"));
+            .statusCode(201)
+            .body("venteProduits[0].produit.id", notNullValue())
+            .body("venteProduits[0].produit.ref", startsWith("PRD-"));
     }
 
     @Test
@@ -549,7 +550,7 @@ public class VenteResourceTest {
     }
 
     @Test
-    void testLignesLibresEnDoubleRefuseesSansCreerAucunArticle() {
+    void testLignesLibresDeMemeDesignationCreentChacuneUnArticle() {
         String designation = "Defense cylindrique " + System.nanoTime();
         String article = "{\"designation\":\"" + designation + "\",\"prixVenteTTC\":20.0,\"tva\":20.0}";
 
@@ -558,16 +559,17 @@ public class VenteResourceTest {
             .body(venteAvecLignesLibres(article, article))
             .when().post("/ventes")
             .then()
-            .statusCode(400)
-            .body("message", containsString("existe déjà au catalogue"));
+            .statusCode(201)
+            .body("venteProduits.size()", is(2))
+            .body("venteProduits[0].produit.ref", notNullValue())
+            .body("venteProduits[0].produit.id", notNullValue());
 
-        // la vente est refusée dans son ensemble : le premier article n'est pas resté au catalogue
         given()
             .queryParam("q", designation)
             .when().get("/catalogue/produits/search")
             .then()
             .statusCode(200)
-            .body("size()", is(0));
+            .body("size()", is(2));
     }
 
     @Test

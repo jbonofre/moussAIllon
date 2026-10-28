@@ -15,7 +15,7 @@ public class ProduitCatalogueEntity extends PanacheEntity {
     @jakarta.persistence.Transient
     public List<String> referencesFournisseurs;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     public String designation;
 
     @Column(nullable = false)
