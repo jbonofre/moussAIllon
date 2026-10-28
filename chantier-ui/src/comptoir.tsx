@@ -1635,6 +1635,8 @@ export default function Comptoir() {
                 .some((p) => p && (p.remise !== undefined || p.remisePourcentage !== undefined));
             if (lineRemiseChanged) {
                 syncLineRemise(changedValues.produits as Array<Partial<{ produitRef: string; quantite: number; remise: number; remisePourcentage: number }> | undefined>);
+                // allValues est un instantané antérieur à la synchronisation : on relit les lignes pour ne pas l'écraser
+                allValues = { ...allValues, produits: form.getFieldValue('produits') };
             }
 
             let currentProduitLines = (allValues.produits || []).map((item: any) => (
