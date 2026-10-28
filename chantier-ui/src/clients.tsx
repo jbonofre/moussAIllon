@@ -38,6 +38,7 @@ import {
   PhoneOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
+import { useNavigation } from "./navigation-context.tsx";
 import BateauxClients from "./clients-bateaux.tsx";
 import ClientsMoteurs from "./clients-moteurs.tsx";
 import RemorquesClients from "./clients-remorques.tsx";
@@ -109,6 +110,7 @@ const canalAcquisitionOptions = [
 ];
 
 function Clients() {
+  const { navigate, pageState } = useNavigation();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -137,6 +139,12 @@ function Clients() {
   useEffect(() => {
     fetchClients();
   }, []);
+
+  useEffect(() => {
+    if (!pageState?.ouvrirClientId || clients.length === 0) return;
+    const target = clients.find((c) => c.id === pageState.ouvrirClientId);
+    if (target) handleEdit(target);
+  }, [clients, pageState]);
 
   const handleSearch = () => {
     fetchClients({ nom: searchNom, type: searchType });
@@ -243,33 +251,7 @@ function Clients() {
 
   const columns = [
     { title: "Nom", dataIndex: "nom", key: "nom", width: 250, sorter: (a, b) => a.nom.localeCompare(b.nom) },
-    {
-      title: "Type",
-      dataIndex: "type",
-      key: "type",
-      sorter: (a, b) => (a.type || '').localeCompare(b.type || ''),
-      filters: [
-        { text: "Particulier", value: "PARTICULIER" },
-        { text: "Professionnel", value: "PROFESSIONNEL" },
-        { text: "Professionnel de la Mer", value: "PROFESSIONNEL_MER" },
-      ],
-      onFilter: (value, record) => record.type === value,
-      render: (type) => (type === "PROFESSIONNEL" ? "Professionnel" : "Particulier"),
-    },
     { title: "Email", dataIndex: "email", key: "email", sorter: (a, b) => (a.email || '').localeCompare(b.email || '') },
-    { title: "Adresse", dataIndex: "adresse", key: "adresse", sorter: (a, b) => (a.adresse || '').localeCompare(b.adresse || '') },
-    {
-      title: "Canal d'acquisition",
-      dataIndex: "canalAcquisition",
-      key: "canalAcquisition",
-      sorter: (a, b) => (a.canalAcquisition || '').localeCompare(b.canalAcquisition || ''),
-      filters: canalAcquisitionOptions.map((opt) => ({ text: opt.label, value: opt.value })),
-      onFilter: (value, record) => record.canalAcquisition === value,
-      render: (val) => {
-        const opt = canalAcquisitionOptions.find((o) => o.value === val);
-        return opt ? <Tooltip title={opt.label}>{opt.icon}</Tooltip> : null;
-      },
-    },
     { title: "Téléphone", dataIndex: "telephone", key: "telephone", sorter: (a, b) => (a.telephone || '').localeCompare(b.telephone || '') },
     {
       title: "Évaluation",
@@ -289,23 +271,27 @@ function Clients() {
       },
     },
     {
-      title: "Délai paiement moyen",
-      dataIndex: "delaiPaiementMoyenJours",
-      key: "delaiPaiementMoyenJours",
-      sorter: (a, b) => (a.delaiPaiementMoyenJours ?? -1) - (b.delaiPaiementMoyenJours ?? -1),
-      render: (val) => (val != null ? `${val.toFixed(1)} j` : <span style={{ color: "#bfbfbf" }}>-</span>),
-    },
-    {
       title: "Bateau(x)",
-      dataIndex: "nombreBateaux",
-      key: "nombreBateaux",
+      dataIndex: "bateaux",
+      key: "bateaux",
       sorter: (a, b) => (a.nombreBateaux || 0) - (b.nombreBateaux || 0),
       filters: [
         { text: "Avec bateau(x)", value: "OUI" },
         { text: "Sans bateau", value: "NON" },
       ],
       onFilter: (value, record) => (value === "OUI" ? (record.nombreBateaux || 0) > 0 : !(record.nombreBateaux || 0)),
-      render: (val) => (val ? <span>{val}</span> : <span style={{ color: "#bfbfbf" }}>0</span>),
+      render: (bateaux) =>
+        bateaux && bateaux.length > 0 ? (
+          <Space size={[8, 0]} wrap>
+            {bateaux.map((bateau) => (
+              <a key={bateau.id} onClick={() => navigate("/clients/bateaux", { bateauId: bateau.id })}>
+                {bateau.name}
+              </a>
+            ))}
+          </Space>
+        ) : (
+          <span style={{ color: "#bfbfbf" }}>-</span>
+        ),
     },
     {
       title: "Actions",
@@ -313,24 +299,12 @@ function Clients() {
       render: (_, record) => (
         <Space>
           <Button icon={<EditOutlined />} size="small" onClick={() => handleEdit(record)} />
-          <Popconfirm
-            title="Generer un mot de passe et l'envoyer par email ?"
-            onConfirm={() => handleSendPassword(record)}
-            disabled={!record.email}
-          >
-            <Button
-              icon={<MailOutlined />}
-              size="small"
-              disabled={!record.email}
-              title="Envoyer mot de passe"
-            />
-          </Popconfirm>
           <Popconfirm title="Supprimer ce client ?" onConfirm={() => handleDelete(record.id)}>
             <Button icon={<DeleteOutlined />} danger size="small" />
           </Popconfirm>
         </Space>
       ),
-      width: 160,
+      width: 100,
     },
   ];
 

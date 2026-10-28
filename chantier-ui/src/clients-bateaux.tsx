@@ -128,7 +128,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [annonceImageBateau, setAnnonceImageBateau] = useState<BateauClient | null>(null);
   const [annonceSelectedImages, setAnnonceSelectedImages] = useState<Set<string>>(new Set());
   const [availableOptions, setAvailableOptions] = useState<any[]>([]);
-  const { navigate } = useNavigation();
+  const { navigate, pageState } = useNavigation();
 
   const openAnnonceImageModal = (bateau: BateauClient) => {
     setAnnonceImageBateau(bateau);
@@ -228,6 +228,12 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     fetchRemorquesCatalogue();
     fetchClients();
   }, [clientId]);
+
+  useEffect(() => {
+    if (clientId || !pageState?.bateauId || bateaux.length === 0) return;
+    const target = bateaux.find((b) => b.id === pageState.bateauId);
+    if (target) handleEdit(target);
+  }, [bateaux, pageState]);
 
   const fetchClients = async () => {
     const res = await api.get('/clients');
@@ -492,7 +498,16 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
     { title: "Nom", dataIndex: "name", key: "name", sorter: (a, b) => a.name.localeCompare(b.name) },
     { title: "Immatriculation", dataIndex: "immatriculation", key: "immatriculation", sorter: (a, b) => a.immatriculation.localeCompare(b.immatriculation) },
     { title: "Propriétaires", dataIndex: "proprietaires", key: "proprietaires",
-      render: (proprietaires: any[]) => (proprietaires && proprietaires.length ? proprietaires.map(p => p.nom).join(", ") : ""),
+      render: (proprietaires: any[]) =>
+        proprietaires && proprietaires.length ? (
+          <Space size={[8, 0]} wrap>
+            {proprietaires.map((p) => (
+              <a key={p.id} onClick={() => navigate("/clients", { ouvrirClientId: p.id })}>
+                {p.nom}
+              </a>
+            ))}
+          </Space>
+        ) : "",
       sorter: (a, b) => (a.proprietaires?.[0]?.nom || '').localeCompare(b.proprietaires?.[0]?.nom || ''),
       filters: clients.map((client: any) => ({ text: client.nom, value: client.id })),
       onFilter: (value, record) => record.proprietaires?.some((p: any) => p.id === value),

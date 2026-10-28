@@ -39,6 +39,7 @@ public class ClientResource {
             c.motDePasse = null;
             c.soldeDu = computeSoldeDu(c.id);
             c.nombreBateaux = computeNombreBateaux(c.id);
+            c.bateaux = listBateaux(c.id);
             c.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(c.id);
         });
         return clients;
@@ -61,6 +62,7 @@ public class ClientResource {
             c.motDePasse = null;
             c.soldeDu = computeSoldeDu(c.id);
             c.nombreBateaux = computeNombreBateaux(c.id);
+            c.bateaux = listBateaux(c.id);
             c.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(c.id);
         });
         return clients;
@@ -190,6 +192,7 @@ public class ClientResource {
         entity.motDePasse = null;
         entity.soldeDu = computeSoldeDu(id);
         entity.nombreBateaux = computeNombreBateaux(id);
+        entity.bateaux = listBateaux(id);
         entity.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(id);
         return entity;
     }
@@ -240,6 +243,7 @@ public class ClientResource {
         entity.motDePasse = null;
         entity.soldeDu = computeSoldeDu(id);
         entity.nombreBateaux = computeNombreBateaux(id);
+        entity.bateaux = listBateaux(id);
         entity.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(id);
         return entity;
     }
@@ -250,6 +254,21 @@ public class ClientResource {
             clientId, VenteEntity.Status.FACTURE_EN_ATTENTE, VenteEntity.Status.FACTURE_PRETE
         );
         return unpaid.stream().mapToDouble(v -> v.prixVenteTTC).sum();
+    }
+
+    private List<java.util.Map<String, Object>> listBateaux(long clientId) {
+        List<Object[]> rows = BateauClientEntity.getEntityManager()
+            .createQuery("SELECT b.id, b.name FROM BateauClientEntity b JOIN b.proprietaires p WHERE p.id = :clientId ORDER BY b.name", Object[].class)
+            .setParameter("clientId", clientId)
+            .getResultList();
+        return rows.stream()
+            .map(r -> {
+                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+                m.put("id", r[0]);
+                m.put("name", r[1]);
+                return m;
+            })
+            .collect(java.util.stream.Collectors.toList());
     }
 
     private long computeNombreBateaux(long clientId) {

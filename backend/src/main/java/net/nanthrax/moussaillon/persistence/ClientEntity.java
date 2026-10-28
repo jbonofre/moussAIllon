@@ -59,6 +59,10 @@ public class ClientEntity extends PanacheEntity {
     @jakarta.persistence.Transient
     public Long nombreBateaux;
 
+    // Bateaux du client (id et nom), pour affichage et navigation depuis la liste des clients.
+    @jakarta.persistence.Transient
+    public List<java.util.Map<String, Object>> bateaux;
+
     // Délai moyen (en jours) entre la date d'émission de la facture (dateFacturePrete)
     // et sa date de paiement (dateFacturePayee), sur les factures payées de ce client.
     @jakarta.persistence.Transient
