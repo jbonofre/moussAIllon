@@ -1635,6 +1635,8 @@ export default function Comptoir() {
                 .some((p) => p && (p.remise !== undefined || p.remisePourcentage !== undefined));
             if (lineRemiseChanged) {
                 syncLineRemise(changedValues.produits as Array<Partial<{ produitRef: string; quantite: number; remise: number; remisePourcentage: number }> | undefined>);
+                // allValues est un instantané antérieur à la synchronisation : on relit les lignes pour ne pas l'écraser
+                allValues = { ...allValues, produits: form.getFieldValue('produits') };
             }
 
             let currentProduitLines = (allValues.produits || []).map((item: any) => (
@@ -1957,13 +1959,6 @@ export default function Comptoir() {
                             Lien de paiement
                         </Button>
                     </Dropdown>] : []),
-                    ...(currentVente?.id ? [<Button
-                        key="commande-fournisseur"
-                        icon={<ShoppingCartOutlined />}
-                        onClick={() => handleOpenCommandeFournisseur(currentVente)}
-                    >
-                        Commande fournisseur
-                    </Button>] : []),
                     <Button key="cancel" onClick={handleModalCancel}>
                         Fermer
                     </Button>,
@@ -1973,11 +1968,12 @@ export default function Comptoir() {
                 ]}
                 maskClosable={false}
                 destroyOnHidden
-                width="95vw"
+                width="66.5vw"
             >
                 <Form form={form} layout="vertical" initialValues={defaultVente} onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }} disabled={isReadOnly}>
                     <Form.Item noStyle name="status"><input type="hidden" /></Form.Item>
                     <Form.Item noStyle name="bonPourAccord"><input type="hidden" /></Form.Item>
+                    <Form.Item noStyle name="montantTTC"><input type="hidden" /></Form.Item>
                     {isReadOnly && (
                         <Tag color="green" style={{ marginBottom: 16, fontSize: 14, padding: '4px 12px' }}>Facture payée — consultation uniquement</Tag>
                     )}
@@ -2063,6 +2059,9 @@ export default function Comptoir() {
                                                     ? Math.max(0, Math.round((brutLigne - remiseLigne) * 100) / 100)
                                                     : undefined;
                                                 const isEmptyLine = estLigneVide(ligne);
+                                                // Entêtes affichées une seule fois, au-dessus de la première ligne
+                                                const premiereLigne = field.name === 0;
+                                                const decalageEntete = premiereLigne ? 30 : 0;
                                                 const [ligneType, ligneIdStr] = (produitRef || '').split(':');
                                                 const ligneItemId = parseInt(ligneIdStr, 10);
                                                 const produitCatalogue = ligneType === 'produit' ? produits.find((p) => p.id === ligneItemId) : undefined;
@@ -2071,7 +2070,7 @@ export default function Comptoir() {
                                                 const heliceCatalogue = ligneType === 'helice' ? catalogueHelices.find((h) => h.id === ligneItemId) : undefined;
                                                 const remorqueCatalogue = ligneType === 'remorque' ? catalogueRemorques.find((r) => r.id === ligneItemId) : undefined;
                                                 return (
-                                                <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
+                                                <Space align="start" style={{ display: 'flex', marginBottom: 0 }}>
                                                     {libre && (
                                                         <Form.Item
                                                             name={[field.name, 'libre', 'ref']}
@@ -2081,7 +2080,8 @@ export default function Comptoir() {
                                                                     if (erreur) throw new Error(erreur);
                                                                 }
                                                             }]}
-                                                            style={{ width: 110 }}
+                                                            label={premiereLigne ? "Réf." : undefined}
+                                                            style={{ width: 110, marginBottom: 8 }}
                                                         >
                                                             <Input autoFocus placeholder="Réf." title="Référence (générée si vide)" />
                                                         </Form.Item>
@@ -2095,7 +2095,8 @@ export default function Comptoir() {
                                                                     if (erreur) throw new Error(erreur);
                                                                 }
                                                             }]}
-                                                            style={{ width: 222 }}
+                                                            label={premiereLigne ? "Désignation" : undefined}
+                                                            style={{ width: 222, marginBottom: 8 }}
                                                         >
                                                             <Input placeholder="Désignation" />
                                                         </Form.Item>
@@ -2104,9 +2105,10 @@ export default function Comptoir() {
                                                         <Form.Item
                                                             name={[field.name, 'libre', 'tva']}
                                                             rules={[{ required: true, message: 'TVA requise' }]}
-                                                            style={{ width: 92 }}
+                                                            label={premiereLigne ? "TVA (%)" : undefined}
+                                                            style={{ width: 92, marginBottom: 8 }}
                                                         >
-                                                            <InputNumber addonAfter="%" min={0} max={100} step={1} style={{ width: '100%' }} placeholder="TVA" />
+                                                            <InputNumber min={0} max={100} step={1} style={{ width: '100%' }} placeholder="TVA" />
                                                         </Form.Item>
                                                     )}
                                                     {!libre && (
@@ -2125,7 +2127,8 @@ export default function Comptoir() {
                                                                 }
                                                             }
                                                         ]}
-                                                        style={{ width: 440 }}
+                                                        label={premiereLigne ? "Article" : undefined}
+                                                        style={{ width: 330, marginBottom: 8 }}
                                                     >
                                                         <Select
                                                             allowClear
@@ -2144,14 +2147,14 @@ export default function Comptoir() {
                                                         <Form.Item
                                                             name={[field.name, 'libre', 'prixVenteTTC']}
                                                             rules={[{ required: true, message: 'Prix requis' }]}
-                                                            style={{ width: 110 }}
+                                                            label={premiereLigne ? "PU TTC (EUR)" : undefined}
+                                                            style={{ width: 110, marginBottom: 8 }}
                                                         >
-                                                            <InputNumber addonAfter="EUR" min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
+                                                            <InputNumber min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
                                                         </Form.Item>
                                                     ) : (
-                                                        <Form.Item style={{ width: 110 }}>
+                                                        <Form.Item label={premiereLigne ? "PU TTC (EUR)" : undefined} style={{ width: 110, marginBottom: 8 }}>
                                                             <InputNumber
-                                                                addonAfter="EUR"
                                                                 value={prixUnitaire ?? undefined}
                                                                 disabled
                                                                 style={{ width: '100%' }}
@@ -2174,21 +2177,32 @@ export default function Comptoir() {
                                                                 }
                                                             }
                                                         ]}
-                                                        style={{ width: 90 }}
+                                                        label={premiereLigne ? "Quantité" : undefined}
+                                                        style={{ width: 90, marginBottom: 8 }}
                                                     >
                                                         <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
                                                     </Form.Item>
                                                     <Form.Item
                                                         name={[field.name, 'remisePourcentage']}
-                                                        style={{ width: 110 }}
+                                                        label={premiereLigne ? "Remise (%)" : undefined}
+                                                        style={{ width: 110, marginBottom: 8 }}
                                                     >
-                                                        <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
+                                                        <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
                                                     </Form.Item>
                                                     <Form.Item
                                                         name={[field.name, 'remise']}
-                                                        style={{ width: 130 }}
+                                                        label={premiereLigne ? "Remise (EUR)" : undefined}
+                                                        style={{ width: 130, marginBottom: 8 }}
                                                     >
-                                                        <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
+                                                        <InputNumber min={0} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
+                                                    </Form.Item>
+                                                    <Form.Item label={premiereLigne ? "Total (EUR)" : undefined} style={{ width: 130, marginBottom: 8 }}>
+                                                        <InputNumber
+                                                            value={totalLigne}
+                                                            disabled
+                                                            style={{ width: '100%' }}
+                                                            placeholder="Total"
+                                                        />
                                                     </Form.Item>
                                                     {(() => {
                                                         const qty = quantite || 0;
@@ -2206,30 +2220,30 @@ export default function Comptoir() {
                                                         } else if (remorqueCatalogue) {
                                                             stock = remorqueCatalogue.stock ?? 0;
                                                         }
-                                                        if (stock === undefined) return null;
+                                                        if (stock === undefined) {
+                                                            return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
+                                                        }
                                                         // Une vente comptoir décrémente le stock : on alerte si le stock
                                                         // restant après la vente (stock - quantité) passe sous le seuil d'alerte.
                                                         const color = stock === 0 ? 'red' : (stock < qty || (stock - qty) < stockMini) ? 'orange' : 'green';
-                                                        return <Tag color={color} style={{ marginRight: 0 }}>{stock} en stock</Tag>;
+                                                        return (
+                                                            <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }}>
+                                                                <Tag color={color} style={{ marginRight: 0, minWidth: 40, textAlign: 'center', lineHeight: '30px', height: 32 }}>{stock}</Tag>
+                                                            </Form.Item>
+                                                        );
                                                     })()}
-                                                    <Form.Item style={{ width: 130 }}>
-                                                        <InputNumber
-                                                            addonAfter="EUR"
-                                                            value={totalLigne}
-                                                            disabled
-                                                            style={{ width: '100%' }}
-                                                            placeholder="Total"
-                                                        />
-                                                    </Form.Item>
                                                     {libre && (
-                                                        <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
-                                                            Nouvel article
-                                                        </Tag>
+                                                        <div style={{ marginTop: decalageEntete }}>
+                                                            <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
+                                                                Nouvel article
+                                                            </Tag>
+                                                        </div>
                                                     )}
                                                     {isEmptyLine && (
-                                                        <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
+                                                        <Button style={{ marginTop: decalageEntete }} icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
                                                     )}
                                                     {!isEmptyLine && !libre && (
+                                                        <div style={{ marginTop: decalageEntete }}>
                                                         <FicheCataloguePopover
                                                             type={ligneType}
                                                             itemId={Number.isNaN(ligneItemId) ? undefined : ligneItemId}
@@ -2243,14 +2257,16 @@ export default function Comptoir() {
                                                             navigate={navigate}
                                                             onProduitSaved={handleProduitSaved}
                                                         />
+                                                        </div>
                                                     )}
                                                     {emplacement && (
                                                         <Popover content={emplacement} title="Emplacements" trigger="click">
-                                                            <Button icon={<EnvironmentOutlined />} title="Emplacements de la pièce" />
+                                                            <Button style={{ marginTop: decalageEntete }} icon={<EnvironmentOutlined />} title="Emplacements de la pièce" />
                                                         </Popover>
                                                     )}
                                                     {!isEmptyLine && !libre && (
                                                         <Button
+                                                            style={{ marginTop: decalageEntete }}
                                                             size="small"
                                                             icon={<ShoppingCartOutlined />}
                                                             title="Commander cet article auprès d'un fournisseur"
@@ -2263,7 +2279,7 @@ export default function Comptoir() {
                                                             }}
                                                         />
                                                     )}
-                                                    <Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
+                                                    <Button style={{ marginTop: decalageEntete }} danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
                                                 </Space>
                                                 );
                                             }}
@@ -2281,54 +2297,50 @@ export default function Comptoir() {
                         </Form.List>
                     </Form.Item>
 
-                    <Row gutter={16}>
-                        <Col span={6}>
-                            <Form.Item name="montantHT" label="Montant HT">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, width: 940, maxWidth: '100%' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <Form.Item name="note" label="Note" style={{ marginBottom: 0 }}>
+                                <Input.TextArea rows={6} allowClear placeholder="Note libre (visible sur le devis et la facture)" />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="tva" label="TVA (%)">
-                                <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                        </div>
+                        <div style={{ width: 280, flex: 'none' }}>
+                            <Form.Item name="montantHT" label={<strong>Montant HT (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="montantTVA" label="Montant TVA">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="remisePourcentage" label={<strong>Remise (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="montantTTC" label="Montant TTC">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="remise" label={<strong>Remise (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={6} offset={6}>
-                            <Form.Item name="remisePourcentage" label="Remise (%)">
-                                <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="tva" label={<strong>TVA (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="remise" label="Remise (EUR)">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="montantTVA" label={<strong>Montant TVA</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="prixVenteTTC" label="Prix vente TTC">
-                                <InputNumber addonAfter="EUR" min={0} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="prixVenteTTC" label={<strong>Montant TTC</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                        <Col span={24}>
-                            <Form.Item name="note" label="Note">
-                                <Input.TextArea rows={3} allowClear placeholder="Note libre (visible sur le devis et la facture)" />
+                            <Form.Item
+                                label={<strong>Solde dû</strong>}
+                                layout="horizontal"
+                                labelCol={{ flex: '0 0 150px' }}
+                                wrapperCol={{ flex: '0 0 130px' }}
+                                labelAlign="right"
+                                colon={false}
+                                style={{ marginBottom: 8, width: 280 }}
+                            >
+                                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.prixVenteTTC !== cur.prixVenteTTC}>
+                                    {() => {
+                                        const totalPaye = (currentVente?.paiements ?? []).reduce((sum, p) => sum + p.montant, 0);
+                                        const soldeDu = Math.max(0, Math.round(((form.getFieldValue('prixVenteTTC') || 0) - totalPaye) * 100) / 100);
+                                        return <InputNumber value={soldeDu} disabled step={0.01} style={{ width: '100%' }} />;
+                                    }}
+                                </Form.Item>
                             </Form.Item>
-                        </Col>
-                    </Row>
+                        </div>
+                    </div>
 
                     {isEdit && currentVente?.id && (() => {
                         const ps = currentVente?.paiements ?? [];
@@ -2344,7 +2356,7 @@ export default function Comptoir() {
                                             <strong>Paiements</strong>
                                             <span>Total : <strong>{formatEuro(totalFacture)}</strong></span>
                                             <span>Payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
-                                            {restant > 0.005 && <span>Restant : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
+                                            {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
                                         </Space>
                                     </Col>
                                     <Col>
@@ -2633,7 +2645,7 @@ export default function Comptoir() {
                     okText="Valider"
                     confirmLoading={addingPaiement}
                     destroyOnHidden
-                width="95vw"
+                width="38vw"
                 >
                     <Form layout="vertical">
                         <Form.Item label="Mode de règlement" required>
