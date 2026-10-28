@@ -99,6 +99,68 @@ describe('Transactions - saisie des lignes', () => {
     });
 });
 
+describe('Transactions - référence', () => {
+    it("affiche le numéro de transaction une fois la transaction enregistrée", async () => {
+        const modal = await ouvrirNouvelleVente();
+        const reference = within(modal).getByLabelText('Référence');
+        expect(reference).toHaveValue('');
+        expect(reference).toHaveAttribute('placeholder', "Attribuée à l'enregistrement");
+
+        await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+        await within(modal).findByText('Anode zinc');
+        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+
+        await waitFor(() => expect(within(modal).getByLabelText('Référence')).toHaveValue(`FACT-${new Date().getFullYear()}-00042`));
+    });
+
+    it('reprend le numéro de facture attribué', async () => {
+        const vente = { id: 12, numeroFacture: 'FACT-2025-00012', date: '2025-06-01T10:00:00', status: 'FACTURE_PRETE', client: { id: 3, nom: 'Jean Dupont' } };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes' ? [vente] : url === '/ventes/12' ? vente : (donnees[url] || []),
+        }) as any);
+        render(<Vente />);
+
+        fireEvent.click(await screen.findByText('FACT-2025-00012'));
+        await screen.findByText('Transaction/Prestation');
+        const modal = document.querySelector('.ant-modal') as HTMLElement;
+
+        await waitFor(() => expect(within(modal).getByLabelText('Référence')).toHaveValue('FACT-2025-00012'));
+    });
+});
+
+describe('Transactions - lignes forfait', () => {
+    it("n'affiche pas les techniciens mais conserve ceux affectés au planning", async () => {
+        const technicien = { id: 5, prenom: 'Paul', nom: 'Martin' };
+        const vente = {
+            id: 20, date: '2026-10-20T10:00:00', status: 'DEVIS', bonPourAccord: true,
+            client: { id: 3, nom: 'Jean Dupont' },
+            venteForfaits: [{ id: 1, forfait, quantite: 1, status: 'PLANIFIEE', techniciens: [technicien] }],
+        };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes' ? [vente] : url === '/ventes/20' ? vente : url === '/techniciens' ? [technicien] : (donnees[url] || []),
+        }) as any);
+        mockedApi.put.mockImplementation((_url: string, body: any) => Promise.resolve({ data: body }) as any);
+        render(<Vente />);
+
+        fireEvent.click(await screen.findByText('FACT-2026-00020'));
+        await screen.findByText('Transaction/Prestation');
+        const modal = document.querySelector('.ant-modal') as HTMLElement;
+        expect(await within(modal).findByText('Hivernage')).toBeInTheDocument();
+
+        expect(within(modal).getByText('Planifiee')).toBeInTheDocument();
+        expect(within(modal).queryByText('Techniciens')).not.toBeInTheDocument();
+        // Planifier est regroupé avec les actions secondaires de la ligne
+        fireEvent.click(within(modal).getByTitle('Autres actions'));
+        expect(await screen.findByText('Planifier')).toBeInTheDocument();
+
+        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith('/ventes/20', expect.objectContaining({
+            venteForfaits: [expect.objectContaining({ techniciens: [technicien] })],
+        })));
+    });
+});
+
 describe('Transactions - recherche par référence', () => {
     it('retrouve un article en saisissant sa référence dans le champ Référence', async () => {
         const modal = await ouvrirNouvelleVente();
@@ -133,7 +195,7 @@ describe('Transactions - ligne libre', () => {
 
         await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
         fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
-        const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ant-space') as HTMLElement;
+        const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ligne-vente') as HTMLElement;
         saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
         saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
         saisir(within(ligne).getByPlaceholderText('P.U.'), '4.5');
@@ -161,7 +223,7 @@ describe('Transactions - ligne libre', () => {
 
         await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
         fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
-        const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ant-space') as HTMLElement;
+        const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ligne-vente') as HTMLElement;
         saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
         saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
         saisir(within(ligne).getByPlaceholderText('P.U.'), '4.5');
@@ -277,7 +339,7 @@ describe('Transactions - produits ajoutés automatiquement aux interventions', (
         const modal = await ouvrirNouvelleVente();
 
         await choisirDansLaLigneVide(modal, 'FORFAIT-001 - Hivernage');
-        const ligneDechets = (await within(modal).findByText(LIGNE_DECHETS)).closest('.ant-space') as HTMLElement;
+        const ligneDechets = (await within(modal).findByText(LIGNE_DECHETS)).closest('.ligne-vente') as HTMLElement;
         fireEvent.click(ligneDechets.querySelector('.anticon-delete')!.closest('button')!);
 
         await waitFor(() => expect(within(modal).queryByText(LIGNE_DECHETS)).not.toBeInTheDocument());

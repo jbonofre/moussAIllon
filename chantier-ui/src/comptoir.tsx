@@ -25,7 +25,6 @@ import {
     InputNumber,
     Modal,
     Popconfirm,
-    Popover,
     Rate,
     Row,
     Select,
@@ -36,7 +35,8 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CreditCardOutlined, DeleteOutlined, EditOutlined, EnvironmentOutlined, InfoCircleOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import type { MenuProps } from 'antd';
+import { CreditCardOutlined, DeleteOutlined, EditOutlined, EnvironmentOutlined, InfoCircleOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import api from './api.ts';
@@ -678,20 +678,17 @@ export default function Comptoir() {
         return { ...values, produits: produitsLignes };
     };
 
-    const getProduitEmplacement = (ref?: string): React.ReactNode | undefined => {
-        if (!ref) return undefined;
+    const getProduitEmplacements = (ref?: string) => {
+        if (!ref) return [];
         const [type, idStr] = ref.split(':');
-        if (type !== 'produit') return undefined;
+        if (type !== 'produit') return [];
         const id = parseInt(idStr, 10);
-        if (isNaN(id)) return undefined;
+        if (isNaN(id)) return [];
         const prod = produits.find((p) => p.id === id);
-        if (!prod || (!prod.emplacement && !prod.emplacementMagasin)) return undefined;
-        return (
-            <div>
-                {prod.emplacement && <div><strong>Atelier :</strong> {prod.emplacement}</div>}
-                {prod.emplacementMagasin && <div><strong>Magasin :</strong> {prod.emplacementMagasin}</div>}
-            </div>
-        );
+        return [
+            ...(prod?.emplacement ? [{ key: 'atelier', icon: <EnvironmentOutlined />, label: `Atelier : ${prod.emplacement}` }] : []),
+            ...(prod?.emplacementMagasin ? [{ key: 'magasin', icon: <EnvironmentOutlined />, label: `Magasin : ${prod.emplacementMagasin}` }] : []),
+        ];
     };
     const serviceOptions = useMemo(
         () => services.map((service) => ({ value: service.id, label: service.nom })),
@@ -1973,7 +1970,8 @@ export default function Comptoir() {
                 ]}
                 maskClosable={false}
                 destroyOnHidden
-                width="66.5vw"
+                // Largeur minimale : sur les petits écrans, une ligne libre (réf., désignation, TVA) doit tenir
+                width="max(66.5vw, 1040px)"
             >
                 <Form form={form} layout="vertical" initialValues={defaultVente} onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }} disabled={isReadOnly}>
                     <Form.Item noStyle name="status"><input type="hidden" /></Form.Item>
@@ -2056,7 +2054,7 @@ export default function Comptoir() {
                                                 const produitRef = ligne.produitRef;
                                                 const libre = ligne.libre;
                                                 const prixUnitaire = getLignePrice(ligne) || undefined;
-                                                const emplacement = getProduitEmplacement(produitRef);
+                                                const emplacements = getProduitEmplacements(produitRef);
                                                 const quantite = ligne.quantite;
                                                 const remiseLigne = ligne.remise || 0;
                                                 const brutLigne = (prixUnitaire && quantite) ? Math.round(prixUnitaire * quantite * 100) / 100 : undefined;
@@ -2074,8 +2072,24 @@ export default function Comptoir() {
                                                 const moteurCatalogue = ligneType === 'moteur' ? catalogueMoteurs.find((m) => m.id === ligneItemId) : undefined;
                                                 const heliceCatalogue = ligneType === 'helice' ? catalogueHelices.find((h) => h.id === ligneItemId) : undefined;
                                                 const remorqueCatalogue = ligneType === 'remorque' ? catalogueRemorques.find((r) => r.id === ligneItemId) : undefined;
+                                                // Actions secondaires regroupées dans un menu, pour que la ligne tienne dans la modal
+                                                const actionsLigne: MenuProps['items'] = isEmptyLine || libre ? [] : [
+                                                    {
+                                                        key: 'commander',
+                                                        icon: <ShoppingCartOutlined />,
+                                                        label: 'Commander auprès d\'un fournisseur',
+                                                        onClick: () => {
+                                                            if (currentVente?.id) {
+                                                                handleOpenCommandeFournisseur(currentVente, `${ligneType}-${ligneItemId}`);
+                                                            } else {
+                                                                message.info("Veuillez d'abord enregistrer la vente avant de commander cet article.");
+                                                            }
+                                                        }
+                                                    },
+                                                    ...(emplacements.length > 0 ? [{ key: 'emplacements', type: 'group' as const, label: 'Emplacements', children: emplacements }] : []),
+                                                ];
                                                 return (
-                                                <Space align="start" style={{ display: 'flex', marginBottom: 0 }}>
+                                                <div className="ligne-vente" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                                                     {libre && (
                                                         <Form.Item
                                                             name={[field.name, 'libre', 'ref']}
@@ -2086,7 +2100,7 @@ export default function Comptoir() {
                                                                 }
                                                             }]}
                                                             label={premiereLigne ? "Réf." : undefined}
-                                                            style={{ width: 110, marginBottom: 8 }}
+                                                            style={{ width: 90, flex: 'none', marginBottom: 8 }}
                                                         >
                                                             <Input autoFocus placeholder="Réf." title="Référence (générée si vide)" />
                                                         </Form.Item>
@@ -2101,7 +2115,7 @@ export default function Comptoir() {
                                                                 }
                                                             }]}
                                                             label={premiereLigne ? "Désignation" : undefined}
-                                                            style={{ width: 222, marginBottom: 8 }}
+                                                            style={{ flex: '1 1 0', minWidth: 100, marginBottom: 8 }}
                                                         >
                                                             <Input placeholder="Désignation" />
                                                         </Form.Item>
@@ -2110,8 +2124,8 @@ export default function Comptoir() {
                                                         <Form.Item
                                                             name={[field.name, 'libre', 'tva']}
                                                             rules={[{ required: true, message: 'TVA requise' }]}
-                                                            label={premiereLigne ? "TVA (%)" : undefined}
-                                                            style={{ width: 92, marginBottom: 8 }}
+                                                            label={premiereLigne ? "TVA %" : undefined}
+                                                            style={{ width: 70, flex: 'none', marginBottom: 8 }}
                                                         >
                                                             <InputNumber min={0} max={100} step={1} style={{ width: '100%' }} placeholder="TVA" />
                                                         </Form.Item>
@@ -2133,7 +2147,7 @@ export default function Comptoir() {
                                                             }
                                                         ]}
                                                         label={premiereLigne ? "Article" : undefined}
-                                                        style={{ width: 330, marginBottom: 8 }}
+                                                        style={{ flex: '1 1 0', minWidth: 160, marginBottom: 8 }}
                                                     >
                                                         <Select
                                                             allowClear
@@ -2152,13 +2166,13 @@ export default function Comptoir() {
                                                         <Form.Item
                                                             name={[field.name, 'libre', 'prixVenteTTC']}
                                                             rules={[{ required: true, message: 'Prix requis' }]}
-                                                            label={premiereLigne ? "PU TTC (EUR)" : undefined}
-                                                            style={{ width: 110, marginBottom: 8 }}
+                                                            label={premiereLigne ? "PU TTC €" : undefined}
+                                                            style={{ width: 95, flex: 'none', marginBottom: 8 }}
                                                         >
                                                             <InputNumber min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
                                                         </Form.Item>
                                                     ) : (
-                                                        <Form.Item label={premiereLigne ? "PU TTC (EUR)" : undefined} style={{ width: 110, marginBottom: 8 }}>
+                                                        <Form.Item label={premiereLigne ? "PU TTC €" : undefined} style={{ width: 95, flex: 'none', marginBottom: 8 }}>
                                                             <InputNumber
                                                                 value={prixUnitaire ?? undefined}
                                                                 disabled
@@ -2183,25 +2197,25 @@ export default function Comptoir() {
                                                             }
                                                         ]}
                                                         label={premiereLigne ? "Quantité" : undefined}
-                                                        style={{ width: 90, marginBottom: 8 }}
+                                                        style={{ width: 70, flex: 'none', marginBottom: 8 }}
                                                     >
                                                         <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
                                                     </Form.Item>
                                                     <Form.Item
                                                         name={[field.name, 'remisePourcentage']}
-                                                        label={premiereLigne ? "Remise (%)" : undefined}
-                                                        style={{ width: 110, marginBottom: 8 }}
+                                                        label={premiereLigne ? "Remise %" : undefined}
+                                                        style={{ width: 85, flex: 'none', marginBottom: 8 }}
                                                     >
                                                         <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
                                                     </Form.Item>
                                                     <Form.Item
                                                         name={[field.name, 'remise']}
-                                                        label={premiereLigne ? "Remise (EUR)" : undefined}
-                                                        style={{ width: 130, marginBottom: 8 }}
+                                                        label={premiereLigne ? "Remise €" : undefined}
+                                                        style={{ width: 100, flex: 'none', marginBottom: 8 }}
                                                     >
                                                         <InputNumber min={0} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
                                                     </Form.Item>
-                                                    <Form.Item label={premiereLigne ? "Total (EUR)" : undefined} style={{ width: 130, marginBottom: 8 }}>
+                                                    <Form.Item label={premiereLigne ? "Total €" : undefined} style={{ width: 100, flex: 'none', marginBottom: 8 }}>
                                                         <InputNumber
                                                             value={totalLigne}
                                                             disabled
@@ -2226,66 +2240,50 @@ export default function Comptoir() {
                                                             stock = remorqueCatalogue.stock ?? 0;
                                                         }
                                                         if (stock === undefined) {
-                                                            return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
+                                                            return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }} />;
                                                         }
                                                         // Une vente comptoir décrémente le stock : on alerte si le stock
                                                         // restant après la vente (stock - quantité) passe sous le seuil d'alerte.
                                                         const color = stock === 0 ? 'red' : (stock < qty || (stock - qty) < stockMini) ? 'orange' : 'green';
                                                         return (
-                                                            <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }}>
+                                                            <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }}>
                                                                 <Tag color={color} style={{ marginRight: 0, minWidth: 40, textAlign: 'center', lineHeight: '30px', height: 32 }}>{stock}</Tag>
                                                             </Form.Item>
                                                         );
                                                     })()}
-                                                    {libre && (
-                                                        <div style={{ marginTop: decalageEntete }}>
+                                                    {/* Zone d'actions de largeur fixe : les colonnes restent alignées d'une ligne à l'autre */}
+                                                    <div style={{ width: 135, flex: 'none', marginTop: decalageEntete, display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
+                                                        {libre && (
                                                             <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
                                                                 Nouvel article
                                                             </Tag>
-                                                        </div>
-                                                    )}
-                                                    {isEmptyLine && (
-                                                        <Button style={{ marginTop: decalageEntete }} icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
-                                                    )}
-                                                    {!isEmptyLine && !libre && (
-                                                        <div style={{ marginTop: decalageEntete }}>
-                                                        <FicheCataloguePopover
-                                                            type={ligneType}
-                                                            itemId={Number.isNaN(ligneItemId) ? undefined : ligneItemId}
-                                                            produits={produits}
-                                                            catalogueBateaux={catalogueBateaux}
-                                                            catalogueMoteurs={catalogueMoteurs}
-                                                            catalogueHelices={catalogueHelices}
-                                                            catalogueRemorques={catalogueRemorques}
-                                                            forfaits={forfaits}
-                                                            services={services}
-                                                            navigate={navigate}
-                                                            onProduitSaved={handleProduitSaved}
-                                                        />
-                                                        </div>
-                                                    )}
-                                                    {emplacement && (
-                                                        <Popover content={emplacement} title="Emplacements" trigger="click">
-                                                            <Button style={{ marginTop: decalageEntete }} icon={<EnvironmentOutlined />} title="Emplacements de la pièce" />
-                                                        </Popover>
-                                                    )}
-                                                    {!isEmptyLine && !libre && (
-                                                        <Button
-                                                            style={{ marginTop: decalageEntete }}
-                                                            size="small"
-                                                            icon={<ShoppingCartOutlined />}
-                                                            title="Commander cet article auprès d'un fournisseur"
-                                                            onClick={() => {
-                                                                if (currentVente?.id) {
-                                                                    handleOpenCommandeFournisseur(currentVente, `${ligneType}-${ligneItemId}`);
-                                                                } else {
-                                                                    message.info("Veuillez d'abord enregistrer la vente avant de commander cet article.");
-                                                                }
-                                                            }}
-                                                        />
-                                                    )}
-                                                    <Button style={{ marginTop: decalageEntete }} danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                </Space>
+                                                        )}
+                                                        {isEmptyLine && (
+                                                            <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
+                                                        )}
+                                                        {!isEmptyLine && !libre && (
+                                                            <FicheCataloguePopover
+                                                                type={ligneType}
+                                                                itemId={Number.isNaN(ligneItemId) ? undefined : ligneItemId}
+                                                                produits={produits}
+                                                                catalogueBateaux={catalogueBateaux}
+                                                                catalogueMoteurs={catalogueMoteurs}
+                                                                catalogueHelices={catalogueHelices}
+                                                                catalogueRemorques={catalogueRemorques}
+                                                                forfaits={forfaits}
+                                                                services={services}
+                                                                navigate={navigate}
+                                                                onProduitSaved={handleProduitSaved}
+                                                            />
+                                                        )}
+                                                        {actionsLigne.length > 0 && (
+                                                            <Dropdown menu={{ items: actionsLigne }} trigger={['click']}>
+                                                                <Button icon={<MoreOutlined />} title="Autres actions" />
+                                                            </Dropdown>
+                                                        )}
+                                                        <Button style={{ marginLeft: 'auto' }} danger icon={<DeleteOutlined />} title="Supprimer la ligne" onClick={() => remove(field.name)} />
+                                                    </div>
+                                                </div>
                                                 );
                                             }}
                                         </Form.Item>

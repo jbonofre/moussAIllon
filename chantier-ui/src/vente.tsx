@@ -28,7 +28,6 @@ import {
     InputNumber,
     Modal,
     Popconfirm,
-    Popover,
     Rate,
     Row,
     Select,
@@ -41,7 +40,8 @@ import {
     Dropdown,
     message
 } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import type { MenuProps } from 'antd';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
@@ -1002,15 +1002,6 @@ export default function Vente() {
     const produitOptionsForService = useMemo(
         () => produits.map((p) => ({ value: p.id, label: p.designation })),
         [produits]
-    );
-
-    const technicienOptions = useMemo(
-        () =>
-            techniciens.map((technicien) => ({
-                value: technicien.id,
-                label: `${technicien.prenom || ''} ${technicien.nom || ''}`.trim() || `Technicien #${technicien.id}`
-            })),
-        [techniciens]
     );
 
     const fetchVentes = async () => {
@@ -3362,6 +3353,17 @@ export default function Vente() {
                         onChange={isReadOnly ? undefined : (step) => goToStep(step)}
                     />
                     <Row gutter={16}>
+                        <Col span={8}>
+                            <Form.Item label="Référence" htmlFor="vente-reference">
+                                <Input
+                                    id="vente-reference"
+                                    readOnly
+                                    variant="filled"
+                                    value={currentVente?.id ? referenceTransaction(currentVente) : undefined}
+                                    placeholder="Attribuée à l'enregistrement"
+                                />
+                            </Form.Item>
+                        </Col>
                         {watchedStatus === 'DEVIS' && !watchedBonPourAccord && (
                             <Col span={8}>
                                 <Form.Item name="ordreDeReparation" label="Affichage client">
@@ -3469,20 +3471,22 @@ export default function Vente() {
                                                     const prod = lineType === 'produit' && itemId
                                                         ? produits.find((p) => p.id === itemId)
                                                         : undefined;
-                                                    const emplacement = prod && (prod.emplacement || prod.emplacementMagasin)
-                                                        ? (
-                                                            <div>
-                                                                {prod.emplacement && <div><strong>Atelier :</strong> {prod.emplacement}</div>}
-                                                                {prod.emplacementMagasin && <div><strong>Magasin :</strong> {prod.emplacementMagasin}</div>}
-                                                            </div>
-                                                        )
-                                                        : undefined;
+                                                    const emplacements = [
+                                                        ...(prod?.emplacement ? [{ key: 'atelier', icon: <EnvironmentOutlined />, label: `Atelier : ${prod.emplacement}` }] : []),
+                                                        ...(prod?.emplacementMagasin ? [{ key: 'magasin', icon: <EnvironmentOutlined />, label: `Magasin : ${prod.emplacementMagasin}` }] : []),
+                                                    ];
+                                                    // Actions secondaires regroupées dans un menu, pour que la ligne tienne dans la modal
+                                                    const actionsLigne: MenuProps['items'] = isEmptyLine ? [] : [
+                                                        ...(lineType === 'service' && itemId ? [{ key: 'modifier', icon: <EditOutlined />, label: 'Modifier le service', onClick: () => openEditServiceModal(itemId) }] : []),
+                                                        ...(isForfaitOrService ? [{ key: 'planifier', icon: <CalendarOutlined />, label: 'Planifier', disabled: !watchedBonPourAccord, onClick: () => { setModalVisible(false); navigate('/planning'); } }] : []),
+                                                        ...(emplacements.length > 0 ? [{ key: 'emplacements', type: 'group' as const, label: 'Emplacements', children: emplacements }] : []),
+                                                    ];
 
                                                     // Entêtes affichées une seule fois, au-dessus de la première ligne
                                                     const premiereLigne = field.name === 0;
                                                     const decalageEntete = premiereLigne ? 30 : 0;
                                                     return (
-                                                    <Space key={field.key} align="start" style={{ display: 'flex', marginBottom: 0, flexWrap: 'nowrap' }}>
+                                                    <div key={field.key} className="ligne-vente" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                                                         <Form.Item
                                                             name={[field.name, 'type']}
                                                             hidden
@@ -3505,7 +3509,7 @@ export default function Vente() {
                                                                     }
                                                                 }]}
                                                                 label={premiereLigne ? "Réf." : undefined}
-                                                            style={{ width: 110, marginBottom: 8 }}
+                                                            style={{ width: 130, flex: 'none', marginBottom: 8 }}
                                                             >
                                                                 <Input autoFocus placeholder="Réf." title="Référence (générée si vide)" />
                                                             </Form.Item>
@@ -3520,14 +3524,14 @@ export default function Vente() {
                                                                     }
                                                                 }]}
                                                                 label={premiereLigne ? "Désignation" : undefined}
-                                                            style={{ width: 222, marginBottom: 8 }}
+                                                            style={{ flex: '1 1 0', minWidth: 160, marginBottom: 8 }}
                                                             >
                                                                 <Input placeholder="Désignation" />
                                                             </Form.Item>
                                                         )}
                                                         {libre && <Form.Item name={[field.name, 'libre', 'tva']} hidden><InputNumber /></Form.Item>}
                                                         {!libre && (
-                                                        <Form.Item label={premiereLigne ? "Référence" : undefined} style={{ width: 150, marginBottom: 8 }}>
+                                                        <Form.Item label={premiereLigne ? "Référence" : undefined} style={{ width: 130, flex: 'none', marginBottom: 8 }}>
                                                             {lineType === 'service' ? (
                                                                 <Input disabled />
                                                             ) : (
@@ -3548,7 +3552,7 @@ export default function Vente() {
                                                         </Form.Item>
                                                         )}
                                                         {!libre && (
-                                                        <Form.Item label={premiereLigne ? "Désignation" : undefined} style={{ width: 330, marginBottom: 8 }}>
+                                                        <Form.Item label={premiereLigne ? "Désignation" : undefined} style={{ flex: '1 1 0', minWidth: 160, marginBottom: 8 }}>
                                                             {lineType === 'service' ? (
                                                                 <Input disabled value={services.find((s) => s.id === itemId)?.nom || ''} placeholder="Service" />
                                                             ) : (
@@ -3573,8 +3577,8 @@ export default function Vente() {
                                                             <Form.Item
                                                                 name={[field.name, 'libre', 'prixVenteTTC']}
                                                                 rules={[{ required: true, message: 'Prix requis' }]}
-                                                                label={premiereLigne ? "PU TTC (EUR)" : undefined}
-                                                            style={{ width: 110, marginBottom: 8 }}
+                                                                label={premiereLigne ? "PU TTC €" : undefined}
+                                                            style={{ width: 95, flex: 'none', marginBottom: 8 }}
                                                             >
                                                                 <InputNumber min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
                                                             </Form.Item>
@@ -3583,7 +3587,7 @@ export default function Vente() {
                                                             {() => {
                                                                 const pu = getUnitPrice();
                                                                 return (
-                                                                    <Form.Item label={premiereLigne ? "PU TTC (EUR)" : undefined} style={{ width: 110, marginBottom: 8 }}>
+                                                                    <Form.Item label={premiereLigne ? "PU TTC €" : undefined} style={{ width: 95, flex: 'none', marginBottom: 8 }}>
                                                                         <InputNumber value={pu ?? undefined} style={{ width: '100%' }} disabled placeholder="P.U." />
                                                                     </Form.Item>
                                                                 );
@@ -3606,21 +3610,21 @@ export default function Vente() {
                                                                 }
                                                             ]}
                                                             label={premiereLigne ? "Quantité" : undefined}
-                                                            style={{ width: 90, marginBottom: 8 }}
+                                                            style={{ width: 70, flex: 'none', marginBottom: 8 }}
                                                         >
                                                             <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
                                                         </Form.Item>
                                                         <Form.Item
                                                             name={[field.name, 'remisePourcentage']}
-                                                            label={premiereLigne ? "Remise (%)" : undefined}
-                                                            style={{ width: 110, marginBottom: 8 }}
+                                                            label={premiereLigne ? "Remise %" : undefined}
+                                                            style={{ width: 85, flex: 'none', marginBottom: 8 }}
                                                         >
                                                             <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
                                                         </Form.Item>
                                                         <Form.Item
                                                             name={[field.name, 'remise']}
-                                                            label={premiereLigne ? "Remise (EUR)" : undefined}
-                                                            style={{ width: 130, marginBottom: 8 }}
+                                                            label={premiereLigne ? "Remise €" : undefined}
+                                                            style={{ width: 100, flex: 'none', marginBottom: 8 }}
                                                         >
                                                             <InputNumber min={0} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
                                                         </Form.Item>
@@ -3633,7 +3637,7 @@ export default function Vente() {
                                                                 const brut = pu * quantite;
                                                                 const total = Math.max(0, Math.round(((brut - remise) + Number.EPSILON) * 100) / 100);
                                                                 return (
-                                                                    <Form.Item label={premiereLigne ? "Total (EUR)" : undefined} style={{ width: 130, marginBottom: 8 }}>
+                                                                    <Form.Item label={premiereLigne ? "Total €" : undefined} style={{ width: 100, flex: 'none', marginBottom: 8 }}>
                                                                         <InputNumber value={total} style={{ width: '100%' }} disabled />
                                                                     </Form.Item>
                                                                 );
@@ -3646,108 +3650,83 @@ export default function Vente() {
                                                                 let stockMini = 0;
                                                                 if (lineType === 'produit') {
                                                                     const produit = produits.find((p) => p.id === itemId);
-                                                                    if (!produit) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
+                                                                    if (!produit) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }} />;
                                                                     stock = produit.stock ?? 0;
                                                                     stockMini = produit.stockMini ?? 0;
                                                                 } else if (lineType === 'bateau') {
                                                                     const item = catalogueBateaux.find((b) => b.id === itemId);
-                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
+                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }} />;
                                                                     stock = item.stock ?? 0;
                                                                 } else if (lineType === 'moteur') {
                                                                     const item = catalogueMoteurs.find((m) => m.id === itemId);
-                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
+                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }} />;
                                                                     stock = item.stock ?? 0;
                                                                 } else if (lineType === 'helice') {
                                                                     const item = catalogueHelices.find((h) => h.id === itemId);
-                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
+                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }} />;
                                                                     stock = item.stock ?? 0;
                                                                 } else if (lineType === 'remorque') {
                                                                     const item = catalogueRemorques.find((r) => r.id === itemId);
-                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
+                                                                    if (!item) return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }} />;
                                                                     stock = item.stock ?? 0;
                                                                 } else {
-                                                                    return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }} />;
+                                                                    return <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }} />;
                                                                 }
                                                                 const color = stock === 0 ? 'red' : (stock < quantite || stock < stockMini) ? 'orange' : 'green';
                                                                 return (
-                                                            <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 60, marginBottom: 8 }}>
+                                                            <Form.Item label={premiereLigne ? "Stock" : undefined} style={{ width: 50, flex: 'none', marginBottom: 8 }}>
                                                                 <Tag color={color} style={{ marginRight: 0, minWidth: 40, textAlign: 'center', lineHeight: '30px', height: 32 }}>{stock}</Tag>
                                                             </Form.Item>
                                                         );
                                                             }}
                                                         </Form.Item>
-                                                        {libre && (
-                                                            <div style={{ marginTop: decalageEntete }}>
-                                                        <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
-                                                                Nouvel article
-                                                            </Tag>
-                                                        </div>
-                                                        )}
-                                                        {lineType && (
-                                                            <div style={{ marginTop: decalageEntete }}>
-                                                        <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
-                                                                {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
-                                                            </Tag>
-                                                        </div>
-                                                        )}
-                                                        {!isEmptyLine && !libre && (
-                                                            <div style={{ marginTop: decalageEntete }}>
-                                                        <FicheCataloguePopover
-                                                                type={lineType}
-                                                                itemId={itemId}
-                                                                produits={produits}
-                                                                catalogueBateaux={catalogueBateaux}
-                                                                catalogueMoteurs={catalogueMoteurs}
-                                                                catalogueHelices={catalogueHelices}
-                                                                catalogueRemorques={catalogueRemorques}
-                                                                forfaits={forfaits}
-                                                                services={services}
-                                                                navigate={navigate}
-                                                                onProduitSaved={handleProduitSaved}
-                                                            />
-                                                        </div>
-                                                        )}
-                                                        {isForfaitOrService && (
-                                                            <>
-                                                                <Form.Item
-                                                                    name={[field.name, 'status']}
-                                                                    label={premiereLigne ? "Statut" : undefined}
-                                                                style={{ width: 130, marginBottom: 8 }}
-                                                                >
-                                                                    <Select allowClear options={planningStatusOptions} placeholder="Statut" />
-                                                                </Form.Item>
-                                                                {lineType === 'forfait' ? (
-                                                                    <Form.Item
-                                                                        name={[field.name, 'technicienIds']}
-                                                                        label={premiereLigne ? "Techniciens" : undefined}
-                                                                    style={{ width: 200, marginBottom: 8 }}
-                                                                    >
-                                                                        <Select mode="multiple" allowClear showSearch options={technicienOptions} placeholder="Techniciens" disabled={!watchedBonPourAccord} />
+                                                        {/* Zone d'actions de largeur fixe : les colonnes restent alignées d'une ligne à l'autre */}
+                                                        <div style={{ width: 250, flex: 'none', marginTop: decalageEntete, display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
+                                                            {libre && (
+                                                                <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
+                                                                    Nouvel article
+                                                                </Tag>
+                                                            )}
+                                                            {lineType && (
+                                                                <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
+                                                                    {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
+                                                                </Tag>
+                                                            )}
+                                                            {!isEmptyLine && !libre && (
+                                                                <FicheCataloguePopover
+                                                                    type={lineType}
+                                                                    itemId={itemId}
+                                                                    produits={produits}
+                                                                    catalogueBateaux={catalogueBateaux}
+                                                                    catalogueMoteurs={catalogueMoteurs}
+                                                                    catalogueHelices={catalogueHelices}
+                                                                    catalogueRemorques={catalogueRemorques}
+                                                                    forfaits={forfaits}
+                                                                    services={services}
+                                                                    navigate={navigate}
+                                                                    onProduitSaved={handleProduitSaved}
+                                                                />
+                                                            )}
+                                                            {isForfaitOrService && (
+                                                                <>
+                                                                    <Form.Item name={[field.name, 'status']} noStyle>
+                                                                        <Select allowClear options={planningStatusOptions} placeholder="Statut" aria-label="Statut" style={{ width: 115 }} />
                                                                     </Form.Item>
-                                                                ) : (
+                                                                    {/* Techniciens non affichés : conservés pour ne pas perdre l'affectation faite au planning */}
                                                                     <Form.Item name={[field.name, 'technicienIds']} hidden><Select mode="multiple" /></Form.Item>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                        {isEmptyLine ? (
-                                                            <Button style={{ marginTop: decalageEntete }} icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
-                                                        ) : (
-                                                            <>
-                                                                {lineType === 'service' && itemId && (
-                                                                    <Button style={{ marginTop: decalageEntete }} icon={<EditOutlined />} title="Modifier le service" onClick={() => openEditServiceModal(itemId)} />
-                                                                )}
-                                                                {isForfaitOrService && (
-                                                                    <Button style={{ marginTop: decalageEntete }} icon={<CalendarOutlined />} title="Planifier" disabled={!watchedBonPourAccord} onClick={() => { setModalVisible(false); navigate('/planning'); }} />
-                                                                )}
-                                                            </>
-                                                        )}
-                                                        {emplacement && (
-                                                            <Popover content={emplacement} title="Emplacements" trigger="click">
-                                                                <Button style={{ marginTop: decalageEntete }} icon={<EnvironmentOutlined />} title="Emplacements de la pièce" />
-                                                            </Popover>
-                                                        )}
-                                                        <Button style={{ marginTop: decalageEntete }} danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />
-                                                    </Space>
+                                                                </>
+                                                            )}
+                                                            {isEmptyLine && (
+                                                                <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
+                                                            )}
+                                                            {actionsLigne.length > 0 && (
+                                                                <Dropdown menu={{ items: actionsLigne }} trigger={['click']}>
+                                                                    <Button icon={<MoreOutlined />} title="Autres actions" />
+                                                                </Dropdown>
+                                                            )}
+                                                            <Button style={{ marginLeft: 'auto' }} danger icon={<DeleteOutlined />} title="Supprimer la ligne" onClick={() => remove(field.name)} />
+                                                        </div>
+                                                    </div>
                                                     );
                                                 })}
                                                 <Space style={{ marginTop: -12, marginBottom: 16, marginLeft: 16 }}>
