@@ -439,6 +439,148 @@ public class VenteResourceTest {
         org.junit.jupiter.api.Assertions.assertEquals(stockAvant - 1, stockApres);
     }
 
+    private static String venteAvecLignesLibres(String... articles) {
+        StringBuilder lignes = new StringBuilder();
+        for (String article : articles) {
+            if (lignes.length() > 0) lignes.append(',');
+            lignes.append("{\"quantite\":2,\"remise\":1.0,\"produit\":").append(article).append('}');
+        }
+        return "{\"status\":\"DEVIS\",\"comptoir\":true,\"prixVenteTTC\":23.0,\"venteProduits\":[" + lignes + "]}";
+    }
+
+    @Test
+    void testLigneLibreCreeArticleAuCatalogue() {
+        String designation = "Manille inox " + System.nanoTime();
+        String ref = "MAN-" + System.nanoTime();
+
+        int produitId = given()
+            .contentType("application/json")
+            .body(venteAvecLignesLibres("{\"ref\":\" " + ref + " \",\"designation\":\" " + designation + " \",\"prixVenteTTC\":12.0,\"tva\":20.0}"))
+            .when().post("/ventes")
+            .then()
+            .statusCode(201)
+            .body("venteProduits[0].quantite", is(2))
+            .body("venteProduits[0].remise", is(1.0f))
+            .body("venteProduits[0].produit.designation", is(designation))
+            .extract().path("venteProduits[0].produit.id");
+
+        given()
+            .when().get("/catalogue/produits/" + produitId)
+            .then()
+            .statusCode(200)
+            .body("ref", is(ref))
+            .body("designation", is(designation))
+            .body("categorie", is("Non classé"))
+            .body("prixVenteTTC", is(12.0f))
+            .body("tva", is(20.0f))
+            .body("montantTVA", is(2.0f))
+            .body("prixVenteHT", is(10.0f))
+            .body("stock", is(0));
+    }
+
+    @Test
+    void testLigneLibreSansReferenceGenereLaReference() {
+        given()
+            .contentType("application/json")
+            .body(venteAvecLignesLibres("{\"designation\":\"Bout amarrage " + System.nanoTime() + "\",\"prixVenteTTC\":11.0,\"tva\":10.0}"))
+            .when().post("/ventes")
+            .then()
+            .statusCode(201)
+            .body("venteProduits[0].produit.ref", startsWith("PRD-"))
+            .body("venteProduits[0].produit.montantTVA", is(1.0f))
+            .body("venteProduits[0].produit.prixVenteHT", is(10.0f));
+    }
+
+    @Test
+    void testLigneLibreAjouteeEnModification() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"comptoir\":true,\"prixVenteTTC\":24.0,\"venteProduits\":[{\"quantite\":1,\"produit\":{\"id\":100}}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        String designation = "Gaffe telescopique " + System.nanoTime();
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"comptoir\":true,\"prixVenteTTC\":59.0,\"venteProduits\":["
+                + "{\"quantite\":1,\"produit\":{\"id\":100}},"
+                + "{\"quantite\":1,\"produit\":{\"designation\":\"" + designation + "\",\"prixVenteTTC\":35.0,\"tva\":20.0}}]}")
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("venteProduits.size()", is(2))
+            .body("venteProduits.produit.designation", hasItem(designation));
+
+        given()
+            .when().get("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("venteProduits.produit.designation", hasItem(designation))
+            .body("venteProduits.find { it.produit.designation == '" + designation + "' }.produit.id", notNullValue());
+    }
+
+    @Test
+    void testLigneLibreDesignationDejaAuCatalogueRefusee() {
+        given()
+            .contentType("application/json")
+            .body(venteAvecLignesLibres("{\"designation\":\"motul huile moteur 4T\",\"prixVenteTTC\":30.0,\"tva\":20.0}"))
+            .when().post("/ventes")
+            .then()
+            .statusCode(400)
+            .body("message", containsString("existe déjà au catalogue"));
+    }
+
+    @Test
+    void testLigneLibreReferenceDejaAuCatalogueRefusee() {
+        String ref = "DUP-" + System.nanoTime();
+        given()
+            .contentType("application/json")
+            .body(venteAvecLignesLibres("{\"ref\":\"" + ref + "\",\"designation\":\"Article A " + System.nanoTime() + "\",\"prixVenteTTC\":5.0,\"tva\":20.0}"))
+            .when().post("/ventes")
+            .then().statusCode(201);
+
+        given()
+            .contentType("application/json")
+            .body(venteAvecLignesLibres("{\"ref\":\"" + ref.toLowerCase() + "\",\"designation\":\"Article B " + System.nanoTime() + "\",\"prixVenteTTC\":5.0,\"tva\":20.0}"))
+            .when().post("/ventes")
+            .then()
+            .statusCode(400)
+            .body("message", containsString("déjà utilisée"));
+    }
+
+    @Test
+    void testLignesLibresEnDoubleRefuseesSansCreerAucunArticle() {
+        String designation = "Defense cylindrique " + System.nanoTime();
+        String article = "{\"designation\":\"" + designation + "\",\"prixVenteTTC\":20.0,\"tva\":20.0}";
+
+        given()
+            .contentType("application/json")
+            .body(venteAvecLignesLibres(article, article))
+            .when().post("/ventes")
+            .then()
+            .statusCode(400)
+            .body("message", containsString("existe déjà au catalogue"));
+
+        // la vente est refusée dans son ensemble : le premier article n'est pas resté au catalogue
+        given()
+            .queryParam("q", designation)
+            .when().get("/catalogue/produits/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(0));
+    }
+
+    @Test
+    void testLigneLibreSansDesignationRefusee() {
+        given()
+            .contentType("application/json")
+            .body(venteAvecLignesLibres("{\"ref\":\"SANS-DESIGNATION\",\"designation\":\"  \",\"prixVenteTTC\":5.0,\"tva\":20.0}"))
+            .when().post("/ventes")
+            .then()
+            .statusCode(400)
+            .body("message", containsString("désignation"));
+    }
+
     @Test
     void testPassageEnPayeeRefuseSansPaiement() {
         int id = given()

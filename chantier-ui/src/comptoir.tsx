@@ -47,6 +47,16 @@ import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteMod
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
 import { paginationConfig } from './pagination.ts';
+import {
+    ArticleALaVolee,
+    LigneLibre,
+    articleALaVolee,
+    articleCreePourLigneLibre,
+    erreurDesignationLibre,
+    erreurRefLibre,
+    insererLigneLibre,
+    nouvelleLigneLibre,
+} from './ligne-libre.ts';
 
 interface ClientEntity {
     id: number;
@@ -214,7 +224,8 @@ interface AvoirDisponible {
 
 interface VenteProduitLigne {
     id?: number;
-    produit?: ProduitCatalogueEntity;
+    // Sans identifiant, l'article d'une ligne libre est créé au catalogue par le backend
+    produit?: ProduitCatalogueEntity | ArticleALaVolee;
     quantite: number;
     remise?: number;
     remisePourcentage?: number;
@@ -288,6 +299,17 @@ interface VenteEntity {
     note?: string;
 }
 
+// Une ligne désigne un article du catalogue (produitRef) ou un article saisi à la volée (libre)
+interface LigneProduitForm {
+    produitRef?: string;
+    libre?: LigneLibre;
+    quantite?: number;
+    remise?: number;
+    remisePourcentage?: number;
+}
+
+const estLigneVide = (line?: LigneProduitForm) => !line?.produitRef && !line?.libre;
+
 interface VenteFormValues {
     status: VenteStatus;
     bonPourAccord?: boolean;
@@ -297,7 +319,7 @@ interface VenteFormValues {
     moteurId?: number;
     remorqueId?: number;
     forfaits: Array<{ forfaitId?: number; quantite: number; remise?: number; remisePourcentage?: number }>;
-    produits: Array<{ produitRef?: string; quantite?: number; remise?: number; remisePourcentage?: number }>;
+    produits: LigneProduitForm[];
     services: Array<{ serviceId?: number; quantite: number; remise?: number; remisePourcentage?: number }>;
     date?: string;
     montantHT: number;
@@ -615,6 +637,40 @@ export default function Comptoir() {
 
     const getCatalogueItemPrice = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): number =>
         getCatalogueItem(ref, allProduits)?.prixVenteTTC || 0;
+    // Prix unitaire TTC d'une ligne : saisi sur une ligne libre, sinon celui de l'article du catalogue
+    const getLignePrice = (line?: LigneProduitForm, allProduits?: ProduitCatalogueEntity[]): number =>
+        line?.libre ? (line.libre.prixVenteTTC || 0) : getCatalogueItemPrice(line?.produitRef, allProduits);
+
+    const autresLignesLibres = (index: number): LigneLibre[] =>
+        ((form.getFieldValue('produits') || []) as LigneProduitForm[])
+            .flatMap((line, i) => (i !== index && line?.libre ? [line.libre] : []));
+
+    const ajouterLigneLibre = () => {
+        const lignes: LigneProduitForm[] = form.getFieldValue('produits') || [];
+        const ligneLibre: LigneProduitForm = { libre: nouvelleLigneLibre(), quantite: 1 };
+        form.setFieldValue('produits', insererLigneLibre(lignes, ligneLibre, {}, estLigneVide));
+        setFormDirty(true);
+    };
+
+    // Après enregistrement, les lignes libres désignent les articles que le backend a créés au catalogue
+    const rattacherLignesLibres = (values: VenteFormValues, vente: VenteEntity): VenteFormValues => {
+        const lignes = values.produits || [];
+        if (!lignes.some((line) => line?.libre)) return values;
+        const vendus = (vente.venteProduits || [])
+            .map((l) => l.produit)
+            .filter((p): p is ProduitCatalogueEntity => !!(p as ProduitCatalogueEntity | undefined)?.id);
+        setProduits((prev) => mergeById(prev, vendus));
+        const crees: string[] = [];
+        const produitsLignes = lignes.map(({ libre, ...line }) => {
+            if (!libre) return line;
+            const article = articleCreePourLigneLibre(libre, vendus);
+            if (!article) return { ...line, libre };
+            crees.push(article.designation);
+            return { ...line, produitRef: `produit:${article.id}` };
+        });
+        if (crees.length > 0) message.info(`Ajouté au catalogue : ${crees.join(', ')}`);
+        return { ...values, produits: produitsLignes };
+    };
 
     const getProduitEmplacement = (ref?: string): React.ReactNode | undefined => {
         if (!ref) return undefined;
@@ -1053,8 +1109,16 @@ export default function Comptoir() {
                 return item ? [item] : [];
             }) as ForfaitEntity[],
         venteProduits: (values.produits || [])
-            .filter((line) => line.produitRef?.startsWith('produit:'))
+            .filter((line) => line.libre || line.produitRef?.startsWith('produit:'))
             .flatMap<VenteProduitLigne>((line) => {
+                if (line.libre) {
+                    return [{
+                        produit: articleALaVolee(line.libre),
+                        quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                        remise: line.remise || 0,
+                        remisePourcentage: line.remisePourcentage || 0,
+                    }];
+                }
                 const id = parseInt((line.produitRef || '').split(':')[1], 10);
                 const produit = produits.find((p) => p.id === id);
                 return produit ? [{
@@ -1137,13 +1201,13 @@ export default function Comptoir() {
                 const res = await api.put(`/ventes/${currentVente.id}`, { ...currentVente, ...payload });
                 message.success('Vente comptoir modifiee avec succes');
                 setCurrentVente(res.data);
-                form.setFieldsValue(values);
+                form.setFieldsValue(rattacherLignesLibres(values, res.data));
             } else {
                 const res = await api.post('/ventes', payload);
                 message.success('Vente comptoir ajoutee avec succes');
                 setIsEdit(true);
                 setCurrentVente(res.data);
-                form.setFieldsValue(values);
+                form.setFieldsValue(rattacherLignesLibres(values, res.data));
             }
             setFormDirty(false);
             fetchVentes();
@@ -1477,8 +1541,8 @@ export default function Comptoir() {
             const prixUnitaire = forfaits.find((item) => item.id === line.forfaitId)?.prixTTC || 0;
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
-        const produitsTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number; remise?: number }) => {
-            const prixUnitaire = getCatalogueItemPrice(line.produitRef, overrides?.produits);
+        const produitsTTC = produitLines.reduce((sum: number, line: LigneProduitForm) => {
+            const prixUnitaire = getLignePrice(line, overrides?.produits);
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
         const occasionTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number; remise?: number }) => {
@@ -1517,7 +1581,7 @@ export default function Comptoir() {
             if (!changed) return;
             const line = currentLines[index];
             if (!line) return;
-            const prixUnitaire = getCatalogueItemPrice(line.produitRef);
+            const prixUnitaire = getLignePrice(line);
             const quantite = Math.max(1, Math.floor(line.quantite || 1));
             const brut = Math.round(prixUnitaire * quantite * 100) / 100;
             if (changed.remisePourcentage !== undefined) {
@@ -1573,7 +1637,7 @@ export default function Comptoir() {
             }
 
             let currentProduitLines = (allValues.produits || []).map((item: any) => (
-                item?.produitRef && (item.quantite === undefined || item.quantite === null)
+                !estLigneVide(item) && (item.quantite === undefined || item.quantite === null)
                     ? { ...item, quantite: 1 }
                     : item
             ));
@@ -1581,7 +1645,7 @@ export default function Comptoir() {
                 currentProduitLines = [{}];
             } else {
                 const lastProduitLine = currentProduitLines[currentProduitLines.length - 1];
-                const isLastLineComplete = !!lastProduitLine?.produitRef && (lastProduitLine?.quantite || 0) > 0;
+                const isLastLineComplete = !estLigneVide(lastProduitLine) && (lastProduitLine?.quantite || 0) > 0;
                 if (isLastLineComplete) {
                     currentProduitLines = [...currentProduitLines, {}];
                 }
@@ -1988,16 +2052,18 @@ export default function Comptoir() {
                                     {fields.map((field) => (
                                         <Form.Item key={field.key} shouldUpdate noStyle>
                                             {() => {
-                                                const produitRef = form.getFieldValue(['produits', field.name, 'produitRef']);
-                                                const prixUnitaire = getCatalogueItemPrice(produitRef) || undefined;
+                                                const ligne: LigneProduitForm = form.getFieldValue(['produits', field.name]) || {};
+                                                const produitRef = ligne.produitRef;
+                                                const libre = ligne.libre;
+                                                const prixUnitaire = getLignePrice(ligne) || undefined;
                                                 const emplacement = getProduitEmplacement(produitRef);
-                                                const quantite = form.getFieldValue(['produits', field.name, 'quantite']);
-                                                const remiseLigne = form.getFieldValue(['produits', field.name, 'remise']) || 0;
+                                                const quantite = ligne.quantite;
+                                                const remiseLigne = ligne.remise || 0;
                                                 const brutLigne = (prixUnitaire && quantite) ? Math.round(prixUnitaire * quantite * 100) / 100 : undefined;
                                                 const totalLigne = brutLigne !== undefined
                                                     ? Math.max(0, Math.round((brutLigne - remiseLigne) * 100) / 100)
                                                     : undefined;
-                                                const isEmptyLine = !produitRef;
+                                                const isEmptyLine = estLigneVide(ligne);
                                                 const [ligneType, ligneIdStr] = (produitRef || '').split(':');
                                                 const ligneItemId = parseInt(ligneIdStr, 10);
                                                 const produitCatalogue = ligneType === 'produit' ? produits.find((p) => p.id === ligneItemId) : undefined;
@@ -2007,8 +2073,45 @@ export default function Comptoir() {
                                                 const remorqueCatalogue = ligneType === 'remorque' ? catalogueRemorques.find((r) => r.id === ligneItemId) : undefined;
                                                 return (
                                                 <Space align="baseline" style={{ display: 'flex', marginBottom: 8 }}>
+                                                    {libre && (
+                                                        <Form.Item
+                                                            name={[field.name, 'libre', 'ref']}
+                                                            rules={[{
+                                                                validator: async (_, value) => {
+                                                                    const erreur = erreurRefLibre(value, produits, autresLignesLibres(field.name));
+                                                                    if (erreur) throw new Error(erreur);
+                                                                }
+                                                            }]}
+                                                            style={{ width: 110 }}
+                                                        >
+                                                            <Input autoFocus placeholder="Réf." title="Référence (générée si vide)" />
+                                                        </Form.Item>
+                                                    )}
+                                                    {libre && (
+                                                        <Form.Item
+                                                            name={[field.name, 'libre', 'designation']}
+                                                            rules={[{
+                                                                validator: async (_, value) => {
+                                                                    const erreur = erreurDesignationLibre(value, produits, autresLignesLibres(field.name));
+                                                                    if (erreur) throw new Error(erreur);
+                                                                }
+                                                            }]}
+                                                            style={{ width: 222 }}
+                                                        >
+                                                            <Input placeholder="Désignation" />
+                                                        </Form.Item>
+                                                    )}
+                                                    {libre && (
+                                                        <Form.Item
+                                                            name={[field.name, 'libre', 'tva']}
+                                                            rules={[{ required: true, message: 'TVA requise' }]}
+                                                            style={{ width: 92 }}
+                                                        >
+                                                            <InputNumber addonAfter="%" min={0} max={100} step={1} style={{ width: '100%' }} placeholder="TVA" />
+                                                        </Form.Item>
+                                                    )}
+                                                    {!libre && (
                                                     <Form.Item
-                                                        {...field}
                                                         name={[field.name, 'produitRef']}
                                                         // null plutôt qu'undefined : sinon le sélecteur garde affiché le package qui vient d'être déplié
                                                         getValueProps={(value) => ({ value: value ?? null })}
@@ -2037,23 +2140,33 @@ export default function Comptoir() {
                                                             placeholder="Rechercher package, produit, bateau, moteur, hélice ou remorque"
                                                         />
                                                     </Form.Item>
-                                                    <Form.Item style={{ width: 110 }}>
-                                                        <InputNumber
-                                                            addonAfter="EUR"
-                                                            value={prixUnitaire ?? undefined}
-                                                            disabled
-                                                            style={{ width: '100%' }}
-                                                            placeholder="P.U."
-                                                        />
-                                                    </Form.Item>
+                                                    )}
+                                                    {libre ? (
+                                                        <Form.Item
+                                                            name={[field.name, 'libre', 'prixVenteTTC']}
+                                                            rules={[{ required: true, message: 'Prix requis' }]}
+                                                            style={{ width: 110 }}
+                                                        >
+                                                            <InputNumber addonAfter="EUR" min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
+                                                        </Form.Item>
+                                                    ) : (
+                                                        <Form.Item style={{ width: 110 }}>
+                                                            <InputNumber
+                                                                addonAfter="EUR"
+                                                                value={prixUnitaire ?? undefined}
+                                                                disabled
+                                                                style={{ width: '100%' }}
+                                                                placeholder="P.U."
+                                                            />
+                                                        </Form.Item>
+                                                    )}
                                                     <Form.Item
-                                                        {...field}
                                                         name={[field.name, 'quantite']}
                                                         rules={[
                                                             {
                                                                 validator: async (_, value) => {
                                                                     const line = form.getFieldValue(['produits', field.name]);
-                                                                    if (!line?.produitRef && (value === undefined || value === null)) {
+                                                                    if (estLigneVide(line) && (value === undefined || value === null)) {
                                                                         return;
                                                                     }
                                                                     if (!value || value <= 0) {
@@ -2067,14 +2180,12 @@ export default function Comptoir() {
                                                         <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
                                                     </Form.Item>
                                                     <Form.Item
-                                                        {...field}
                                                         name={[field.name, 'remisePourcentage']}
                                                         style={{ width: 110 }}
                                                     >
                                                         <InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
                                                     </Form.Item>
                                                     <Form.Item
-                                                        {...field}
                                                         name={[field.name, 'remise']}
                                                         style={{ width: 130 }}
                                                     >
@@ -2111,9 +2222,15 @@ export default function Comptoir() {
                                                             placeholder="Total"
                                                         />
                                                     </Form.Item>
-                                                    {isEmptyLine ? (
+                                                    {libre && (
+                                                        <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
+                                                            Nouvel article
+                                                        </Tag>
+                                                    )}
+                                                    {isEmptyLine && (
                                                         <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
-                                                    ) : (
+                                                    )}
+                                                    {!isEmptyLine && !libre && (
                                                         <FicheCataloguePopover
                                                             type={ligneType}
                                                             itemId={Number.isNaN(ligneItemId) ? undefined : ligneItemId}
@@ -2133,7 +2250,7 @@ export default function Comptoir() {
                                                             <Button icon={<EnvironmentOutlined />} title="Emplacements de la pièce" />
                                                         </Popover>
                                                     )}
-                                                    {!isEmptyLine && (
+                                                    {!isEmptyLine && !libre && (
                                                         <Button
                                                             size="small"
                                                             icon={<ShoppingCartOutlined />}
@@ -2153,6 +2270,13 @@ export default function Comptoir() {
                                             }}
                                         </Form.Item>
                                     ))}
+                                    <Button
+                                        icon={<PlusOutlined />}
+                                        title="Saisir un article absent du catalogue : il y est créé à l'enregistrement de la vente"
+                                        onClick={ajouterLigneLibre}
+                                    >
+                                        Ajouter une ligne libre
+                                    </Button>
                                 </>
                             )}
                         </Form.List>
