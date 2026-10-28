@@ -156,6 +156,36 @@ public class TechnicienPortalResourceTest {
     }
 
     @Test
+    void testLancerForfaitPasseVenteEnFactureEnAttente() {
+        io.restassured.response.Response vente = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"bonPourAccord\":true,\"prixVenteTTC\":200.0,"
+                + "\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"PLANIFIEE\"}]}")
+            .when().post("/ventes")
+            .then().statusCode(201)
+            .body("status", is("DEVIS"))
+            .extract().response();
+        int venteId = vente.path("id");
+        int forfaitId = vente.path("venteForfaits[0].id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"EN_COURS\",\"dureeReelle\":0}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then()
+            .statusCode(200)
+            .body("itemStatus", is("EN_COURS"))
+            .body("venteType", is("FACTURE_EN_ATTENTE"));
+
+        given()
+            .when().get("/ventes/" + venteId)
+            .then()
+            .statusCode(200)
+            .body("status", is("FACTURE_EN_ATTENTE"))
+            .body("dateFactureEnAttente", notNullValue());
+    }
+
+    @Test
     void testModifierForfaitNonTrouve() {
         given()
             .contentType("application/json")

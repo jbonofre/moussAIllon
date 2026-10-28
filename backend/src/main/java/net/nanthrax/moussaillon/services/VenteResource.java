@@ -418,6 +418,7 @@ public class VenteResource {
         if (vente.dateDevis == null) {
             vente.dateDevis = new Timestamp(System.currentTimeMillis());
         }
+        passerEnFactureEnAttenteSiLancee(vente);
         vente.persist();
         return Response.status(Response.Status.CREATED).entity(vente).build();
     }
@@ -745,6 +746,8 @@ public class VenteResource {
             }
         }
 
+        passerEnFactureEnAttenteSiLancee(entity);
+
         // Decrement stock when an item transitions to EN_COURS (once per vente)
         if (!entity.stockDecremented) {
             boolean hasEnCours = entity.venteForfaits.stream()
@@ -1030,6 +1033,25 @@ public class VenteResource {
             vente.status = VenteEntity.Status.FACTURE_PAYEE;
             if (vente.dateFacturePayee == null) {
                 vente.dateFacturePayee = new Timestamp(System.currentTimeMillis());
+            }
+        }
+    }
+
+    /**
+     * Dès qu'une prestation est lancée (en cours), le devis passe directement en « facture en attente ».
+     */
+    static void passerEnFactureEnAttenteSiLancee(VenteEntity vente) {
+        if (vente == null || vente.status != VenteEntity.Status.DEVIS) {
+            return;
+        }
+        boolean lancee = (vente.venteForfaits != null
+                        && vente.venteForfaits.stream().anyMatch(vf -> vf.status == VenteForfaitEntity.Status.EN_COURS))
+                || (vente.venteServices != null
+                        && vente.venteServices.stream().anyMatch(vs -> vs.status == VenteServiceEntity.Status.EN_COURS));
+        if (lancee) {
+            vente.status = VenteEntity.Status.FACTURE_EN_ATTENTE;
+            if (vente.dateFactureEnAttente == null) {
+                vente.dateFactureEnAttente = new Timestamp(System.currentTimeMillis());
             }
         }
     }
