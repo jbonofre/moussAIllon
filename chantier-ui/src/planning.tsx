@@ -1410,7 +1410,7 @@ export default function Planning() {
                                 loading={loading}
                                 dataSource={pendingItems}
                                 columns={pendingColumns}
-                                pagination={paginationConfig(6)}
+                                pagination={paginationConfig(10)}
                                 bordered
                                 onRow={(record) => ({
                                     draggable: true,
@@ -1451,7 +1451,7 @@ export default function Planning() {
                                 loading={loading}
                                 dataSource={lateItems}
                                 columns={dayColumns}
-                                pagination={paginationConfig(6)}
+                                pagination={paginationConfig(10)}
                                 bordered
                             />
                         </Card>
@@ -1472,7 +1472,7 @@ export default function Planning() {
                                 loading={loading}
                                 dataSource={enCoursItems}
                                 columns={dayColumns}
-                                pagination={paginationConfig(6)}
+                                pagination={paginationConfig(10)}
                                 bordered
                             />
                         ) : (
@@ -1491,7 +1491,7 @@ export default function Planning() {
                                 loading={loading}
                                 dataSource={plannedItems}
                                 columns={dayColumns}
-                                pagination={paginationConfig(8)}
+                                pagination={paginationConfig(10)}
                                 bordered
                             />
                         ) : (
@@ -1540,7 +1540,7 @@ export default function Planning() {
                                         ) : null
                                     }
                                 ]}
-                                pagination={paginationConfig(8)}
+                                pagination={paginationConfig(10)}
                                 bordered
                             />
                         ) : (

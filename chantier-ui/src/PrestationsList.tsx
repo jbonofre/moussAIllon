@@ -138,7 +138,7 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
                     dataSource={ventes}
                     columns={columns}
                     size="small"
-                    pagination={ventes.length > 5 ? paginationConfig(5) : false}
+                    pagination={ventes.length > 10 ? paginationConfig(10) : false}
                     locale={{ emptyText: 'Aucune prestation' }}
                 />
             </Spin>

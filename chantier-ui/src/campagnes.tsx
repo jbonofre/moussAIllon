@@ -559,7 +559,7 @@ export default function Campagnes() {
                             dataSource={destinataires}
                             columns={destColumns}
                             loading={destLoading}
-                            pagination={paginationConfig(5)}
+                            pagination={paginationConfig(10)}
                             size="small"
                             bordered
                         />
@@ -569,7 +569,7 @@ export default function Campagnes() {
                             dataSource={historique}
                             columns={historiqueColumns}
                             loading={historiqueLoading}
-                            pagination={paginationConfig(5)}
+                            pagination={paginationConfig(10)}
                             size="small"
                             bordered
                             locale={{ emptyText: 'Aucun envoi effectué' }}

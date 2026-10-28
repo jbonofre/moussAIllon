@@ -489,7 +489,7 @@ export default function Dashboard({ user }: { user?: string }) {
                         columns={warningColumns}
                         dataSource={warnings}
                         rowKey="key"
-                        pagination={paginationConfig(5)}
+                        pagination={paginationConfig(10)}
                         size="small"
                         scroll={{ x: 'max-content' }}
                     />

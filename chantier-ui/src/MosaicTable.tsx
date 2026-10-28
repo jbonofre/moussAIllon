@@ -50,7 +50,7 @@ function MosaicTable<T extends object>(props: MosaicTableProps<T>) {
   const [pageSize, setPageSize] = useState<number>(() => paginationObj.pageSize ?? paginationObj.defaultPageSize ?? DEFAULT_PAGE_SIZE);
   // Le nombre de lignes par page choisi est conservé quand on bascule entre liste et mosaïque.
   const listPagination: TablePaginationConfig | false = paginated && {
-    ...paginationConfig(paginationObj.defaultPageSize ?? paginationObj.pageSize),
+    ...paginationConfig(),
     ...paginationObj,
     pageSize,
     onChange: (p, s) => {
@@ -150,7 +150,9 @@ function MosaicTable<T extends object>(props: MosaicTableProps<T>) {
   const rowKeyOf = (record: any, index: number) =>
     typeof rowKey === "function" ? rowKey(record) : rowKey ? record[rowKey as string] : index;
 
-  const start = (page - 1) * pageSize;
+  // La taille a pu changer en mode liste (ex. « Tout ») : on reste sur une page existante.
+  const currentPage = Math.min(page, Math.max(1, Math.ceil(data.length / pageSize)));
+  const start = (currentPage - 1) * pageSize;
   const visible = paginated ? data.slice(start, start + pageSize) : data;
 
   return (
@@ -231,7 +233,7 @@ function MosaicTable<T extends object>(props: MosaicTableProps<T>) {
       {listPagination && data.length > 0 && (
         <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
           <Pagination
-            current={page}
+            current={currentPage}
             pageSize={pageSize}
             total={data.length}
             showSizeChanger={listPagination.showSizeChanger}
