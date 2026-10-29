@@ -64,6 +64,8 @@ export default function Reglements() {
             .catch((e) => message.error('Erreur : ' + e.message));
     };
 
+    const [bulkLoading, setBulkLoading] = useState(false);
+
     const filtered = useMemo(() => reglements.filter((r) => {
         if (dateRange?.[0] && (!r.date || dayjs(r.date).isBefore(dateRange[0].startOf('day')))) return false;
         if (dateRange?.[1] && (!r.date || dayjs(r.date).isAfter(dateRange[1].endOf('day')))) return false;
@@ -77,6 +79,26 @@ export default function Reglements() {
         return true;
     }), [reglements, dateRange, facture, client, montantMin, montantMax, mode, pointage]);
 
+    const nbRapproches = filtered.filter((r) => r.rapproche).length;
+    const allRapproches = filtered.length > 0 && nbRapproches === filtered.length;
+
+    const toggleAllRapproche = (rapproche: boolean) => {
+        const targets = filtered.filter((r) => r.rapproche !== rapproche);
+        if (targets.length === 0) return;
+        setBulkLoading(true);
+        Promise.all(targets.map((r) => fetchWithAuth(`./reglements/${r.id}/rapprochement`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rapproche }),
+        }).then((res) => { if (!res.ok) throw new Error('Erreur ' + res.status); return res.json() as Promise<Reglement>; })))
+            .then((updated) => {
+                const byId = new Map(updated.map((u) => [u.id, u]));
+                setReglements((list) => list.map((x) => byId.get(x.id) ?? x));
+            })
+            .catch((e) => { message.error('Erreur : ' + e.message); load(); })
+            .finally(() => setBulkLoading(false));
+    };
+
     const total = filtered.reduce((s, r) => s + r.montant, 0);
     const totalNonRapproche = filtered.filter((r) => !r.rapproche).reduce((s, r) => s + r.montant, 0);
 
@@ -87,7 +109,17 @@ export default function Reglements() {
         { title: 'Type de paiement', dataIndex: 'mode', key: 'mode', render: (v: string) => MODE_LABEL[v] ?? v },
         { title: 'Montant', dataIndex: 'montant', key: 'montant', align: 'right' as const, render: formatEuro, sorter: (a: Reglement, b: Reglement) => a.montant - b.montant },
         {
-            title: 'Sur le compte bancaire',
+            title: (
+                <Space>
+                    <Checkbox
+                        checked={allRapproches}
+                        indeterminate={nbRapproches > 0 && !allRapproches}
+                        disabled={filtered.length === 0 || bulkLoading}
+                        onChange={(e) => toggleAllRapproche(e.target.checked)}
+                    />
+                    Sur le compte bancaire
+                </Space>
+            ),
             key: 'rapproche',
             align: 'center' as const,
             render: (_: any, r: Reglement) => (
@@ -150,7 +182,7 @@ export default function Reglements() {
             </Row>
             <MosaicTable
                 rowKey="id"
-                loading={loading}
+                loading={loading || bulkLoading}
                 dataSource={filtered}
                 columns={columns}
                 pagination={paginationConfig()}
