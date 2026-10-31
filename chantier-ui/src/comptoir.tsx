@@ -13,7 +13,7 @@ import {
     InvoicePrintLine,
     montantOccasion,
 } from './printing/invoiceTemplate.ts';
-import { calculerTvaVente } from './tva-vente.ts';
+import { calculerTvaVente, calculerTvaVenteDepuisHT, tauxTvaVente } from './tva-vente.ts';
 import {
     Alert,
     Button,
@@ -311,6 +311,15 @@ interface LigneProduitForm {
 
 const estLigneVide = (line?: LigneProduitForm) => !line?.produitRef && !line?.libre;
 
+// Pastille du type d'article d'une ligne, comme sur les transactions
+const TYPE_LIGNE_TAG: Record<string, { lettre: string; color: string }> = {
+    produit: { lettre: 'P', color: 'orange' },
+    bateau: { lettre: 'B', color: 'purple' },
+    moteur: { lettre: 'M', color: 'purple' },
+    helice: { lettre: 'H', color: 'purple' },
+    remorque: { lettre: 'R', color: 'purple' },
+};
+
 interface VenteFormValues {
     status: VenteStatus;
     bonPourAccord?: boolean;
@@ -578,6 +587,8 @@ export default function Comptoir() {
             options: packages.map((pack) => ({
                 value: `package:${pack.id}`,
                 label: getPackageLabel(pack),
+                designation: pack.designation,
+                ref: pack.ref,
                 searchText: `${pack.ref || ''} ${pack.designation}`.toLowerCase(),
             })),
         }] : []),
@@ -586,6 +597,8 @@ export default function Comptoir() {
             options: produits.map((p) => ({
                 value: `produit:${p.id}`,
                 label: p.ref ? `${p.ref} - ${p.designation}` : p.designation,
+                designation: p.designation,
+                ref: p.ref,
                 searchText: `${p.ref || ''} ${p.designation} ${(p.refs || []).join(' ')} ${(p.referencesFournisseurs || []).join(' ')} ${p.emplacement || ''} ${p.emplacementMagasin || ''}`.toLowerCase(),
             })),
         },
@@ -593,7 +606,9 @@ export default function Comptoir() {
             label: 'Bateaux',
             options: catalogueBateaux.map((b) => ({
                 value: `bateau:${b.id}`,
-                label: b.designation,
+                label: b.ref ? `${b.ref} - ${b.designation}` : b.designation,
+                designation: b.designation,
+                ref: b.ref,
                 searchText: `${b.ref || ''} ${b.designation} ${(b.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
             })),
         },
@@ -601,7 +616,9 @@ export default function Comptoir() {
             label: 'Moteurs',
             options: catalogueMoteurs.map((m) => ({
                 value: `moteur:${m.id}`,
-                label: m.designation,
+                label: m.ref ? `${m.ref} - ${m.designation}` : m.designation,
+                designation: m.designation,
+                ref: m.ref,
                 searchText: `${m.ref || ''} ${m.designation} ${(m.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
             })),
         },
@@ -609,7 +626,9 @@ export default function Comptoir() {
             label: 'Hélices',
             options: catalogueHelices.map((h) => ({
                 value: `helice:${h.id}`,
-                label: h.designation,
+                label: h.ref ? `${h.ref} - ${h.designation}` : h.designation,
+                designation: h.designation,
+                ref: h.ref,
                 searchText: `${h.ref || ''} ${h.designation} ${(h.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
             })),
         },
@@ -617,7 +636,9 @@ export default function Comptoir() {
             label: 'Remorques',
             options: catalogueRemorques.map((r) => ({
                 value: `remorque:${r.id}`,
-                label: r.designation,
+                label: r.ref ? `${r.ref} - ${r.designation}` : r.designation,
+                designation: r.designation,
+                ref: r.ref,
                 searchText: `${r.ref || ''} ${r.designation} ${(r.referencesFournisseurs || []).join(' ')}`.toLowerCase(),
             })),
         },
@@ -1525,6 +1546,18 @@ export default function Comptoir() {
         { key: 'payplug', label: 'Payer via PayPlug', onClick: () => handlePayment(vente, 'payplug') },
     ]);
 
+    const sumLine = (prixUnitaire: number, quantite: number, remiseLigne: number) => {
+        const brut = prixUnitaire * Math.max(1, Math.floor(quantite || 1));
+        return Math.max(0, brut - (remiseLigne || 0));
+    };
+
+    // Montant des articles d'occasion de la vente, vendus sans TVA (remises de ligne déduites)
+    const montantOccasionLignes = (allProduits?: ProduitCatalogueEntity[]) =>
+        (form.getFieldValue('produits') || []).reduce((sum: number, line: { produitRef?: string; quantite?: number; remise?: number }) => {
+            const article = getCatalogueItem(line?.produitRef, allProduits);
+            return article?.occasion ? sum + sumLine(article.prixVenteTTC || 0, line.quantite || 1, line.remise || 0) : sum;
+        }, 0);
+
     const recalculateFromLines = (
         remiseSource: 'amount' | 'percentage' | 'auto' = 'auto',
         overrides?: { produits?: ProduitCatalogueEntity[] }
@@ -1536,10 +1569,6 @@ export default function Comptoir() {
         let remisePourcentage = form.getFieldValue('remisePourcentage') || 0;
         const tva = form.getFieldValue('tva') || 0;
 
-        const sumLine = (prixUnitaire: number, quantite: number, remiseLigne: number) => {
-            const brut = prixUnitaire * Math.max(1, Math.floor(quantite || 1));
-            return Math.max(0, brut - (remiseLigne || 0));
-        };
         const forfaitsTTC = forfaitLines.reduce((sum: number, line: { forfaitId?: number; quantite?: number; remise?: number }) => {
             const prixUnitaire = forfaits.find((item) => item.id === line.forfaitId)?.prixTTC || 0;
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
@@ -1548,10 +1577,7 @@ export default function Comptoir() {
             const prixUnitaire = getLignePrice(line, overrides?.produits);
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
-        const occasionTTC = produitLines.reduce((sum: number, line: { produitRef?: string; quantite?: number; remise?: number }) => {
-            const article = getCatalogueItem(line.produitRef, overrides?.produits);
-            return article?.occasion ? sum + sumLine(article.prixVenteTTC || 0, line.quantite || 1, line.remise || 0) : sum;
-        }, 0);
+        const occasionTTC = montantOccasionLignes(overrides?.produits);
         const servicesTTC = serviceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number; remise?: number }) => {
             const prixUnitaire = services.find((item) => item.id === line.serviceId)?.prixTTC || 0;
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
@@ -1677,30 +1703,31 @@ export default function Comptoir() {
             return;
         }
 
-        if (changedValues.montantHT !== undefined) {
-            const tva = allValues.tva || 0;
-            const montantHT = changedValues.montantHT || 0;
-            const montantTVA = Math.round(((montantHT * tva / 100) + Number.EPSILON) * 100) / 100;
-            const montantTTC = Math.round(((montantHT + montantTVA) + Number.EPSILON) * 100) / 100;
+        // HT, taux ou montant de TVA modifié : le HT est conservé, le TTC en découle (la remise en EUR est conservée)
+        const appliquerMontantTTC = (montantTTC: number) => {
             const remise = allValues.remise || 0;
             const remisePourcentage = montantTTC > 0
                 ? Math.round((((remise / montantTTC) * 100) + Number.EPSILON) * 100) / 100
                 : 0;
             const prixVenteTTC = Math.round(((montantTTC - remise) + Number.EPSILON) * 100) / 100;
             form.setFieldValue('montantTTC', montantTTC);
-            form.setFieldValue('montantTVA', montantTVA);
             form.setFieldValue('remisePourcentage', remisePourcentage);
             form.setFieldValue('prixVenteTTC', prixVenteTTC);
+        };
+
+        if (changedValues.montantHT !== undefined || changedValues.tva !== undefined) {
+            const { montantTVA, montantTTC } = calculerTvaVenteDepuisHT(allValues.montantHT || 0, montantOccasionLignes(), allValues.tva || 0);
+            form.setFieldValue('montantTVA', montantTVA);
+            appliquerMontantTTC(montantTTC);
             return;
         }
 
         if (changedValues.montantTVA !== undefined) {
-            const montantTTC = allValues.montantTTC || 0;
+            const montantHT = allValues.montantHT || 0;
             const montantTVA = changedValues.montantTVA || 0;
-            const montantHT = Math.round(((montantTTC - montantTVA) + Number.EPSILON) * 100) / 100;
-            const prixVenteTTC = Math.round(((montantTTC - (allValues.remise || 0)) + Number.EPSILON) * 100) / 100;
-            form.setFieldValue('montantHT', montantHT);
-            form.setFieldValue('prixVenteTTC', prixVenteTTC);
+            const tva = tauxTvaVente(montantHT, montantOccasionLignes(), montantTVA);
+            if (tva !== undefined) form.setFieldValue('tva', tva);
+            appliquerMontantTTC(Math.round(((montantHT + montantTVA) + Number.EPSILON) * 100) / 100);
             return;
         }
 
@@ -1741,11 +1768,19 @@ export default function Comptoir() {
         if (
             changedValues.forfaits !== undefined ||
             changedValues.produits !== undefined ||
-            changedValues.services !== undefined ||
-            changedValues.tva !== undefined
+            changedValues.services !== undefined
         ) {
             recalculateFromLines('auto');
         }
+    };
+
+    // Le choix par la référence passe par le formulaire : mêmes calculs (package, quantité, ligne suivante) que par la désignation
+    const choisirParReference = (index: number, produitRef?: string) => {
+        form.setFieldValue(['produits', index, 'produitRef'], produitRef);
+        const lignesModifiees: LigneProduitForm[] = [];
+        lignesModifiees[index] = { produitRef };
+        setFormDirty(true);
+        onValuesChange({ produits: lignesModifiees }, form.getFieldsValue());
     };
 
     const columns = [
@@ -1970,8 +2005,8 @@ export default function Comptoir() {
                 ]}
                 maskClosable={false}
                 destroyOnHidden
-                // Largeur minimale : sur les petits écrans, une ligne libre (réf., désignation, TVA) doit tenir
-                width="max(66.5vw, 1040px)"
+                // Largeur minimale : sur les petits écrans, une ligne (référence, désignation, montants, actions) doit tenir
+                width="max(66.5vw, 1080px)"
             >
                 <Form form={form} layout="vertical" initialValues={defaultVente} onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }} disabled={isReadOnly}>
                     <Form.Item noStyle name="status"><input type="hidden" /></Form.Item>
@@ -2100,7 +2135,7 @@ export default function Comptoir() {
                                                                 }
                                                             }]}
                                                             label={premiereLigne ? "Réf." : undefined}
-                                                            style={{ width: 90, flex: 'none', marginBottom: 8 }}
+                                                            style={{ width: 130, flex: 'none', marginBottom: 8 }}
                                                         >
                                                             <Input autoFocus placeholder="Réf." title="Référence (générée si vide)" />
                                                         </Form.Item>
@@ -2115,20 +2150,28 @@ export default function Comptoir() {
                                                                 }
                                                             }]}
                                                             label={premiereLigne ? "Désignation" : undefined}
-                                                            style={{ flex: '1 1 0', minWidth: 100, marginBottom: 8 }}
+                                                            style={{ flex: '1 1 0', minWidth: 160, marginBottom: 8 }}
                                                         >
                                                             <Input placeholder="Désignation" />
                                                         </Form.Item>
                                                     )}
-                                                    {libre && (
-                                                        <Form.Item
-                                                            name={[field.name, 'libre', 'tva']}
-                                                            rules={[{ required: true, message: 'TVA requise' }]}
-                                                            label={premiereLigne ? "TVA %" : undefined}
-                                                            style={{ width: 70, flex: 'none', marginBottom: 8 }}
-                                                        >
-                                                            <InputNumber min={0} max={100} step={1} style={{ width: '100%' }} placeholder="TVA" />
-                                                        </Form.Item>
+                                                    {libre && <Form.Item name={[field.name, 'libre', 'tva']} hidden><InputNumber /></Form.Item>}
+                                                    {!libre && (
+                                                    <Form.Item label={premiereLigne ? "Référence" : undefined} style={{ width: 130, flex: 'none', marginBottom: 8 }}>
+                                                        <Select
+                                                            allowClear
+                                                            showSearch
+                                                            value={produitRef ?? null}
+                                                            options={catalogueOptions}
+                                                            optionLabelProp="ref"
+                                                            placeholder="Réf."
+                                                            onSearch={handleCatalogueSearch}
+                                                            filterOption={(input, option) =>
+                                                                ((option as { ref?: string } | undefined)?.ref || '').toLowerCase().includes(input.toLowerCase())
+                                                            }
+                                                            onChange={(value?: string) => choisirParReference(field.name, value)}
+                                                        />
+                                                    </Form.Item>
                                                     )}
                                                     {!libre && (
                                                     <Form.Item
@@ -2146,19 +2189,20 @@ export default function Comptoir() {
                                                                 }
                                                             }
                                                         ]}
-                                                        label={premiereLigne ? "Article" : undefined}
+                                                        label={premiereLigne ? "Désignation" : undefined}
                                                         style={{ flex: '1 1 0', minWidth: 160, marginBottom: 8 }}
                                                     >
                                                         <Select
                                                             allowClear
                                                             showSearch
                                                             options={catalogueOptions}
+                                                            optionLabelProp="designation"
                                                             filterOption={(input, option) =>
                                                                 ((option as { searchText?: string } | undefined)?.searchText || '').includes(input.toLowerCase())
                                                             }
                                                             onSearch={handleCatalogueSearch}
                                                             notFoundContent={null}
-                                                            placeholder="Rechercher package, produit, bateau, moteur, hélice ou remorque"
+                                                            placeholder="Package, produit, bateau, moteur..."
                                                         />
                                                     </Form.Item>
                                                     )}
@@ -2206,14 +2250,14 @@ export default function Comptoir() {
                                                         label={premiereLigne ? "Remise %" : undefined}
                                                         style={{ width: 85, flex: 'none', marginBottom: 8 }}
                                                     >
-                                                        <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
+                                                        <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
                                                     </Form.Item>
                                                     <Form.Item
                                                         name={[field.name, 'remise']}
                                                         label={premiereLigne ? "Remise €" : undefined}
                                                         style={{ width: 100, flex: 'none', marginBottom: 8 }}
                                                     >
-                                                        <InputNumber min={0} step={0.01} style={{ width: '100%' }} placeholder="Remise" />
+                                                        <InputNumber min={0} step={0.01} style={{ width: '100%' }} placeholder="Rem." />
                                                     </Form.Item>
                                                     <Form.Item label={premiereLigne ? "Total €" : undefined} style={{ width: 100, flex: 'none', marginBottom: 8 }}>
                                                         <InputNumber
@@ -2252,14 +2296,16 @@ export default function Comptoir() {
                                                         );
                                                     })()}
                                                     {/* Zone d'actions de largeur fixe : les colonnes restent alignées d'une ligne à l'autre */}
-                                                    <div style={{ width: 135, flex: 'none', marginTop: decalageEntete, display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
+                                                    <div style={{ width: 150, flex: 'none', marginTop: decalageEntete, display: 'flex', alignItems: 'center', gap: 6, minHeight: 32 }}>
                                                         {libre && (
                                                             <Tag color="cyan" style={{ marginRight: 0 }} title="Article créé au catalogue à l'enregistrement de la vente">
                                                                 Nouvel article
                                                             </Tag>
                                                         )}
-                                                        {isEmptyLine && (
-                                                            <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
+                                                        {!isEmptyLine && !libre && TYPE_LIGNE_TAG[ligneType] && (
+                                                            <Tag color={TYPE_LIGNE_TAG[ligneType].color} style={{ marginRight: 0 }}>
+                                                                {TYPE_LIGNE_TAG[ligneType].lettre}
+                                                            </Tag>
                                                         )}
                                                         {!isEmptyLine && !libre && (
                                                             <FicheCataloguePopover
@@ -2275,6 +2321,9 @@ export default function Comptoir() {
                                                                 navigate={navigate}
                                                                 onProduitSaved={handleProduitSaved}
                                                             />
+                                                        )}
+                                                        {isEmptyLine && (
+                                                            <Button icon={<PlusOutlined />} title="Créer un produit" onClick={() => openNewProduitModal(field.name)} />
                                                         )}
                                                         {actionsLigne.length > 0 && (
                                                             <Dropdown menu={{ items: actionsLigne }} trigger={['click']}>

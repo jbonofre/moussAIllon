@@ -74,13 +74,16 @@ const ouvrirNouvelleVente = async (): Promise<HTMLElement> => {
     return document.querySelector('.ant-modal') as HTMLElement;
 };
 
+const PLACEHOLDER_DESIGNATION = 'Package, produit, bateau, moteur...';
+
+// Lignes d'articles du catalogue : celles qui portent les sélecteurs Référence et Désignation
 const lignesProduits = (modal: HTMLElement) =>
-    Array.from(modal.querySelectorAll('.ant-select'))
-        .filter((select) => select.closest('.ant-form-item')?.closest('.ligne-vente'));
+    Array.from(modal.querySelectorAll('.ligne-vente')).filter((ligne) => ligne.querySelector('.ant-select'));
 
 const choisirDansLaDerniereLigne = async (modal: HTMLElement, libelle: string) => {
     const lignes = lignesProduits(modal);
-    fireEvent.mouseDown(within(lignes[lignes.length - 1] as HTMLElement).getByRole('combobox'));
+    const designation = within(lignes[lignes.length - 1] as HTMLElement).getByText(PLACEHOLDER_DESIGNATION).closest('.ant-select') as HTMLElement;
+    fireEvent.mouseDown(within(designation).getByRole('combobox'));
     const option = await waitFor(() => {
         const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
             .find((element) => element.textContent === libelle);
@@ -98,6 +101,64 @@ describe('Comptoir - saisie des produits', () => {
 
         await waitFor(() => expect(lignesProduits(modal)).toHaveLength(2));
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
+    });
+
+    it('sépare la référence et la désignation de l\'article, comme sur une transaction', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
+
+        const ligne = await waitFor(() => {
+            const premiere = lignesProduits(modal)[0] as HTMLElement;
+            expect(within(premiere).getByText('Anode zinc')).toBeInTheDocument();
+            return premiere;
+        });
+        expect(within(ligne).getByText('AN-1')).toBeInTheDocument();
+        expect(within(ligne).getByText('P')).toBeInTheDocument();
+    });
+
+    it('retrouve un article en saisissant sa référence dans le champ Référence', async () => {
+        const modal = await ouvrirNouvelleVente();
+
+        const select = within(modal).getAllByText('Réf.')[0].closest('.ant-select') as HTMLElement;
+        const champ = within(select).getByRole('combobox');
+        fireEvent.mouseDown(champ);
+        fireEvent.change(champ, { target: { value: 'an-1' } });
+        const option = await waitFor(() => {
+            const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+                .filter((element) => element.textContent === 'AN-1 - Anode zinc');
+            expect(found).toHaveLength(1);
+            return found[0] as HTMLElement;
+        });
+        fireEvent.click(option);
+
+        expect(await within(modal).findByText('Anode zinc')).toBeInTheDocument();
+        await waitFor(() => expect(lignesProduits(modal)).toHaveLength(2));
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
+    });
+
+    it('recalcule le montant TTC quand le taux de TVA change, le HT restant inchangé', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00'));
+
+        fireEvent.change(within(modal).getByLabelText('TVA (%)'), { target: { value: '10' } });
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('11.00'));
+        expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('1.00');
+        expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00');
+    });
+
+    it('recalcule le taux de TVA et le montant TTC quand le montant de TVA change, le HT restant inchangé', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('2.00'));
+
+        fireEvent.change(within(modal).getByLabelText('Montant TVA'), { target: { value: '3' } });
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('13.00'));
+        expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('30.00');
+        expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00');
     });
 });
 
@@ -117,7 +178,6 @@ describe('Comptoir - ligne libre', () => {
         const modal = await ouvrirNouvelleVente();
 
         const ligne = await ajouterLigneLibre(modal);
-        expect(within(ligne).getByPlaceholderText('TVA')).toHaveValue('20');
         saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
         saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
         saisir(within(ligne).getByPlaceholderText('P.U.'), '4.5');
@@ -136,7 +196,7 @@ describe('Comptoir - ligne libre', () => {
 
         // la ligne désigne désormais l'article créé au catalogue
         expect(await screen.findByText('Ajouté au catalogue : Manille inox')).toBeInTheDocument();
-        expect(await within(modal).findByTitle('MAN-6 - Manille inox')).toBeInTheDocument();
+        expect(await within(modal).findByText('Manille inox')).toBeInTheDocument();
         expect(within(modal).queryByPlaceholderText('Réf.')).not.toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('9.00');
     });
@@ -166,7 +226,7 @@ describe('Comptoir - packages', () => {
         await waitFor(() => expect(lignesProduits(modal)).toHaveLength(4));
         expect(within(modal).getByText('Cap Camarat 6.5')).toBeInTheDocument();
         expect(within(modal).getByText('F115 XB')).toBeInTheDocument();
-        expect(within(modal).getByText('AN-1 - Anode zinc')).toBeInTheDocument();
+        expect(within(modal).getByText('Anode zinc')).toBeInTheDocument();
         expect(within(modal).queryByText('PKG-000007 - Pack prêt à naviguer')).not.toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('58048.00');
 
@@ -189,7 +249,7 @@ describe('Comptoir - packages', () => {
         await choisirDansLaDerniereLigne(modal, 'PKG-000007 - Pack prêt à naviguer');
 
         await waitFor(() => expect(lignesProduits(modal)).toHaveLength(5));
-        expect(within(modal).getAllByText('AN-1 - Anode zinc')).toHaveLength(2);
+        expect(within(modal).getAllByText('Anode zinc')).toHaveLength(2);
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('58060.00');
     });
 
@@ -200,7 +260,8 @@ describe('Comptoir - packages', () => {
 
         expect(await screen.findByText('Les forfaits du package ne sont pas repris dans une vente comptoir.')).toBeInTheDocument();
         await waitFor(() => expect(lignesProduits(modal)).toHaveLength(2));
-        expect(within(modal).getByTitle('AN-1 - Anode zinc')).toBeInTheDocument();
+        // Les sélecteurs Référence et Désignation de la ligne désignent l'article
+        expect(within(modal).getAllByTitle('AN-1 - Anode zinc')).toHaveLength(2);
         expect(within(modal).queryByTitle(/Hivernage/)).not.toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('24.00');
     });

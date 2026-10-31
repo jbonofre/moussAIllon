@@ -14,7 +14,7 @@ import {
     InvoicePrintLine,
     montantOccasion,
 } from './printing/invoiceTemplate.ts';
-import { calculerTvaVente } from './tva-vente.ts';
+import { calculerTvaVente, calculerTvaVenteDepuisHT, tauxTvaVente } from './tva-vente.ts';
 import {
     Alert,
     Button,
@@ -2802,20 +2802,13 @@ export default function Vente() {
         message.info(`Ajouté automatiquement à l'intervention : ${aAjouter.map((p) => p.designation).join(', ')}`);
     };
 
-    const recalculateFromLines = (
-        remiseSource: 'amount' | 'percentage' | 'auto' = 'auto',
-        overrides?: { forfaits?: ForfaitEntity[]; produits?: ProduitCatalogueEntity[]; services?: ServiceEntity[] }
+    // Montant TTC des lignes, dont la part des articles d'occasion, vendus sans TVA (remises de ligne déduites)
+    const totauxLignes = (
+        allForfaits: ForfaitEntity[] = forfaits,
+        allProduits: ProduitCatalogueEntity[] = produits,
+        allServices: ServiceEntity[] = services,
     ) => {
-        const allForfaits = overrides?.forfaits ?? forfaits;
-        const allProduits = overrides?.produits ?? produits;
-        const allServices = overrides?.services ?? services;
-
-        ajouterProduitsAutomatiques(allProduits);
         const allLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
-        let remise = form.getFieldValue('remise') || 0;
-        let remisePourcentage = form.getFieldValue('remisePourcentage') || 0;
-        const tva = form.getFieldValue('tva') || 0;
-
         let totalTTC = 0;
         let totalOccasionTTC = 0;
         allLignes.forEach((line) => {
@@ -2849,7 +2842,23 @@ export default function Vente() {
                 totalOccasionTTC += net;
             }
         });
+        return { totalTTC, totalOccasionTTC };
+    };
 
+    const recalculateFromLines = (
+        remiseSource: 'amount' | 'percentage' | 'auto' = 'auto',
+        overrides?: { forfaits?: ForfaitEntity[]; produits?: ProduitCatalogueEntity[]; services?: ServiceEntity[] }
+    ) => {
+        const allForfaits = overrides?.forfaits ?? forfaits;
+        const allProduits = overrides?.produits ?? produits;
+        const allServices = overrides?.services ?? services;
+
+        ajouterProduitsAutomatiques(allProduits);
+        let remise = form.getFieldValue('remise') || 0;
+        let remisePourcentage = form.getFieldValue('remisePourcentage') || 0;
+        const tva = form.getFieldValue('tva') || 0;
+
+        const { totalTTC, totalOccasionTTC } = totauxLignes(allForfaits, allProduits, allServices);
         const montantTTC = Math.round((totalTTC + Number.EPSILON) * 100) / 100;
         const { montantTVA, montantHT } = calculerTvaVente(montantTTC, totalOccasionTTC, tva);
 
@@ -2966,30 +2975,31 @@ export default function Vente() {
             return;
         }
 
-        if (changedValues.montantHT !== undefined) {
-            const tva = allValues.tva || 0;
-            const montantHT = changedValues.montantHT || 0;
-            const montantTVA = Math.round(((montantHT * tva / 100) + Number.EPSILON) * 100) / 100;
-            const montantTTC = Math.round(((montantHT + montantTVA) + Number.EPSILON) * 100) / 100;
+        // HT, taux ou montant de TVA modifié : le HT est conservé, le TTC en découle (la remise en EUR est conservée)
+        const appliquerMontantTTC = (montantTTC: number) => {
             const remise = allValues.remise || 0;
             const remisePourcentage = montantTTC > 0
                 ? Math.round((((remise / montantTTC) * 100) + Number.EPSILON) * 100) / 100
                 : 0;
             const prixVenteTTC = Math.round(((montantTTC - remise) + Number.EPSILON) * 100) / 100;
             form.setFieldValue('montantTTC', montantTTC);
-            form.setFieldValue('montantTVA', montantTVA);
             form.setFieldValue('remisePourcentage', remisePourcentage);
             form.setFieldValue('prixVenteTTC', prixVenteTTC);
+        };
+
+        if (changedValues.montantHT !== undefined || changedValues.tva !== undefined) {
+            const { montantTVA, montantTTC } = calculerTvaVenteDepuisHT(allValues.montantHT || 0, totauxLignes().totalOccasionTTC, allValues.tva || 0);
+            form.setFieldValue('montantTVA', montantTVA);
+            appliquerMontantTTC(montantTTC);
             return;
         }
 
         if (changedValues.montantTVA !== undefined) {
-            const montantTTC = allValues.montantTTC || 0;
+            const montantHT = allValues.montantHT || 0;
             const montantTVA = changedValues.montantTVA || 0;
-            const montantHT = Math.round(((montantTTC - montantTVA) + Number.EPSILON) * 100) / 100;
-            const prixVenteTTC = Math.round(((montantTTC - (allValues.remise || 0)) + Number.EPSILON) * 100) / 100;
-            form.setFieldValue('montantHT', montantHT);
-            form.setFieldValue('prixVenteTTC', prixVenteTTC);
+            const tva = tauxTvaVente(montantHT, totauxLignes().totalOccasionTTC, montantTVA);
+            if (tva !== undefined) form.setFieldValue('tva', tva);
+            appliquerMontantTTC(Math.round(((montantHT + montantTVA) + Number.EPSILON) * 100) / 100);
             return;
         }
 
@@ -3027,7 +3037,7 @@ export default function Vente() {
             return;
         }
 
-        if (changedValues.lignes !== undefined || changedValues.tva !== undefined) {
+        if (changedValues.lignes !== undefined) {
             recalculateFromLines('auto');
         }
     };
