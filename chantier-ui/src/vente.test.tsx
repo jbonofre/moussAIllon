@@ -97,6 +97,30 @@ describe('Transactions - saisie des lignes', () => {
         expect(within(modal).getByText(PLACEHOLDER_LIGNE)).toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
     });
+
+    it('recalcule le montant TTC quand le taux de TVA change, le HT restant inchangé', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00'));
+
+        fireEvent.change(within(modal).getByLabelText('TVA (%)'), { target: { value: '10' } });
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('11.00'));
+        expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('1.00');
+        expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00');
+    });
+
+    it('recalcule le taux de TVA et le montant TTC quand le montant de TVA change, le HT restant inchangé', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('2.00'));
+
+        fireEvent.change(within(modal).getByLabelText('Montant TVA'), { target: { value: '3' } });
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('13.00'));
+        expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('30.00');
+        expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00');
+    });
 });
 
 describe('Transactions - référence', () => {
