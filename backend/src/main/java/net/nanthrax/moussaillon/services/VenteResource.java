@@ -421,6 +421,7 @@ public class VenteResource {
         creerArticlesALaVolee(vente.venteProduits);
         passerEnFactureEnAttenteSiLancee(vente);
         vente.persist();
+        attribuerNumeroDocument(vente);
         return Response.status(Response.Status.CREATED).entity(vente).build();
     }
 
@@ -842,12 +843,34 @@ public class VenteResource {
         entity.rappel2Jours = vente.rappel2Jours;
         entity.rappel3Jours = vente.rappel3Jours;
 
-        if (entity.status == VenteEntity.Status.FACTURE_PRETE && entity.numeroFacture == null) {
-            int year = java.time.LocalDate.now().getYear();
-            entity.numeroFacture = String.format("FACT-%d-%05d", year, entity.id);
-        }
+        attribuerNumeroDocument(entity);
 
         return entity;
+    }
+
+    /**
+     * Le préfixe du numéro suit le flux des documents : OR (ordre de réparation), DE (devis),
+     * FT (facture temporaire), FA (facture finale). Le numéro d'une facture finale est immuable.
+     */
+    private static String prefixeDocument(VenteEntity v) {
+        if (v.status == VenteEntity.Status.FACTURE_PRETE || v.status == VenteEntity.Status.FACTURE_PAYEE) {
+            return "FA";
+        }
+        if (v.status == VenteEntity.Status.FACTURE_EN_ATTENTE) {
+            return "FT";
+        }
+        return v.ordreDeReparation ? "OR" : "DE";
+    }
+
+    private static void attribuerNumeroDocument(VenteEntity v) {
+        if (v.id == null || v.status == null) {
+            return;
+        }
+        if (v.numeroFacture != null && v.numeroFacture.startsWith("FA")) {
+            return;
+        }
+        int year = java.time.LocalDate.now().getYear() % 100;
+        v.numeroFacture = String.format("%s%02d-%06d", prefixeDocument(v), year, v.id);
     }
 
     public static class AjouterPaiementRequest {
