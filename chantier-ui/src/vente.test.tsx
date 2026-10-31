@@ -153,6 +153,27 @@ describe('Transactions - référence', () => {
     });
 });
 
+describe('Transactions - liste', () => {
+    it('classe les transactions du plus récent au plus ancien', async () => {
+        const client = { id: 3, nom: 'Jean Dupont' };
+        const ventes = [
+            { id: 1, numeroFacture: 'FA-ANCIENNE', date: '2026-09-15T00:00:00', status: 'FACTURE_PAYEE', client },
+            { id: 2, numeroFacture: 'FA-MEME-JOUR-AVANT', date: '2026-10-30T00:00:00', status: 'DEVIS', client },
+            { id: 4, numeroFacture: 'FA-MILIEU', date: '2026-10-01T00:00:00', status: 'DEVIS', client },
+            { id: 3, numeroFacture: 'FA-MEME-JOUR-APRES', date: '2026-10-30T00:00:00', status: 'DEVIS', client },
+        ];
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes' ? ventes : (donnees[url] || []),
+        }) as any);
+        render(<Vente />);
+
+        await screen.findByText('FA-ANCIENNE');
+        const references = Array.from(document.querySelectorAll('.ant-table-tbody tr.ant-table-row'))
+            .map((ligne) => ligne.querySelector('td')?.textContent);
+        expect(references).toEqual(['FA-MEME-JOUR-APRES', 'FA-MEME-JOUR-AVANT', 'FA-MILIEU', 'FA-ANCIENNE']);
+    });
+});
+
 describe('Transactions - onglet Produits & Paiements', () => {
     it('regroupe la note, les montants et les conditions de paiement avec les lignes', async () => {
         const modal = await ouvrirNouvelleVente();

@@ -14,6 +14,7 @@ import {
     montantOccasion,
 } from './printing/invoiceTemplate.ts';
 import { calculerTvaVente, calculerTvaVenteDepuisHT, tauxTvaVente } from './tva-vente.ts';
+import { comparerDatesVentes } from './tri-ventes.ts';
 import {
     Alert,
     Button,
@@ -1787,7 +1788,8 @@ export default function Comptoir() {
         {
             title: 'Date',
             dataIndex: 'date',
-            sorter: (a: VenteEntity, b: VenteEntity) => (a.date || '').localeCompare(b.date || ''),
+            sorter: comparerDatesVentes,
+            defaultSortOrder: 'descend' as const,
             render: (value: string) => value || '-'
         },
         {
