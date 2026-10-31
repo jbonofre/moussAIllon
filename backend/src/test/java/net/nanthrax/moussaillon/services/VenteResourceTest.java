@@ -296,7 +296,36 @@ public class VenteResourceTest {
             .statusCode(200)
             .body("status", is("FACTURE_PRETE"))
             .body("numeroFacture", notNullValue())
-            .body("numeroFacture", startsWith("FACT-"));
+            .body("numeroFacture", startsWith("FA"));
+    }
+
+    @Test
+    void testPrefixeNumeroSuitLeFluxDesDocuments() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":150.0}")
+            .when().post("/ventes")
+            .then().statusCode(201)
+            .body("numeroFacture", startsWith("DE"))
+            .extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"ordreDeReparation\":true,\"prixVenteTTC\":150.0}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200).body("numeroFacture", startsWith("OR"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_EN_ATTENTE\",\"prixVenteTTC\":150.0}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200).body("numeroFacture", startsWith("FT"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":150.0}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200).body("numeroFacture", startsWith("FA"));
     }
 
     @Test
