@@ -93,6 +93,26 @@ const choisirDansLaDerniereLigne = async (modal: HTMLElement, libelle: string) =
     fireEvent.click(option);
 };
 
+describe('Comptoir - liste', () => {
+    it('classe les ventes du plus récent au plus ancien', async () => {
+        const ventes = [
+            { id: 1, date: '2026-09-15T00:00:00', status: 'FACTURE_PAYEE', comptoir: true, client: { id: 1, nom: 'Vente ancienne' } },
+            { id: 2, date: '2026-10-30T00:00:00', status: 'DEVIS', comptoir: true, client: { id: 2, nom: 'Même jour, avant' } },
+            { id: 4, date: '2026-10-01T00:00:00', status: 'DEVIS', comptoir: true, client: { id: 4, nom: 'Vente du milieu' } },
+            { id: 3, date: '2026-10-30T00:00:00', status: 'DEVIS', comptoir: true, client: { id: 3, nom: 'Même jour, après' } },
+        ];
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes/search' ? ventes : (donnees[url] || []),
+        }) as any);
+        render(<Comptoir />);
+
+        await screen.findByText('Vente ancienne');
+        const clients = Array.from(document.querySelectorAll('.ant-table-tbody tr.ant-table-row'))
+            .map((ligne) => ligne.querySelectorAll('td')[2]?.textContent);
+        expect(clients).toEqual(['Même jour, après', 'Même jour, avant', 'Vente du milieu', 'Vente ancienne']);
+    });
+});
+
 describe('Comptoir - saisie des produits', () => {
     it('calcule le montant dès la saisie d\'un produit, pour une quantité de 1', async () => {
         const modal = await ouvrirNouvelleVente();
