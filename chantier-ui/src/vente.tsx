@@ -1,6 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+    buildBoatBoxHtml,
     buildClientBoxHtml,
+    buildInfoSectionHtml,
     buildCompositionDetails,
     buildDocBoxHtml,
     buildInvoiceTableHtml,
@@ -70,6 +72,7 @@ import SearchAutoComplete from './SearchAutoComplete.tsx';
 interface ClientEntity {
     id: number;
     nom: string;
+    codeTiers?: string;
     email?: string;
     telephone?: string;
     adresse?: string;
@@ -86,16 +89,17 @@ interface BateauClientEntity {
     id: number;
     name?: string;
     immatriculation?: string;
+    numeroSerie?: string;
     proprietaires?: ClientEntity[];
     moteurs?: CatalogueMoteurEntity[];
-    modele?: { id: number };
+    modele?: { id: number; designation?: string };
 }
 
 interface MoteurClientEntity {
     id: number;
     numeroSerie?: string;
     proprietaire?: ClientEntity;
-    modele?: { id: number };
+    modele?: { id: number; designation?: string };
 }
 
 interface RemorqueClientEntity {
@@ -690,6 +694,7 @@ export default function Vente() {
     // Conditions de paiement du paramétrage global (société), recopiées sur la vente jusqu'à l'émission de la facture
     const [conditionsSociete, setConditionsSociete] = useState<SocieteData | null>(null);
     const [form] = Form.useForm<VenteFormValues>();
+    const watchedClientId = Form.useWatch('clientId', form) as number | undefined;
     const watchedStatus = Form.useWatch('status', form) as VenteStatus | undefined;
     const watchedBonPourAccord = Form.useWatch('bonPourAccord', form) as boolean | undefined;
     const isReadOnly = watchedStatus === 'FACTURE_PAYEE';
@@ -840,6 +845,13 @@ export default function Vente() {
     const bateauOptions = useMemo(
         () => bateaux.map((bateau) => ({ value: bateau.id, label: bateau.name || bateau.immatriculation || `Bateau #${bateau.id}` })),
         [bateaux]
+    );
+
+    // Sur une transaction, le champ Bateau ne propose que les bateaux du client sélectionné.
+    const bateauOptionsClient = useMemo(
+        () => bateauOptions.filter((option) => !watchedClientId
+            || bateaux.find((b) => b.id === option.value)?.proprietaires?.some((p) => p.id === watchedClientId)),
+        [bateauOptions, bateaux, watchedClientId]
     );
 
     const moteurOptions = useMemo(
@@ -1601,6 +1613,11 @@ export default function Vente() {
         if (!clientId) {
             return;
         }
+        // Un bateau choisi pour un autre client n'est plus valable
+        const bateauCourantId = form.getFieldValue('bateauId');
+        if (bateauCourantId && !bateaux.find((b) => b.id === bateauCourantId)?.proprietaires?.some((p) => p.id === clientId)) {
+            form.setFieldValue('bateauId', undefined);
+        }
         // Auto-populate bateau from client's proprietaire relationship
         const clientBateau = bateaux.find((b) => b.proprietaires?.some((p) => p.id === clientId));
         if (clientBateau && !form.getFieldValue('bateauId')) {
@@ -1680,7 +1697,8 @@ export default function Vente() {
     const handleNewBateauSave = async () => {
         try {
             const values = await newBateauForm.validateFields();
-            const res = await api.post('/bateaux', values);
+            const clientId = form.getFieldValue('clientId');
+            const res = await api.post('/bateaux', { ...values, ...(clientId ? { proprietaires: [{ id: clientId }] } : {}) });
             const created = res.data;
             message.success('Bateau ajouté avec succès');
             setBateaux((prev) => [...prev, created]);
@@ -2600,13 +2618,15 @@ export default function Vente() {
         const docBoxRows: Array<[string, string]> = [
             ['Numéro', escapeHtml(docRef)],
             ['Date', escapeHtml(formatDatePrint(vente.date))],
-            ...(isFacture && vente.dateEcheance ? [["Date d'échéance", escapeHtml(formatDatePrint(vente.dateEcheance))] as [string, string]] : []),
+            ...(isFacture && vente.dateEcheance ? [["Échéance", escapeHtml(formatDatePrint(vente.dateEcheance))] as [string, string]] : []),
+            ...(client ? [['N° client', escapeHtml(client.codeTiers || String(client.id))] as [string, string]] : []),
             ...(isFacture && vente.modePaiement ? [['Mode de règlement', escapeHtml(modeLabels[vente.modePaiement] ?? vente.modePaiement)] as [string, string]] : []),
             ...(client?.tva ? [['N° TVA Intracom.', escapeHtml(client.tva)] as [string, string]] : []),
         ];
         const docBoxHtml = buildDocBoxHtml(docTitle, docBoxRows);
 
         const clientBoxHtml = buildClientBoxHtml(client, getClientLabel(client));
+        const boatBoxHtml = buildBoatBoxHtml(vente.bateau, vente.moteur);
 
         const tableHtml = buildInvoiceTableHtml(lines, { showPrices, tva: vente.tva });
 
@@ -2668,10 +2688,7 @@ export default function Vente() {
                 <div class="header-row">
                     ${societeHtml}
                 </div>
-                <div class="info-row">
-                    ${docBoxHtml}
-                    ${clientBoxHtml}
-                </div>
+                ${buildInfoSectionHtml(docBoxHtml, clientBoxHtml, boatBoxHtml)}
                 ${paymentHtml}
                 <div class="section">
                     ${tableHtml}
@@ -3419,7 +3436,7 @@ export default function Vente() {
                             <Form.Item label="Bateau">
                                 <Space.Compact style={{ width: '100%' }}>
                                     <Form.Item name="bateauId" noStyle>
-                                        <Select allowClear showSearch options={bateauOptions} style={{ width: '100%' }} />
+                                        <Select allowClear showSearch options={bateauOptionsClient} style={{ width: '100%' }} />
                                     </Form.Item>
                                     <Button icon={<PlusOutlined />} title="Créer un bateau" onClick={openNewBateauModal} />
                                 </Space.Compact>

@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
+    buildBoatBoxHtml,
     buildClientBoxHtml,
+    buildInfoSectionHtml,
     buildDocBoxHtml,
     buildInvoiceTableHtml,
     buildLegalLine,
@@ -63,6 +65,7 @@ import SearchAutoComplete from './SearchAutoComplete.tsx';
 interface ClientEntity {
     id: number;
     nom: string;
+    codeTiers?: string;
     email?: string;
     telephone?: string;
     adresse?: string;
@@ -93,11 +96,14 @@ interface BateauClientEntity {
     id: number;
     name?: string;
     immatriculation?: string;
+    numeroSerie?: string;
+    modele?: { designation?: string };
 }
 
 interface MoteurClientEntity {
     id: number;
     numeroSerie?: string;
+    modele?: { designation?: string };
 }
 
 interface RemorqueClientEntity {
@@ -269,6 +275,7 @@ interface VenteEntity {
     id?: number;
     status: VenteStatus;
     numeroFacture?: string;
+    dateEcheance?: string;
     bonPourAccord?: boolean;
     comptoir?: boolean;
     signatureBonPourAccord?: string;
@@ -1414,12 +1421,15 @@ export default function Comptoir() {
         const docBoxRows: Array<[string, string]> = [
             ['Numéro', escapeHtml(docRef)],
             ['Date', escapeHtml(formatDatePrint(vente.date))],
+            ...(isFacture && vente.dateEcheance ? [['Échéance', escapeHtml(formatDatePrint(vente.dateEcheance))] as [string, string]] : []),
+            ...(client ? [['N° client', escapeHtml(client.codeTiers || String(client.id))] as [string, string]] : []),
             ...(isFacture && vente.modePaiement ? [['Mode de règlement', escapeHtml(modeLabels[vente.modePaiement] ?? vente.modePaiement)] as [string, string]] : []),
             ...(client?.tva ? [['N° TVA Intracom.', escapeHtml(client.tva)] as [string, string]] : []),
         ];
         const docBoxHtml = buildDocBoxHtml(docTitle, docBoxRows);
 
         const clientBoxHtml = buildClientBoxHtml(client, getClientLabel(client));
+        const boatBoxHtml = buildBoatBoxHtml(vente.bateau, vente.moteur);
 
         const tableHtml = buildInvoiceTableHtml(lines, { showPrices: true, tva: vente.tva });
 
@@ -1452,7 +1462,7 @@ export default function Comptoir() {
                 </head>
                 <body>
                     <div class="header-row">${societeHtml}</div>
-                    <div class="info-row">${docBoxHtml}${clientBoxHtml}</div>
+                    ${buildInfoSectionHtml(docBoxHtml, clientBoxHtml, boatBoxHtml)}
                     ${paymentHtml}
                     <div class="section">${tableHtml}</div>
                     <div class="footer-row">
