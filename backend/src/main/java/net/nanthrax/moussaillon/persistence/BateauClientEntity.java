@@ -2,6 +2,7 @@ package net.nanthrax.moussaillon.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
@@ -11,8 +12,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@EntityListeners(FormatNomListener.class)
 public class BateauClientEntity extends PanacheEntity {
 
+    @FormatNom
     public String name;
 
     public List<String> images = new ArrayList<>();

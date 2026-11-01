@@ -11,6 +11,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
+import net.nanthrax.moussaillon.persistence.FormatNomListener;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 import org.jboss.resteasy.reactive.RestForm;
@@ -118,9 +119,11 @@ public class ClientResource {
                 if (nom == null) {
                     throw new IllegalArgumentException("Nom manquant");
                 }
-                // Le fichier exporte le nom au format "Nom Prénom", en majuscules ; on reformate
-                // en casse normale puis on inverse l'ordre pour obtenir "Prénom Nom".
-                nom = CsvUtils.swapNomPrenom(CsvUtils.formatIfFullUpperCase(nom));
+                // Le fichier exporte le nom au format "Nom Prénom", en majuscules : on reformate
+                // seulement la casse et on garde l'ordre. Sans séparateur entre nom et prénom,
+                // les inverser se trompe sur les noms ou prénoms composés ("Hamon Jean Luc",
+                // "Le Gall Jean") et sur les sociétés.
+                nom = FormatNomListener.formater(nom);
                 String codeTiers = CsvUtils.get(cols, headers, "Code (tiers)");
 
                 ClientEntity entity = null;
@@ -141,9 +144,9 @@ public class ClientResource {
                     entity.email = email;
                 }
 
-                String adresse1 = CsvUtils.formatIfFullUpperCase(CsvUtils.get(cols, headers, "Adresse 1 (facturation)"));
+                String adresse1 = FormatNomListener.formater(CsvUtils.get(cols, headers, "Adresse 1 (facturation)"));
                 String codePostal = CsvUtils.get(cols, headers, "Code postal (facturation)");
-                String ville = CsvUtils.formatIfFullUpperCase(CsvUtils.get(cols, headers, "Ville (facturation)"));
+                String ville = FormatNomListener.formater(CsvUtils.get(cols, headers, "Ville (facturation)"));
                 StringBuilder adresse = new StringBuilder();
                 if (adresse1 != null) {
                     adresse.append(adresse1);

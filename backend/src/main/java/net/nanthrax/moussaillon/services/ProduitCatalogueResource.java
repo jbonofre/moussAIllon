@@ -9,6 +9,7 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.FormatNomListener;
 import net.nanthrax.moussaillon.persistence.FournisseurProduitEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MainOeuvreEntity;
@@ -217,7 +218,7 @@ public class ProduitCatalogueResource {
                         || (statut != null && !"Actif".equalsIgnoreCase(statut))) {
                     continue;
                 }
-                nouveaux.putIfAbsent(ref, CsvUtils.formatIfFullUpperCase(libelle));
+                nouveaux.putIfAbsent(ref, FormatNomListener.formater(libelle));
             } catch (Exception e) {
                 // ligne illisible : signalée lors de l'import
             }
@@ -288,7 +289,7 @@ public class ProduitCatalogueResource {
                 LigneImport ligne = new LigneImport();
                 ligne.ref = ref;
                 // Le fichier exporte le libellé en majuscules (ex. EBP) : reformate en casse "Titre".
-                ligne.designation = CsvUtils.formatIfFullUpperCase(libelle);
+                ligne.designation = FormatNomListener.formater(libelle);
                 ligne.prixVenteHT = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV HT"));
                 ligne.prixVenteTTC = CsvUtils.parseFrenchDecimal(CsvUtils.get(cols, headers, "PV TTC"));
                 if (ligne.prixVenteHT > 0) {

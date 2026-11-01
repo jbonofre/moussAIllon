@@ -5,6 +5,7 @@ import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.FetchType;
@@ -15,12 +16,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@EntityListeners(FormatNomListener.class)
 public class BateauCatalogueEntity extends PanacheEntity {
 
     @jakarta.persistence.Transient
     public List<String> referencesFournisseurs;
 
     @Column(nullable = false)
+    @FormatNom
     public String designation;
 
     public String ref;

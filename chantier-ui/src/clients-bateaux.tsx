@@ -43,6 +43,7 @@ import HistoriqueOperations from './historique-operations.tsx';
 import PrestationsList from './PrestationsList.tsx';
 import ForfaitsAssocies from './ForfaitsAssocies.tsx';
 import { paginationConfig } from './pagination.ts';
+import { CLIENT_NOM_AIDE, CLIENT_NOM_PLACEHOLDER } from './client-nom.ts';
 import SearchAutoComplete from "./SearchAutoComplete.tsx";
 
 const { Option } = Select;
@@ -1417,8 +1418,8 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           </Row>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
-                <Input />
+              <Form.Item label="Nom" name="nom" extra={CLIENT_NOM_AIDE} rules={[{ required: true, message: "Le nom est requis" }]}>
+                <Input placeholder={CLIENT_NOM_PLACEHOLDER} />
               </Form.Item>
             </Col>
           </Row>
