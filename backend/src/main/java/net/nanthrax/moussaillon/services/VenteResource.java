@@ -312,10 +312,16 @@ public class VenteResource {
         if (entity == null) {
             throw new WebApplicationException("La vente (" + id + ") n'est pas trouvee", 404);
         }
+        if (entity.status != VenteEntity.Status.FACTURE_PRETE) {
+            throw new WebApplicationException("Seule une facture émise non réglée peut être relancée", 400);
+        }
+        if (soldeDu(entity) <= 0.005) {
+            throw new WebApplicationException("La facture est déjà soldée", 400);
+        }
         if (entity.client == null || entity.client.email == null || entity.client.email.isBlank()) {
             throw new WebApplicationException("Le client n'a pas d'adresse email", 400);
         }
-        rappelScheduler.envoyerRappel(entity, 0);
+        rappelScheduler.envoyerRelance(entity, 0);
         return Response.ok().build();
     }
 
@@ -829,20 +835,6 @@ public class VenteResource {
         entity.prixVenteTTC = vente.prixVenteTTC;
         entity.modePaiement = vente.modePaiement;
 
-        // Reinitialiser les drapeaux d'envoi si les intervalles ont change
-        if (!java.util.Objects.equals(entity.rappel1Jours, vente.rappel1Jours)) {
-            entity.rappel1Envoye = false;
-        }
-        if (!java.util.Objects.equals(entity.rappel2Jours, vente.rappel2Jours)) {
-            entity.rappel2Envoye = false;
-        }
-        if (!java.util.Objects.equals(entity.rappel3Jours, vente.rappel3Jours)) {
-            entity.rappel3Envoye = false;
-        }
-        entity.rappel1Jours = vente.rappel1Jours;
-        entity.rappel2Jours = vente.rappel2Jours;
-        entity.rappel3Jours = vente.rappel3Jours;
-
         attribuerNumeroDocument(entity);
 
         return entity;
@@ -1044,6 +1036,12 @@ public class VenteResource {
         return vente.paiements.stream().noneMatch(p -> p.date != null && p.date.getTime() > now);
     }
 
+    /** Reste à payer TTC : prix de vente moins l'ensemble des paiements enregistrés (y compris à date future). */
+    static double soldeDu(VenteEntity vente) {
+        double totalPaye = vente.paiements.stream().mapToDouble(p -> p.montant).sum();
+        return Math.round((vente.prixVenteTTC - totalPaye) * 100.0) / 100.0;
+    }
+
     /**
      * Passe automatiquement la facture en « payée » lorsque le solde dû est à 0
      * et que la date de tous les paiements est atteinte.
@@ -1052,9 +1050,7 @@ public class VenteResource {
         if (vente.status != VenteEntity.Status.FACTURE_PRETE) {
             return;
         }
-        double totalPaye = vente.paiements.stream().mapToDouble(p -> p.montant).sum();
-        double solde = Math.round((vente.prixVenteTTC - totalPaye) * 100.0) / 100.0;
-        if (solde <= 0.005 && tousPaiementsEchus(vente)) {
+        if (soldeDu(vente) <= 0.005 && tousPaiementsEchus(vente)) {
             vente.status = VenteEntity.Status.FACTURE_PAYEE;
             if (vente.dateFacturePayee == null) {
                 vente.dateFacturePayee = new Timestamp(System.currentTimeMillis());

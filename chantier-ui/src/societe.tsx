@@ -1,11 +1,18 @@
 import { fetchWithAuth } from './api.ts';
 import { useState, useEffect } from 'react';
-import { Card, Row, Col, Space, Button, Form, Input, InputNumber, Spin, message } from 'antd';
+import { Card, Row, Col, Space, Button, Divider, Form, Input, InputNumber, Spin, Typography, message } from 'antd';
 import { PauseCircleOutlined, DeploymentUnitOutlined, SaveOutlined } from '@ant-design/icons';
 import { demo } from './workspace.tsx';
 import ImageUpload from './ImageUpload.tsx';
 
 const { TextArea } = Input;
+
+// Délais des relances de paiement, communs à toutes les transactions.
+const RELANCES = [
+    { name: 'relance1Jours', label: 'Relance 1', placeholder: 'Ex : 15', precedents: [] as string[] },
+    { name: 'relance2Jours', label: 'Relance 2', placeholder: 'Ex : 30', precedents: ['relance1Jours'] },
+    { name: 'relance3Jours', label: 'Relance 3', placeholder: 'Ex : 45', precedents: ['relance1Jours', 'relance2Jours'] },
+];
 
 export default function Societe(props) {
 
@@ -115,6 +122,34 @@ export default function Societe(props) {
                     <Form.Item name="images" label="Images">
                         <ImageUpload />
                     </Form.Item>
+                    <Divider titlePlacement="start">Relances de paiement</Divider>
+                    <Form.Item label={null}>
+                        <Typography.Text type="secondary">
+                            Relances envoyées automatiquement par email pour toutes les factures émises non soldées.
+                            Les délais sont comptés à partir de la date d'échéance de la facture, ou de sa date d'émission
+                            si aucune échéance n'est renseignée. Laisser vide pour désactiver une relance.
+                            Le message se modifie dans Paramétrage &gt; Emails (modèle « Relance de paiement »).
+                        </Typography.Text>
+                    </Form.Item>
+                    {RELANCES.map(({ name, label, placeholder, precedents }) => (
+                        <Form.Item
+                            key={name}
+                            name={name}
+                            label={label}
+                            dependencies={precedents}
+                            rules={[({ getFieldValue }) => ({
+                                validator(_, value) {
+                                    const precedent = precedents.map(p => getFieldValue(p)).filter(v => v != null).pop();
+                                    if (value == null || precedent == null || value > precedent) {
+                                        return Promise.resolve();
+                                    }
+                                    return Promise.reject(new Error('Le délai doit être supérieur à celui de la relance précédente'));
+                                },
+                            })]}
+                        >
+                            <InputNumber min={0} step={1} precision={0} prefix="J+" addonAfter="jours" placeholder={placeholder} style={{ width: 200 }} />
+                        </Form.Item>
+                    ))}
                     <Form.Item label={null}>
                         <Space>
                             <Button onClick={() => societeForm.submit()} type="primary" icon={<SaveOutlined/>}>Enregistrer</Button>

@@ -447,12 +447,8 @@ interface VenteEntity {
     paiements?: VentePaiement[];
     images?: string[];
     documents?: string[];
-    rappel1Jours?: number;
-    rappel2Jours?: number;
-    rappel3Jours?: number;
-    rappel1Envoye?: boolean;
-    rappel2Envoye?: boolean;
-    rappel3Envoye?: boolean;
+    // Dernière relance de paiement automatique envoyée (0 = aucune)
+    niveauRelance?: number;
     note?: string;
 }
 
@@ -512,9 +508,6 @@ interface VenteFormValues {
     modePaiement?: ModePaiement;
     images?: string[];
     documents?: string[];
-    rappel1Jours?: number;
-    rappel2Jours?: number;
-    rappel3Jours?: number;
     dateEcheance?: string;
     conditionsPaiement?: string;
     penalitesRetard?: string;
@@ -522,6 +515,9 @@ interface VenteFormValues {
     note?: string;
 }
 
+
+// Couleur du tag de la dernière relance de paiement envoyée (1 à 3)
+const RELANCE_COULEURS: Record<number, string> = { 1: 'gold', 2: 'orange', 3: 'red' };
 
 const statusOptions: Array<{ value: VenteStatus; label: string }> = [
     { value: 'DEVIS', label: 'Devis/Ordre de Réparation' },
@@ -1827,9 +1823,6 @@ export default function Vente() {
             modePaiement: vente.modePaiement,
             images: vente.images || [],
             documents: vente.documents || [],
-            rappel1Jours: vente.rappel1Jours,
-            rappel2Jours: vente.rappel2Jours,
-            rappel3Jours: vente.rappel3Jours,
             dateEcheance: toDateDayjs(vente.dateEcheance) as any,
             conditionsPaiement: vente.conditionsPaiement,
             penalitesRetard: vente.penalitesRetard,
@@ -2162,9 +2155,6 @@ export default function Vente() {
             modePaiement: values.modePaiement,
             images: values.images || [],
             documents: values.documents || [],
-            rappel1Jours: values.rappel1Jours,
-            rappel2Jours: values.rappel2Jours,
-            rappel3Jours: values.rappel3Jours,
             note: values.note
         };
     };
@@ -3116,26 +3106,15 @@ export default function Vente() {
             title: 'Relance',
             key: 'relance',
             filters: [
-                { text: 'Relance 3 envoyée', value: 'rappel3' },
-                { text: 'Relance 2 envoyée', value: 'rappel2' },
-                { text: 'Relance 1 envoyée', value: 'rappel1' },
-                { text: 'En attente', value: 'enAttente' },
-                { text: 'Aucune relance', value: 'aucune' }
+                { text: 'Relance 3 envoyée', value: 3 },
+                { text: 'Relance 2 envoyée', value: 2 },
+                { text: 'Relance 1 envoyée', value: 1 },
+                { text: 'Aucune relance', value: 0 }
             ],
-            onFilter: (value: unknown, record: VenteEntity) => {
-                if (value === 'rappel3') return !!record.rappel3Envoye;
-                if (value === 'rappel2') return !!record.rappel2Envoye && !record.rappel3Envoye;
-                if (value === 'rappel1') return !!record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye;
-                if (value === 'enAttente') return !record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye && !!(record.rappel1Jours || record.rappel2Jours || record.rappel3Jours);
-                if (value === 'aucune') return !record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye && !(record.rappel1Jours || record.rappel2Jours || record.rappel3Jours);
-                return false;
-            },
+            onFilter: (value: unknown, record: VenteEntity) => (record.niveauRelance || 0) === value,
             render: (_: unknown, record: VenteEntity) => {
-                if (record.rappel3Envoye) return <Tag color="red">Relance 3 envoyée</Tag>;
-                if (record.rappel2Envoye) return <Tag color="orange">Relance 2 envoyée</Tag>;
-                if (record.rappel1Envoye) return <Tag color="gold">Relance 1 envoyée</Tag>;
-                if (record.rappel1Jours || record.rappel2Jours || record.rappel3Jours) return <Tag color="blue">En attente</Tag>;
-                return null;
+                const niveau = record.niveauRelance || 0;
+                return niveau > 0 ? <Tag color={RELANCE_COULEURS[niveau]}>Relance {niveau} envoyée</Tag> : null;
             }
         },
         {
@@ -3929,54 +3908,46 @@ export default function Vente() {
                             },
                             {
                                 key: 'rappels',
-                                label: 'Rappels',
+                                label: 'Relances',
                                 children: (
                                     <>
-                                        <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-                                            <Col>
-                                                <span style={{ color: '#666' }}>
-                                                    Configurez les rappels automatiques par email envoyés au client avant la date de la prestation.
-                                                </span>
+                                        <Row justify="space-between" align="middle" gutter={16} style={{ marginBottom: 16 }}>
+                                            <Col flex="auto">
+                                                <div style={{ color: '#666' }}>
+                                                    Les relances de paiement des factures émises non soldées sont envoyées automatiquement
+                                                    selon les délais définis dans Paramétrage &gt; Société, à partir de la date d'échéance
+                                                    (ou de la date de facture à défaut).
+                                                </div>
+                                                {isEdit && currentVente?.status === 'FACTURE_PRETE' && (
+                                                    <div style={{ marginTop: 8 }}>
+                                                        Dernière relance automatique : {currentVente.niveauRelance
+                                                            ? <Tag color={RELANCE_COULEURS[currentVente.niveauRelance]}>Relance {currentVente.niveauRelance}</Tag>
+                                                            : 'aucune'}
+                                                    </div>
+                                                )}
                                             </Col>
-                                            {isEdit && currentVente?.id && (
+                                            {isEdit && currentVente?.id && currentVente.status === 'FACTURE_PRETE' && (
                                                 <Col>
                                                     <Button
                                                         icon={<SendOutlined />}
                                                         onClick={async () => {
                                                             try {
                                                                 await api.post(`/ventes/${currentVente.id}/rappel`);
-                                                                message.success('Rappel envoye avec succes');
+                                                                message.success('Relance envoyée');
                                                                 api.get<RappelHistoriqueEntity[]>(`/rappels/vente/${currentVente.id}`).then(res => setRappelHistorique(res.data)).catch(() => {});
                                                             } catch (err: any) {
-                                                                message.error(err?.response?.data || 'Erreur lors de l\'envoi du rappel');
+                                                                message.error(err?.response?.data || 'Erreur lors de l\'envoi de la relance');
                                                             }
                                                         }}
                                                     >
-                                                        Envoyer un rappel maintenant
+                                                        Envoyer une relance maintenant
                                                     </Button>
                                                 </Col>
                                             )}
                                         </Row>
-                                        <Row gutter={16}>
-                                            <Col span={8}>
-                                                <Form.Item name="rappel1Jours" label="Rappel 1 (jours avant)">
-                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Ex: 30" addonAfter="jours" />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col span={8}>
-                                                <Form.Item name="rappel2Jours" label="Rappel 2 (jours avant)">
-                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Ex: 7" addonAfter="jours" />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col span={8}>
-                                                <Form.Item name="rappel3Jours" label="Rappel 3 (jours avant)">
-                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Ex: 1" addonAfter="jours" />
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
                                         {isEdit && rappelHistorique.length > 0 && (
                                             <>
-                                                <h4 style={{ marginTop: 16 }}>Historique des rappels envoyes</h4>
+                                                <h4 style={{ marginTop: 16 }}>Historique des relances envoyées</h4>
                                                 <Table
                                                     dataSource={rappelHistorique}
                                                     rowKey="id"
@@ -3984,7 +3955,7 @@ export default function Vente() {
                                                     pagination={false}
                                                     columns={[
                                                         {
-                                                            title: 'Rappel',
+                                                            title: 'Relance',
                                                             dataIndex: 'numeroRappel',
                                                             width: 80,
                                                             render: (v: number) => v === 0 ? 'Manuel' : `#${v}`

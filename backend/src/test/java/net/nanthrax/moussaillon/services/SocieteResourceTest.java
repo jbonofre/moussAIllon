@@ -40,6 +40,52 @@ public class SocieteResourceTest {
     }
 
     @Test
+    void testParametrerRelances() {
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"MS Plaisance\",\"siren\":\"123456789\",\"adresse\":\"10 quai du Port\","
+                + "\"relance1Jours\":15,\"relance2Jours\":30,\"relance3Jours\":45}")
+            .when().put("/societe")
+            .then()
+            .statusCode(200)
+            .body("relance1Jours", is(15))
+            .body("relance2Jours", is(30))
+            .body("relance3Jours", is(45));
+
+        given()
+            .when().get("/societe")
+            .then()
+            .statusCode(200)
+            .body("relance2Jours", is(30));
+
+        // Restaurer l'original (relances désactivées)
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"MS Plaisance\",\"siren\":\"123456789\",\"adresse\":\"10 quai du Port\"}")
+            .when().put("/societe")
+            .then()
+            .statusCode(200)
+            .body("relance1Jours", nullValue());
+    }
+
+    @Test
+    void testRelancesDelaisCroissants() {
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"MS Plaisance\",\"siren\":\"123456789\",\"adresse\":\"10 quai du Port\","
+                + "\"relance1Jours\":30,\"relance2Jours\":15}")
+            .when().put("/societe")
+            .then()
+            .statusCode(400);
+
+        given()
+            .when().get("/societe")
+            .then()
+            .statusCode(200)
+            .body("relance1Jours", nullValue());
+    }
+
+    @Test
     void testAbonnementInfosParDefaut() {
         // Les informations d'abonnement sont renseignées automatiquement (lecture seule).
         given()

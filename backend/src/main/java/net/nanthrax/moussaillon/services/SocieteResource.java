@@ -43,6 +43,7 @@ public class SocieteResource {
     @PUT
     @Transactional
     public SocieteEntity update(SocieteEntity societe) {
+        validerRelances(societe);
         SocieteEntity entity = SocieteEntity.findById(1);
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
@@ -64,6 +65,9 @@ public class SocieteResource {
         entity.iban = societe.iban;
         entity.bic = societe.bic;
         entity.images = societe.images;
+        entity.relance1Jours = societe.relance1Jours;
+        entity.relance2Jours = societe.relance2Jours;
+        entity.relance3Jours = societe.relance3Jours;
         entity.stripePaymentLinkMensuel = societe.stripePaymentLinkMensuel;
         entity.stripePaymentLinkAnnuel = societe.stripePaymentLinkAnnuel;
         entity.payplugPaymentLinkMensuel = societe.payplugPaymentLinkMensuel;
@@ -149,6 +153,26 @@ public class SocieteResource {
         initAbonnement(entity);
 
         return entity;
+    }
+
+    /** Les délais de relance renseignés doivent être positifs et strictement croissants. */
+    private static void validerRelances(SocieteEntity societe) {
+        Integer[] delais = { societe.relance1Jours, societe.relance2Jours, societe.relance3Jours };
+        Integer precedent = null;
+        for (int i = 0; i < delais.length; i++) {
+            Integer delai = delais[i];
+            if (delai == null) {
+                continue;
+            }
+            if (delai < 0) {
+                throw new WebApplicationException("Le délai de la relance " + (i + 1) + " doit être positif", 400);
+            }
+            if (precedent != null && delai <= precedent) {
+                throw new WebApplicationException(
+                    "Le délai de la relance " + (i + 1) + " doit être supérieur à celui de la relance précédente", 400);
+            }
+            precedent = delai;
+        }
     }
 
     /**

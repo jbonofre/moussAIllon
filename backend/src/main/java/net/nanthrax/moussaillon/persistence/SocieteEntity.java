@@ -46,6 +46,12 @@ public class SocieteEntity extends PanacheEntity {
 
     public List<String> images = new ArrayList<>();
 
+    // Relances de paiement automatiques, communes à toutes les transactions :
+    // nombre de jours écoulés depuis l'échéance (ou la date de facture à défaut). Vide = relance désactivée.
+    public Integer relance1Jours;
+    public Integer relance2Jours;
+    public Integer relance3Jours;
+
     // Date de création du compte (sert de date d'activation de l'abonnement).
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateCreation;

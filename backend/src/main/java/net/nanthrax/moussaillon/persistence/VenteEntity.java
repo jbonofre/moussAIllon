@@ -162,15 +162,10 @@ public class VenteEntity extends PanacheEntity {
 
     public boolean stockDecremented;
 
-    // Configuration des rappels (en jours avant la date de la vente)
-    public Integer rappel1Jours;
-    public Integer rappel2Jours;
-    public Integer rappel3Jours;
-
-    // Suivi des rappels envoyes
-    public boolean rappel1Envoye;
-    public boolean rappel2Envoye;
-    public boolean rappel3Envoye;
+    // Dernière relance de paiement automatique envoyée (0 = aucune, 1 à 3).
+    // Les délais de relance sont paramétrés globalement sur la société.
+    @jakarta.persistence.Column(columnDefinition = "integer default 0")
+    public int niveauRelance;
 
     @jakarta.persistence.Column(columnDefinition = "TEXT")
     public String note;

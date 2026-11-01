@@ -1,11 +1,13 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.RappelHistoriqueEntity;
+import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
+import net.nanthrax.moussaillon.persistence.VentePaiementEntity;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Timestamp;
@@ -14,188 +16,228 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/** Relances de paiement automatiques : chaque test est annulé en fin d'exécution (@TestTransaction). */
 @QuarkusTest
 public class RappelSchedulerTest {
 
     @Inject
     RappelScheduler rappelScheduler;
 
-    @Test
-    @Transactional
-    void testEnvoyerRappelQuandDateAtteinte() {
-        ClientEntity client = ClientEntity.findById(100L);
+    private static void parametrerRelances(Integer j1, Integer j2, Integer j3) {
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        societe.relance1Jours = j1;
+        societe.relance2Jours = j2;
+        societe.relance3Jours = j3;
+    }
 
+    private static Timestamp ilYA(int jours) {
+        return Timestamp.valueOf(LocalDate.now().minusDays(jours).atStartOfDay());
+    }
+
+    private static VenteEntity facture(ClientEntity client, double prixTTC) {
         VenteEntity vente = new VenteEntity();
-        vente.status = VenteEntity.Status.DEVIS;
+        vente.status = VenteEntity.Status.FACTURE_PRETE;
         vente.client = client;
-        vente.date = Timestamp.valueOf(LocalDate.now().plusDays(5).atStartOfDay());
-        vente.rappel1Jours = 10;
-        vente.rappel2Jours = 3;
-        vente.prixVenteTTC = 500.0;
-        vente.persist();
+        vente.numeroFacture = "FA-TEST";
+        vente.date = ilYA(60);
+        vente.dateFacturePrete = ilYA(60);
+        vente.prixVenteTTC = prixTTC;
+        return vente;
+    }
 
-        rappelScheduler.envoyerRappels();
-
-        VenteEntity updated = VenteEntity.findById(vente.id);
-        assertTrue(updated.rappel1Envoye, "Rappel 1 aurait du etre envoye (5 jours restants <= 10 jours)");
-        assertFalse(updated.rappel2Envoye, "Rappel 2 ne devrait pas etre envoye (5 jours restants > 3 jours)");
-        assertFalse(updated.rappel3Envoye, "Rappel 3 non configure, ne devrait pas etre envoye");
-
-        List<RappelHistoriqueEntity> historique = RappelHistoriqueEntity.list("vente.id", vente.id);
-        assertEquals(1, historique.size(), "Un seul historique de rappel doit etre cree");
-        assertEquals(1, historique.get(0).numeroRappel);
-        assertEquals("jean.dupont@test.com", historique.get(0).destinataire);
-        assertNotNull(historique.get(0).dateEnvoi);
-        assertNotNull(historique.get(0).sujet);
-        assertNotNull(historique.get(0).contenu);
+    private static List<RappelHistoriqueEntity> historique(VenteEntity vente) {
+        return RappelHistoriqueEntity.list("vente.id", vente.id);
     }
 
     @Test
-    @Transactional
-    void testPasDeRappelQuandDateLointaine() {
-        ClientEntity client = ClientEntity.findById(100L);
-
-        VenteEntity vente = new VenteEntity();
-        vente.status = VenteEntity.Status.DEVIS;
-        vente.client = client;
-        vente.date = Timestamp.valueOf(LocalDate.now().plusDays(60).atStartOfDay());
-        vente.rappel1Jours = 30;
-        vente.rappel2Jours = 7;
-        vente.rappel3Jours = 1;
-        vente.prixVenteTTC = 1000.0;
+    @TestTransaction
+    void testRelance1QuandDelaiDepuisEcheanceAtteint() {
+        parametrerRelances(15, 30, 45);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(20);
         vente.persist();
 
-        rappelScheduler.envoyerRappels();
+        rappelScheduler.envoyerRelances();
 
-        VenteEntity updated = VenteEntity.findById(vente.id);
-        assertFalse(updated.rappel1Envoye, "Rappel 1 ne devrait pas etre envoye (60 jours restants > 30 jours)");
-        assertFalse(updated.rappel2Envoye, "Rappel 2 ne devrait pas etre envoye (60 jours restants > 7 jours)");
-        assertFalse(updated.rappel3Envoye, "Rappel 3 ne devrait pas etre envoye (60 jours restants > 1 jour)");
+        assertEquals(1, vente.niveauRelance, "J+20 après l'échéance : relance 1 (J+15) envoyée, pas la 2 (J+30)");
+        List<RappelHistoriqueEntity> envois = historique(vente);
+        assertEquals(1, envois.size());
+        assertEquals(1, envois.get(0).numeroRappel);
+        assertEquals("jean.dupont@test.com", envois.get(0).destinataire);
+        assertTrue(envois.get(0).sujet.contains("FA-TEST"), "Le sujet reprend le numéro de facture");
     }
 
     @Test
-    @Transactional
-    void testPasDeRappelSansConfiguration() {
-        ClientEntity client = ClientEntity.findById(100L);
-
-        VenteEntity vente = new VenteEntity();
-        vente.status = VenteEntity.Status.DEVIS;
-        vente.client = client;
-        vente.date = Timestamp.valueOf(LocalDate.now().plusDays(1).atStartOfDay());
-        vente.prixVenteTTC = 200.0;
+    @TestTransaction
+    void testPasDeRelanceAvantPremierDelai() {
+        parametrerRelances(15, 30, 45);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(5);
         vente.persist();
 
-        rappelScheduler.envoyerRappels();
+        rappelScheduler.envoyerRelances();
 
-        VenteEntity updated = VenteEntity.findById(vente.id);
-        assertFalse(updated.rappel1Envoye, "Aucun rappel configure, rien ne devrait etre envoye");
-        assertFalse(updated.rappel2Envoye);
-        assertFalse(updated.rappel3Envoye);
+        assertEquals(0, vente.niveauRelance);
+        assertTrue(historique(vente).isEmpty());
     }
 
     @Test
-    @Transactional
-    void testPasDeDoublonRappelDejaEnvoye() {
-        ClientEntity client = ClientEntity.findById(100L);
-
-        VenteEntity vente = new VenteEntity();
-        vente.status = VenteEntity.Status.FACTURE_EN_ATTENTE;
-        vente.client = client;
-        vente.date = Timestamp.valueOf(LocalDate.now().plusDays(2).atStartOfDay());
-        vente.rappel1Jours = 10;
-        vente.rappel1Envoye = true;
-        vente.prixVenteTTC = 300.0;
+    @TestTransaction
+    void testEcheanceFuturePrimeSurDateFacture() {
+        // La facture date de 60 jours mais l'échéance n'est pas encore passée : pas de relance.
+        parametrerRelances(15, 30, 45);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = Timestamp.valueOf(LocalDate.now().plusDays(10).atStartOfDay());
         vente.persist();
 
-        rappelScheduler.envoyerRappels();
+        rappelScheduler.envoyerRelances();
 
-        VenteEntity updated = VenteEntity.findById(vente.id);
-        assertTrue(updated.rappel1Envoye, "Le drapeau doit rester vrai");
+        assertEquals(0, vente.niveauRelance);
     }
 
     @Test
-    @Transactional
-    void testPasDeRappelPourVentePayee() {
-        ClientEntity client = ClientEntity.findById(100L);
-
-        VenteEntity vente = new VenteEntity();
-        vente.status = VenteEntity.Status.FACTURE_PAYEE;
-        vente.client = client;
-        vente.date = Timestamp.valueOf(LocalDate.now().plusDays(1).atStartOfDay());
-        vente.rappel1Jours = 10;
-        vente.prixVenteTTC = 400.0;
+    @TestTransaction
+    void testDateFactureSansEcheance() {
+        parametrerRelances(15, 30, 45);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateFacturePrete = ilYA(31);
         vente.persist();
 
-        rappelScheduler.envoyerRappels();
+        rappelScheduler.envoyerRelances();
 
-        VenteEntity updated = VenteEntity.findById(vente.id);
-        assertFalse(updated.rappel1Envoye, "Pas de rappel pour une vente payee");
+        assertEquals(2, vente.niveauRelance, "Sans échéance, J+31 depuis la facture : relance 2 (J+30)");
     }
 
     @Test
-    @Transactional
-    void testPasDeRappelSansEmailClient() {
-        ClientEntity clientSansEmail = new ClientEntity();
-        clientSansEmail.nom = "SansEmail";
-        clientSansEmail.type = "Particulier";
-        clientSansEmail.persist();
-
-        VenteEntity vente = new VenteEntity();
-        vente.status = VenteEntity.Status.DEVIS;
-        vente.client = clientSansEmail;
-        vente.date = Timestamp.valueOf(LocalDate.now().plusDays(1).atStartOfDay());
-        vente.rappel1Jours = 10;
-        vente.prixVenteTTC = 100.0;
+    @TestTransaction
+    void testUneSeuleRelanceQuandPlusieursDelaisDepasses() {
+        parametrerRelances(15, 30, 45);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(100);
         vente.persist();
 
-        rappelScheduler.envoyerRappels();
+        rappelScheduler.envoyerRelances();
 
-        VenteEntity updated = VenteEntity.findById(vente.id);
-        assertFalse(updated.rappel1Envoye, "Pas de rappel sans email client");
+        assertEquals(3, vente.niveauRelance);
+        List<RappelHistoriqueEntity> envois = historique(vente);
+        assertEquals(1, envois.size(), "Les relances 1 et 2 ne sont pas rattrapées");
+        assertEquals(3, envois.get(0).numeroRappel);
     }
 
     @Test
-    @Transactional
-    void testTousRappelsEnvoyesQuandDatePassee() {
-        ClientEntity client = ClientEntity.findById(100L);
-
-        VenteEntity vente = new VenteEntity();
-        vente.status = VenteEntity.Status.DEVIS;
-        vente.client = client;
-        vente.date = Timestamp.valueOf(LocalDate.now().minusDays(1).atStartOfDay());
-        vente.rappel1Jours = 30;
-        vente.rappel2Jours = 7;
-        vente.rappel3Jours = 1;
-        vente.prixVenteTTC = 600.0;
+    @TestTransaction
+    void testPasDeDoublonRelanceDejaEnvoyee() {
+        parametrerRelances(15, 30, 45);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(20);
+        vente.niveauRelance = 1;
         vente.persist();
 
-        rappelScheduler.envoyerRappels();
+        rappelScheduler.envoyerRelances();
 
-        VenteEntity updated = VenteEntity.findById(vente.id);
-        assertTrue(updated.rappel1Envoye, "Tous les rappels devraient etre envoyes quand la date est passee");
-        assertTrue(updated.rappel2Envoye);
-        assertTrue(updated.rappel3Envoye);
-
-        List<RappelHistoriqueEntity> historique = RappelHistoriqueEntity.list("vente.id", vente.id);
-        assertEquals(3, historique.size(), "3 historiques de rappel doivent etre crees");
+        assertEquals(1, vente.niveauRelance);
+        assertTrue(historique(vente).isEmpty());
     }
 
     @Test
-    @Transactional
-    void testPasHistoriqueSansRappelEnvoye() {
-        ClientEntity client = ClientEntity.findById(100L);
-
-        VenteEntity vente = new VenteEntity();
-        vente.status = VenteEntity.Status.DEVIS;
-        vente.client = client;
-        vente.date = Timestamp.valueOf(LocalDate.now().plusDays(60).atStartOfDay());
-        vente.rappel1Jours = 30;
-        vente.prixVenteTTC = 100.0;
+    @TestTransaction
+    void testPasDeRelanceSansParametrage() {
+        parametrerRelances(null, null, null);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(100);
         vente.persist();
 
-        rappelScheduler.envoyerRappels();
+        rappelScheduler.envoyerRelances();
 
-        List<RappelHistoriqueEntity> historique = RappelHistoriqueEntity.list("vente.id", vente.id);
-        assertEquals(0, historique.size(), "Aucun historique ne doit etre cree si aucun rappel envoye");
+        assertEquals(0, vente.niveauRelance);
+    }
+
+    @Test
+    @TestTransaction
+    void testPasDeRelanceFactureSoldee() {
+        // Soldée par un paiement à date future (chèque encaissé plus tard) : rien à relancer.
+        parametrerRelances(15, 30, 45);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(20);
+        VentePaiementEntity paiement = new VentePaiementEntity();
+        paiement.mode = VentePaiementEntity.Mode.CHEQUE;
+        paiement.montant = 500.0;
+        paiement.date = Timestamp.valueOf(LocalDate.now().plusDays(5).atStartOfDay());
+        vente.paiements.add(paiement);
+        vente.persist();
+
+        rappelScheduler.envoyerRelances();
+
+        assertEquals(0, vente.niveauRelance);
+    }
+
+    @Test
+    @TestTransaction
+    void testMessageReprendLeSoldeDu() {
+        parametrerRelances(15, 30, 45);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(20);
+        VentePaiementEntity acompte = new VentePaiementEntity();
+        acompte.mode = VentePaiementEntity.Mode.VIREMENT;
+        acompte.montant = 200.0;
+        acompte.date = ilYA(30);
+        vente.paiements.add(acompte);
+        vente.persist();
+
+        rappelScheduler.envoyerRelances();
+
+        List<RappelHistoriqueEntity> envois = historique(vente);
+        assertEquals(1, envois.size());
+        assertTrue(envois.get(0).contenu.contains(String.format("%.2f", 300.0)), "Le message reprend le solde dû (300)");
+    }
+
+    @Test
+    @TestTransaction
+    void testPasDeRelanceFactureEnAttenteOuDevis() {
+        parametrerRelances(15, 30, 45);
+        ClientEntity client = ClientEntity.findById(100L);
+        VenteEntity enAttente = facture(client, 500.0);
+        enAttente.status = VenteEntity.Status.FACTURE_EN_ATTENTE;
+        enAttente.dateEcheance = ilYA(20);
+        enAttente.persist();
+        VenteEntity devis = facture(client, 500.0);
+        devis.status = VenteEntity.Status.DEVIS;
+        devis.dateEcheance = ilYA(20);
+        devis.persist();
+
+        rappelScheduler.envoyerRelances();
+
+        assertEquals(0, enAttente.niveauRelance);
+        assertEquals(0, devis.niveauRelance);
+    }
+
+    @Test
+    @TestTransaction
+    void testPasDeRelanceSansEmailClient() {
+        parametrerRelances(15, 30, 45);
+        ClientEntity sansEmail = new ClientEntity();
+        sansEmail.nom = "SansEmail";
+        sansEmail.type = "Particulier";
+        sansEmail.consentement = true;
+        sansEmail.persist();
+        VenteEntity vente = facture(sansEmail, 500.0);
+        vente.dateEcheance = ilYA(20);
+        vente.persist();
+
+        rappelScheduler.envoyerRelances();
+
+        assertEquals(0, vente.niveauRelance);
+    }
+
+    @Test
+    void testNiveauAtteint() {
+        Integer[] delais = { 15, 30, 45 };
+        assertEquals(0, RappelScheduler.niveauAtteint(delais, -3));
+        assertEquals(0, RappelScheduler.niveauAtteint(delais, 14));
+        assertEquals(1, RappelScheduler.niveauAtteint(delais, 15));
+        assertEquals(2, RappelScheduler.niveauAtteint(delais, 44));
+        assertEquals(3, RappelScheduler.niveauAtteint(delais, 400));
+        assertEquals(3, RappelScheduler.niveauAtteint(new Integer[] { 15, null, 45 }, 50), "Une relance intermédiaire vide est ignorée");
+        assertEquals(0, RappelScheduler.niveauAtteint(new Integer[] { null, null, null }, 400));
     }
 }

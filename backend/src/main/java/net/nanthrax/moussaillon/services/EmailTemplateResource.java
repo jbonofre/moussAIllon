@@ -15,6 +15,26 @@ import net.nanthrax.moussaillon.persistence.EmailTemplateEntity;
 @Consumes(MediaType.APPLICATION_JSON)
 public class EmailTemplateResource {
 
+    // Modèle de type RAPPEL : relance de paiement d'une facture émise non soldée.
+    static final String RELANCE_SUJET = "Relance de paiement - Facture {numeroFacture} - {societe}";
+    static final String RELANCE_CONTENU = "<p>Bonjour {client},</p>"
+            + "<p>Sauf erreur de notre part, votre facture {numeroFacture} du {dateFacture} n'est pas encore entièrement réglée.</p>"
+            + "<p>Montant TTC : {montantTTC} EUR<br/>Déjà réglé : {montantRegle} EUR<br/>"
+            + "<strong>Solde dû : {soldeDu} EUR</strong><br/>Date d'échéance : {dateEcheance}</p>"
+            + "<p>Nous vous remercions de bien vouloir procéder à son règlement dans les meilleurs délais. "
+            + "Si vous l'avez réglée entre-temps, merci de ne pas tenir compte de ce message.</p>"
+            + "<p>Cordialement,<br/>{societe}</p>";
+    static final String RELANCE_DESCRIPTION = "Variables disponibles : {client}, {numeroFacture}, {dateFacture}, {dateEcheance}, {montantTTC}, "
+            + "{montantRegle}, {soldeDu}, {numeroRelance}, {societe}";
+
+    // Ancien modèle par défaut (rappel avant la date de la prestation), remplacé s'il n'a pas été personnalisé.
+    private static final String ANCIEN_RAPPEL_SUJET = "Rappel {numeroRappel} - Votre {typeVente} - {societe}";
+    private static final String ANCIEN_RAPPEL_CONTENU = "<p>Bonjour {client},</p>"
+            + "<p>Ceci est un rappel concernant votre {typeVente} (référence #{reference}).</p>"
+            + "<p>Date prévue : {datePrevue}<br/>Montant TTC : {montantTTC} EUR</p>"
+            + "<p>N'hésitez pas à nous contacter pour toute question.</p>"
+            + "<p>Cordialement,<br/>{societe}</p>";
+
     @GET
     public List<EmailTemplateEntity> list() {
         return EmailTemplateEntity.listAll();
@@ -87,19 +107,13 @@ public class EmailTemplateResource {
             if (EmailTemplateEntity.findByType(EmailTemplateEntity.Type.PRET_A_RECUPERER) == null) {
                 creerTemplatePret().persist();
             }
+            if (EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RAPPEL) == null) {
+                creerTemplateRelance().persist();
+            }
             return Response.ok().build();
         }
 
-        EmailTemplateEntity rappel = new EmailTemplateEntity();
-        rappel.type = EmailTemplateEntity.Type.RAPPEL;
-        rappel.sujet = "Rappel {numeroRappel} - Votre {typeVente} - {societe}";
-        rappel.contenu = "<p>Bonjour {client},</p>"
-                + "<p>Ceci est un rappel concernant votre {typeVente} (référence #{reference}).</p>"
-                + "<p>Date prévue : {datePrevue}<br/>Montant TTC : {montantTTC} EUR</p>"
-                + "<p>N'hésitez pas à nous contacter pour toute question.</p>"
-                + "<p>Cordialement,<br/>{societe}</p>";
-        rappel.description = "Variables disponibles : {client}, {typeVente}, {reference}, {datePrevue}, {montantTTC}, {societe}, {numeroRappel}";
-        rappel.persist();
+        creerTemplateRelance().persist();
 
         EmailTemplateEntity incident = new EmailTemplateEntity();
         incident.type = EmailTemplateEntity.Type.INCIDENT;
@@ -146,6 +160,34 @@ public class EmailTemplateResource {
         creerTemplatePret().persist();
 
         return Response.status(Response.Status.CREATED).build();
+    }
+
+    private static EmailTemplateEntity creerTemplateRelance() {
+        EmailTemplateEntity relance = new EmailTemplateEntity();
+        relance.type = EmailTemplateEntity.Type.RAPPEL;
+        relance.sujet = RELANCE_SUJET;
+        relance.contenu = RELANCE_CONTENU;
+        relance.description = RELANCE_DESCRIPTION;
+        return relance;
+    }
+
+    /**
+     * Les rappels avant prestation sont devenus des relances de paiement : le modèle RAPPEL
+     * resté à son contenu par défaut prend le nouveau texte, un modèle personnalisé est conservé.
+     * Idempotent, appelé au démarrage.
+     */
+    static void migrerModeleRelance() {
+        EmailTemplateEntity rappel = EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RAPPEL);
+        if (rappel == null) {
+            return;
+        }
+        if (ANCIEN_RAPPEL_SUJET.equals(rappel.sujet)) {
+            rappel.sujet = RELANCE_SUJET;
+        }
+        if (ANCIEN_RAPPEL_CONTENU.equals(rappel.contenu)) {
+            rappel.contenu = RELANCE_CONTENU;
+        }
+        rappel.description = RELANCE_DESCRIPTION;
     }
 
     private static EmailTemplateEntity creerTemplatePret() {

@@ -98,6 +98,56 @@ public class DataInitializer {
         } catch (Exception e) {
             LOG.warn("Impossible de nettoyer les colonnes obsolètes de ProduitCatalogueEntity", e);
         }
+        try {
+            dropRappelsParVente();
+        } catch (Exception e) {
+            LOG.warn("Impossible de supprimer les anciennes colonnes de rappel de VenteEntity", e);
+        }
+        try {
+            elargirContenuHistoriqueRappels();
+        } catch (Exception e) {
+            LOG.warn("Impossible d'élargir la colonne contenu de RappelHistoriqueEntity", e);
+        }
+        EmailTemplateResource.migrerModeleRelance();
+    }
+
+    /**
+     * Le contenu des relances était limité à 255 caractères : tout email issu d'un modèle
+     * dépassait cette taille et l'enregistrement de l'historique échouait.
+     */
+    private void elargirContenuHistoriqueRappels() {
+        EntityManager em = SocieteEntity.getEntityManager();
+        em.unwrap(Session.class).doWork(connection -> {
+            try (Statement query = connection.createStatement();
+                 ResultSet rs = query.executeQuery(
+                     "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS "
+                         + "WHERE TABLE_NAME = 'RAPPELHISTORIQUEENTITY' AND COLUMN_NAME = 'CONTENU'")) {
+                if (!rs.next() || rs.getLong(1) >= 10000) {
+                    return;
+                }
+            }
+            try (Statement alter = connection.createStatement()) {
+                alter.executeUpdate("ALTER TABLE RappelHistoriqueEntity ALTER COLUMN contenu SET DATA TYPE VARCHAR(10000)");
+                LOG.info("Colonne RappelHistoriqueEntity.contenu élargie à 10000 caractères");
+            }
+        });
+    }
+
+    /**
+     * Les relances sont désormais paramétrées sur la société (issue #682) : les délais et drapeaux
+     * de rappel portés par chaque vente disparaissent. Les drapeaux étant NOT NULL sans valeur par
+     * défaut, les laisser en base ferait échouer la création des ventes.
+     */
+    private void dropRappelsParVente() {
+        String[] colonnes = { "rappel1Jours", "rappel2Jours", "rappel3Jours", "rappel1Envoye", "rappel2Envoye", "rappel3Envoye" };
+        EntityManager em = SocieteEntity.getEntityManager();
+        em.unwrap(Session.class).doWork(connection -> {
+            try (Statement alter = connection.createStatement()) {
+                for (String colonne : colonnes) {
+                    alter.executeUpdate("ALTER TABLE VenteEntity DROP COLUMN IF EXISTS " + colonne);
+                }
+            }
+        });
     }
 
     private void dropOrphanNotNullColumns(Class<?> entityClass, String tableName) {

@@ -6,7 +6,7 @@ import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
 const TYPE_LABELS = {
-    RAPPEL: 'Rappel',
+    RAPPEL: 'Relance de paiement',
     INCIDENT: 'Incident',
     FACTURE: 'Facture',
     PRET_A_RECUPERER: 'Prêt à récupérer'

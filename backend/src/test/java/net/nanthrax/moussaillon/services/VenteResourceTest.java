@@ -7,6 +7,7 @@ import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasKey;
 
 @QuarkusTest
 public class VenteResourceTest {
@@ -123,78 +124,23 @@ public class VenteResourceTest {
     }
 
     @Test
-    void testCreerVenteAvecRappels() {
-        given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,\"rappel1Jours\":30,\"rappel2Jours\":7,\"rappel3Jours\":1}")
-            .when().post("/ventes")
-            .then()
-            .statusCode(201)
-            .body("rappel1Jours", is(30))
-            .body("rappel2Jours", is(7))
-            .body("rappel3Jours", is(1))
-            .body("rappel1Envoye", is(false))
-            .body("rappel2Envoye", is(false))
-            .body("rappel3Envoye", is(false));
-    }
-
-    @Test
-    void testModifierRappelsVente() {
-        int id = given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0}")
-            .when().post("/ventes")
-            .then().statusCode(201)
-            .body("rappel1Jours", nullValue())
-            .extract().path("id");
-
-        given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"rappel1Jours\":14,\"rappel2Jours\":3}")
-            .when().put("/ventes/" + id)
-            .then()
-            .statusCode(200)
-            .body("rappel1Jours", is(14))
-            .body("rappel2Jours", is(3))
-            .body("rappel3Jours", nullValue());
-    }
-
-    @Test
-    void testModifierRappelsResetDrapeauEnvoi() {
-        int id = given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"rappel1Jours\":30}")
-            .when().post("/ventes")
-            .then().statusCode(201).extract().path("id");
-
-        given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"rappel1Jours\":15}")
-            .when().put("/ventes/" + id)
-            .then()
-            .statusCode(200)
-            .body("rappel1Jours", is(15))
-            .body("rappel1Envoye", is(false));
-    }
-
-    @Test
-    void testCreerVenteSansRappels() {
+    void testCreerVenteSansRelance() {
+        // Les délais de relance sont globaux (société) : la vente ne porte que le niveau de relance envoyé.
         given()
             .contentType("application/json")
             .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":50.0}")
             .when().post("/ventes")
             .then()
             .statusCode(201)
-            .body("rappel1Jours", nullValue())
-            .body("rappel2Jours", nullValue())
-            .body("rappel3Jours", nullValue());
+            .body("niveauRelance", is(0))
+            .body("$", not(hasKey("rappel1Jours")));
     }
 
     @Test
-    void testEnvoyerRappelManuel() {
+    void testEnvoyerRelanceManuelle() {
         int id = given()
             .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
             .when().post("/ventes")
             .then().statusCode(201).extract().path("id");
 
@@ -215,6 +161,36 @@ public class VenteResourceTest {
     }
 
     @Test
+    void testEnvoyerRelanceManuelleRefuseeHorsFactureEmise() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .when().post("/ventes/" + id + "/rappel")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    void testEnvoyerRelanceManuelleRefuseeFactureSoldee() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":0.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .when().post("/ventes/" + id + "/rappel")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
     void testEnvoyerRappelManuelVenteNonTrouvee() {
         given()
             .contentType("application/json")
@@ -227,7 +203,7 @@ public class VenteResourceTest {
     void testEnvoyerRappelManuelSansEmailClient() {
         int id = given()
             .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0}")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":100.0}")
             .when().post("/ventes")
             .then().statusCode(201).extract().path("id");
 
