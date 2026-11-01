@@ -31,6 +31,9 @@ public class BateauClientEntity extends PanacheEntity {
 
     public String dateFinDeGuarantie;
 
+    // Dernier relevé des heures moteur (renseigné par les techniciens)
+    public Double heuresMoteur;
+
     @ManyToMany
     public List<ClientEntity> proprietaires = new ArrayList<>();
 

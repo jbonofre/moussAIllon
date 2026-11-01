@@ -57,6 +57,7 @@ interface MoteurClient {
   images?: string[];
   numeroSerie?: string;
   numeroClef?: string;
+  heuresMoteur?: number;
   dateMeS?: string;
   dateAchat?: string;
   dateFinDeGuarantie?: string;
@@ -460,6 +461,13 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
             <Col span={12}>
               <Form.Item label="Numéro de clef" name="numeroClef">
                 <Input />
+              </Form.Item>
+            </Col>
+          </Row>
+          <Row gutter={16}>
+            <Col span={12}>
+              <Form.Item label="Heures moteur" name="heuresMoteur">
+                <InputNumber min={0} step={0.1} style={{ width: '100%' }} addonAfter="h" />
               </Form.Item>
             </Col>
           </Row>
