@@ -61,6 +61,7 @@ interface PlanningItem {
     incidentDetails?: string;
     clientNom?: string;
     venteType?: string;
+    bonPourAccord?: boolean;
     bateauNom?: string;
     quantite?: number;
     taches?: ChecklistItem[];
@@ -462,15 +463,18 @@ export default function Planning({ technicienId }: PlanningProps) {
                             Editer
                         </Button>
                         {(record.itemStatus === 'EN_ATTENTE' || record.itemStatus === 'PLANIFIEE') && (
-                            <Button
-                                size="small"
-                                icon={<ClockCircleOutlined />}
-                                onClick={() => handleStart(record)}
-                            >
-                                Demarrer
-                            </Button>
+                            <span title={record.bonPourAccord === false ? 'Le bon pour accord doit etre signe avant de demarrer' : undefined}>
+                                <Button
+                                    size="small"
+                                    icon={<ClockCircleOutlined />}
+                                    disabled={record.bonPourAccord === false}
+                                    onClick={() => handleStart(record)}
+                                >
+                                    Demarrer
+                                </Button>
+                            </span>
                         )}
-                        {record.itemStatus !== 'ANNULEE' && (
+                        {record.itemStatus !== 'ANNULEE' && record.bonPourAccord !== false && (
                             <Button
                                 size="small"
                                 danger

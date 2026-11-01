@@ -140,14 +140,14 @@ describe('Planning — filtres', () => {
         expect(screen.queryByText(/A planifier — en attente/)).not.toBeInTheDocument();
     });
 
-    it('place les tâches planifiables en tête du panneau', async () => {
+    it('place les tâches au bon pour accord signé en tête du panneau', async () => {
         render(<Planning />);
         await screen.findByText('Hivernage moteur');
         const taches = within(sectionEnAttente()).getAllByTestId('tache-a-planifier');
         expect(taches[0]).toHaveTextContent('Hivernage moteur');
         expect(taches[1]).toHaveTextContent('Remplacement anode');
-        expect(taches[1]).toHaveTextContent('Bon pour accord requis');
-        expect(taches[1]).toHaveAttribute('draggable', 'false');
+        expect(taches[1]).toHaveTextContent('Bon pour accord à signer avant démarrage');
+        expect(taches[1]).toHaveAttribute('draggable', 'true');
     });
 
     it('montre le créneau visé pendant le glisser, puis ouvre la planification au dépôt', async () => {

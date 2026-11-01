@@ -129,6 +129,7 @@ public class TechnicienPortalResource {
         public String incidentDetails;
         public String clientNom;
         public String venteType;
+        public boolean bonPourAccord;
         public String bateauNom;
         public int quantite;
         public List<ChecklistItem> taches;
@@ -158,6 +159,7 @@ public class TechnicienPortalResource {
                 item.clientNom = vente.client.nom;
             }
             item.venteType = vente.status != null ? vente.status.name() : null;
+            item.bonPourAccord = vente.bonPourAccord;
             if (vente.bateau != null) {
                 item.bateauNom = vente.bateau.name;
             }
@@ -235,6 +237,7 @@ public class TechnicienPortalResource {
                 item.clientNom = vente.client.nom;
             }
             item.venteType = vente.status != null ? vente.status.name() : null;
+            item.bonPourAccord = vente.bonPourAccord;
             if (vente.bateau != null) {
                 item.bateauNom = vente.bateau.name;
             }
@@ -538,6 +541,12 @@ public class TechnicienPortalResource {
             throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
         }
 
+        if (request.status != null && VenteResource.demarrageInterdit(request.status)) {
+            VenteEntity vente = venteParenteForfait(itemId);
+            if (vente != null && !vente.bonPourAccord) {
+                throw new WebApplicationException(VenteResource.MESSAGE_BON_POUR_ACCORD_DEMARRAGE, Response.Status.BAD_REQUEST);
+            }
+        }
         if (request.status != null && !request.status.isBlank()) {
             vf.status = VenteForfaitEntity.Status.valueOf(request.status);
         }
@@ -619,6 +628,12 @@ public class TechnicienPortalResource {
             throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
         }
 
+        if (request.status != null && VenteResource.demarrageInterdit(request.status)) {
+            VenteEntity vente = venteParenteService(itemId);
+            if (vente != null && !vente.bonPourAccord) {
+                throw new WebApplicationException(VenteResource.MESSAGE_BON_POUR_ACCORD_DEMARRAGE, Response.Status.BAD_REQUEST);
+            }
+        }
         if (request.status != null && !request.status.isBlank()) {
             vs.status = VenteServiceEntity.Status.valueOf(request.status);
         }

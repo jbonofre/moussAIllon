@@ -59,6 +59,13 @@ import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
 @Consumes(MediaType.APPLICATION_JSON)
 public class VenteResource {
 
+    static final String MESSAGE_BON_POUR_ACCORD_DEMARRAGE = "Le bon pour accord doit être signé avant de démarrer une tâche";
+
+    /** Statuts qui supposent que la tâche a démarré : interdits tant que le bon pour accord n'est pas signé. */
+    public static boolean demarrageInterdit(String status) {
+        return "EN_COURS".equals(status) || "TERMINEE".equals(status) || "INCIDENT".equals(status);
+    }
+
     @Inject
     Mailer mailer;
 
@@ -743,16 +750,16 @@ public class VenteResource {
             }
         }
 
-        // Validate planification: bonPourAccord required for scheduling
+        // Planifier est possible dès la création ; démarrer une tâche exige le bon pour accord signé
         if (!entity.bonPourAccord) {
             for (VenteForfaitEntity vf : entity.venteForfaits) {
-                if (vf.status != null && vf.status != VenteForfaitEntity.Status.EN_ATTENTE) {
-                    throw new WebApplicationException("Le bon pour accord est requis avant de planifier les interventions", 400);
+                if (vf.status != null && demarrageInterdit(vf.status.name())) {
+                    throw new WebApplicationException(MESSAGE_BON_POUR_ACCORD_DEMARRAGE, 400);
                 }
             }
             for (VenteServiceEntity vs : entity.venteServices) {
-                if (vs.status != null && vs.status != VenteServiceEntity.Status.EN_ATTENTE) {
-                    throw new WebApplicationException("Le bon pour accord est requis avant de planifier les interventions", 400);
+                if (vs.status != null && demarrageInterdit(vs.status.name())) {
+                    throw new WebApplicationException(MESSAGE_BON_POUR_ACCORD_DEMARRAGE, 400);
                 }
             }
         }

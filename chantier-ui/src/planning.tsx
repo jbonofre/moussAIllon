@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
-import { Badge, Button, Card, Col, DatePicker, Empty, Form, Input, List, Modal, Row, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
+import { Alert, Badge, Button, Card, Col, DatePicker, Empty, Form, Input, List, Modal, Row, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
 import { CalendarOutlined, EditOutlined, EyeOutlined, HolderOutlined, LeftOutlined, RightOutlined, SearchOutlined, WarningOutlined } from '@ant-design/icons';
 import { Line } from '@ant-design/charts';
 import axios from 'axios';
@@ -452,10 +452,6 @@ export default function Planning() {
     );
 
     const openPlanningModal = (row: PlanningItemRow, forcedDate?: string) => {
-        if (!row.vente.bonPourAccord) {
-            message.warning('Le bon pour accord est requis avant de planifier les interventions');
-            return;
-        }
         setCurrentRow(row);
         // Lors d'un dépôt sur le calendrier (forcedDate), cette date prime sur la
         // date déjà planifiée. Si forcedDate contient une heure (dépôt sur un
@@ -558,7 +554,7 @@ export default function Planning() {
         [filteredItems, selectedStatus]
     );
 
-    // Dans le panneau, les tâches planifiables (bon pour accord signé) passent devant.
+    // Dans le panneau, les tâches prêtes à démarrer (bon pour accord signé) passent devant.
     const pendingPanelItems = useMemo<PlanningItemRow[]>(
         () => [...pendingItems].sort((a, b) => Number(!!b.vente.bonPourAccord) - Number(!!a.vente.bonPourAccord)),
         [pendingItems]
@@ -1021,11 +1017,9 @@ export default function Planning() {
             key: 'actions',
             render: (_: unknown, record: PlanningItemRow) => (
                 <Space>
-                    <Tooltip title={!record.vente.bonPourAccord ? 'Le bon pour accord est requis' : undefined}>
-                        <Button icon={<EditOutlined />} disabled={!record.vente.bonPourAccord} onClick={() => openPlanningModal(record)}>
-                            Replanifier
-                        </Button>
-                    </Tooltip>
+                    <Button icon={<EditOutlined />} onClick={() => openPlanningModal(record)}>
+                        Replanifier
+                    </Button>
                     {record.vente.id && (
                         <Button icon={<EyeOutlined />} onClick={() => openPrestationModal(record.vente.id!)}>
                             Voir prestation
@@ -1060,7 +1054,7 @@ export default function Planning() {
             <div
                 key={record.key}
                 data-testid={late ? 'tache-en-retard' : 'tache-a-planifier'}
-                draggable={accord}
+                draggable
                 onDragStart={(e) => {
                     draggedRowRef.current = record;
                     e.dataTransfer.effectAllowed = 'move';
@@ -1079,11 +1073,11 @@ export default function Planning() {
                     border: '1px solid #f0f0f0',
                     borderLeft: `3px solid ${late ? '#fa541c' : item.type === 'forfait' ? '#722ed1' : '#2f54eb'}`,
                     borderRadius: 6,
-                    background: accord ? '#fff' : '#fafafa',
-                    cursor: accord ? 'grab' : 'not-allowed',
+                    background: '#fff',
+                    cursor: 'grab',
                 }}
             >
-                <HolderOutlined style={{ color: accord ? '#8c8c8c' : '#d9d9d9', marginTop: 4 }} />
+                <HolderOutlined style={{ color: '#8c8c8c', marginTop: 4 }} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {item.bateauNom || '-'}
@@ -1107,16 +1101,15 @@ export default function Planning() {
                     <div style={{ fontSize: 12, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {details}
                     </div>
-                    {!accord && <Tag color="orange" style={{ marginTop: 4 }}>Bon pour accord requis</Tag>}
+                    {!accord && <Tag color="orange" style={{ marginTop: 4 }}>Bon pour accord à signer avant démarrage</Tag>}
                 </div>
                 <Space orientation="vertical" size={4}>
-                    <Tooltip title={!accord ? 'Le bon pour accord est requis' : late ? 'Replanifier' : 'Planifier'}>
+                    <Tooltip title={late ? 'Replanifier' : 'Planifier'}>
                         <Button
                             size="small"
                             type={late ? 'default' : 'primary'}
                             icon={late ? <EditOutlined /> : <CalendarOutlined />}
                             aria-label={late ? 'Replanifier' : 'Planifier'}
-                            disabled={!accord}
                             onClick={() => (late ? openPlanningModal(record) : openPlanningModal(record, selectedDate))}
                         />
                     </Tooltip>
@@ -1922,8 +1915,21 @@ export default function Planning() {
                         label="Statut"
                         rules={[{ required: true, message: 'Le statut est requis' }]}
                     >
-                        <Select options={statusOptions} />
+                        <Select
+                            options={statusOptions.map((option) => ({
+                                ...option,
+                                disabled: !currentRow?.vente.bonPourAccord && ['EN_COURS', 'TERMINEE', 'INCIDENT'].includes(option.value),
+                            }))}
+                        />
                     </Form.Item>
+                    {currentRow && !currentRow.vente.bonPourAccord && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 12 }}
+                            message="Le bon pour accord n'est pas encore signé : la tâche peut être planifiée mais ne pourra démarrer qu'après sa signature."
+                        />
+                    )}
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="dateDebut" label="Date de début">

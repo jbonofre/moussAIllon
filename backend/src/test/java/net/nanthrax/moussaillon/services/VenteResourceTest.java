@@ -217,17 +217,25 @@ public class VenteResourceTest {
     }
 
     @Test
-    void testBonPourAccordRequisPourPlanification() {
+    void testPlanificationPossibleSansBonPourAccordMaisPasLeDemarrage() {
         int id = given()
             .contentType("application/json")
             .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"bonPourAccord\":false}")
             .when().post("/ventes")
             .then().statusCode(201).extract().path("id");
 
-        // Trying to set a forfait to PLANIFIEE without bonPourAccord should fail
+        // Planifier un forfait sans bonPourAccord est autorisé
         given()
             .contentType("application/json")
             .body("{\"status\":\"DEVIS\",\"bonPourAccord\":false,\"prixVenteTTC\":200.0,\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"PLANIFIEE\"}]}")
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200);
+
+        // Démarrer la tâche sans bonPourAccord signé est refusé
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"bonPourAccord\":false,\"prixVenteTTC\":200.0,\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"}]}")
             .when().put("/ventes/" + id)
             .then()
             .statusCode(400);
