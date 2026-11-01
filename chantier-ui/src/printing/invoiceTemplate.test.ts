@@ -123,6 +123,14 @@ describe('invoiceTemplate', () => {
         expect(html).toContain('Mon &lt;Bateau&gt;');
     });
 
+    it('imprime les heures moteur, celles du moteur primant sur celles du bateau', () => {
+        expect(buildBoatBoxHtml({ name: 'B', heuresMoteur: 80 }, undefined)).toContain('80 h');
+        const html = buildBoatBoxHtml({ name: 'B', heuresMoteur: 80 }, { heuresMoteur: 120.5 });
+        expect(html).toContain('Heures moteur');
+        expect(html).toContain('120.5 h');
+        expect(html).not.toContain('80 h');
+    });
+
     it('n\'imprime pas de cadre bateau/moteur sans bateau ni moteur', () => {
         expect(buildBoatBoxHtml(undefined, undefined)).toBe('');
         expect(buildBoatBoxHtml({}, {})).toBe('');
