@@ -57,6 +57,9 @@ public class VenteServiceEntity extends PanacheEntity {
 
     public double dureeReelle;
 
+    // Heures moteur relevées par le technicien lors de la prestation
+    public Double heuresMoteur;
+
     // Durée allouée à la planification (heures) ; à défaut on utilise la durée estimée du service
     public Double dureePlanifiee;
 

@@ -32,11 +32,13 @@ export interface InvoicePrintBateau {
     name?: string;
     immatriculation?: string;
     numeroSerie?: string;
+    heuresMoteur?: number;
     modele?: { designation?: string };
 }
 
 export interface InvoicePrintMoteur {
     numeroSerie?: string;
+    heuresMoteur?: number;
     modele?: { designation?: string };
 }
 
@@ -139,6 +141,7 @@ export const buildClientBoxHtml = (client: InvoicePrintClient | undefined, clien
 
 // Cadre « Bateau / Moteur » : vide (chaîne vide) quand la vente n'est liée à aucun des deux.
 export const buildBoatBoxHtml = (bateau?: InvoicePrintBateau, moteur?: InvoicePrintMoteur) => {
+    const heuresMoteur = moteur?.heuresMoteur ?? bateau?.heuresMoteur;
     const rows: Array<[string, string | undefined]> = [
         ['Bateau', bateau?.name],
         ['Modèle', bateau?.modele?.designation],
@@ -146,6 +149,7 @@ export const buildBoatBoxHtml = (bateau?: InvoicePrintBateau, moteur?: InvoicePr
         ['N° de série bateau', bateau?.numeroSerie],
         ['Moteur', moteur?.modele?.designation],
         ['N° de série moteur', moteur?.numeroSerie],
+        ['Heures moteur', heuresMoteur != null ? `${heuresMoteur} h` : undefined],
     ];
     const filled = rows.filter((row): row is [string, string] => !!row[1]);
     if (filled.length === 0) return '';

@@ -86,6 +86,7 @@ public class MoteurClientResource {
         moteur.dateMeS = updatedMoteur.dateMeS;
         moteur.dateAchat = updatedMoteur.dateAchat;
         moteur.dateFinDeGuarantie = updatedMoteur.dateFinDeGuarantie;
+        moteur.heuresMoteur = updatedMoteur.heuresMoteur;
 
         if (updatedMoteur.proprietaire != null && updatedMoteur.proprietaire.id != null) {
             moteur.proprietaire = ClientEntity.findById(updatedMoteur.proprietaire.id);

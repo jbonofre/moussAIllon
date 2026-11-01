@@ -74,6 +74,7 @@ public class TechnicienPortalResource {
     public static class PlanningItemUpdateRequest {
         public String status;
         public double dureeReelle;
+        public Double heuresMoteur;
         public String dateDebut;
         public String dateFin;
         public String incidentDate;
@@ -124,6 +125,7 @@ public class TechnicienPortalResource {
         public String statusDate;
         public String notes;
         public double dureeReelle;
+        public Double heuresMoteur;
         public double dureeEstimee;
         public String incidentDate;
         public String incidentDetails;
@@ -151,6 +153,7 @@ public class TechnicienPortalResource {
             item.statusDate = vf.statusDate != null ? vf.statusDate.toString() : null;
             item.notes = vf.notes;
             item.dureeReelle = vf.dureeReelle;
+            item.heuresMoteur = vf.heuresMoteur;
             item.dureeEstimee = vf.forfait != null ? vf.forfait.dureeEstimee : 0;
             item.incidentDate = vf.incidentDate != null ? vf.incidentDate.toString() : null;
             item.incidentDetails = vf.incidentDetails;
@@ -229,6 +232,7 @@ public class TechnicienPortalResource {
             item.statusDate = vs.statusDate != null ? vs.statusDate.toString() : null;
             item.notes = vs.notes;
             item.dureeReelle = vs.dureeReelle;
+            item.heuresMoteur = vs.heuresMoteur;
             item.dureeEstimee = vs.service != null ? vs.service.dureeEstimee : 0;
             item.incidentDate = vs.incidentDate != null ? vs.incidentDate.toString() : null;
             item.incidentDetails = vs.incidentDetails;
@@ -551,6 +555,9 @@ public class TechnicienPortalResource {
             vf.status = VenteForfaitEntity.Status.valueOf(request.status);
         }
         vf.dureeReelle = request.dureeReelle;
+        if (request.heuresMoteur != null) {
+            vf.heuresMoteur = request.heuresMoteur;
+        }
         if (request.dateDebut != null && !request.dateDebut.isBlank()) {
             vf.dateDebut = java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateDebut));
         }
@@ -604,6 +611,7 @@ public class TechnicienPortalResource {
             sendIncidentNotification(parentVente, nom, vf.incidentDetails, vf.incidentDate);
         }
 
+        reporterHeuresMoteur(parentVente, request.heuresMoteur);
         pretRecuperationService.evaluer(parentVente);
         VenteResource.passerEnFactureEnAttenteSiLancee(parentVente);
 
@@ -638,6 +646,9 @@ public class TechnicienPortalResource {
             vs.status = VenteServiceEntity.Status.valueOf(request.status);
         }
         vs.dureeReelle = request.dureeReelle;
+        if (request.heuresMoteur != null) {
+            vs.heuresMoteur = request.heuresMoteur;
+        }
         if (request.dateDebut != null && !request.dateDebut.isBlank()) {
             vs.dateDebut = java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateDebut));
         }
@@ -691,6 +702,7 @@ public class TechnicienPortalResource {
             sendIncidentNotification(parentVente, nom, vs.incidentDetails, vs.incidentDate);
         }
 
+        reporterHeuresMoteur(parentVente, request.heuresMoteur);
         pretRecuperationService.evaluer(parentVente);
         VenteResource.passerEnFactureEnAttenteSiLancee(parentVente);
 
@@ -975,6 +987,19 @@ public class TechnicienPortalResource {
             }
         }
         return result;
+    }
+
+    // Reporte les heures moteur relevées sur les fiches bateau et moteur du client
+    private void reporterHeuresMoteur(VenteEntity vente, Double heuresMoteur) {
+        if (vente == null || heuresMoteur == null) {
+            return;
+        }
+        if (vente.bateau != null) {
+            vente.bateau.heuresMoteur = heuresMoteur;
+        }
+        if (vente.moteur != null) {
+            vente.moteur.heuresMoteur = heuresMoteur;
+        }
     }
 
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {

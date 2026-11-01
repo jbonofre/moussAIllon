@@ -186,6 +186,32 @@ public class TechnicienPortalResourceTest {
     }
 
     @Test
+    void testHeuresMoteurReporteesSurBateauEtMoteur() {
+        int bateauId = given().contentType("application/json").body("{\"name\":\"Bateau heures\"}")
+            .when().post("/bateaux").then().statusCode(201).extract().path("id");
+        int moteurId = given().contentType("application/json").body("{\"numeroSerie\":\"HM-1\"}")
+            .when().post("/moteurs").then().statusCode(200).extract().path("id");
+        int forfaitId = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"bonPourAccord\":true,\"prixVenteTTC\":200.0,"
+                + "\"bateau\":{\"id\":" + bateauId + "},\"moteur\":{\"id\":" + moteurId + "},"
+                + "\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"PLANIFIEE\"}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("venteForfaits[0].id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"EN_COURS\",\"dureeReelle\":1,\"heuresMoteur\":123.5}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then()
+            .statusCode(200)
+            .body("heuresMoteur", is(123.5f));
+
+        given().when().get("/bateaux/" + bateauId).then().statusCode(200).body("heuresMoteur", is(123.5f));
+        given().when().get("/moteurs/" + moteurId).then().statusCode(200).body("heuresMoteur", is(123.5f));
+    }
+
+    @Test
     void testModifierForfaitNonTrouve() {
         given()
             .contentType("application/json")

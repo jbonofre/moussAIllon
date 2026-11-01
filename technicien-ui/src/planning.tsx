@@ -56,6 +56,7 @@ interface PlanningItem {
     statusDate?: string;
     notes?: string;
     dureeReelle?: number;
+    heuresMoteur?: number;
     dureeEstimee?: number;
     incidentDate?: string;
     incidentDetails?: string;
@@ -189,6 +190,7 @@ export default function Planning({ technicienId }: PlanningProps) {
         form.setFieldsValue({
             status: item.itemStatus || 'EN_COURS',
             dureeReelle: item.dureeReelle || 0,
+            heuresMoteur: item.heuresMoteur,
             notes: item.notes || '',
             incidentDate: item.incidentDate ? dayjs(item.incidentDate) : dayjs(),
             incidentDetails: item.incidentDetails || '',
@@ -299,6 +301,7 @@ export default function Planning({ technicienId }: PlanningProps) {
             const res = await api.put(endpoint, {
                 status: values.status,
                 dureeReelle: values.dureeReelle || 0,
+                heuresMoteur: values.heuresMoteur ?? null,
                 dateFin: values.status === 'TERMINEE' ? nowIso() : undefined,
                 notes: values.notes || '',
                 incidentDate: values.status === 'INCIDENT' ? (dayjs.isDayjs(values.incidentDate) ? values.incidentDate.format('YYYY-MM-DDTHH:mm:ss') : values.incidentDate) : null,
@@ -325,6 +328,7 @@ export default function Planning({ technicienId }: PlanningProps) {
             form.setFieldsValue({
                 status: updated.itemStatus || values.status,
                 dureeReelle: updated.dureeReelle ?? values.dureeReelle,
+                heuresMoteur: updated.heuresMoteur ?? values.heuresMoteur,
                 notes: updated.notes ?? values.notes,
                 incidentDate: updated.incidentDate ? dayjs(updated.incidentDate) : values.incidentDate,
                 incidentDetails: updated.incidentDetails || values.incidentDetails,
@@ -827,6 +831,9 @@ export default function Planning({ technicienId }: PlanningProps) {
                             </Form.Item>
                         </Col>
                     </Row>
+                    <Form.Item name="heuresMoteur" label="Heures moteur" extra="Reporte sur la fiche du bateau et du moteur du client">
+                        <InputNumber min={0} step={0.1} precision={1} style={{ width: '100%' }} addonAfter="h" />
+                    </Form.Item>
                     <Form.Item name="notes" label="Notes">
                         <Input.TextArea rows={3} />
                     </Form.Item>

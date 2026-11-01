@@ -25,6 +25,9 @@ public class MoteurClientEntity extends PanacheEntity {
 
     public String dateFinDeGuarantie;
 
+    // Dernier relevé des heures moteur (renseigné par les techniciens)
+    public Double heuresMoteur;
+
     @ManyToOne
     public ClientEntity proprietaire;
 

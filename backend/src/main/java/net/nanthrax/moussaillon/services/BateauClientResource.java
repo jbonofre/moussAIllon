@@ -163,6 +163,7 @@ public class BateauClientResource {
         entity.dateMeS = updated.dateMeS;
         entity.dateAchat = updated.dateAchat;
         entity.dateFinDeGuarantie = updated.dateFinDeGuarantie;
+        entity.heuresMoteur = updated.heuresMoteur;
         entity.localisation = updated.localisation;
         entity.localisationGps = updated.localisationGps;
         
