@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { render, screen, fireEvent, within, createEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Planning from './planning.tsx';
 import api from './api.ts';
@@ -204,5 +204,65 @@ describe('Planning — filtres', () => {
         expect(screen.getByLabelText('Rechercher une tâche')).toHaveValue('');
         expect(within(sectionEnAttente()).getByText('Hivernage moteur')).toBeInTheDocument();
         expect(screen.getByText(/Terminées \(1\)/)).toBeInTheDocument();
+    });
+});
+
+describe('Planning — déplacer une tâche sur le calendrier', () => {
+    const aujourdhui = dayjs().format('YYYY-MM-DD');
+    const technicien = { id: 7, nom: 'Le Goff', prenom: 'Erwan' };
+    // Deux interventions du même technicien : 8h30-10h45 (2h15) et 13h-15h
+    const ventesCalendrier = [
+        {
+            id: 9,
+            status: 'DEVIS',
+            bonPourAccord: true,
+            client: { id: 9, nom: 'Anne Kerjean' },
+            bateau: { id: 9, name: 'Jopo' },
+            venteForfaits: [
+                { id: 91, forfait: { id: 91, nom: 'Gréement', dureeEstimee: 2.25 }, status: 'PLANIFIEE', statusDate: `${aujourdhui}T08:30`, techniciens: [technicien] },
+                { id: 92, forfait: { id: 92, nom: 'Vidange', dureeEstimee: 2 }, status: 'PLANIFIEE', statusDate: `${aujourdhui}T13:00`, techniciens: [technicien] },
+            ],
+        },
+    ];
+
+    const rect = (left: number, width: number) => () => ({ left, width, top: 0, right: left + width, bottom: 24, height: 24, x: left, y: 0, toJSON: () => ({}) }) as DOMRect;
+
+    // jsdom n'a pas de DragEvent : la position du pointeur est posée sur l'événement
+    const glisser = (type: 'dragStart' | 'dragOver' | 'drop', element: HTMLElement, clientX: number) => {
+        const event = createEvent[type](element, { dataTransfer: { setData: jest.fn(), effectAllowed: '', dropEffect: '' } });
+        Object.defineProperty(event, 'clientX', { value: clientX });
+        fireEvent(element, event);
+    };
+
+    // Saisit la Vidange en son milieu (14h) ; la journée 7h-19h fait 1200 px, soit 100 px par heure
+    const saisirVidange = async () => {
+        mockedApi.get.mockImplementation((url: string) =>
+            Promise.resolve({ data: url === '/ventes' ? ventesCalendrier : url === '/marees' ? {} : [] }) as any
+        );
+        render(<Planning />);
+        const barre = (await screen.findByText('Jopo · Vidange')) as HTMLElement;
+        const jour = barre.closest('[data-timeline-cell]') as HTMLElement;
+        jour.getBoundingClientRect = rect(0, 1200);
+        barre.getBoundingClientRect = rect(600, 200);
+        glisser('dragStart', barre, 700);
+        return jour;
+    };
+
+    it('pose la tâche là où se trouve son bord gauche, pas sous le pointeur', async () => {
+        const jour = await saisirVidange();
+        // Pointeur à 13h30 : le bord gauche de la barre est à 12h30
+        glisser('dragOver', jour, 650);
+        expect(within(jour).getByText('12:30 · 2 h')).toBeInTheDocument();
+    });
+
+    it('colle la tâche à la fin de la précédente du même technicien', async () => {
+        const jour = await saisirVidange();
+        // Bord gauche amené vers 10h50, juste après le Gréement (fin à 10h45)
+        glisser('dragOver', jour, 485);
+        expect(within(jour).getByText('10:45 · 2 h')).toBeInTheDocument();
+
+        glisser('drop', jour, 485);
+        expect(await screen.findByText('Planifier: Vidange')).toBeInTheDocument();
+        expect(screen.getByDisplayValue(`${dayjs().format('DD/MM/YYYY')} 10:45`)).toBeInTheDocument();
     });
 });
