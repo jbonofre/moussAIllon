@@ -3491,7 +3491,7 @@ export default function Vente() {
                                                     // Actions secondaires regroupées dans un menu, pour que la ligne tienne dans la modal
                                                     const actionsLigne: MenuProps['items'] = isEmptyLine ? [] : [
                                                         ...(lineType === 'service' && itemId ? [{ key: 'modifier', icon: <EditOutlined />, label: 'Modifier le service', onClick: () => openEditServiceModal(itemId) }] : []),
-                                                        ...(isForfaitOrService ? [{ key: 'planifier', icon: <CalendarOutlined />, label: 'Planifier', disabled: !watchedBonPourAccord, onClick: () => { setModalVisible(false); navigate('/planning'); } }] : []),
+                                                        ...(isForfaitOrService ? [{ key: 'planifier', icon: <CalendarOutlined />, label: 'Planifier', onClick: () => { setModalVisible(false); navigate('/planning'); } }] : []),
                                                         ...(emplacements.length > 0 ? [{ key: 'emplacements', type: 'group' as const, label: 'Emplacements', children: emplacements }] : []),
                                                     ];
 

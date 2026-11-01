@@ -88,6 +88,7 @@ interface PlanningItem {
     incidentDetails?: string;
     clientNom?: string;
     venteType?: string;
+    bonPourAccord?: boolean;
     bateauNom?: string;
     quantite?: number;
     taches?: ChecklistItem[];
@@ -333,11 +334,13 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
             )}
             <Space style={{ marginTop: 8 }} wrap>
                 {(item.itemStatus === 'EN_ATTENTE' || item.itemStatus === 'PLANIFIEE') && (
-                    <Button size="small" type="primary" icon={<ClockCircleOutlined />} onClick={() => openModal(item, 'EN_COURS')}>
-                        Demarrer
-                    </Button>
+                    <span title={item.bonPourAccord === false ? 'Le bon pour accord doit etre signe avant de demarrer' : undefined}>
+                        <Button size="small" type="primary" icon={<ClockCircleOutlined />} disabled={item.bonPourAccord === false} onClick={() => openModal(item, 'EN_COURS')}>
+                            Demarrer
+                        </Button>
+                    </span>
                 )}
-                {item.itemStatus !== 'ANNULEE' && item.itemStatus !== 'TERMINEE' && (
+                {item.itemStatus !== 'ANNULEE' && item.itemStatus !== 'TERMINEE' && item.bonPourAccord !== false && (
                     <Button size="small" danger icon={<ExclamationCircleOutlined />} onClick={() => openModal(item, 'INCIDENT')}>
                         Incident
                     </Button>
