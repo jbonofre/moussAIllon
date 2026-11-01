@@ -7,6 +7,7 @@ import api from './api.ts';
 import dayjs from 'dayjs';
 import { paginationConfig } from './pagination.ts';
 import { correspondFiltres, nombreFiltresActifs, type FiltreBonPourAccord, type TypePrestation } from './planning-filtres.ts';
+import { HOUR_END, HOUR_START, TOTAL_HOURS, debutDepot, minutesAuPointeur, type Plage } from './planning-creneau.ts';
 
 type PlanningStatus = 'EN_ATTENTE' | 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'INCIDENT' | 'ANNULEE';
 
@@ -168,18 +169,6 @@ const technicienPalette = [
 ];
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
-
-// Plage horaire affichée par le calendrier
-const HOUR_START = 7;
-const HOUR_END = 19;
-const TOTAL_HOURS = HOUR_END - HOUR_START;
-
-// Heure (en minutes, au pas de 30 min) visée par le pointeur sur la ligne d'un jour.
-const pointerMinutes = (clientX: number, rect: DOMRect) => {
-    const fraction = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
-    const snapped = Math.round(((HOUR_START + fraction * TOTAL_HOURS) * 60) / 30) * 30;
-    return Math.min(Math.max(snapped, HOUR_START * 60), HOUR_END * 60 - 30);
-};
 
 const formatMinutes = (minutes: number) =>
     `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
@@ -382,6 +371,9 @@ export default function Planning() {
     const [currentRow, setCurrentRow] = useState<PlanningItemRow | null>(null);
     const [form] = Form.useForm<PlanningFormValues>();
     const draggedRowRef = useRef<PlanningItemRow | null>(null);
+    // Écart (en minutes) entre le pointeur et le début de la tâche saisie sur le calendrier :
+    // la tâche se pose là où on voit son bord gauche, pas là où se trouve le pointeur.
+    const grabOffsetRef = useRef(0);
     // Créneau survolé pendant un glisser : affiché sur le calendrier avant le dépôt
     const [dropTarget, setDropTarget] = useState<{ day: string; minutes: number; duration: number } | null>(null);
     const [now, setNow] = useState(() => dayjs());
@@ -1057,6 +1049,7 @@ export default function Planning() {
                 draggable
                 onDragStart={(e) => {
                     draggedRowRef.current = record;
+                    grabOffsetRef.current = 0;
                     e.dataTransfer.effectAllowed = 'move';
                     e.dataTransfer.setData('text/plain', record.key);
                 }}
@@ -1432,6 +1425,24 @@ export default function Planning() {
                                     });
                                     const renderedSeparatorRows = new Set<number>();
 
+                                    // Début de la tâche glissée si on la lâche ici : le bord gauche de la tâche
+                                    // (pointeur moins l'écart de saisie), collé à une tâche voisine du même
+                                    // technicien si elle est proche, sinon arrondi à la demi-heure.
+                                    const debutVise = (row: PlanningItemRow, clientX: number, rect: DOMRect) => {
+                                        const technicienIds = (row.item.techniciens || []).map((t) => t.id);
+                                        const voisines: Plage[] = dayEvts
+                                            .filter((ev) => ev.rowKey !== row.key)
+                                            .filter((ev) => technicienIds.length === 0
+                                                ? ev.technicienId === undefined
+                                                : ev.technicienId !== undefined && technicienIds.includes(ev.technicienId))
+                                            .map((ev) => {
+                                                const start = dayjs(ev.startTime);
+                                                const debut = start.hour() * 60 + start.minute();
+                                                return { debut, fin: debut + (ev.dureePlanifiee ?? ev.dureeEstimee ?? 1) * 60 };
+                                            });
+                                        return debutDepot(minutesAuPointeur(clientX, rect) - grabOffsetRef.current, rowDuration(row) * 60, voisines);
+                                    };
+
                                     return (
                                         <React.Fragment key={dayStr}>
                                             {/* Day label */}
@@ -1465,7 +1476,7 @@ export default function Planning() {
                                                     e.dataTransfer.dropEffect = 'move';
                                                     const row = draggedRowRef.current;
                                                     if (!row) return;
-                                                    const minutes = pointerMinutes(e.clientX, e.currentTarget.getBoundingClientRect());
+                                                    const minutes = debutVise(row, e.clientX, e.currentTarget.getBoundingClientRect());
                                                     const duration = rowDuration(row);
                                                     setDropTarget((cur) =>
                                                         cur && cur.day === dayStr && cur.minutes === minutes && cur.duration === duration
@@ -1483,7 +1494,7 @@ export default function Planning() {
                                                     const row = draggedRowRef.current;
                                                     draggedRowRef.current = null;
                                                     if (!row) return;
-                                                    const minutes = pointerMinutes(e.clientX, e.currentTarget.getBoundingClientRect());
+                                                    const minutes = debutVise(row, e.clientX, e.currentTarget.getBoundingClientRect());
                                                     openPlanningModal(row, `${dayStr}T${formatMinutes(minutes)}`);
                                                 }}
                                             >
@@ -1616,6 +1627,10 @@ export default function Planning() {
                                                                 onDragStart={(e) => {
                                                                     if (!eventRow) return;
                                                                     draggedRowRef.current = eventRow;
+                                                                    const cell = e.currentTarget.closest('[data-timeline-cell]') as HTMLElement | null;
+                                                                    const cellWidth = cell ? cell.getBoundingClientRect().width : 0;
+                                                                    const barLeft = e.currentTarget.getBoundingClientRect().left;
+                                                                    grabOffsetRef.current = cellWidth > 0 ? ((e.clientX - barLeft) / cellWidth) * TOTAL_HOURS * 60 : 0;
                                                                     e.dataTransfer.effectAllowed = 'move';
                                                                     e.dataTransfer.setData('text/plain', ev.eventId);
                                                                 }}
