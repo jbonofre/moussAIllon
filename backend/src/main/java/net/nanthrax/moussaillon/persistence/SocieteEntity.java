@@ -46,6 +46,21 @@ public class SocieteEntity extends PanacheEntity {
 
     public List<String> images = new ArrayList<>();
 
+    // Conditions de paiement communes à toutes les ventes, recopiées sur chaque vente
+    // jusqu'à l'émission de sa facture (une facture émise garde celles en vigueur à son émission).
+    public String conditionsPaiement;
+
+    public String penalitesRetard;
+
+    @Column(columnDefinition = "double default 40.0")
+    public double indemniteForfaitaire = 40.0;
+
+    // Relances de paiement automatiques, communes à toutes les transactions :
+    // nombre de jours écoulés depuis l'échéance (ou la date de facture à défaut). Vide = relance désactivée.
+    public Integer relance1Jours;
+    public Integer relance2Jours;
+    public Integer relance3Jours;
+
     // Date de création du compte (sert de date d'activation de l'abonnement).
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateCreation;

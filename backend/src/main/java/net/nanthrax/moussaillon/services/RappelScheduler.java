@@ -2,8 +2,11 @@ package net.nanthrax.moussaillon.services;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
@@ -16,83 +19,117 @@ import net.nanthrax.moussaillon.persistence.RappelHistoriqueEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 
+/**
+ * Relances de paiement automatiques des factures émises non soldées.
+ * Les délais (J+N) sont paramétrés une fois pour toutes sur la société et comptés à partir
+ * de la date d'échéance de la facture, ou de sa date d'émission si aucune échéance n'est renseignée.
+ */
 @ApplicationScoped
 public class RappelScheduler {
+
+    private static final DateTimeFormatter FORMAT_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     @Inject
     Mailer mailer;
 
     @Scheduled(cron = "0 0 8 * * ?")
     @Transactional
-    public void envoyerRappels() {
+    public void envoyerRelances() {
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        if (societe == null) {
+            return;
+        }
+        Integer[] delais = { societe.relance1Jours, societe.relance2Jours, societe.relance3Jours };
         LocalDate today = LocalDate.now();
 
-        List<VenteEntity> ventes = VenteEntity.list(
-                "status in (?1, ?2) and date is not null and client is not null",
-                VenteEntity.Status.DEVIS, VenteEntity.Status.FACTURE_EN_ATTENTE);
-
-        for (VenteEntity vente : ventes) {
-            if (vente.client == null || !vente.client.consentement || vente.client.email == null || vente.client.email.isBlank()) {
+        List<VenteEntity> factures = VenteEntity.list("status = ?1 and client is not null", VenteEntity.Status.FACTURE_PRETE);
+        for (VenteEntity vente : factures) {
+            if (!vente.client.consentement || vente.client.email == null || vente.client.email.isBlank()) {
                 continue;
             }
-
-            LocalDate dateVente = new Timestamp(vente.date.getTime()).toLocalDateTime().toLocalDate();
-            long joursRestants = ChronoUnit.DAYS.between(today, dateVente);
-
-            if (!vente.rappel1Envoye && vente.rappel1Jours != null && joursRestants <= vente.rappel1Jours) {
-                envoyerRappel(vente, 1);
-                vente.rappel1Envoye = true;
+            if (VenteResource.soldeDu(vente) <= 0.005) {
+                continue;
             }
-
-            if (!vente.rappel2Envoye && vente.rappel2Jours != null && joursRestants <= vente.rappel2Jours) {
-                envoyerRappel(vente, 2);
-                vente.rappel2Envoye = true;
+            LocalDate depart = dateDepartRelance(vente);
+            if (depart == null) {
+                continue;
             }
-
-            if (!vente.rappel3Envoye && vente.rappel3Jours != null && joursRestants <= vente.rappel3Jours) {
-                envoyerRappel(vente, 3);
-                vente.rappel3Envoye = true;
+            int niveau = niveauAtteint(delais, ChronoUnit.DAYS.between(depart, today));
+            // Une seule relance par passage : la plus avancée atteinte, sans rattraper les précédentes.
+            if (niveau > vente.niveauRelance) {
+                envoyerRelance(vente, niveau);
+                vente.niveauRelance = niveau;
             }
         }
     }
 
-    public void envoyerRappel(VenteEntity vente, int numeroRappel) {
+    /** Plus haut numéro de relance dont le délai est écoulé (0 si aucun). */
+    static int niveauAtteint(Integer[] delais, long joursEcoules) {
+        int niveau = 0;
+        for (int i = 0; i < delais.length; i++) {
+            if (delais[i] != null && joursEcoules >= delais[i]) {
+                niveau = i + 1;
+            }
+        }
+        return niveau;
+    }
+
+    /** Date d'échéance si renseignée, sinon date d'émission de la facture. */
+    static LocalDate dateDepartRelance(VenteEntity vente) {
+        if (vente.dateEcheance != null) {
+            return toLocalDate(vente.dateEcheance);
+        }
+        return toLocalDate(dateFacture(vente));
+    }
+
+    private static Timestamp dateFacture(VenteEntity vente) {
+        return vente.dateFacturePrete != null ? vente.dateFacturePrete : vente.date;
+    }
+
+    private static LocalDate toLocalDate(Timestamp timestamp) {
+        return timestamp != null ? timestamp.toLocalDateTime().toLocalDate() : null;
+    }
+
+    private static String formatDate(Timestamp timestamp) {
+        return timestamp != null ? FORMAT_DATE.format(toLocalDate(timestamp)) : "non définie";
+    }
+
+    /** Envoie la relance n° {@code numeroRelance} (0 = relance manuelle) et l'inscrit à l'historique. */
+    public void envoyerRelance(VenteEntity vente, int numeroRelance) {
         SocieteEntity societe = SocieteEntity.findById(1L);
         String societeNom = societe != null ? societe.nom : "moussAIllon";
-        String clientName = vente.client.nom;
+        String numeroFacture = vente.numeroFacture != null ? vente.numeroFacture : String.valueOf(vente.id);
+        double soldeDu = VenteResource.soldeDu(vente);
 
-        String typeLabel = "prestation";
-
-        String datePrevue = vente.date != null
-                ? new Timestamp(vente.date.getTime()).toLocalDateTime().toLocalDate().toString()
-                : "non définie";
-
-        String numeroRappelStr = numeroRappel > 0 ? String.valueOf(numeroRappel) : "";
+        Map<String, String> variables = new LinkedHashMap<>();
+        variables.put("{client}", vente.client.nom != null ? vente.client.nom : "");
+        variables.put("{numeroFacture}", numeroFacture);
+        variables.put("{dateFacture}", formatDate(dateFacture(vente)));
+        variables.put("{dateEcheance}", formatDate(vente.dateEcheance));
+        variables.put("{montantTTC}", String.format("%.2f", vente.prixVenteTTC));
+        variables.put("{montantRegle}", String.format("%.2f", vente.prixVenteTTC - soldeDu));
+        variables.put("{soldeDu}", String.format("%.2f", soldeDu));
+        variables.put("{numeroRelance}", numeroRelance > 0 ? String.valueOf(numeroRelance) : "");
+        // Conditions figurant sur la facture (celles de la société à l'émission)
+        variables.put("{conditionsPaiement}", vente.conditionsPaiement != null ? vente.conditionsPaiement : "");
+        variables.put("{penalitesRetard}", vente.penalitesRetard != null ? vente.penalitesRetard : "");
+        variables.put("{indemniteForfaitaire}", String.format("%.2f", vente.indemniteForfaitaire));
+        variables.put("{societe}", societeNom);
+        // Variables de l'ancien modèle de rappel, conservées pour les modèles déjà personnalisés
+        variables.put("{reference}", numeroFacture);
+        variables.put("{typeVente}", "facture");
+        variables.put("{datePrevue}", formatDate(vente.date));
+        variables.put("{numeroRappel}", numeroRelance > 0 ? String.valueOf(numeroRelance) : "");
 
         EmailTemplateEntity template = EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RAPPEL);
-        String subject;
-        String body;
-        if (template != null) {
-            subject = applyVariables(template.sujet, clientName, typeLabel, vente, datePrevue, societeNom, numeroRappelStr);
-            body = applyVariables(template.contenu, clientName, typeLabel, vente, datePrevue, societeNom, numeroRappelStr);
-        } else {
-            subject = numeroRappel > 0
-                    ? "Rappel " + numeroRappel + " - Votre " + typeLabel + " - " + societeNom
-                    : "Rappel - Votre " + typeLabel + " - " + societeNom;
-            body = "Bonjour " + clientName + ",\n\n"
-                    + "Ceci est un rappel concernant votre " + typeLabel
-                    + " (référence #" + vente.id + ").\n\n"
-                    + "Date prévue : " + datePrevue + "\n"
-                    + "Montant TTC : " + String.format("%.2f", vente.prixVenteTTC) + " EUR\n\n"
-                    + "N'hésitez pas à nous contacter pour toute question.\n\n"
-                    + "Cordialement,\n" + societeNom;
-        }
+        String subject = appliquerVariables(template != null ? template.sujet : EmailTemplateResource.RELANCE_SUJET, variables);
+        String body = appliquerVariables(template != null ? template.contenu : EmailTemplateResource.RELANCE_CONTENU, variables);
 
         mailer.send(Mail.withHtml(vente.client.email, subject, body));
 
         RappelHistoriqueEntity historique = new RappelHistoriqueEntity();
         historique.vente = vente;
-        historique.numeroRappel = numeroRappel;
+        historique.numeroRappel = numeroRelance;
         historique.destinataire = vente.client.email;
         historique.sujet = subject;
         historique.contenu = body;
@@ -100,14 +137,11 @@ public class RappelScheduler {
         historique.persist();
     }
 
-    private String applyVariables(String text, String clientName, String typeLabel, VenteEntity vente, String datePrevue, String societeNom, String numeroRappel) {
-        return text
-                .replace("{client}", clientName)
-                .replace("{typeVente}", typeLabel)
-                .replace("{reference}", String.valueOf(vente.id))
-                .replace("{datePrevue}", datePrevue)
-                .replace("{montantTTC}", String.format("%.2f", vente.prixVenteTTC))
-                .replace("{societe}", societeNom)
-                .replace("{numeroRappel}", numeroRappel);
+    private static String appliquerVariables(String texte, Map<String, String> variables) {
+        String resultat = texte;
+        for (Map.Entry<String, String> variable : variables.entrySet()) {
+            resultat = resultat.replace(variable.getKey(), variable.getValue());
+        }
+        return resultat;
     }
 }

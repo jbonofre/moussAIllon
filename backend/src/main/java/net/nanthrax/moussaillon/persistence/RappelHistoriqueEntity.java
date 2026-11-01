@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 
@@ -19,6 +20,8 @@ public class RappelHistoriqueEntity extends PanacheEntity {
 
     public String sujet;
 
+    // Corps HTML de l'email, bien au-delà des 255 caractères par défaut
+    @Column(length = 10000)
     public String contenu;
 
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)

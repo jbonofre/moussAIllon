@@ -50,7 +50,7 @@ INSERT INTO TransactionEntity (id, status, montantHT, remise, dateCreation) VALU
 INSERT INTO AnnonceEntity (id, titre, description, prix, contact, telephone, status, client_id) VALUES (100, 'Vente bateau occasion', 'Quicksilver 505 en bon etat', 18000.0, 'Jean Dupont', '0612345678', 0, 100);
 
 -- Ventes (all primitive fields included)
-INSERT INTO VenteEntity (id, status, bonPourAccord, ordreDeReparation, comptoir, client_id, date, prixVenteTTC, montantTTC, tva, montantTVA, montantHT, remise, stockDecremented, rappel1Envoye, rappel2Envoye, rappel3Envoye) VALUES (100, 3, true, false, false, 100, '2025-06-15 10:00:00', 500.0, 500.0, 20.0, 100.0, 400.0, 0.0, false, false, false, false);
+INSERT INTO VenteEntity (id, status, bonPourAccord, ordreDeReparation, comptoir, client_id, date, prixVenteTTC, montantTTC, tva, montantTVA, montantHT, remise, stockDecremented) VALUES (100, 3, true, false, false, 100, '2025-06-15 10:00:00', 500.0, 500.0, 20.0, 100.0, 400.0, 0.0, false);
 
 -- VenteForfaits (linked to vente 100)
 INSERT INTO VenteForfaitEntity (id, forfait_id, quantite, status, dateDebut, dateFin, dureeReelle, vente_id) VALUES (100, 100, 1, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 0.0, 100);

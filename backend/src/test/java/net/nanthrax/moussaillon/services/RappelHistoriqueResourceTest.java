@@ -41,7 +41,6 @@ public class RappelHistoriqueResourceTest {
         int venteId = given()
             .contentType("application/json")
             .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0,"
-                + "\"rappel1Jours\":999,"
                 + "\"date\":\"2026-04-01T00:00:00\","
                 + "\"client\":{\"id\":100}}")
             .when().post("/ventes")

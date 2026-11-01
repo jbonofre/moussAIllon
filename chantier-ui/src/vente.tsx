@@ -364,6 +364,9 @@ interface SocieteData {
     iban?: string;
     bic?: string;
     images?: string[];
+    conditionsPaiement?: string;
+    penalitesRetard?: string;
+    indemniteForfaitaire?: number;
 }
 
 interface VenteProduitLigne {
@@ -447,12 +450,8 @@ interface VenteEntity {
     paiements?: VentePaiement[];
     images?: string[];
     documents?: string[];
-    rappel1Jours?: number;
-    rappel2Jours?: number;
-    rappel3Jours?: number;
-    rappel1Envoye?: boolean;
-    rappel2Envoye?: boolean;
-    rappel3Envoye?: boolean;
+    // Dernière relance de paiement automatique envoyée (0 = aucune)
+    niveauRelance?: number;
     note?: string;
 }
 
@@ -512,16 +511,13 @@ interface VenteFormValues {
     modePaiement?: ModePaiement;
     images?: string[];
     documents?: string[];
-    rappel1Jours?: number;
-    rappel2Jours?: number;
-    rappel3Jours?: number;
     dateEcheance?: string;
-    conditionsPaiement?: string;
-    penalitesRetard?: string;
-    indemniteForfaitaire?: number;
     note?: string;
 }
 
+
+// Couleur du tag de la dernière relance de paiement envoyée (1 à 3)
+const RELANCE_COULEURS: Record<number, string> = { 1: 'gold', 2: 'orange', 3: 'red' };
 
 const statusOptions: Array<{ value: VenteStatus; label: string }> = [
     { value: 'DEVIS', label: 'Devis/Ordre de Réparation' },
@@ -614,7 +610,6 @@ const defaultVente: VenteFormValues = {
     prixVenteTTC: 0,
     images: [],
     documents: [],
-    indemniteForfaitaire: 40,
 };
 
 // Une intervention est un forfait ou un service : la main d'oeuvre passe par eux
@@ -692,6 +687,8 @@ export default function Vente() {
     const [isEdit, setIsEdit] = useState(false);
     const [currentVente, setCurrentVente] = useState<VenteEntity | null>(null);
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
+    // Conditions de paiement du paramétrage global (société), recopiées sur la vente jusqu'à l'émission de la facture
+    const [conditionsSociete, setConditionsSociete] = useState<SocieteData | null>(null);
     const [form] = Form.useForm<VenteFormValues>();
     const watchedStatus = Form.useWatch('status', form) as VenteStatus | undefined;
     const watchedBonPourAccord = Form.useWatch('bonPourAccord', form) as boolean | undefined;
@@ -1090,6 +1087,14 @@ export default function Vente() {
     useEffect(() => {
         fetchVentes();
         fetchOptions();
+        (async () => {
+            try {
+                const res = await api.get<SocieteData>('/societe');
+                setConditionsSociete(res.data || null);
+            } catch {
+                // conditions non affichées en cas d'erreur
+            }
+        })();
     }, []);
 
     useEffect(() => {
@@ -1827,13 +1832,7 @@ export default function Vente() {
             modePaiement: vente.modePaiement,
             images: vente.images || [],
             documents: vente.documents || [],
-            rappel1Jours: vente.rappel1Jours,
-            rappel2Jours: vente.rappel2Jours,
-            rappel3Jours: vente.rappel3Jours,
             dateEcheance: toDateDayjs(vente.dateEcheance) as any,
-            conditionsPaiement: vente.conditionsPaiement,
-            penalitesRetard: vente.penalitesRetard,
-            indemniteForfaitaire: vente.indemniteForfaitaire ?? 40,
             note: vente.note,
         });
     };
@@ -2150,9 +2149,6 @@ export default function Vente() {
             }),
             date: toBackendDateValue(values.date),
             dateEcheance: toBackendDateValue(values.dateEcheance),
-            conditionsPaiement: values.conditionsPaiement,
-            penalitesRetard: values.penalitesRetard,
-            indemniteForfaitaire: values.indemniteForfaitaire,
             montantHT: values.montantHT || 0,
             remise: values.remise || 0,
             tva: values.tva || 0,
@@ -2162,14 +2158,12 @@ export default function Vente() {
             modePaiement: values.modePaiement,
             images: values.images || [],
             documents: values.documents || [],
-            rappel1Jours: values.rappel1Jours,
-            rappel2Jours: values.rappel2Jours,
-            rappel3Jours: values.rappel3Jours,
             note: values.note
         };
     };
 
-    const handleSave = async () => {
+    // Renvoie la vente enregistrée, ou undefined si la validation ou l'enregistrement échoue
+    const handleSave = async (): Promise<VenteEntity | undefined> => {
         try {
             const values = await form.validateFields();
             const payload = toPayload(values);
@@ -2178,6 +2172,7 @@ export default function Vente() {
                 payload.signatureBonPourAccord = signatureValue;
             }
             suppressDirtyRef.current = true;
+            let saved: VenteEntity;
             if (isEdit && currentVente?.id) {
                 const res = await api.put(`/ventes/${currentVente.id}`, { ...currentVente, ...payload });
                 capturedSignatureRef.current = null;
@@ -2185,6 +2180,7 @@ export default function Vente() {
                 setCurrentVente(res.data);
                 snapshotSavedLines(res.data);
                 populateForm(res.data);
+                saved = res.data;
             } else {
                 const res = await api.post('/ventes', payload);
                 capturedSignatureRef.current = null;
@@ -2193,6 +2189,7 @@ export default function Vente() {
                 setCurrentVente(res.data);
                 snapshotSavedLines(res.data);
                 populateForm(res.data);
+                saved = res.data;
             }
             const crees = (values.lignes || []).flatMap((l) => (l.libre ? [(l.libre.designation || '').trim()] : []));
             if (crees.length > 0) {
@@ -2201,6 +2198,7 @@ export default function Vente() {
             setFormDirty(false);
             setTimeout(() => { suppressDirtyRef.current = false; }, 0);
             fetchVentes();
+            return saved;
         } catch (error) {
             suppressDirtyRef.current = false;
             // Les erreurs de validation sont affichees par le formulaire ; celles du serveur
@@ -2291,16 +2289,25 @@ export default function Vente() {
         }
     };
 
-    const openPaiementModal = async () => {
-        const restant = (currentVente?.prixVenteTTC ?? 0) -
-            (currentVente?.paiements ?? []).reduce((s, p) => s + p.montant, 0);
+    const openPaiementModal = (vente: VenteEntity | null = currentVente) => {
+        const restant = (vente?.prixVenteTTC ?? 0) -
+            (vente?.paiements ?? []).reduce((s, p) => s + p.montant, 0);
         setPaiementMode('CHEQUE');
         setPaiementMontant(Math.max(0, Math.round(restant * 100) / 100));
-        setPaiementNotes('');
+        // Avant la facture, un paiement est un acompte
+        setPaiementNotes(vente?.status === 'DEVIS' || vente?.status === 'FACTURE_EN_ATTENTE' ? 'Acompte' : '');
         setPaiementDate(dayjs());
         setPaiementAvoirId(null);
         setAvoirsDisponibles([]);
         setPaiementModalVisible(true);
+    };
+
+    // Transaction pas encore enregistrée : on l'enregistre avant de saisir le paiement (acompte)
+    const ajouterPaiementNouvelleVente = async () => {
+        const saved = await handleSave();
+        if (saved?.id) {
+            openPaiementModal(saved);
+        }
     };
 
     const loadAvoirsDisponibles = async (mode: ModeReglement) => {
@@ -3116,26 +3123,15 @@ export default function Vente() {
             title: 'Relance',
             key: 'relance',
             filters: [
-                { text: 'Relance 3 envoyée', value: 'rappel3' },
-                { text: 'Relance 2 envoyée', value: 'rappel2' },
-                { text: 'Relance 1 envoyée', value: 'rappel1' },
-                { text: 'En attente', value: 'enAttente' },
-                { text: 'Aucune relance', value: 'aucune' }
+                { text: 'Relance 3 envoyée', value: 3 },
+                { text: 'Relance 2 envoyée', value: 2 },
+                { text: 'Relance 1 envoyée', value: 1 },
+                { text: 'Aucune relance', value: 0 }
             ],
-            onFilter: (value: unknown, record: VenteEntity) => {
-                if (value === 'rappel3') return !!record.rappel3Envoye;
-                if (value === 'rappel2') return !!record.rappel2Envoye && !record.rappel3Envoye;
-                if (value === 'rappel1') return !!record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye;
-                if (value === 'enAttente') return !record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye && !!(record.rappel1Jours || record.rappel2Jours || record.rappel3Jours);
-                if (value === 'aucune') return !record.rappel1Envoye && !record.rappel2Envoye && !record.rappel3Envoye && !(record.rappel1Jours || record.rappel2Jours || record.rappel3Jours);
-                return false;
-            },
+            onFilter: (value: unknown, record: VenteEntity) => (record.niveauRelance || 0) === value,
             render: (_: unknown, record: VenteEntity) => {
-                if (record.rappel3Envoye) return <Tag color="red">Relance 3 envoyée</Tag>;
-                if (record.rappel2Envoye) return <Tag color="orange">Relance 2 envoyée</Tag>;
-                if (record.rappel1Envoye) return <Tag color="gold">Relance 1 envoyée</Tag>;
-                if (record.rappel1Jours || record.rappel2Jours || record.rappel3Jours) return <Tag color="blue">En attente</Tag>;
-                return null;
+                const niveau = record.niveauRelance || 0;
+                return niveau > 0 ? <Tag color={RELANCE_COULEURS[niveau]}>Relance {niveau} envoyée</Tag> : null;
             }
         },
         {
@@ -3811,7 +3807,6 @@ export default function Vente() {
                                             </div>
                                         </div>
 
-                                        {(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE') && (
                                         <div style={{ marginBottom: 16 }}>
                                                             {isEdit && (
                                                                 <>
@@ -3826,7 +3821,7 @@ export default function Vente() {
                                                                                 <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
                                                                                     <Col>
                                                                                         <Space>
-                                                                                            <span>Total facture : <strong>{formatEuro(totalFacture)}</strong></span>
+                                                                                            <span>Total TTC : <strong>{formatEuro(totalFacture)}</strong></span>
                                                                                             <span>Total payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
                                                                                             {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
                                                                                         </Space>
@@ -3835,7 +3830,7 @@ export default function Vente() {
                                                                                         <Button
                                                                                             type="primary"
                                                                                             icon={<PlusCircleOutlined />}
-                                                                                            onClick={openPaiementModal}
+                                                                                            onClick={() => openPaiementModal()}
                                                                                             disabled={watchedStatus === 'FACTURE_PAYEE'}
                                                                                         >
                                                                                             Ajouter un paiement
@@ -3894,10 +3889,18 @@ export default function Vente() {
                                                                 </>
                                                             )}
                                                             {!isEdit && (
-                                                                <div style={{ color: '#8c8c8c' }}>Enregistrez d'abord la facture pour gérer les paiements.</div>
+                                                                <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                                                                    <Col style={{ color: '#8c8c8c' }}>
+                                                                        Aucun paiement enregistré. Un acompte peut être saisi dès maintenant : la transaction sera enregistrée au préalable.
+                                                                    </Col>
+                                                                    <Col>
+                                                                        <Button type="primary" icon={<PlusCircleOutlined />} onClick={ajouterPaiementNouvelleVente}>
+                                                                            Ajouter un paiement
+                                                                        </Button>
+                                                                    </Col>
+                                                                </Row>
                                                             )}
                                         </div>
-                                        )}
 
                                         <Row gutter={16}>
                                             <Col span={6}>
@@ -3906,22 +3909,29 @@ export default function Vente() {
                                                 </Form.Item>
                                             </Col>
                                             <Col span={18}>
-                                                <Form.Item name="conditionsPaiement" label="Conditions de paiement">
-                                                    <Input placeholder="ex : 30 jours nets, comptant…" />
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
-
-                                        <Row gutter={16}>
-                                            <Col span={12}>
-                                                <Form.Item name="penalitesRetard" label="Pénalités de retard">
-                                                    <Input placeholder="ex : 1,5 fois le taux d'intérêt légal en vigueur" />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col span={6}>
-                                                <Form.Item name="indemniteForfaitaire" label="Indemnité forfaitaire (€)">
-                                                    <InputNumber addonAfter="EUR" min={0} step={1} style={{ width: '100%' }} />
-                                                </Form.Item>
+                                                {(() => {
+                                                    // Une facture émise garde ses conditions ; sinon ce sont celles du paramétrage global
+                                                    const factureEmise = currentVente?.status === 'FACTURE_PRETE' || currentVente?.status === 'FACTURE_PAYEE';
+                                                    const conditions = factureEmise ? currentVente : conditionsSociete;
+                                                    return (
+                                                        <>
+                                                            <Descriptions
+                                                                size="small"
+                                                                column={1}
+                                                                items={[
+                                                                    { key: 'conditions', label: 'Conditions de paiement', children: conditions?.conditionsPaiement || '—' },
+                                                                    { key: 'penalites', label: 'Pénalités de retard', children: conditions?.penalitesRetard || '—' },
+                                                                    { key: 'indemnite', label: 'Indemnité forfaitaire de recouvrement', children: formatEuro(conditions?.indemniteForfaitaire ?? 40) },
+                                                                ]}
+                                                            />
+                                                            <div style={{ color: '#8c8c8c' }}>
+                                                                {factureEmise
+                                                                    ? 'Conditions en vigueur à l\'émission de la facture.'
+                                                                    : 'Conditions communes à toutes les transactions, définies dans Paramétrage > Société.'}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </Col>
                                         </Row>
                                     </>
@@ -3929,54 +3939,46 @@ export default function Vente() {
                             },
                             {
                                 key: 'rappels',
-                                label: 'Rappels',
+                                label: 'Relances',
                                 children: (
                                     <>
-                                        <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-                                            <Col>
-                                                <span style={{ color: '#666' }}>
-                                                    Configurez les rappels automatiques par email envoyés au client avant la date de la prestation.
-                                                </span>
+                                        <Row justify="space-between" align="middle" gutter={16} style={{ marginBottom: 16 }}>
+                                            <Col flex="auto">
+                                                <div style={{ color: '#666' }}>
+                                                    Les relances de paiement des factures émises non soldées sont envoyées automatiquement
+                                                    selon les délais définis dans Paramétrage &gt; Société, à partir de la date d'échéance
+                                                    (ou de la date de facture à défaut).
+                                                </div>
+                                                {isEdit && currentVente?.status === 'FACTURE_PRETE' && (
+                                                    <div style={{ marginTop: 8 }}>
+                                                        Dernière relance automatique : {currentVente.niveauRelance
+                                                            ? <Tag color={RELANCE_COULEURS[currentVente.niveauRelance]}>Relance {currentVente.niveauRelance}</Tag>
+                                                            : 'aucune'}
+                                                    </div>
+                                                )}
                                             </Col>
-                                            {isEdit && currentVente?.id && (
+                                            {isEdit && currentVente?.id && currentVente.status === 'FACTURE_PRETE' && (
                                                 <Col>
                                                     <Button
                                                         icon={<SendOutlined />}
                                                         onClick={async () => {
                                                             try {
                                                                 await api.post(`/ventes/${currentVente.id}/rappel`);
-                                                                message.success('Rappel envoye avec succes');
+                                                                message.success('Relance envoyée');
                                                                 api.get<RappelHistoriqueEntity[]>(`/rappels/vente/${currentVente.id}`).then(res => setRappelHistorique(res.data)).catch(() => {});
                                                             } catch (err: any) {
-                                                                message.error(err?.response?.data || 'Erreur lors de l\'envoi du rappel');
+                                                                message.error(err?.response?.data || 'Erreur lors de l\'envoi de la relance');
                                                             }
                                                         }}
                                                     >
-                                                        Envoyer un rappel maintenant
+                                                        Envoyer une relance maintenant
                                                     </Button>
                                                 </Col>
                                             )}
                                         </Row>
-                                        <Row gutter={16}>
-                                            <Col span={8}>
-                                                <Form.Item name="rappel1Jours" label="Rappel 1 (jours avant)">
-                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Ex: 30" addonAfter="jours" />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col span={8}>
-                                                <Form.Item name="rappel2Jours" label="Rappel 2 (jours avant)">
-                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Ex: 7" addonAfter="jours" />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col span={8}>
-                                                <Form.Item name="rappel3Jours" label="Rappel 3 (jours avant)">
-                                                    <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Ex: 1" addonAfter="jours" />
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
                                         {isEdit && rappelHistorique.length > 0 && (
                                             <>
-                                                <h4 style={{ marginTop: 16 }}>Historique des rappels envoyes</h4>
+                                                <h4 style={{ marginTop: 16 }}>Historique des relances envoyées</h4>
                                                 <Table
                                                     dataSource={rappelHistorique}
                                                     rowKey="id"
@@ -3984,7 +3986,7 @@ export default function Vente() {
                                                     pagination={false}
                                                     columns={[
                                                         {
-                                                            title: 'Rappel',
+                                                            title: 'Relance',
                                                             dataIndex: 'numeroRappel',
                                                             width: 80,
                                                             render: (v: number) => v === 0 ? 'Manuel' : `#${v}`

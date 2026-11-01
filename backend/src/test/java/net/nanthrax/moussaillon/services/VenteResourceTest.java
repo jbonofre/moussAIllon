@@ -1,12 +1,15 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasKey;
 
 @QuarkusTest
 public class VenteResourceTest {
@@ -123,78 +126,23 @@ public class VenteResourceTest {
     }
 
     @Test
-    void testCreerVenteAvecRappels() {
-        given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,\"rappel1Jours\":30,\"rappel2Jours\":7,\"rappel3Jours\":1}")
-            .when().post("/ventes")
-            .then()
-            .statusCode(201)
-            .body("rappel1Jours", is(30))
-            .body("rappel2Jours", is(7))
-            .body("rappel3Jours", is(1))
-            .body("rappel1Envoye", is(false))
-            .body("rappel2Envoye", is(false))
-            .body("rappel3Envoye", is(false));
-    }
-
-    @Test
-    void testModifierRappelsVente() {
-        int id = given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0}")
-            .when().post("/ventes")
-            .then().statusCode(201)
-            .body("rappel1Jours", nullValue())
-            .extract().path("id");
-
-        given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"rappel1Jours\":14,\"rappel2Jours\":3}")
-            .when().put("/ventes/" + id)
-            .then()
-            .statusCode(200)
-            .body("rappel1Jours", is(14))
-            .body("rappel2Jours", is(3))
-            .body("rappel3Jours", nullValue());
-    }
-
-    @Test
-    void testModifierRappelsResetDrapeauEnvoi() {
-        int id = given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"rappel1Jours\":30}")
-            .when().post("/ventes")
-            .then().statusCode(201).extract().path("id");
-
-        given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"rappel1Jours\":15}")
-            .when().put("/ventes/" + id)
-            .then()
-            .statusCode(200)
-            .body("rappel1Jours", is(15))
-            .body("rappel1Envoye", is(false));
-    }
-
-    @Test
-    void testCreerVenteSansRappels() {
+    void testCreerVenteSansRelance() {
+        // Les délais de relance sont globaux (société) : la vente ne porte que le niveau de relance envoyé.
         given()
             .contentType("application/json")
             .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":50.0}")
             .when().post("/ventes")
             .then()
             .statusCode(201)
-            .body("rappel1Jours", nullValue())
-            .body("rappel2Jours", nullValue())
-            .body("rappel3Jours", nullValue());
+            .body("niveauRelance", is(0))
+            .body("$", not(hasKey("rappel1Jours")));
     }
 
     @Test
-    void testEnvoyerRappelManuel() {
+    void testEnvoyerRelanceManuelle() {
         int id = given()
             .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
             .when().post("/ventes")
             .then().statusCode(201).extract().path("id");
 
@@ -215,6 +163,36 @@ public class VenteResourceTest {
     }
 
     @Test
+    void testEnvoyerRelanceManuelleRefuseeHorsFactureEmise() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .when().post("/ventes/" + id + "/rappel")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    void testEnvoyerRelanceManuelleRefuseeFactureSoldee() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":0.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .when().post("/ventes/" + id + "/rappel")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
     void testEnvoyerRappelManuelVenteNonTrouvee() {
         given()
             .contentType("application/json")
@@ -227,7 +205,7 @@ public class VenteResourceTest {
     void testEnvoyerRappelManuelSansEmailClient() {
         int id = given()
             .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0}")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":100.0}")
             .when().post("/ventes")
             .then().statusCode(201).extract().path("id");
 
@@ -352,28 +330,72 @@ public class VenteResourceTest {
             .body("numeroFacture", is(numero));
     }
 
-    @Test
-    void testModifierVenteAvecChampsPaiementLegaux() {
-        int id = given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0}")
-            .when().post("/ventes")
-            .then().statusCode(201).extract().path("id");
+    /** Conditions de paiement de la société, modifiées dans une transaction à part pour être vues des appels REST. */
+    private static void conditionsSociete(String conditions, String penalites, double indemnite) {
+        QuarkusTransaction.requiringNew().run(() -> {
+            SocieteEntity societe = SocieteEntity.findById(1L);
+            societe.conditionsPaiement = conditions;
+            societe.penalitesRetard = penalites;
+            societe.indemniteForfaitaire = indemnite;
+        });
+    }
 
-        given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,"
-                + "\"dateEcheance\":\"2026-12-31\","
-                + "\"conditionsPaiement\":\"30 jours nets\","
-                + "\"penalitesRetard\":\"3 fois le taux légal\","
-                + "\"indemniteForfaitaire\":45.0}")
-            .when().put("/ventes/" + id)
-            .then()
-            .statusCode(200)
-            .body("conditionsPaiement", is("30 jours nets"))
-            .body("penalitesRetard", is("3 fois le taux légal"))
-            .body("indemniteForfaitaire", is(45.0f))
-            .body("dateEcheance", notNullValue());
+    @Test
+    void testConditionsPaiementReprisesDeLaSociete() {
+        conditionsSociete("30 jours nets", "3 fois le taux légal", 40.0);
+        try {
+            // Les valeurs envoyées sont ignorées : elles viennent du paramétrage global
+            int id = given()
+                .contentType("application/json")
+                .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,\"conditionsPaiement\":\"comptant\",\"indemniteForfaitaire\":10.0}")
+                .when().post("/ventes")
+                .then().statusCode(201)
+                .body("conditionsPaiement", is("30 jours nets"))
+                .body("penalitesRetard", is("3 fois le taux légal"))
+                .body("indemniteForfaitaire", is(40.0f))
+                .extract().path("id");
+
+            // Tant que la facture n'est pas émise, la vente suit le paramétrage
+            conditionsSociete("45 jours fin de mois", "taux BCE + 10 points", 50.0);
+            given()
+                .contentType("application/json")
+                .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,\"dateEcheance\":\"2026-12-31\"}")
+                .when().put("/ventes/" + id)
+                .then()
+                .statusCode(200)
+                .body("conditionsPaiement", is("45 jours fin de mois"))
+                .body("penalitesRetard", is("taux BCE + 10 points"))
+                .body("indemniteForfaitaire", is(50.0f))
+                .body("dateEcheance", notNullValue());
+        } finally {
+            conditionsSociete(null, null, 40.0);
+        }
+    }
+
+    @Test
+    void testConditionsPaiementFigeesAEmissionFacture() {
+        conditionsSociete("30 jours nets", "3 fois le taux légal", 40.0);
+        try {
+            String corps = "{\"status\":\"%s\",\"bonPourAccord\":true,\"prixVenteTTC\":300.0}";
+            int id = given().contentType("application/json").body(String.format(corps, "DEVIS"))
+                .when().post("/ventes")
+                .then().statusCode(201).extract().path("id");
+            given().contentType("application/json").body(String.format(corps, "FACTURE_PRETE"))
+                .when().put("/ventes/" + id)
+                .then().statusCode(200)
+                .body("conditionsPaiement", is("30 jours nets"));
+
+            // La facture émise garde les conditions en vigueur à son émission
+            conditionsSociete("comptant", null, 60.0);
+            given().contentType("application/json").body(String.format(corps, "FACTURE_PRETE"))
+                .when().put("/ventes/" + id)
+                .then().statusCode(200)
+                .body("conditionsPaiement", is("30 jours nets"))
+                .body("penalitesRetard", is("3 fois le taux légal"))
+                .body("indemniteForfaitaire", is(40.0f));
+        } finally {
+            conditionsSociete(null, null, 40.0);
+        }
     }
 
     @Test
@@ -685,6 +707,52 @@ public class VenteResourceTest {
             .when().put("/ventes/" + id + "/paiements/" + paiementId)
             .then().statusCode(200).body("date", is(passe));
         given().when().get("/ventes/" + id).then().statusCode(200).body("status", is("FACTURE_PAYEE"));
+    }
+
+    @Test
+    void testAcompteSurDevis() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"mode\":\"CHEQUE\",\"montant\":100.0,\"notes\":\"Acompte\"}")
+            .when().post("/ventes/" + id + "/paiements")
+            .then().statusCode(200);
+
+        given().when().get("/ventes/" + id).then().statusCode(200)
+            .body("status", is("DEVIS"))
+            .body("paiements.size()", is(1))
+            .body("paiements[0].montant", is(100.0f));
+    }
+
+    @Test
+    void testAcompteSoldantPasseEnPayeeAFacturation() {
+        String corps = "{\"status\":\"%s\",\"bonPourAccord\":true,\"prixVenteTTC\":120.0,\"client\":{\"id\":100}}";
+        int id = given()
+            .contentType("application/json")
+            .body(String.format(corps, "DEVIS"))
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        String passe = java.time.LocalDateTime.now().minusDays(1).withNano(0).format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        given()
+            .contentType("application/json")
+            .body("{\"mode\":\"VIREMENT\",\"montant\":120.0,\"date\":\"" + passe + "\"}")
+            .when().post("/ventes/" + id + "/paiements")
+            .then().statusCode(200);
+        // Le devis réglé d'avance reste un devis
+        given().when().get("/ventes/" + id).then().statusCode(200).body("status", is("DEVIS"));
+
+        given()
+            .contentType("application/json")
+            .body(String.format(corps, "FACTURE_PRETE"))
+            .when().put("/ventes/" + id)
+            .then().statusCode(200)
+            .body("status", is("FACTURE_PAYEE"));
     }
 
     // --- Parc client ---
