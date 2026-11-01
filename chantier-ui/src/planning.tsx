@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Badge, Button, Card, Col, DatePicker, Empty, Form, Input, List, Modal, Row, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
-import { CalendarOutlined, EditOutlined, EyeOutlined, LeftOutlined, RightOutlined, WarningOutlined } from '@ant-design/icons';
+import { CalendarOutlined, EditOutlined, EyeOutlined, HolderOutlined, LeftOutlined, RightOutlined, SearchOutlined, WarningOutlined } from '@ant-design/icons';
 import { Line } from '@ant-design/charts';
 import axios from 'axios';
 import api from './api.ts';
 import dayjs from 'dayjs';
 import { paginationConfig } from './pagination.ts';
+import { correspondFiltres, nombreFiltresActifs, type FiltreBonPourAccord, type TypePrestation } from './planning-filtres.ts';
 
 type PlanningStatus = 'EN_ATTENTE' | 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'INCIDENT' | 'ANNULEE';
 
@@ -167,6 +168,39 @@ const technicienPalette = [
 ];
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
+
+// Plage horaire affichée par le calendrier
+const HOUR_START = 7;
+const HOUR_END = 19;
+const TOTAL_HOURS = HOUR_END - HOUR_START;
+
+// Heure (en minutes, au pas de 30 min) visée par le pointeur sur la ligne d'un jour.
+const pointerMinutes = (clientX: number, rect: DOMRect) => {
+    const fraction = rect.width > 0 ? (clientX - rect.left) / rect.width : 0;
+    const snapped = Math.round(((HOUR_START + fraction * TOTAL_HOURS) * 60) / 30) * 30;
+    return Math.min(Math.max(snapped, HOUR_START * 60), HOUR_END * 60 - 30);
+};
+
+const formatMinutes = (minutes: number) =>
+    `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+
+const minutesToPct = (minutes: number) => ((minutes / 60 - HOUR_START) / TOTAL_HOURS) * 100;
+
+const rowDuration = (row: PlanningItemRow) => row.item.dureePlanifiee ?? row.item.dureeEstimee ?? 1;
+
+const rowStart = (row: PlanningItemRow) => row.item.dateDebut || row.item.statusDate;
+
+// En retard : pas commencée à l'heure prévue, ou toujours en cours après la durée allouée.
+const isRowLate = (row: PlanningItemRow, now: dayjs.Dayjs) => {
+    const start = toDayjs(rowStart(row));
+    if (!start) {
+        return false;
+    }
+    if (row.item.status === 'PLANIFIEE') {
+        return start.isBefore(now);
+    }
+    return row.item.status === 'EN_COURS' && start.add(rowDuration(row) * 60, 'minute').isBefore(now);
+};
 
 // --- Marées (données réelles SHOM via proxy backend) ---
 
@@ -334,13 +368,23 @@ export default function Planning() {
     const [selectedDate, setSelectedDate] = useState(todayIso());
     const [selectedStatus, setSelectedStatus] = useState<PlanningStatus | undefined>(undefined);
     const [selectedTechnicien, setSelectedTechnicien] = useState<number | undefined>(undefined);
+    const [recherche, setRecherche] = useState('');
+    const [selectedType, setSelectedType] = useState<TypePrestation | undefined>(undefined);
+    const [selectedAccord, setSelectedAccord] = useState<FiltreBonPourAccord | undefined>(undefined);
+    // Sections du bas de page, atteintes en un clic depuis la synthèse
+    const pendingSectionRef = useRef<HTMLDivElement>(null);
+    const lateSectionRef = useRef<HTMLDivElement>(null);
+    const enCoursSectionRef = useRef<HTMLDivElement>(null);
+    const termineesSectionRef = useRef<HTMLDivElement>(null);
     const [modalVisible, setModalVisible] = useState(false);
     const [formDirty, setFormDirty] = useState(false);
     const [saving, setSaving] = useState(false);
     const [currentRow, setCurrentRow] = useState<PlanningItemRow | null>(null);
     const [form] = Form.useForm<PlanningFormValues>();
     const draggedRowRef = useRef<PlanningItemRow | null>(null);
-    const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+    // Créneau survolé pendant un glisser : affiché sur le calendrier avant le dépôt
+    const [dropTarget, setDropTarget] = useState<{ day: string; minutes: number; duration: number } | null>(null);
+    const [now, setNow] = useState(() => dayjs());
     // Redimensionnement d'un événement pour ajuster sa durée allouée
     const [resize, setResize] = useState<{ key: string; duration: number } | null>(null);
     const resizeRef = useRef<{ key: string; row: PlanningItemRow; startX: number; origDuration: number; cellWidth: number } | null>(null);
@@ -390,6 +434,12 @@ export default function Planning() {
     useEffect(() => {
         fetchVentes();
         fetchTechniciens();
+    }, []);
+
+    // Fait avancer la ligne « maintenant » du calendrier
+    useEffect(() => {
+        const timer = setInterval(() => setNow(dayjs()), 60000);
+        return () => clearInterval(timer);
     }, []);
 
     const technicienOptions = useMemo(
@@ -458,16 +508,60 @@ export default function Planning() {
         [ventes]
     );
 
-    const matchesTechnicien = (row: PlanningItemRow) =>
-        !selectedTechnicien || (row.item.techniciens || []).some(t => t.id === selectedTechnicien);
+    // Recherche, technicien, type et bon pour accord s'appliquent à toute la page.
+    const filteredItems = useMemo<PlanningItemRow[]>(
+        () =>
+            allItems.filter((row) =>
+                correspondFiltres(row, {
+                    recherche,
+                    technicienId: selectedTechnicien,
+                    type: selectedType,
+                    bonPourAccord: selectedAccord,
+                })
+            ),
+        [allItems, recherche, selectedTechnicien, selectedType, selectedAccord]
+    );
+
+    // Une tâche sans statut est en attente.
+    const matchesStatus = (row: PlanningItemRow) =>
+        !selectedStatus || (row.item.status || 'EN_ATTENTE') === selectedStatus;
+
+    // Une section reste affichée tant que le statut filtré peut y figurer.
+    const sectionVisible = (...statuts: PlanningStatus[]) =>
+        !selectedStatus || statuts.includes(selectedStatus);
+
+    const activeFilterCount = nombreFiltresActifs({
+        recherche,
+        technicienId: selectedTechnicien,
+        type: selectedType,
+        bonPourAccord: selectedAccord,
+        statut: selectedStatus,
+    });
+
+    const resetFilters = () => {
+        setRecherche('');
+        setSelectedStatus(undefined);
+        setSelectedTechnicien(undefined);
+        setSelectedType(undefined);
+        setSelectedAccord(undefined);
+    };
+
+    const scrollToSection = (ref: React.RefObject<HTMLDivElement | null>) => {
+        ref.current?.scrollIntoView?.({ behavior: 'smooth', block: 'start' });
+    };
 
     const pendingItems = useMemo<PlanningItemRow[]>(
         () =>
-            allItems
+            filteredItems
                 .filter((row) => !row.item.status || row.item.status === 'EN_ATTENTE')
-                .filter((row) => !selectedStatus || row.item.status === selectedStatus)
-                .filter(matchesTechnicien),
-        [allItems, selectedStatus, selectedTechnicien]
+                .filter(matchesStatus),
+        [filteredItems, selectedStatus]
+    );
+
+    // Dans le panneau, les tâches planifiables (bon pour accord signé) passent devant.
+    const pendingPanelItems = useMemo<PlanningItemRow[]>(
+        () => [...pendingItems].sort((a, b) => Number(!!b.vente.bonPourAccord) - Number(!!a.vente.bonPourAccord)),
+        [pendingItems]
     );
 
     const pendingItemsForDay = useMemo<PlanningItemRow[]>(
@@ -495,49 +589,55 @@ export default function Planning() {
 
     const plannedItems = useMemo<PlanningItemRow[]>(
         () =>
-            allItems
+            filteredItems
                 .filter((row) => row.item.status === 'PLANIFIEE' || row.item.status === 'EN_COURS')
                 .filter((row) => (toIsoDay(row.item.statusDate) || toIsoDay(row.item.datePlanification)) === selectedDate)
-                .filter((row) => !selectedStatus || row.item.status === selectedStatus)
-                .filter(matchesTechnicien),
-        [allItems, selectedDate, selectedStatus, selectedTechnicien]
+                .filter(matchesStatus),
+        [filteredItems, selectedDate, selectedStatus]
     );
 
+    // Les plus anciennes d'abord : ce sont les plus en retard.
     const lateItems = useMemo<PlanningItemRow[]>(
-        () => {
-            const now = dayjs();
-            return allItems
-                .filter((row) => row.item.status === 'PLANIFIEE' || row.item.status === 'EN_COURS')
-                .filter((row) => {
-                    const planned = row.item.statusDate ? dayjs(row.item.statusDate) : null;
-                    return planned && planned.isValid() && planned.isBefore(now);
-                })
-                .filter(matchesTechnicien);
-        },
-        [allItems, selectedTechnicien]
+        () =>
+            filteredItems
+                .filter((row) => isRowLate(row, now))
+                .filter(matchesStatus)
+                .sort((a, b) => (rowStart(a) || '').localeCompare(rowStart(b) || '')),
+        [filteredItems, selectedStatus, now]
     );
 
     const enCoursItems = useMemo<PlanningItemRow[]>(
         () =>
-            allItems
+            filteredItems
                 .filter((row) => row.item.status === 'EN_COURS')
-                .filter(matchesTechnicien),
-        [allItems, selectedTechnicien]
+                .filter(matchesStatus),
+        [filteredItems, selectedStatus]
     );
 
     const termineeItems = useMemo<PlanningItemRow[]>(
         () =>
-            allItems
+            filteredItems
                 .filter((row) => row.item.status === 'TERMINEE')
-                .filter(matchesTechnicien),
-        [allItems, selectedTechnicien]
+                .filter(matchesStatus),
+        [filteredItems, selectedStatus]
+    );
+
+    // Incidents et annulations n'ont pas de section propre : ils n'apparaissent que filtrés par statut.
+    const otherStatusItems = useMemo<PlanningItemRow[]>(
+        () =>
+            selectedStatus === 'INCIDENT' || selectedStatus === 'ANNULEE'
+                ? filteredItems.filter((row) => row.item.status === selectedStatus)
+                : [],
+        [filteredItems, selectedStatus]
     );
 
     const calendarEvents = useMemo<CalendarEvent[]>(
         () =>
-            allItems
+            filteredItems
                 .filter((row) => row.item.status === 'PLANIFIEE' || row.item.status === 'EN_COURS')
-                .filter(matchesTechnicien)
+                // Le calendrier garde les interventions déjà placées sous les yeux pendant qu'on
+                // cherche des tâches en attente : seul un filtre « Planifiée » ou « En cours » le restreint.
+                .filter((row) => (selectedStatus !== 'PLANIFIEE' && selectedStatus !== 'EN_COURS') || matchesStatus(row))
                 .flatMap((row) => {
                     const { vente, item } = row;
                     const startSource = item.dateDebut || item.statusDate || vente.date;
@@ -579,7 +679,7 @@ export default function Planning() {
                             technicienNom: `${technicien?.prenom || ''} ${technicien?.nom || ''}`.trim() || undefined,
                         } as CalendarEvent));
                 }),
-        [allItems, selectedTechnicien]
+        [filteredItems, selectedStatus, selectedTechnicien]
     );
 
     const selectedTideLocation = useMemo(
@@ -654,10 +754,6 @@ export default function Planning() {
             .map(c => parseInt(c, 10))
             .filter(c => !isNaN(c));
     }, [tideData]);
-
-    const HOUR_START = 7;
-    const HOUR_END = 19;
-    const TOTAL_HOURS = HOUR_END - HOUR_START;
 
     const weekDays = useMemo(() => {
         const days: dayjs.Dayjs[] = [];
@@ -840,7 +936,16 @@ export default function Planning() {
             title: 'Bateau',
             key: 'bateau',
             sorter: (a: PlanningItemRow, b: PlanningItemRow) => (a.item.bateauNom || '').localeCompare(b.item.bateauNom || ''),
-            render: (_: unknown, record: PlanningItemRow) => record.item.bateauNom || '-'
+            render: (_: unknown, record: PlanningItemRow) => (
+                <>
+                    {record.item.bateauNom || '-'}
+                    {record.item.bateauImmatriculation && (
+                        <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                            {record.item.bateauImmatriculation}
+                        </Typography.Text>
+                    )}
+                </>
+            )
         },
         {
             title: 'Client',
@@ -904,35 +1009,6 @@ export default function Planning() {
         }
     ];
 
-    const pendingColumns = [
-        ...commonColumns,
-        {
-            title: 'Date statut',
-            key: 'statusDate',
-            render: (_: unknown, record: PlanningItemRow) => toIsoDay(record.item.statusDate) || '-'
-        },
-        {
-            title: 'Actions',
-            key: 'actions',
-            render: (_: unknown, record: PlanningItemRow) => (
-                <Space>
-                    <Tooltip title={!record.vente.bonPourAccord ? 'Le bon pour accord est requis' : undefined}>
-                        <Button type="primary" icon={<CalendarOutlined />} disabled={!record.vente.bonPourAccord} onClick={() => openPlanningModal(record, selectedDate)}>
-                            Planifier
-                        </Button>
-                    </Tooltip>
-                    {record.vente.id ? (
-                        <Button icon={<EyeOutlined />} onClick={() => openPrestationModal(record.vente.id!)}>
-                            Voir prestation
-                        </Button>
-                    ) : (
-                        <Typography.Text type="secondary">-</Typography.Text>
-                    )}
-                </Space>
-            )
-        }
-    ];
-
     const dayColumns = [
         ...commonColumns,
         {
@@ -960,16 +1036,134 @@ export default function Planning() {
         }
     ];
 
+    // Le panneau de droite est une colonne flex : chaque carte se partage la hauteur de l'écran.
+    const panelSectionStyle: CSSProperties = { display: 'flex', flexDirection: 'column' };
+    const panelCardStyle: CSSProperties = { flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column' };
+    const panelBodyStyle: CSSProperties = { flex: '1 1 auto', minHeight: 0, display: 'flex', flexDirection: 'column', padding: 8 };
+    const panelListStyle: CSSProperties = { flex: '1 1 auto', minHeight: 0, overflowY: 'auto', paddingRight: 2 };
+
+    // Carte compacte d'une tâche du panneau, à glisser sur le calendrier pour la planifier ou la replanifier.
+    const renderTaskCard = (record: PlanningItemRow, late = false) => {
+        const { item } = record;
+        const accord = !!record.vente.bonPourAccord;
+        const duree = item.dureePlanifiee ?? item.dureeEstimee;
+        const debut = toDayjs(rowStart(record));
+        const techniciensNoms = (item.techniciens || [])
+            .map((t) => `${t.prenom || ''} ${t.nom || ''}`.trim())
+            .filter(Boolean)
+            .join(', ');
+        const details = [
+            getClientLabel(record.vente.client),
+            late ? techniciensNoms : (duree != null ? `${duree} h` : ''),
+        ].filter(Boolean).join(' · ');
+        return (
+            <div
+                key={record.key}
+                data-testid={late ? 'tache-en-retard' : 'tache-a-planifier'}
+                draggable={accord}
+                onDragStart={(e) => {
+                    draggedRowRef.current = record;
+                    e.dataTransfer.effectAllowed = 'move';
+                    e.dataTransfer.setData('text/plain', record.key);
+                }}
+                onDragEnd={() => {
+                    draggedRowRef.current = null;
+                    setDropTarget(null);
+                }}
+                style={{
+                    display: 'flex',
+                    gap: 8,
+                    alignItems: 'flex-start',
+                    padding: '8px 8px 8px 6px',
+                    marginBottom: 8,
+                    border: '1px solid #f0f0f0',
+                    borderLeft: `3px solid ${late ? '#fa541c' : item.type === 'forfait' ? '#722ed1' : '#2f54eb'}`,
+                    borderRadius: 6,
+                    background: accord ? '#fff' : '#fafafa',
+                    cursor: accord ? 'grab' : 'not-allowed',
+                }}
+            >
+                <HolderOutlined style={{ color: accord ? '#8c8c8c' : '#d9d9d9', marginTop: 4 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {item.bateauNom || '-'}
+                        {item.bateauImmatriculation && (
+                            <Typography.Text type="secondary" style={{ fontSize: 12, fontWeight: 400, marginLeft: 6 }}>
+                                {item.bateauImmatriculation}
+                            </Typography.Text>
+                        )}
+                    </div>
+                    <div style={{ fontSize: 13 }}>
+                        <Tag color={item.type === 'forfait' ? 'purple' : 'geekblue'} style={{ fontSize: 11, lineHeight: '16px', marginRight: 6 }}>
+                            {item.type === 'forfait' ? 'Forfait' : 'Service'}
+                        </Tag>
+                        <span>{item.nom || '(Sans nom)'}</span>
+                    </div>
+                    {late && (
+                        <div style={{ fontSize: 12, color: '#d4380d' }}>
+                            {item.status === 'EN_COURS' ? 'En cours depuis le' : 'Prévue le'} {debut ? debut.format('DD/MM à HH:mm') : '-'}
+                        </div>
+                    )}
+                    <div style={{ fontSize: 12, color: '#8c8c8c', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {details}
+                    </div>
+                    {!accord && <Tag color="orange" style={{ marginTop: 4 }}>Bon pour accord requis</Tag>}
+                </div>
+                <Space orientation="vertical" size={4}>
+                    <Tooltip title={!accord ? 'Le bon pour accord est requis' : late ? 'Replanifier' : 'Planifier'}>
+                        <Button
+                            size="small"
+                            type={late ? 'default' : 'primary'}
+                            icon={late ? <EditOutlined /> : <CalendarOutlined />}
+                            aria-label={late ? 'Replanifier' : 'Planifier'}
+                            disabled={!accord}
+                            onClick={() => (late ? openPlanningModal(record) : openPlanningModal(record, selectedDate))}
+                        />
+                    </Tooltip>
+                    {record.vente.id && (
+                        <Tooltip title="Voir la prestation">
+                            <Button
+                                size="small"
+                                icon={<EyeOutlined />}
+                                aria-label="Voir la prestation"
+                                onClick={() => openPrestationModal(record.vente.id!)}
+                            />
+                        </Tooltip>
+                    )}
+                </Space>
+            </div>
+        );
+    };
+
     return (
         <Card title="Planning">
             <Row gutter={[16, 16]} align="stretch">
-                <Col flex="auto" style={{ display: 'flex', flexDirection: 'column' }}>
-                    <Card size="small" title="Filtres" style={{ height: '100%' }}>
+                <Col flex="auto" style={{ display: 'flex', flexDirection: 'column', minWidth: 300 }}>
+                    <Card
+                        size="small"
+                        title={activeFilterCount > 0 ? `Filtres (${activeFilterCount})` : 'Filtres'}
+                        style={{ height: '100%' }}
+                        extra={activeFilterCount > 0 && (
+                            <Button type="link" size="small" onClick={resetFilters} style={{ padding: 0 }}>
+                                Réinitialiser
+                            </Button>
+                        )}
+                    >
                         <Space direction="vertical" style={{ width: '100%' }}>
+                            <Input
+                                allowClear
+                                prefix={<SearchOutlined />}
+                                placeholder="Client, bateau, immat."
+                                title="Recherche dans le client, le bateau, l'immatriculation et la prestation"
+                                aria-label="Rechercher une tâche"
+                                value={recherche}
+                                onChange={(e) => setRecherche(e.target.value)}
+                            />
                             <Select
                                 allowClear
                                 options={statusOptions}
                                 placeholder="Tous les statuts"
+                                aria-label="Filtrer par statut"
                                 value={selectedStatus}
                                 onChange={(value) => setSelectedStatus(value)}
                                 style={{ width: '100%' }}
@@ -979,12 +1173,37 @@ export default function Planning() {
                                 showSearch
                                 options={technicienOptions}
                                 placeholder="Tous les techniciens"
+                                aria-label="Filtrer par technicien"
                                 value={selectedTechnicien}
                                 onChange={(value) => setSelectedTechnicien(value)}
                                 style={{ width: '100%' }}
                                 filterOption={(input, option) =>
                                     (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
                                 }
+                            />
+                            <Select
+                                allowClear
+                                options={[
+                                    { value: 'forfait', label: 'Forfaits' },
+                                    { value: 'service', label: 'Services' },
+                                ]}
+                                placeholder="Forfaits et services"
+                                aria-label="Filtrer par type de prestation"
+                                value={selectedType}
+                                onChange={(value) => setSelectedType(value)}
+                                style={{ width: '100%' }}
+                            />
+                            <Select
+                                allowClear
+                                options={[
+                                    { value: 'avec', label: 'Bon pour accord signé' },
+                                    { value: 'sans', label: 'Sans bon pour accord' },
+                                ]}
+                                placeholder="Bon pour accord"
+                                aria-label="Filtrer par bon pour accord"
+                                value={selectedAccord}
+                                onChange={(value) => setSelectedAccord(value)}
+                                style={{ width: '100%' }}
                             />
                         </Space>
                     </Card>
@@ -1001,8 +1220,30 @@ export default function Planning() {
                             <div>
                                 <Badge status="warning" /> En attente (jour): <strong>{pendingItemsForDay.length}</strong>
                             </div>
+                            {/* Chaque compteur mène à sa liste, plus bas dans la page. */}
                             <div>
-                                <Badge status="default" /> En attente (total): <strong>{pendingItems.length}</strong>
+                                <Badge status="default" />{' '}
+                                <Typography.Link disabled={!pendingItems.length} onClick={() => scrollToSection(pendingSectionRef)}>
+                                    En attente (total): <strong>{pendingItems.length}</strong>
+                                </Typography.Link>
+                            </div>
+                            <div>
+                                <Badge status="error" />{' '}
+                                <Typography.Link disabled={!lateItems.length} onClick={() => scrollToSection(lateSectionRef)}>
+                                    En retard: <strong>{lateItems.length}</strong>
+                                </Typography.Link>
+                            </div>
+                            <div>
+                                <Badge status="processing" />{' '}
+                                <Typography.Link disabled={!enCoursItems.length} onClick={() => scrollToSection(enCoursSectionRef)}>
+                                    En cours: <strong>{enCoursItems.length}</strong>
+                                </Typography.Link>
+                            </div>
+                            <div>
+                                <Badge status="success" />{' '}
+                                <Typography.Link disabled={!termineeItems.length} onClick={() => scrollToSection(termineesSectionRef)}>
+                                    Terminées: <strong>{termineeItems.length}</strong>
+                                </Typography.Link>
                             </div>
                         </Space>
                     </Card>
@@ -1094,7 +1335,8 @@ export default function Planning() {
             </Row>
 
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                <Col span={24}>
+                {/* Calendrier et tâches à planifier côte à côte : on glisse une tâche sans faire défiler la page. */}
+                <Col xs={24} xl={{ flex: '1 1 0' }} style={{ minWidth: 0 }}>
                     <Card
                         size="small"
                         title={
@@ -1110,15 +1352,17 @@ export default function Planning() {
                     >
                         <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                             <span><Badge status="success" /> Planifiées (semaine) : <strong>{weekEvents.length}</strong></span>
+                            {weekEvents.length === 0 && !loading && (
+                                <Typography.Text type="secondary">— aucune prestation planifiée cette semaine</Typography.Text>
+                            )}
                             {legendTechniciens.map((t) => (
                                 <Tag key={t.id} color={getTechnicienColor([t])}>
                                     {`${t.prenom || ''} ${t.nom || ''}`.trim() || `Technicien #${t.id}`}
                                 </Tag>
                             ))}
                         </div>
-                        {weekEvents.length === 0 && !loading && <Empty description="Aucune prestation planifiée cette semaine" />}
                         <div style={{ overflowX: 'auto' }}>
-                            <div style={{ display: 'grid', gridTemplateColumns: `80px repeat(${TOTAL_HOURS}, 1fr)`, minWidth: TOTAL_HOURS * 80 + 80 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: `72px repeat(${TOTAL_HOURS}, 1fr)`, minWidth: TOTAL_HOURS * 48 + 72 }}>
                                 {/* Header row: hours */}
                                 <div style={{ borderBottom: '2px solid #d9d9d9', padding: '4px 8px', fontWeight: 600, background: '#fafafa' }} />
                                 {Array.from({ length: TOTAL_HOURS }, (_, i) => (
@@ -1143,6 +1387,10 @@ export default function Planning() {
                                     const dayStr = day.format('YYYY-MM-DD');
                                     const isToday = dayStr === todayIso();
                                     const isSelected = dayStr === selectedDate;
+                                    const isWeekend = day.day() === 0 || day.day() === 6;
+                                    const rowBackground = isToday ? '#e6f4ff' : isSelected ? '#f0f5ff' : isWeekend ? '#fafafa' : undefined;
+                                    const nowMinutes = now.hour() * 60 + now.minute();
+                                    const showNowLine = isToday && nowMinutes >= HOUR_START * 60 && nowMinutes <= HOUR_END * 60;
                                     // Regroupe les événements par technicien (puis par heure de début) afin de
                                     // pouvoir aligner les tâches de chaque technicien sur une même ligne.
                                     const dayEvts = weekEvents
@@ -1199,7 +1447,8 @@ export default function Planning() {
                                                     borderBottom: '1px solid #f0f0f0',
                                                     padding: '8px 8px',
                                                     fontWeight: isToday ? 700 : 400,
-                                                    background: isToday ? '#e6f4ff' : isSelected ? '#f0f5ff' : undefined,
+                                                    background: rowBackground,
+                                                    color: isWeekend && !isToday ? '#8c8c8c' : undefined,
                                                     cursor: 'pointer',
                                                     fontSize: 12,
                                                 }}
@@ -1216,44 +1465,110 @@ export default function Planning() {
                                                     borderBottom: '1px solid #f0f0f0',
                                                     position: 'relative',
                                                     minHeight: Math.max(80, totalRows * 28 + 16),
-                                                    background: isToday ? '#e6f4ff' : isSelected ? '#f0f5ff' : undefined,
+                                                    background: rowBackground,
                                                 }}
-                                                onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; setDragOverDay(dayStr); }}
-                                                onDragLeave={() => setDragOverDay(null)}
+                                                onDragOver={(e) => {
+                                                    e.preventDefault();
+                                                    e.dataTransfer.dropEffect = 'move';
+                                                    const row = draggedRowRef.current;
+                                                    if (!row) return;
+                                                    const minutes = pointerMinutes(e.clientX, e.currentTarget.getBoundingClientRect());
+                                                    const duration = rowDuration(row);
+                                                    setDropTarget((cur) =>
+                                                        cur && cur.day === dayStr && cur.minutes === minutes && cur.duration === duration
+                                                            ? cur
+                                                            : { day: dayStr, minutes, duration }
+                                                    );
+                                                }}
+                                                onDragLeave={(e) => {
+                                                    // Le survol d'une intervention déjà placée ne doit pas effacer l'aperçu.
+                                                    if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropTarget(null);
+                                                }}
                                                 onDrop={(e) => {
                                                     e.preventDefault();
-                                                    setDragOverDay(null);
+                                                    setDropTarget(null);
                                                     const row = draggedRowRef.current;
                                                     draggedRowRef.current = null;
                                                     if (!row) return;
-                                                    // Heure calculée selon la position horizontale du dépôt sur la timeline (pas de 30 min).
-                                                    const rect = e.currentTarget.getBoundingClientRect();
-                                                    const fraction = rect.width > 0 ? (e.clientX - rect.left) / rect.width : 0;
-                                                    const rawMinutes = (HOUR_START + fraction * TOTAL_HOURS) * 60;
-                                                    const snapped = Math.round(rawMinutes / 30) * 30;
-                                                    const clamped = Math.min(Math.max(snapped, HOUR_START * 60), HOUR_END * 60 - 30);
-                                                    const hh = String(Math.floor(clamped / 60)).padStart(2, '0');
-                                                    const mm = String(clamped % 60).padStart(2, '0');
-                                                    openPlanningModal(row, `${dayStr}T${hh}:${mm}`);
+                                                    const minutes = pointerMinutes(e.clientX, e.currentTarget.getBoundingClientRect());
+                                                    openPlanningModal(row, `${dayStr}T${formatMinutes(minutes)}`);
                                                 }}
                                             >
-                                                {/* Vertical grid lines */}
+                                                {/* Lignes des heures, et des demi-heures en pointillé (pas du dépôt) */}
                                                 {Array.from({ length: TOTAL_HOURS }, (_, i) => (
+                                                    <React.Fragment key={`g-${i}`}>
+                                                        <div
+                                                            style={{
+                                                                position: 'absolute',
+                                                                left: `${(i / TOTAL_HOURS) * 100}%`,
+                                                                top: 0,
+                                                                bottom: 0,
+                                                                width: 1,
+                                                                background: '#f0f0f0',
+                                                            }}
+                                                        />
+                                                        <div
+                                                            style={{
+                                                                position: 'absolute',
+                                                                left: `${((i + 0.5) / TOTAL_HOURS) * 100}%`,
+                                                                top: 0,
+                                                                bottom: 0,
+                                                                borderLeft: '1px dashed #f5f5f5',
+                                                            }}
+                                                        />
+                                                    </React.Fragment>
+                                                ))}
+                                                {showNowLine && (
                                                     <div
-                                                        key={`g-${i}`}
+                                                        title={`Maintenant : ${now.format('HH:mm')}`}
                                                         style={{
                                                             position: 'absolute',
-                                                            left: `${(i / TOTAL_HOURS) * 100}%`,
+                                                            left: `${minutesToPct(nowMinutes)}%`,
                                                             top: 0,
                                                             bottom: 0,
-                                                            width: 1,
-                                                            background: '#f0f0f0',
+                                                            width: 2,
+                                                            background: '#ff4d4f',
+                                                            zIndex: 3,
+                                                            pointerEvents: 'none',
                                                         }}
                                                     />
-                                                ))}
-                                                {/* Drop highlight */}
-                                                {dragOverDay === dayStr && (
-                                                    <div style={{ position: 'absolute', inset: 0, border: '2px dashed #1677ff', borderRadius: 4, pointerEvents: 'none', zIndex: 5 }} />
+                                                )}
+                                                {/* Aperçu du dépôt : créneau et durée de la tâche glissée */}
+                                                {dropTarget?.day === dayStr && (
+                                                    <>
+                                                        <div style={{ position: 'absolute', inset: 0, border: '2px dashed #1677ff', borderRadius: 4, pointerEvents: 'none', zIndex: 5 }} />
+                                                        <div
+                                                            style={{
+                                                                position: 'absolute',
+                                                                top: 2,
+                                                                bottom: 2,
+                                                                left: `${minutesToPct(dropTarget.minutes)}%`,
+                                                                width: `${Math.min((dropTarget.duration / TOTAL_HOURS) * 100, 100 - minutesToPct(dropTarget.minutes))}%`,
+                                                                background: 'rgba(22, 119, 255, 0.15)',
+                                                                borderLeft: '3px solid #1677ff',
+                                                                borderRadius: 4,
+                                                                pointerEvents: 'none',
+                                                                zIndex: 4,
+                                                            }}
+                                                        >
+                                                            <span
+                                                                style={{
+                                                                    position: 'absolute',
+                                                                    top: 2,
+                                                                    left: 4,
+                                                                    padding: '0 6px',
+                                                                    borderRadius: 3,
+                                                                    background: '#1677ff',
+                                                                    color: '#fff',
+                                                                    fontSize: 11,
+                                                                    fontWeight: 600,
+                                                                    whiteSpace: 'nowrap',
+                                                                }}
+                                                            >
+                                                                {formatMinutes(dropTarget.minutes)} · {dropTarget.duration} h
+                                                            </span>
+                                                        </div>
+                                                    </>
                                                 )}
                                                 {/* Events */}
                                                 {dayEvts.map((ev) => {
@@ -1265,6 +1580,8 @@ export default function Planning() {
                                                     const leftPct = Math.max(0, ((startHour - HOUR_START) / TOTAL_HOURS) * 100);
                                                     const widthPct = Math.min((duration / TOTAL_HOURS) * 100, 100 - leftPct);
                                                     const statusLabel = ev.status ? statusOptions.find((s) => s.value === ev.status)?.label || ev.status : '';
+                                                    const eventRow = allItems.find((r) => r.key === ev.rowKey);
+                                                    const isLate = !!eventRow && isRowLate(eventRow, now);
                                                     const tooltipContent = (
                                                         <div style={{ fontSize: 12, lineHeight: '18px' }}>
                                                             <div><strong>{ev.bateauNom || '-'}</strong>{ev.bateauImmatriculation ? ` (${ev.bateauImmatriculation})` : ''}</div>
@@ -1273,10 +1590,10 @@ export default function Planning() {
                                                             <div>{ev.forfaitServiceNom || '-'}</div>
                                                             <div>Statut : {statusLabel} {ev.progressPct !== undefined ? `— ${ev.progressPct}%` : ''}</div>
                                                             <div>{start.format('HH:mm')} — {duration}h</div>
+                                                            {isLate && <div style={{ color: '#ffbb96', fontWeight: 600 }}>En retard</div>}
                                                         </div>
                                                     );
 
-                                                    const eventRow = allItems.find((r) => r.key === ev.rowKey);
                                                     // Ligne de séparation visuelle entre deux couloirs de techniciens
                                                     // différents pour améliorer la lisibilité du planning (affichée une
                                                     // seule fois par ligne, même si plusieurs tâches y sont alignées).
@@ -1311,7 +1628,7 @@ export default function Planning() {
                                                                 }}
                                                                 onDragEnd={() => {
                                                                     draggedRowRef.current = null;
-                                                                    setDragOverDay(null);
+                                                                    setDropTarget(null);
                                                                 }}
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
@@ -1335,9 +1652,18 @@ export default function Planning() {
                                                                     whiteSpace: 'nowrap',
                                                                     zIndex: 2,
                                                                     boxShadow: '0 1px 3px rgba(0,0,0,0.15)',
+                                                                    outline: isLate ? '2px solid #fa541c' : undefined,
+                                                                    outlineOffset: 1,
                                                                 }}
                                                             >
-                                                                {ev.bateauNom || ev.forfaitServiceNom || '-'}{ev.progressPct !== undefined ? ` (${ev.progressPct}%)` : ''}
+                                                                {isLate && <WarningOutlined style={{ marginRight: 4 }} />}
+                                                                {ev.bateauNom || '-'}{ev.forfaitServiceNom ? ` · ${ev.forfaitServiceNom}` : ''}
+                                                                {/* Avancement des tâches de l'intervention */}
+                                                                {ev.progressPct !== undefined && (
+                                                                    <div style={{ position: 'absolute', left: 0, right: 0, bottom: 0, height: 3, background: 'rgba(0, 0, 0, 0.2)' }}>
+                                                                        <div style={{ width: `${ev.progressPct}%`, height: '100%', background: 'rgba(255, 255, 255, 0.9)' }} />
+                                                                    </div>
+                                                                )}
                                                                 {eventRow && (
                                                                     <div
                                                                         title="Étirer pour ajuster la durée"
@@ -1395,71 +1721,59 @@ export default function Planning() {
                         </div>
                     </Card>
                 </Col>
-            </Row>
-
-            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                <Col span={24}>
-                    <Card
-                        title="A planifier (en attente)"
-                        size="small"
-                        bodyStyle={{ padding: pendingItems.length ? 12 : 24 }}
-                    >
-                        {pendingItems.length ? (
-                            <Table
-                                rowKey="key"
-                                loading={loading}
-                                dataSource={pendingItems}
-                                columns={pendingColumns}
-                                pagination={paginationConfig(10)}
-                                bordered
-                                onRow={(record) => ({
-                                    draggable: true,
-                                    style: { cursor: 'grab' },
-                                    onDragStart: (e) => {
-                                        draggedRowRef.current = record;
-                                        e.dataTransfer.effectAllowed = 'move';
-                                        e.dataTransfer.setData('text/plain', record.key);
-                                    },
-                                    onDragEnd: () => {
-                                        draggedRowRef.current = null;
-                                        setDragOverDay(null);
-                                    }
-                                })}
-                            />
-                        ) : (
-                            <Empty description="Aucun element en attente." />
-                        )}
-                    </Card>
-                </Col>
-            </Row>
-
-            {lateItems.length > 0 && (
-                <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
-                    <Col span={24}>
-                        <Card
-                            size="small"
-                            title={
-                                <span style={{ color: '#fa541c' }}>
-                                    <WarningOutlined /> En retard ({lateItems.length})
-                                </span>
-                            }
-                            bodyStyle={{ padding: 12 }}
-                            style={{ borderColor: '#fa541c' }}
-                        >
-                            <Table
-                                rowKey="key"
-                                loading={loading}
-                                dataSource={lateItems}
-                                columns={dayColumns}
-                                pagination={paginationConfig(10)}
-                                bordered
-                            />
-                        </Card>
+                {(sectionVisible('EN_ATTENTE') || lateItems.length > 0) && (
+                    <Col xs={24} xl={{ flex: '0 0 320px' }}>
+                        {/* Reste visible au défilement sans dépasser la hauteur de l'écran : chaque liste défile seule. */}
+                        <div style={{ position: 'sticky', top: 16, display: 'flex', flexDirection: 'column', gap: 16, maxHeight: 'calc(100vh - 32px)' }}>
+                            {sectionVisible('EN_ATTENTE') && (
+                                <div ref={pendingSectionRef} style={{ ...panelSectionStyle, flex: '1 1 auto', minHeight: 200 }}>
+                                    <Card
+                                        title={`A planifier — en attente (${pendingItems.length})`}
+                                        size="small"
+                                        loading={loading && ventes.length === 0}
+                                        style={panelCardStyle}
+                                        styles={{ body: panelBodyStyle }}
+                                    >
+                                        {pendingItems.length ? (
+                                            <>
+                                                <Typography.Text type="secondary" style={{ display: 'block', fontSize: 12, margin: '0 4px 8px' }}>
+                                                    Glissez une tâche sur le calendrier, à l'heure voulue.
+                                                </Typography.Text>
+                                                <div style={panelListStyle}>
+                                                    {pendingPanelItems.map((record) => renderTaskCard(record))}
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <Empty description={activeFilterCount > 0 ? 'Aucune tâche en attente ne correspond aux filtres.' : 'Aucun element en attente.'} />
+                                        )}
+                                    </Card>
+                                </div>
+                            )}
+                            {lateItems.length > 0 && (
+                                <div ref={lateSectionRef} style={{ ...panelSectionStyle, flex: '0 0 auto', maxHeight: '45vh' }}>
+                                    <Card
+                                        title={
+                                            <span style={{ color: '#fa541c' }}>
+                                                <WarningOutlined /> En retard ({lateItems.length})
+                                            </span>
+                                        }
+                                        size="small"
+                                        style={{ ...panelCardStyle, borderColor: '#fa541c' }}
+                                        styles={{ body: panelBodyStyle }}
+                                    >
+                                        <div style={panelListStyle}>
+                                            {lateItems.map((record) => renderTaskCard(record, true))}
+                                        </div>
+                                    </Card>
+                                </div>
+                            )}
+                        </div>
                     </Col>
-                </Row>
-            )}
+                )}
+            </Row>
 
-            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            {sectionVisible('EN_COURS') && (
+            <Row ref={enCoursSectionRef} gutter={[16, 16]} style={{ marginTop: 16 }}>
                 <Col span={24}>
                     <Card
                         size="small"
@@ -1481,7 +1795,9 @@ export default function Planning() {
                     </Card>
                 </Col>
             </Row>
+            )}
 
+            {sectionVisible('PLANIFIEE', 'EN_COURS') && (
             <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
                 <Col span={24}>
                     <Card title={`Planifie le ${selectedDate}`} size="small" bodyStyle={{ padding: plannedItems.length ? 12 : 24 }}>
@@ -1500,8 +1816,10 @@ export default function Planning() {
                     </Card>
                 </Col>
             </Row>
+            )}
 
-            <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+            {sectionVisible('TERMINEE') && (
+            <Row ref={termineesSectionRef} gutter={[16, 16]} style={{ marginTop: 16 }}>
                 <Col span={24}>
                     <Card
                         size="small"
@@ -1549,6 +1867,36 @@ export default function Planning() {
                     </Card>
                 </Col>
             </Row>
+            )}
+
+            {(selectedStatus === 'INCIDENT' || selectedStatus === 'ANNULEE') && (
+                <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+                    <Col span={24}>
+                        <Card
+                            size="small"
+                            title={
+                                <span style={{ color: selectedStatus === 'INCIDENT' ? '#fa541c' : '#ff4d4f' }}>
+                                    {selectedStatus === 'INCIDENT' ? 'Incidents' : 'Annulées'} ({otherStatusItems.length})
+                                </span>
+                            }
+                            bodyStyle={{ padding: otherStatusItems.length ? 12 : 24 }}
+                        >
+                            {otherStatusItems.length ? (
+                                <Table
+                                    rowKey="key"
+                                    loading={loading}
+                                    dataSource={otherStatusItems}
+                                    columns={dayColumns}
+                                    pagination={paginationConfig(10)}
+                                    bordered
+                                />
+                            ) : (
+                                <Empty description={selectedStatus === 'INCIDENT' ? 'Aucun incident.' : 'Aucune tâche annulée.'} />
+                            )}
+                        </Card>
+                    </Col>
+                </Row>
+            )}
 
             <Modal
                 open={modalVisible}
