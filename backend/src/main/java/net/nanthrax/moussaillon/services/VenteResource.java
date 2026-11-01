@@ -426,6 +426,7 @@ public class VenteResource {
         }
         creerArticlesALaVolee(vente.venteProduits);
         passerEnFactureEnAttenteSiLancee(vente);
+        appliquerConditionsPaiement(vente);
         vente.persist();
         attribuerNumeroDocument(vente);
         return Response.status(Response.Status.CREATED).entity(vente).build();
@@ -493,6 +494,7 @@ public class VenteResource {
                     .entity(java.util.Map.of("error", "Une vente payée ne peut pas être modifiée"))
                     .build());
         }
+        boolean factureEmise = entity.status == VenteEntity.Status.FACTURE_PRETE;
 
         // Une facture ne peut passer manuellement en « payée » que si les paiements couvrent le montant dû
         if (vente.status == VenteEntity.Status.FACTURE_PAYEE && entity.status != VenteEntity.Status.FACTURE_PAYEE) {
@@ -825,9 +827,9 @@ public class VenteResource {
         entity.documents = vente.documents != null ? vente.documents : new java.util.ArrayList<>();
         entity.date = vente.date;
         entity.dateEcheance = vente.dateEcheance;
-        entity.conditionsPaiement = vente.conditionsPaiement;
-        entity.penalitesRetard = vente.penalitesRetard;
-        entity.indemniteForfaitaire = vente.indemniteForfaitaire;
+        if (!factureEmise) {
+            appliquerConditionsPaiement(entity);
+        }
         entity.remise = vente.remise;
         entity.montantTTC = vente.montantTTC;
         entity.tva = vente.tva;
@@ -1037,6 +1039,20 @@ public class VenteResource {
     static boolean tousPaiementsEchus(VenteEntity vente) {
         long now = System.currentTimeMillis();
         return vente.paiements.stream().noneMatch(p -> p.date != null && p.date.getTime() > now);
+    }
+
+    /**
+     * Recopie sur la vente les conditions de paiement de la société (paramétrage global).
+     * Appelé tant que la facture n'est pas émise : une facture émise garde les conditions en vigueur à son émission.
+     */
+    static void appliquerConditionsPaiement(VenteEntity vente) {
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        if (societe == null) {
+            return;
+        }
+        vente.conditionsPaiement = societe.conditionsPaiement;
+        vente.penalitesRetard = societe.penalitesRetard;
+        vente.indemniteForfaitaire = societe.indemniteForfaitaire;
     }
 
     /** Reste à payer TTC : prix de vente moins l'ensemble des paiements enregistrés (y compris à date future). */

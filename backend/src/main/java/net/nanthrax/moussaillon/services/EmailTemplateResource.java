@@ -25,7 +25,7 @@ public class EmailTemplateResource {
             + "Si vous l'avez réglée entre-temps, merci de ne pas tenir compte de ce message.</p>"
             + "<p>Cordialement,<br/>{societe}</p>";
     static final String RELANCE_DESCRIPTION = "Variables disponibles : {client}, {numeroFacture}, {dateFacture}, {dateEcheance}, {montantTTC}, "
-            + "{montantRegle}, {soldeDu}, {numeroRelance}, {societe}";
+            + "{montantRegle}, {soldeDu}, {numeroRelance}, {conditionsPaiement}, {penalitesRetard}, {indemniteForfaitaire}, {societe}";
 
     // Ancien modèle par défaut (rappel avant la date de la prestation), remplacé s'il n'a pas été personnalisé.
     private static final String ANCIEN_RAPPEL_SUJET = "Rappel {numeroRappel} - Votre {typeVente} - {societe}";

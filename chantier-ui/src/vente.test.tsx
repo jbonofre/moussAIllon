@@ -176,6 +176,10 @@ describe('Transactions - liste', () => {
 
 describe('Transactions - onglet Produits & Paiements', () => {
     it('regroupe la note, les montants et les conditions de paiement avec les lignes', async () => {
+        const conditions = { conditionsPaiement: '30 jours nets', penalitesRetard: '3 fois le taux légal', indemniteForfaitaire: 45 };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/societe' ? conditions : (donnees[url] || []),
+        }) as any);
         const modal = await ouvrirNouvelleVente();
 
         const onglet = within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }).closest('[role="tabpanel"]') as HTMLElement;
@@ -183,9 +187,11 @@ describe('Transactions - onglet Produits & Paiements', () => {
         expect(within(onglet).getByLabelText('Note')).toBeInTheDocument();
         expect(within(onglet).getByLabelText('Montant TTC')).toBeInTheDocument();
         expect(within(onglet).getByLabelText("Date d'échéance")).toBeInTheDocument();
-        expect(within(onglet).getByLabelText('Conditions de paiement')).toBeInTheDocument();
-        expect(within(onglet).getByLabelText('Pénalités de retard')).toBeInTheDocument();
-        expect(within(onglet).getByLabelText('Indemnité forfaitaire (€)')).toBeInTheDocument();
+        // Conditions du paramétrage global, affichées sans être saisissables sur la transaction
+        expect(await within(onglet).findByText('30 jours nets')).toBeInTheDocument();
+        expect(within(onglet).getByText('3 fois le taux légal')).toBeInTheDocument();
+        expect(within(onglet).getByText('45.00 EUR')).toBeInTheDocument();
+        expect(within(onglet).queryByLabelText('Conditions de paiement')).toBeNull();
     });
 });
 

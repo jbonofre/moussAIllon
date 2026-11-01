@@ -4,6 +4,8 @@ import { Card, Row, Col, Space, Button, Divider, Form, Input, InputNumber, Spin,
 import { PauseCircleOutlined, DeploymentUnitOutlined, SaveOutlined } from '@ant-design/icons';
 import { demo } from './workspace.tsx';
 import ImageUpload from './ImageUpload.tsx';
+import ReactQuill from 'react-quill-new';
+import 'react-quill-new/dist/quill.snow.css';
 
 const { TextArea } = Input;
 
@@ -17,6 +19,9 @@ const RELANCES = [
 export default function Societe(props) {
 
     const [ societe, setSociete ] = useState();
+    // Modèle d'email des relances de paiement (type RAPPEL), modifiable avec le reste du paramétrage
+    const [ modeleRelance, setModeleRelance ] = useState(null);
+    const [ modeleCharge, setModeleCharge ] = useState(false);
 
     const [ societeForm ] = Form.useForm();
 
@@ -34,36 +39,61 @@ export default function Societe(props) {
        .catch((error) => {
             message.error('Une erreur est survenue: ' + error.message);
             console.error(error)
-       })
-    }, []);
-
-    if (!societe) {
-        return(<Spin/>);
-    }
-
-    const updateSocieteFunction = (values) => {
-        let newSociete = values;
-        fetchWithAuth('./societe', {
-            method: 'PUT',
-            body: JSON.stringify(newSociete),
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        })
-        .then((response) => {
+       });
+       // L'initialisation crée les modèles d'email manquants
+       fetchWithAuth('./email-templates/init', { method: 'POST' })
+       .then(() => fetchWithAuth('./email-templates'))
+       .then((response) => {
             if (!response.ok) {
                 throw new Error('Erreur (code ' + response.status + ')');
             }
             return response.json();
-        })
-        .then((data) => {
-            setSociete(data);
-            message.info('La société a été mise à jour.')
-        })
-        .catch((error) => {
+       })
+       .then((modeles) => {
+           setModeleRelance(modeles.find((m) => m.type === 'RAPPEL') || null);
+       })
+       .catch((error) => {
+            message.error('Le modèle d\'email de relance n\'a pas pu être chargé : ' + error.message);
+       })
+       .finally(() => setModeleCharge(true));
+    }, []);
+
+    if (!societe || !modeleCharge) {
+        return(<Spin/>);
+    }
+
+    const updateSocieteFunction = async (values) => {
+        const { relanceSujet, relanceContenu, ...newSociete } = values;
+        try {
+            const response = await fetchWithAuth('./societe', {
+                method: 'PUT',
+                body: JSON.stringify(newSociete),
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            if (!response.ok) {
+                throw new Error('Erreur (code ' + response.status + ')');
+            }
+            setSociete(await response.json());
+            if (modeleRelance && (relanceSujet !== modeleRelance.sujet || relanceContenu !== modeleRelance.contenu)) {
+                const reponseModele = await fetchWithAuth('./email-templates/' + modeleRelance.id, {
+                    method: 'PUT',
+                    body: JSON.stringify({ ...modeleRelance, sujet: relanceSujet, contenu: relanceContenu }),
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                if (!reponseModele.ok) {
+                    throw new Error('Erreur (code ' + reponseModele.status + ') sur le modèle d\'email de relance');
+                }
+                setModeleRelance(await reponseModele.json());
+            }
+            message.info('La société a été mise à jour.');
+        } catch (error) {
             message.error('Une erreur est survenue: ' + error.message);
-            console.error(error)
-        });
+            console.error(error);
+        }
     };
 
     return(
@@ -73,7 +103,8 @@ export default function Societe(props) {
                     form={societeForm}
                     onFinish={updateSocieteFunction}
                     wrapperCol={{ span: 16 }}
-                    style={{ width: '80%' }} initialValues={societe}>
+                    style={{ width: '80%' }}
+                    initialValues={{ ...societe, relanceSujet: modeleRelance?.sujet, relanceContenu: modeleRelance?.contenu }}>
                     <Form.Item name="nom" label="Nom" rules={[{required: true, message: 'Le nom est requis'}]}>
                         <Input allowClear={true} />
                     </Form.Item>
@@ -122,13 +153,29 @@ export default function Societe(props) {
                     <Form.Item name="images" label="Images">
                         <ImageUpload />
                     </Form.Item>
+                    <Divider titlePlacement="start">Conditions de paiement</Divider>
+                    <Form.Item label={null}>
+                        <Typography.Text type="secondary">
+                            Mentions communes à toutes les transactions, imprimées sur les devis et les factures.
+                            Une facture émise conserve les conditions en vigueur à la date de son émission.
+                        </Typography.Text>
+                    </Form.Item>
+                    <Form.Item name="conditionsPaiement" label="Conditions de paiement">
+                        <Input allowClear={true} placeholder="Ex : 30 jours nets, paiement comptant…" />
+                    </Form.Item>
+                    <Form.Item name="penalitesRetard" label="Pénalités de retard">
+                        <Input allowClear={true} placeholder="Ex : 3 fois le taux d'intérêt légal en vigueur" />
+                    </Form.Item>
+                    <Form.Item name="indemniteForfaitaire" label="Indemnité forfaitaire de recouvrement"
+                        rules={[{ required: true, message: 'L\'indemnité forfaitaire est requise' }]}>
+                        <InputNumber min={0} step={1} addonAfter="€" style={{ width: 200 }} />
+                    </Form.Item>
                     <Divider titlePlacement="start">Relances de paiement</Divider>
                     <Form.Item label={null}>
                         <Typography.Text type="secondary">
                             Relances envoyées automatiquement par email pour toutes les factures émises non soldées.
                             Les délais sont comptés à partir de la date d'échéance de la facture, ou de sa date d'émission
                             si aucune échéance n'est renseignée. Laisser vide pour désactiver une relance.
-                            Le message se modifie dans Paramétrage &gt; Emails (modèle « Relance de paiement »).
                         </Typography.Text>
                     </Form.Item>
                     {RELANCES.map(({ name, label, placeholder, precedents }) => (
@@ -150,6 +197,30 @@ export default function Societe(props) {
                             <InputNumber min={0} step={1} precision={0} prefix="J+" addonAfter="jours" placeholder={placeholder} style={{ width: 200 }} />
                         </Form.Item>
                     ))}
+                    {modeleRelance ? (
+                        <>
+                            <Form.Item name="relanceSujet" label="Sujet de l'email de relance"
+                                rules={[{ required: true, message: 'Le sujet est requis' }]}>
+                                <Input />
+                            </Form.Item>
+                            <Form.Item name="relanceContenu" label="Message de relance"
+                                rules={[{ required: true, message: 'Le message est requis' }]}>
+                                <ReactQuill theme="snow" style={{ height: 260, marginBottom: 42 }} />
+                            </Form.Item>
+                            <Form.Item label={null}>
+                                <Typography.Text type="secondary">
+                                    {modeleRelance.description}. Les variables entre accolades sont remplacées
+                                    à l'envoi par les valeurs de la facture relancée.
+                                </Typography.Text>
+                            </Form.Item>
+                        </>
+                    ) : (
+                        <Form.Item label={null}>
+                            <Typography.Text type="warning">
+                                Le modèle d'email de relance n'a pas pu être chargé : rechargez la page pour le modifier.
+                            </Typography.Text>
+                        </Form.Item>
+                    )}
                     <Form.Item label={null}>
                         <Space>
                             <Button onClick={() => societeForm.submit()} type="primary" icon={<SaveOutlined/>}>Enregistrer</Button>

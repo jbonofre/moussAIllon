@@ -5,15 +5,14 @@ import { MailOutlined, EditOutlined, InfoCircleOutlined } from '@ant-design/icon
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
+// Le modèle RAPPEL (relance de paiement) se modifie dans Paramétrage > Société, avec les conditions de paiement.
 const TYPE_LABELS = {
-    RAPPEL: 'Relance de paiement',
     INCIDENT: 'Incident',
     FACTURE: 'Facture',
     PRET_A_RECUPERER: 'Prêt à récupérer'
 };
 
 const TYPE_COLORS = {
-    RAPPEL: 'blue',
     INCIDENT: 'red',
     FACTURE: 'green',
     PRET_A_RECUPERER: 'orange'
@@ -38,7 +37,7 @@ export default function Emails() {
                 return response.json();
             })
             .then((data) => {
-                setTemplates(data);
+                setTemplates(data.filter((template) => template.type !== 'RAPPEL'));
             })
             .catch((error) => {
                 message.error('Une erreur est survenue: ' + error.message);
@@ -130,6 +129,7 @@ export default function Emails() {
                         <InfoCircleOutlined />
                         <span style={{ opacity: 0.7 }}>
                             Personnalisez le contenu des emails envoyés automatiquement. Utilisez les variables entre accolades (ex: {'{client}'}, {'{societe}'}) qui seront remplacées par les valeurs réelles lors de l'envoi.
+                            L'email de relance de paiement se modifie dans Paramétrage &gt; Société, avec les conditions de paiement.
                         </span>
                     </Space>
                     <Table

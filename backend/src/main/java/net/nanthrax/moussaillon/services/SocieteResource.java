@@ -44,6 +44,9 @@ public class SocieteResource {
     @Transactional
     public SocieteEntity update(SocieteEntity societe) {
         validerRelances(societe);
+        if (societe.indemniteForfaitaire < 0) {
+            throw new WebApplicationException("L'indemnité forfaitaire doit être positive", 400);
+        }
         SocieteEntity entity = SocieteEntity.findById(1);
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
@@ -65,6 +68,9 @@ public class SocieteResource {
         entity.iban = societe.iban;
         entity.bic = societe.bic;
         entity.images = societe.images;
+        entity.conditionsPaiement = societe.conditionsPaiement;
+        entity.penalitesRetard = societe.penalitesRetard;
+        entity.indemniteForfaitaire = societe.indemniteForfaitaire;
         entity.relance1Jours = societe.relance1Jours;
         entity.relance2Jours = societe.relance2Jours;
         entity.relance3Jours = societe.relance3Jours;

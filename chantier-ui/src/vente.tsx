@@ -364,6 +364,9 @@ interface SocieteData {
     iban?: string;
     bic?: string;
     images?: string[];
+    conditionsPaiement?: string;
+    penalitesRetard?: string;
+    indemniteForfaitaire?: number;
 }
 
 interface VenteProduitLigne {
@@ -509,9 +512,6 @@ interface VenteFormValues {
     images?: string[];
     documents?: string[];
     dateEcheance?: string;
-    conditionsPaiement?: string;
-    penalitesRetard?: string;
-    indemniteForfaitaire?: number;
     note?: string;
 }
 
@@ -610,7 +610,6 @@ const defaultVente: VenteFormValues = {
     prixVenteTTC: 0,
     images: [],
     documents: [],
-    indemniteForfaitaire: 40,
 };
 
 // Une intervention est un forfait ou un service : la main d'oeuvre passe par eux
@@ -688,6 +687,8 @@ export default function Vente() {
     const [isEdit, setIsEdit] = useState(false);
     const [currentVente, setCurrentVente] = useState<VenteEntity | null>(null);
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
+    // Conditions de paiement du paramétrage global (société), recopiées sur la vente jusqu'à l'émission de la facture
+    const [conditionsSociete, setConditionsSociete] = useState<SocieteData | null>(null);
     const [form] = Form.useForm<VenteFormValues>();
     const watchedStatus = Form.useWatch('status', form) as VenteStatus | undefined;
     const watchedBonPourAccord = Form.useWatch('bonPourAccord', form) as boolean | undefined;
@@ -1086,6 +1087,14 @@ export default function Vente() {
     useEffect(() => {
         fetchVentes();
         fetchOptions();
+        (async () => {
+            try {
+                const res = await api.get<SocieteData>('/societe');
+                setConditionsSociete(res.data || null);
+            } catch {
+                // conditions non affichées en cas d'erreur
+            }
+        })();
     }, []);
 
     useEffect(() => {
@@ -1824,9 +1833,6 @@ export default function Vente() {
             images: vente.images || [],
             documents: vente.documents || [],
             dateEcheance: toDateDayjs(vente.dateEcheance) as any,
-            conditionsPaiement: vente.conditionsPaiement,
-            penalitesRetard: vente.penalitesRetard,
-            indemniteForfaitaire: vente.indemniteForfaitaire ?? 40,
             note: vente.note,
         });
     };
@@ -2143,9 +2149,6 @@ export default function Vente() {
             }),
             date: toBackendDateValue(values.date),
             dateEcheance: toBackendDateValue(values.dateEcheance),
-            conditionsPaiement: values.conditionsPaiement,
-            penalitesRetard: values.penalitesRetard,
-            indemniteForfaitaire: values.indemniteForfaitaire,
             montantHT: values.montantHT || 0,
             remise: values.remise || 0,
             tva: values.tva || 0,
@@ -3906,22 +3909,29 @@ export default function Vente() {
                                                 </Form.Item>
                                             </Col>
                                             <Col span={18}>
-                                                <Form.Item name="conditionsPaiement" label="Conditions de paiement">
-                                                    <Input placeholder="ex : 30 jours nets, comptant…" />
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
-
-                                        <Row gutter={16}>
-                                            <Col span={12}>
-                                                <Form.Item name="penalitesRetard" label="Pénalités de retard">
-                                                    <Input placeholder="ex : 1,5 fois le taux d'intérêt légal en vigueur" />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col span={6}>
-                                                <Form.Item name="indemniteForfaitaire" label="Indemnité forfaitaire (€)">
-                                                    <InputNumber addonAfter="EUR" min={0} step={1} style={{ width: '100%' }} />
-                                                </Form.Item>
+                                                {(() => {
+                                                    // Une facture émise garde ses conditions ; sinon ce sont celles du paramétrage global
+                                                    const factureEmise = currentVente?.status === 'FACTURE_PRETE' || currentVente?.status === 'FACTURE_PAYEE';
+                                                    const conditions = factureEmise ? currentVente : conditionsSociete;
+                                                    return (
+                                                        <>
+                                                            <Descriptions
+                                                                size="small"
+                                                                column={1}
+                                                                items={[
+                                                                    { key: 'conditions', label: 'Conditions de paiement', children: conditions?.conditionsPaiement || '—' },
+                                                                    { key: 'penalites', label: 'Pénalités de retard', children: conditions?.penalitesRetard || '—' },
+                                                                    { key: 'indemnite', label: 'Indemnité forfaitaire de recouvrement', children: formatEuro(conditions?.indemniteForfaitaire ?? 40) },
+                                                                ]}
+                                                            />
+                                                            <div style={{ color: '#8c8c8c' }}>
+                                                                {factureEmise
+                                                                    ? 'Conditions en vigueur à l\'émission de la facture.'
+                                                                    : 'Conditions communes à toutes les transactions, définies dans Paramétrage > Société.'}
+                                                            </div>
+                                                        </>
+                                                    );
+                                                })()}
                                             </Col>
                                         </Row>
                                     </>

@@ -110,6 +110,10 @@ public class RappelScheduler {
         variables.put("{montantRegle}", String.format("%.2f", vente.prixVenteTTC - soldeDu));
         variables.put("{soldeDu}", String.format("%.2f", soldeDu));
         variables.put("{numeroRelance}", numeroRelance > 0 ? String.valueOf(numeroRelance) : "");
+        // Conditions figurant sur la facture (celles de la société à l'émission)
+        variables.put("{conditionsPaiement}", vente.conditionsPaiement != null ? vente.conditionsPaiement : "");
+        variables.put("{penalitesRetard}", vente.penalitesRetard != null ? vente.penalitesRetard : "");
+        variables.put("{indemniteForfaitaire}", String.format("%.2f", vente.indemniteForfaitaire));
         variables.put("{societe}", societeNom);
         // Variables de l'ancien modèle de rappel, conservées pour les modèles déjà personnalisés
         variables.put("{reference}", numeroFacture);

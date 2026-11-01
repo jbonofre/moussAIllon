@@ -1,6 +1,8 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
+import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
@@ -328,28 +330,72 @@ public class VenteResourceTest {
             .body("numeroFacture", is(numero));
     }
 
-    @Test
-    void testModifierVenteAvecChampsPaiementLegaux() {
-        int id = given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0}")
-            .when().post("/ventes")
-            .then().statusCode(201).extract().path("id");
+    /** Conditions de paiement de la société, modifiées dans une transaction à part pour être vues des appels REST. */
+    private static void conditionsSociete(String conditions, String penalites, double indemnite) {
+        QuarkusTransaction.requiringNew().run(() -> {
+            SocieteEntity societe = SocieteEntity.findById(1L);
+            societe.conditionsPaiement = conditions;
+            societe.penalitesRetard = penalites;
+            societe.indemniteForfaitaire = indemnite;
+        });
+    }
 
-        given()
-            .contentType("application/json")
-            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,"
-                + "\"dateEcheance\":\"2026-12-31\","
-                + "\"conditionsPaiement\":\"30 jours nets\","
-                + "\"penalitesRetard\":\"3 fois le taux légal\","
-                + "\"indemniteForfaitaire\":45.0}")
-            .when().put("/ventes/" + id)
-            .then()
-            .statusCode(200)
-            .body("conditionsPaiement", is("30 jours nets"))
-            .body("penalitesRetard", is("3 fois le taux légal"))
-            .body("indemniteForfaitaire", is(45.0f))
-            .body("dateEcheance", notNullValue());
+    @Test
+    void testConditionsPaiementReprisesDeLaSociete() {
+        conditionsSociete("30 jours nets", "3 fois le taux légal", 40.0);
+        try {
+            // Les valeurs envoyées sont ignorées : elles viennent du paramétrage global
+            int id = given()
+                .contentType("application/json")
+                .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,\"conditionsPaiement\":\"comptant\",\"indemniteForfaitaire\":10.0}")
+                .when().post("/ventes")
+                .then().statusCode(201)
+                .body("conditionsPaiement", is("30 jours nets"))
+                .body("penalitesRetard", is("3 fois le taux légal"))
+                .body("indemniteForfaitaire", is(40.0f))
+                .extract().path("id");
+
+            // Tant que la facture n'est pas émise, la vente suit le paramétrage
+            conditionsSociete("45 jours fin de mois", "taux BCE + 10 points", 50.0);
+            given()
+                .contentType("application/json")
+                .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,\"dateEcheance\":\"2026-12-31\"}")
+                .when().put("/ventes/" + id)
+                .then()
+                .statusCode(200)
+                .body("conditionsPaiement", is("45 jours fin de mois"))
+                .body("penalitesRetard", is("taux BCE + 10 points"))
+                .body("indemniteForfaitaire", is(50.0f))
+                .body("dateEcheance", notNullValue());
+        } finally {
+            conditionsSociete(null, null, 40.0);
+        }
+    }
+
+    @Test
+    void testConditionsPaiementFigeesAEmissionFacture() {
+        conditionsSociete("30 jours nets", "3 fois le taux légal", 40.0);
+        try {
+            String corps = "{\"status\":\"%s\",\"bonPourAccord\":true,\"prixVenteTTC\":300.0}";
+            int id = given().contentType("application/json").body(String.format(corps, "DEVIS"))
+                .when().post("/ventes")
+                .then().statusCode(201).extract().path("id");
+            given().contentType("application/json").body(String.format(corps, "FACTURE_PRETE"))
+                .when().put("/ventes/" + id)
+                .then().statusCode(200)
+                .body("conditionsPaiement", is("30 jours nets"));
+
+            // La facture émise garde les conditions en vigueur à son émission
+            conditionsSociete("comptant", null, 60.0);
+            given().contentType("application/json").body(String.format(corps, "FACTURE_PRETE"))
+                .when().put("/ventes/" + id)
+                .then().statusCode(200)
+                .body("conditionsPaiement", is("30 jours nets"))
+                .body("penalitesRetard", is("3 fois le taux légal"))
+                .body("indemniteForfaitaire", is(40.0f));
+        } finally {
+            conditionsSociete(null, null, 40.0);
+        }
     }
 
     @Test

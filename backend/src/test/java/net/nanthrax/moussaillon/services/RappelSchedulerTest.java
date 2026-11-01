@@ -4,6 +4,7 @@ import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
+import net.nanthrax.moussaillon.persistence.EmailTemplateEntity;
 import net.nanthrax.moussaillon.persistence.RappelHistoriqueEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
@@ -189,6 +190,36 @@ public class RappelSchedulerTest {
         List<RappelHistoriqueEntity> envois = historique(vente);
         assertEquals(1, envois.size());
         assertTrue(envois.get(0).contenu.contains(String.format("%.2f", 300.0)), "Le message reprend le solde dû (300)");
+    }
+
+    @Test
+    @TestTransaction
+    void testMessageReprendLesConditionsDeLaFacture() {
+        parametrerRelances(15, 30, 45);
+        EmailTemplateEntity modele = EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RAPPEL);
+        boolean nouveau = modele == null;
+        if (nouveau) {
+            modele = new EmailTemplateEntity();
+            modele.type = EmailTemplateEntity.Type.RAPPEL;
+        }
+        modele.sujet = "Relance {numeroFacture}";
+        modele.contenu = "Conditions : {conditionsPaiement} / Pénalités : {penalitesRetard} / Indemnité : {indemniteForfaitaire}";
+        if (nouveau) {
+            modele.persist();
+        }
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(20);
+        vente.conditionsPaiement = "30 jours nets";
+        vente.penalitesRetard = "3 fois le taux légal";
+        vente.indemniteForfaitaire = 40.0;
+        vente.persist();
+
+        rappelScheduler.envoyerRelances();
+
+        List<RappelHistoriqueEntity> envois = historique(vente);
+        assertEquals(1, envois.size());
+        assertEquals("Conditions : 30 jours nets / Pénalités : 3 fois le taux légal / Indemnité : " + String.format("%.2f", 40.0),
+            envois.get(0).contenu);
     }
 
     @Test
