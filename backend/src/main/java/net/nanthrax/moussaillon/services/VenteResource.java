@@ -835,6 +835,11 @@ public class VenteResource {
         entity.prixVenteTTC = vente.prixVenteTTC;
         entity.modePaiement = vente.modePaiement;
 
+        // Des acomptes peuvent déjà couvrir la facture quand elle devient prête
+        if (!entity.paiements.isEmpty()) {
+            marquerPayeeSiSoldee(entity);
+        }
+
         attribuerNumeroDocument(entity);
 
         return entity;
@@ -956,11 +961,9 @@ public class VenteResource {
         if (entity == null) {
             throw new WebApplicationException("La vente (" + id + ") n'est pas trouvée", 404);
         }
+        // Les paiements sont acceptés dès le devis (acomptes), tant que la vente n'est pas payée
         if (entity.status == VenteEntity.Status.FACTURE_PAYEE) {
             throw new WebApplicationException("Une vente payée ne peut plus être modifiée", 400);
-        }
-        if (entity.status != VenteEntity.Status.FACTURE_PRETE) {
-            throw new WebApplicationException("Les paiements ne peuvent être ajoutés qu'à une facture prête", 400);
         }
         if (request.montant <= 0) {
             throw new WebApplicationException("Le montant doit être supérieur à zéro", 400);

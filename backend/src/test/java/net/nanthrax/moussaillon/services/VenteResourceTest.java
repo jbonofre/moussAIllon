@@ -663,6 +663,52 @@ public class VenteResourceTest {
         given().when().get("/ventes/" + id).then().statusCode(200).body("status", is("FACTURE_PAYEE"));
     }
 
+    @Test
+    void testAcompteSurDevis() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":300.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"mode\":\"CHEQUE\",\"montant\":100.0,\"notes\":\"Acompte\"}")
+            .when().post("/ventes/" + id + "/paiements")
+            .then().statusCode(200);
+
+        given().when().get("/ventes/" + id).then().statusCode(200)
+            .body("status", is("DEVIS"))
+            .body("paiements.size()", is(1))
+            .body("paiements[0].montant", is(100.0f));
+    }
+
+    @Test
+    void testAcompteSoldantPasseEnPayeeAFacturation() {
+        String corps = "{\"status\":\"%s\",\"bonPourAccord\":true,\"prixVenteTTC\":120.0,\"client\":{\"id\":100}}";
+        int id = given()
+            .contentType("application/json")
+            .body(String.format(corps, "DEVIS"))
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        String passe = java.time.LocalDateTime.now().minusDays(1).withNano(0).format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+        given()
+            .contentType("application/json")
+            .body("{\"mode\":\"VIREMENT\",\"montant\":120.0,\"date\":\"" + passe + "\"}")
+            .when().post("/ventes/" + id + "/paiements")
+            .then().statusCode(200);
+        // Le devis réglé d'avance reste un devis
+        given().when().get("/ventes/" + id).then().statusCode(200).body("status", is("DEVIS"));
+
+        given()
+            .contentType("application/json")
+            .body(String.format(corps, "FACTURE_PRETE"))
+            .when().put("/ventes/" + id)
+            .then().statusCode(200)
+            .body("status", is("FACTURE_PAYEE"));
+    }
+
     // --- Parc client ---
 
     private int vendre(String lignes) {

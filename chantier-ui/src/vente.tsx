@@ -2159,7 +2159,8 @@ export default function Vente() {
         };
     };
 
-    const handleSave = async () => {
+    // Renvoie la vente enregistrée, ou undefined si la validation ou l'enregistrement échoue
+    const handleSave = async (): Promise<VenteEntity | undefined> => {
         try {
             const values = await form.validateFields();
             const payload = toPayload(values);
@@ -2168,6 +2169,7 @@ export default function Vente() {
                 payload.signatureBonPourAccord = signatureValue;
             }
             suppressDirtyRef.current = true;
+            let saved: VenteEntity;
             if (isEdit && currentVente?.id) {
                 const res = await api.put(`/ventes/${currentVente.id}`, { ...currentVente, ...payload });
                 capturedSignatureRef.current = null;
@@ -2175,6 +2177,7 @@ export default function Vente() {
                 setCurrentVente(res.data);
                 snapshotSavedLines(res.data);
                 populateForm(res.data);
+                saved = res.data;
             } else {
                 const res = await api.post('/ventes', payload);
                 capturedSignatureRef.current = null;
@@ -2183,6 +2186,7 @@ export default function Vente() {
                 setCurrentVente(res.data);
                 snapshotSavedLines(res.data);
                 populateForm(res.data);
+                saved = res.data;
             }
             const crees = (values.lignes || []).flatMap((l) => (l.libre ? [(l.libre.designation || '').trim()] : []));
             if (crees.length > 0) {
@@ -2191,6 +2195,7 @@ export default function Vente() {
             setFormDirty(false);
             setTimeout(() => { suppressDirtyRef.current = false; }, 0);
             fetchVentes();
+            return saved;
         } catch (error) {
             suppressDirtyRef.current = false;
             // Les erreurs de validation sont affichees par le formulaire ; celles du serveur
@@ -2281,16 +2286,25 @@ export default function Vente() {
         }
     };
 
-    const openPaiementModal = async () => {
-        const restant = (currentVente?.prixVenteTTC ?? 0) -
-            (currentVente?.paiements ?? []).reduce((s, p) => s + p.montant, 0);
+    const openPaiementModal = (vente: VenteEntity | null = currentVente) => {
+        const restant = (vente?.prixVenteTTC ?? 0) -
+            (vente?.paiements ?? []).reduce((s, p) => s + p.montant, 0);
         setPaiementMode('CHEQUE');
         setPaiementMontant(Math.max(0, Math.round(restant * 100) / 100));
-        setPaiementNotes('');
+        // Avant la facture, un paiement est un acompte
+        setPaiementNotes(vente?.status === 'DEVIS' || vente?.status === 'FACTURE_EN_ATTENTE' ? 'Acompte' : '');
         setPaiementDate(dayjs());
         setPaiementAvoirId(null);
         setAvoirsDisponibles([]);
         setPaiementModalVisible(true);
+    };
+
+    // Transaction pas encore enregistrée : on l'enregistre avant de saisir le paiement (acompte)
+    const ajouterPaiementNouvelleVente = async () => {
+        const saved = await handleSave();
+        if (saved?.id) {
+            openPaiementModal(saved);
+        }
     };
 
     const loadAvoirsDisponibles = async (mode: ModeReglement) => {
@@ -3790,7 +3804,6 @@ export default function Vente() {
                                             </div>
                                         </div>
 
-                                        {(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE') && (
                                         <div style={{ marginBottom: 16 }}>
                                                             {isEdit && (
                                                                 <>
@@ -3805,7 +3818,7 @@ export default function Vente() {
                                                                                 <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
                                                                                     <Col>
                                                                                         <Space>
-                                                                                            <span>Total facture : <strong>{formatEuro(totalFacture)}</strong></span>
+                                                                                            <span>Total TTC : <strong>{formatEuro(totalFacture)}</strong></span>
                                                                                             <span>Total payé : <strong style={{ color: totalPaye >= totalFacture - 0.005 ? '#52c41a' : '#faad14' }}>{formatEuro(totalPaye)}</strong></span>
                                                                                             {restant > 0.005 && <span>Solde dû : <strong style={{ color: '#ff4d4f' }}>{formatEuro(restant)}</strong></span>}
                                                                                         </Space>
@@ -3814,7 +3827,7 @@ export default function Vente() {
                                                                                         <Button
                                                                                             type="primary"
                                                                                             icon={<PlusCircleOutlined />}
-                                                                                            onClick={openPaiementModal}
+                                                                                            onClick={() => openPaiementModal()}
                                                                                             disabled={watchedStatus === 'FACTURE_PAYEE'}
                                                                                         >
                                                                                             Ajouter un paiement
@@ -3873,10 +3886,18 @@ export default function Vente() {
                                                                 </>
                                                             )}
                                                             {!isEdit && (
-                                                                <div style={{ color: '#8c8c8c' }}>Enregistrez d'abord la facture pour gérer les paiements.</div>
+                                                                <Row justify="space-between" align="middle" style={{ marginBottom: 12 }}>
+                                                                    <Col style={{ color: '#8c8c8c' }}>
+                                                                        Aucun paiement enregistré. Un acompte peut être saisi dès maintenant : la transaction sera enregistrée au préalable.
+                                                                    </Col>
+                                                                    <Col>
+                                                                        <Button type="primary" icon={<PlusCircleOutlined />} onClick={ajouterPaiementNouvelleVente}>
+                                                                            Ajouter un paiement
+                                                                        </Button>
+                                                                    </Col>
+                                                                </Row>
                                                             )}
                                         </div>
-                                        )}
 
                                         <Row gutter={16}>
                                             <Col span={6}>
