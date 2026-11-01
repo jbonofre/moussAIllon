@@ -50,6 +50,7 @@ import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteMod
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
 import { paginationConfig } from './pagination.ts';
+import { CLIENT_NOM_AIDE, CLIENT_NOM_PLACEHOLDER } from './client-nom.ts';
 import {
     ArticleALaVolee,
     LigneLibre,
@@ -2631,8 +2632,8 @@ export default function Comptoir() {
                         </Row>
                         <Row gutter={16}>
                             <Col span={12}>
-                                <Form.Item name="nom" label="Nom" rules={[{ required: true, message: 'Le nom est requis' }]}>
-                                    <Input allowClear />
+                                <Form.Item name="nom" label="Nom" extra={CLIENT_NOM_AIDE} rules={[{ required: true, message: 'Le nom est requis' }]}>
+                                    <Input placeholder={CLIENT_NOM_PLACEHOLDER} allowClear />
                                 </Form.Item>
                             </Col>
                         </Row>

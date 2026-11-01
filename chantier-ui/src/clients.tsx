@@ -48,6 +48,7 @@ import PrestationsList from "./PrestationsList.tsx";
 import HistoriqueOperations from "./historique-operations.tsx";
 import ImportCsvButton from "./ImportCsvButton.tsx";
 import { paginationConfig } from "./pagination.ts";
+import { CLIENT_NOM_AIDE, CLIENT_NOM_PLACEHOLDER } from "./client-nom.ts";
 import SearchAutoComplete from "./SearchAutoComplete.tsx";
 
 const { Option } = Select;
@@ -399,8 +400,8 @@ function Clients() {
               </Form.Item>
             </Col>
           </Row>
-          <Form.Item label="Nom" name="nom" rules={[{ required: true, message: "Le nom est requis" }]}>
-            <Input />
+          <Form.Item label="Nom" name="nom" extra={CLIENT_NOM_AIDE} rules={[{ required: true, message: "Le nom est requis" }]}>
+            <Input placeholder={CLIENT_NOM_PLACEHOLDER} />
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
