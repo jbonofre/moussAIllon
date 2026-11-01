@@ -108,7 +108,35 @@ public class DataInitializer {
         } catch (Exception e) {
             LOG.warn("Impossible d'élargir la colonne contenu de RappelHistoriqueEntity", e);
         }
+        try {
+            convertirTypeModelesEmail();
+        } catch (Exception e) {
+            LOG.warn("Impossible de convertir la colonne type de EmailTemplateEntity", e);
+        }
         EmailTemplateResource.migrerModeleRelance();
+    }
+
+    /**
+     * H2 crée la colonne d'un enum en ENUM natif, figé sur les valeurs connues à sa création :
+     * le type PRET_A_RECUPERER, ajouté depuis, y est refusé. L'initialisation des modèles d'email
+     * échouait alors en bloc, laissant la base sans aucun modèle (dont celui des relances).
+     */
+    private void convertirTypeModelesEmail() {
+        EntityManager em = SocieteEntity.getEntityManager();
+        em.unwrap(Session.class).doWork(connection -> {
+            try (Statement query = connection.createStatement();
+                 ResultSet rs = query.executeQuery(
+                     "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS "
+                         + "WHERE TABLE_NAME = 'EMAILTEMPLATEENTITY' AND COLUMN_NAME = 'TYPE'")) {
+                if (!rs.next() || !"ENUM".equals(rs.getString(1))) {
+                    return;
+                }
+            }
+            try (Statement alter = connection.createStatement()) {
+                alter.executeUpdate("ALTER TABLE EmailTemplateEntity ALTER COLUMN type SET DATA TYPE VARCHAR(64)");
+                LOG.info("Colonne EmailTemplateEntity.type convertie en VARCHAR");
+            }
+        });
     }
 
     /**
