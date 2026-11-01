@@ -3,6 +3,7 @@ package net.nanthrax.moussaillon.persistence;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 
@@ -10,12 +11,14 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@EntityListeners(FormatNomListener.class)
 public class ProduitCatalogueEntity extends PanacheEntity {
 
     @jakarta.persistence.Transient
     public List<String> referencesFournisseurs;
 
     @Column(nullable = false)
+    @FormatNom
     public String designation;
 
     @Column(nullable = false)

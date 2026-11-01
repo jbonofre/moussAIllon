@@ -74,6 +74,51 @@ public class ClientResourceTest {
     }
 
     @Test
+    void testNomEtAdresseReformatesEnCasseTitre() {
+        // Saisi tout en majuscules : reformaté en « Foo Bar » dès la création.
+        int id = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"KERMARREC YANN\",\"type\":\"PARTICULIER\",\"adresse\":\"3 QUAI DE L'ODET\\n29000 QUIMPER\"}")
+            .when().post("/clients")
+            .then()
+            .statusCode(200)
+            .body("nom", is("Kermarrec Yann"))
+            .body("adresse", is("3 Quai De L'Odet\n29000 Quimper"))
+            .extract().path("id");
+
+        // Saisi tout en minuscules lors d'une modification : reformaté aussi, et enregistré ainsi.
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"kermarrec yann-erwan\",\"type\":\"PARTICULIER\",\"email\":\"YANN@TEST.COM\"}")
+            .when().put("/clients/" + id)
+            .then()
+            .statusCode(200)
+            .body("nom", is("Kermarrec Yann-Erwan"));
+
+        given()
+            .when().get("/clients/" + id)
+            .then()
+            .statusCode(200)
+            .body("nom", is("Kermarrec Yann-Erwan"))
+            // L'email n'est pas un nom : il reste tel que saisi.
+            .body("email", is("YANN@TEST.COM"));
+
+        // Casse mixte : considérée comme voulue, laissée telle quelle.
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"McDonald Ronald\",\"type\":\"PARTICULIER\"}")
+            .when().put("/clients/" + id)
+            .then()
+            .statusCode(200);
+
+        given()
+            .when().get("/clients/" + id)
+            .then()
+            .statusCode(200)
+            .body("nom", is("McDonald Ronald"));
+    }
+
+    @Test
     void testRechercherClients() {
         given()
             .queryParam("q", "dupont")
@@ -191,13 +236,13 @@ public class ClientResourceTest {
             .body("errors", is(0));
 
         given()
-            .queryParam("q", "Paul Martin")
+            .queryParam("q", "Martin Paul")
             .when().get("/clients/search")
             .then()
             .statusCode(200)
             .body("size()", is(1))
-            // Le fichier exporte "Nom Prénom" ("Martin Paul") : l'import inverse en "Prénom Nom".
-            .body("[0].nom", is("Paul Martin"))
+            // Le fichier exporte "Nom Prénom" ("Martin Paul") : l'import garde cet ordre.
+            .body("[0].nom", is("Martin Paul"))
             .body("[0].email", is("import@test.com"))
             // "QUIMPER" (majuscules) est reformaté en "Quimper".
             .body("[0].adresse", is("1 rue du Test\n29000 Quimper"));
@@ -213,7 +258,7 @@ public class ClientResourceTest {
             .body("updated", is(1));
 
         given()
-            .queryParam("q", "Paul Martin")
+            .queryParam("q", "Martin Paul")
             .when().get("/clients/search")
             .then()
             .statusCode(200)
@@ -223,7 +268,7 @@ public class ClientResourceTest {
     @Test
     void testImporterClientsCsvNomEnMajuscules() {
         // Nom entièrement en majuscules dans le fichier exporté : doit être reformaté en casse
-        // "Titre" puis inversé ("Nom Prénom" -> "Prénom Nom").
+        // "Titre", sans changer l'ordre "Nom Prénom".
         String csv = "Code (tiers);Nom;E-mail (facturation);Adresse 1 (facturation);Code postal (facturation);Ville (facturation);Code Pays (facturation);Téléphone fixe (facturation);Téléphone portable (facturation);Fax (facturation)\r\n"
             + "TST002;FOO BAR;majuscules@test.com;12 AVENUE DE LA MER;29000;BREST;FR;;;\r\n";
 
@@ -235,13 +280,85 @@ public class ClientResourceTest {
             .body("created", is(1));
 
         given()
-            .queryParam("q", "Bar Foo")
+            .queryParam("q", "Foo Bar")
             .when().get("/clients/search")
             .then()
             .statusCode(200)
             .body("size()", is(1))
-            .body("[0].nom", is("Bar Foo"))
+            .body("[0].nom", is("Foo Bar"))
             .body("[0].adresse", is("12 Avenue De La Mer\n29000 Brest"));
+    }
+
+    @Test
+    void testImporterClientsCsvNomsComposes() {
+        // Prénom composé sans tiret, nom composé et société : l'ordre du fichier est conservé
+        // tel quel, sans chercher à séparer le nom du prénom (#703).
+        String csv = "Code (tiers);Nom;E-mail (facturation);Adresse 1 (facturation);Code postal (facturation);Ville (facturation);Code Pays (facturation);Téléphone fixe (facturation);Téléphone portable (facturation);Fax (facturation)\r\n"
+            + "TST703A;HAMON JEAN LUC;;;;;FR;;;\r\n"
+            + "TST703B;LE GALL JEAN PIERRE;;;;;FR;;;\r\n"
+            + "TST703C;CHANTIER NAVAL DE L'ODET;;;;;FR;;;\r\n";
+
+        given()
+            .multiPart("file", "clients.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(3))
+            .body("errors", is(0));
+
+        given()
+            .queryParam("q", "Hamon")
+            .when().get("/clients/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].nom", is("Hamon Jean Luc"));
+
+        given()
+            .queryParam("q", "Le Gall")
+            .when().get("/clients/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].nom", is("Le Gall Jean Pierre"));
+
+        given()
+            .queryParam("q", "Odet")
+            .when().get("/clients/search")
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].nom", is("Chantier Naval De L'Odet"));
+    }
+
+    @Test
+    void testReimporterClientsCsvRetablitOrdreNomPrenom() {
+        // Un client importé avant la correction de #703 a été enregistré inversé ("Anne Kervella Marie") ;
+        // ré-importer le fichier le retrouve par Code tiers et rétablit le nom du fichier.
+        int id = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Anne Kervella Marie\",\"type\":\"PARTICULIER\",\"codeTiers\":\"TST703D\"}")
+            .when().post("/clients")
+            .then()
+            .statusCode(200)
+            .extract().path("id");
+
+        String csv = "Code (tiers);Nom;E-mail (facturation);Adresse 1 (facturation);Code postal (facturation);Ville (facturation);Code Pays (facturation);Téléphone fixe (facturation);Téléphone portable (facturation);Fax (facturation)\r\n"
+            + "TST703D;KERVELLA MARIE ANNE;;;;;FR;;;\r\n";
+
+        given()
+            .multiPart("file", "clients.csv", csv.getBytes(StandardCharsets.ISO_8859_1), "text/csv")
+            .when().post("/clients/import")
+            .then()
+            .statusCode(200)
+            .body("created", is(0))
+            .body("updated", is(1));
+
+        given()
+            .when().get("/clients/" + id)
+            .then()
+            .statusCode(200)
+            .body("nom", is("Kervella Marie Anne"));
     }
 
     @Test

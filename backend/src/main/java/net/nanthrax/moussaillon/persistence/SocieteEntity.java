@@ -9,9 +9,11 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Entity
+@EntityListeners(FormatNomListener.class)
 public class SocieteEntity extends PanacheEntity {
 
     @Column(nullable = false)
+    @FormatNom
     public String nom;
 
     @Column(nullable = false)
@@ -30,6 +32,7 @@ public class SocieteEntity extends PanacheEntity {
     public String numerotva;
 
     @Column(nullable = false)
+    @FormatNom
     public String adresse;
 
     public String telephone;

@@ -7,6 +7,7 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
@@ -16,9 +17,11 @@ import jakarta.persistence.OneToMany;
  * Un package sert de modèle : l'ajouter à une vente y recopie ses lignes.
  */
 @Entity
+@EntityListeners(FormatNomListener.class)
 public class PackageEntity extends PanacheEntity {
 
     @Column(nullable = false)
+    @FormatNom
     public String designation;
 
     public String ref;

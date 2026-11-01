@@ -50,6 +50,19 @@ public class TechnicienResourceTest {
     }
 
     @Test
+    void testCreerTechnicienNomPrenomReformates() {
+        // Nom et prénom saisis tout en majuscules ou tout en minuscules : reformatés en casse "Titre".
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"LE BIHAN\",\"prenom\":\"anne-sophie\",\"email\":\"as@test.com\"}")
+            .when().post("/techniciens")
+            .then()
+            .statusCode(200)
+            .body("nom", is("Le Bihan"))
+            .body("prenom", is("Anne-Sophie"));
+    }
+
+    @Test
     void testModifierTechnicien() {
         int id = given()
             .contentType("application/json")

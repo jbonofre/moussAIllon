@@ -6,12 +6,15 @@ import java.util.List;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
 
 @Entity
+@EntityListeners(FormatNomListener.class)
 public class ServiceEntity extends PanacheEntity {
 
+    @FormatNom
     public String nom;
 
     public String description;

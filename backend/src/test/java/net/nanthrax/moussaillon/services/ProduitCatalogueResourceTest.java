@@ -319,7 +319,8 @@ public class ProduitCatalogueResourceTest {
     @Test
     void testImporterProduitsCsvLibelleEnMajuscules() {
         // Libellé entièrement en majuscules dans le fichier exporté (ex. EBP) : doit être
-        // reformaté en casse "Titre", comme pour l'import clients.
+        // reformaté en casse "Titre", comme pour l'import clients. Les mots contenant un chiffre
+        // ("4T") sont des références : ils restent tels quels.
         String csv = "Code article,Libellé,Type d'article,PV HT,Unité,PV TTC,Code barre,Stock virtuel,Stock réel,Statut,Géré en stock\r\n"
             + "MAJ001,HUILE MOTEUR 4T,Bien,\"10,00000\",,\"12,00000\",,\"0,00\",\"0,00\",Actif,Coché\r\n";
 
@@ -336,7 +337,7 @@ public class ProduitCatalogueResourceTest {
             .then()
             .statusCode(200)
             .body("size()", is(1))
-            .body("[0].designation", is("Huile Moteur 4t"));
+            .body("[0].designation", is("Huile Moteur 4T"));
     }
 
     @Test
