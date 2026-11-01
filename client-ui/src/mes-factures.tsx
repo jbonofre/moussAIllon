@@ -95,6 +95,7 @@ interface VenteEntity {
     prixVenteTTC?: number;
     modePaiement?: string;
     signatureBonPourAccord?: string;
+    note?: string;
     paiements?: VentePaiement[];
     venteForfaits?: VenteForfaitEntry[];
     venteServices?: VenteServiceEntry[];
@@ -540,6 +541,10 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
             ? `<div class="section"><h3>Signature client</h3><img src="${vente.signatureBonPourAccord}" style="max-width:300px;border:1px solid #d9d9d9;border-radius:4px;" /></div>`
             : '';
 
+        const noteHtml = vente.note
+            ? `<div class="section"><h3>Note</h3><div class="row" style="white-space:pre-wrap;">${escapeHtml(vente.note)}</div></div>`
+            : '';
+
         const legalLine = societe ? [
             societe.forme || '',
             societe.siren ? `SIREN : ${societe.siren}` : '',
@@ -593,6 +598,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                 <div class="footer-left">${tvaBreakdownHtml}${bancaireHtml}</div>
                 ${totalsHtml}
             </div>` : ''}
+            ${noteHtml}
             ${conditionsLegalesHtml}
             ${signatureHtml}
             ${legalLine ? `<div class="page-footer">${escapeHtml(legalLine)}</div>` : ''}

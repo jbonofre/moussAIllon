@@ -55,6 +55,7 @@ interface PlanningItem {
     dateFin?: string;
     statusDate?: string;
     notes?: string;
+    noteVente?: string;
     dureeReelle?: number;
     heuresMoteur?: number;
     dureeEstimee?: number;
@@ -192,6 +193,7 @@ export default function Planning({ technicienId }: PlanningProps) {
             dureeReelle: item.dureeReelle || 0,
             heuresMoteur: item.heuresMoteur,
             notes: item.notes || '',
+            noteVente: item.noteVente || '',
             incidentDate: item.incidentDate ? dayjs(item.incidentDate) : dayjs(),
             incidentDetails: item.incidentDetails || '',
         });
@@ -203,6 +205,10 @@ export default function Planning({ technicienId }: PlanningProps) {
         const offset = now.getTimezoneOffset() * 60000;
         return new Date(now.getTime() - offset).toISOString().slice(0, 19);
     };
+
+    // N'envoie la note client que si le technicien l'a modifiée, pour ne pas écraser une correction faite au bureau
+    const noteVenteModifiee = (valeur?: string) =>
+        (valeur ?? '') !== (currentItem?.noteVente ?? '') ? (valeur ?? '') : undefined;
 
     const handleStart = async (item: PlanningItem) => {
         try {
@@ -217,7 +223,7 @@ export default function Planning({ technicienId }: PlanningProps) {
             });
             message.success('Intervention demarrée');
             const updated = res.data;
-            setCurrentItem({ ...item, ...updated, itemStatus: updated.itemStatus || 'EN_COURS' });
+            setCurrentItem({ ...item, ...updated, noteVente: updated.noteVente ?? '', itemStatus: updated.itemStatus || 'EN_COURS' });
             setChecklist((updated.taches || item.taches || []).map((t: ChecklistItem) => ({ ...t })));
             setProduitsExtra((updated.produitsExtra || item.produitsExtra || []).map((p: ProduitItem) => ({ ...p })));
             setImages(updated.images || item.images || []);
@@ -226,6 +232,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                 status: 'EN_COURS',
                 dureeReelle: updated.dureeReelle ?? item.dureeReelle ?? 0,
                 notes: updated.notes ?? item.notes ?? '',
+                noteVente: updated.noteVente ?? '',
                 incidentDate: dayjs(),
                 incidentDetails: '',
             });
@@ -268,6 +275,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                             dateFin: finIso,
                             dureeReelle,
                             notes: values.notes || '',
+                            noteVente: noteVenteModifiee(values.noteVente),
                             taches: updated.map((c) => ({ taskId: c.id, done: c.done })),
                             images,
                             documents,
@@ -304,6 +312,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                 heuresMoteur: values.heuresMoteur ?? null,
                 dateFin: values.status === 'TERMINEE' ? nowIso() : undefined,
                 notes: values.notes || '',
+                noteVente: noteVenteModifiee(values.noteVente),
                 incidentDate: values.status === 'INCIDENT' ? (dayjs.isDayjs(values.incidentDate) ? values.incidentDate.format('YYYY-MM-DDTHH:mm:ss') : values.incidentDate) : null,
                 incidentDetails: values.status === 'INCIDENT' ? values.incidentDetails : null,
                 taches: checklist.map((c) => ({ taskId: c.id, done: c.done })),
@@ -312,7 +321,7 @@ export default function Planning({ technicienId }: PlanningProps) {
             });
             message.success('Tache mise a jour');
             const updated = res.data;
-            setCurrentItem({ ...currentItem, ...updated, itemStatus: updated.itemStatus || values.status });
+            setCurrentItem({ ...currentItem, ...updated, noteVente: updated.noteVente ?? '', itemStatus: updated.itemStatus || values.status });
             if (updated.taches) {
                 setChecklist(updated.taches.map((t: ChecklistItem) => ({ ...t })));
             }
@@ -330,6 +339,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                 dureeReelle: updated.dureeReelle ?? values.dureeReelle,
                 heuresMoteur: updated.heuresMoteur ?? values.heuresMoteur,
                 notes: updated.notes ?? values.notes,
+                noteVente: updated.noteVente ?? '',
                 incidentDate: updated.incidentDate ? dayjs(updated.incidentDate) : values.incidentDate,
                 incidentDetails: updated.incidentDetails || values.incidentDetails,
             });
@@ -834,8 +844,15 @@ export default function Planning({ technicienId }: PlanningProps) {
                     <Form.Item name="heuresMoteur" label="Heures moteur" extra="Reporte sur la fiche du bateau et du moteur du client">
                         <InputNumber min={0} step={0.1} precision={1} style={{ width: '100%' }} addonAfter="h" />
                     </Form.Item>
-                    <Form.Item name="notes" label="Notes">
+                    <Form.Item name="notes" label="Notes internes" extra="Pour l'atelier, non imprimées">
                         <Input.TextArea rows={3} />
+                    </Form.Item>
+                    <Form.Item
+                        name="noteVente"
+                        label="Note client"
+                        extra="Enregistrée sur la prestation et imprimée sur le devis, l'ordre de réparation et la facture"
+                    >
+                        <Input.TextArea rows={3} placeholder="Ex. : oxydation importante au niveau du thermostat, surveillance à prévoir" />
                     </Form.Item>
                     {checklist.length > 0 && (
                         <Card size="small" title="Checklist" style={{ marginBottom: 12 }}>
