@@ -21,10 +21,23 @@ export interface InvoicePrintSociete {
 }
 
 export interface InvoicePrintClient {
+    codeTiers?: string;
     adresse?: string;
     telephone?: string;
     email?: string;
     siret?: string;
+}
+
+export interface InvoicePrintBateau {
+    name?: string;
+    immatriculation?: string;
+    numeroSerie?: string;
+    modele?: { designation?: string };
+}
+
+export interface InvoicePrintMoteur {
+    numeroSerie?: string;
+    modele?: { designation?: string };
 }
 
 export interface InvoicePrintDetailLine {
@@ -109,16 +122,45 @@ export const buildSocieteBlockHtml = (societe?: InvoicePrintSociete) => {
 export const buildDocBoxHtml = (docTitle: string, rows: Array<[string, string]>) => `
     <div class="doc-box">
         <div class="doc-box-title">${escapeHtml(docTitle)}</div>
-        ${rows.map(([label, value]) => `<div class="doc-box-row"><span>${label}</span><strong>${value}</strong></div>`).join('')}
+        <div class="doc-box-rows">
+            ${rows.map(([label, value]) => `<div class="doc-box-row"><span>${label}</span><strong>${value}</strong></div>`).join('')}
+        </div>
     </div>`;
 
 export const buildClientBoxHtml = (client: InvoicePrintClient | undefined, clientLabel: string) => `
     <div class="client-box">
+        <div class="box-title">Client</div>
         <div class="client-name">${escapeHtml(clientLabel)}</div>
         ${client?.adresse ? `<div style="white-space:pre-line">${escapeHtml(client.adresse)}</div>` : ''}
         ${client?.telephone ? `<div>Tél : ${escapeHtml(client.telephone)}</div>` : ''}
         ${client?.email ? `<div>Email : ${escapeHtml(client.email)}</div>` : ''}
         ${client?.siret ? `<div>SIRET : ${escapeHtml(client.siret)}</div>` : ''}
+    </div>`;
+
+// Cadre « Bateau / Moteur » : vide (chaîne vide) quand la vente n'est liée à aucun des deux.
+export const buildBoatBoxHtml = (bateau?: InvoicePrintBateau, moteur?: InvoicePrintMoteur) => {
+    const rows: Array<[string, string | undefined]> = [
+        ['Bateau', bateau?.name],
+        ['Modèle', bateau?.modele?.designation],
+        ['Immatriculation', bateau?.immatriculation],
+        ['N° de série bateau', bateau?.numeroSerie],
+        ['Moteur', moteur?.modele?.designation],
+        ['N° de série moteur', moteur?.numeroSerie],
+    ];
+    const filled = rows.filter((row): row is [string, string] => !!row[1]);
+    if (filled.length === 0) return '';
+    return `
+    <div class="boat-box">
+        <div class="box-title">Bateau / Moteur</div>
+        ${filled.map(([label, value]) => `<div class="boat-row"><span>${escapeHtml(label)} :</span> <strong>${escapeHtml(value)}</strong></div>`).join('')}
+    </div>`;
+};
+
+// Cadre document en tête, puis client (gauche) et bateau/moteur (droite) en dessous.
+export const buildInfoSectionHtml = (docBoxHtml: string, clientBoxHtml: string, boatBoxHtml: string) => `
+    <div class="info-section">
+        ${docBoxHtml}
+        <div class="parties-row">${clientBoxHtml}${boatBoxHtml}</div>
     </div>`;
 
 export const buildInvoiceTableHtml = (lines: InvoicePrintLine[], opts: { showPrices: boolean; tva?: number }) => {
@@ -244,11 +286,16 @@ export const INVOICE_PRINT_STYLES = `
     .societe-header { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
     .societe-logo { max-height: 60px; max-width: 120px; object-fit: contain; }
     .societe-nom { font-size: 18px; font-weight: bold; font-style: italic; }
-    .info-row { display: flex; justify-content: space-between; gap: 24px; margin-bottom: 20px; }
-    .doc-box, .client-box { border: 1px solid #1f1f1f; border-radius: 4px; padding: 10px 14px; flex: 1; }
+    .info-section { margin-bottom: 20px; }
+    .parties-row { display: flex; gap: 16px; margin-top: 12px; align-items: stretch; }
+    .doc-box, .client-box, .boat-box { border: 1px solid #1f1f1f; border-radius: 4px; padding: 10px 14px; }
+    .client-box, .boat-box { flex: 1; }
+    .box-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #595959; margin-bottom: 6px; }
+    .boat-row { padding: 1px 0; }
+    .doc-box-rows { display: flex; flex-wrap: wrap; gap: 4px 24px; }
     .doc-box-title { font-size: 20px; font-style: italic; font-weight: bold; margin-bottom: 8px; }
-    .doc-box-row { display: flex; justify-content: space-between; gap: 16px; padding: 2px 0; border-top: 1px solid #e8e8e8; }
-    .doc-box-row:first-of-type { border-top: none; }
+    .doc-box-row { display: flex; flex-direction: column; min-width: 120px; padding: 2px 0; }
+    .doc-box-row span { font-size: 11px; color: #595959; }
     .client-name { font-weight: bold; margin-bottom: 4px; }
     .invoice-table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     .invoice-table th, .invoice-table td { border: 1px solid #d9d9d9; padding: 6px 8px; }

@@ -1,4 +1,4 @@
-import { buildCompositionDetails, buildInvoiceTableHtml, buildTvaBreakdownHtml, InvoicePrintLine, montantOccasion } from './invoiceTemplate.ts';
+import { buildBoatBoxHtml, buildCompositionDetails, buildInvoiceTableHtml, buildTvaBreakdownHtml, InvoicePrintLine, montantOccasion } from './invoiceTemplate.ts';
 
 describe('invoiceTemplate', () => {
     const forfait = {
@@ -107,5 +107,24 @@ describe('invoiceTemplate', () => {
         const html = buildTvaBreakdownHtml({ tva: 20, montantHT: 100, montantTVA: 20 });
 
         expect(rows(html).map((row) => row.cells)).toEqual([['20.00', '100.00 EUR', '20.00 EUR']]);
+    });
+
+    it('imprime le cadre bateau/moteur avec modèle, immatriculation et numéros de série', () => {
+        const html = buildBoatBoxHtml(
+            { name: 'Mon <Bateau>', immatriculation: 'CC 123456', numeroSerie: 'BSN1', modele: { designation: 'Merry Fisher 695' } },
+            { numeroSerie: 'MSN2', modele: { designation: 'Yamaha F115' } },
+        );
+
+        expect(html).toContain('Merry Fisher 695');
+        expect(html).toContain('CC 123456');
+        expect(html).toContain('BSN1');
+        expect(html).toContain('Yamaha F115');
+        expect(html).toContain('MSN2');
+        expect(html).toContain('Mon &lt;Bateau&gt;');
+    });
+
+    it('n\'imprime pas de cadre bateau/moteur sans bateau ni moteur', () => {
+        expect(buildBoatBoxHtml(undefined, undefined)).toBe('');
+        expect(buildBoatBoxHtml({}, {})).toBe('');
     });
 });
