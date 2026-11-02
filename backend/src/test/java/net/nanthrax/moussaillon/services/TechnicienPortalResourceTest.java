@@ -644,4 +644,102 @@ public class TechnicienPortalResourceTest {
             .then()
             .statusCode(400);
     }
+
+    private static io.restassured.response.Response corrigerHorairesForfait(int forfaitId, String corps) {
+        return given()
+            .contentType("application/json")
+            .body("{\"corrigerHoraires\":true," + corps + "}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId);
+    }
+
+    @Test
+    void testCorrigerHorairesRecalculeLaDureeEtTraceLaCorrection() {
+        // Tâche terminée (fin 30/10 17:00, 2 h) dont le technicien avait oublié de démarrer le chrono
+        int forfaitId = venteAvecForfait("FACTURE_EN_ATTENTE", "TERMINEE").path("venteForfaits[0].id");
+
+        corrigerHorairesForfait(forfaitId, "\"status\":\"TERMINEE\",\"dateDebut\":\"2026-10-30T09:30:00\",\"dateFin\":\"2026-10-30T12:00:00\"")
+            .then()
+            .statusCode(200)
+            .body("dureeReelle", is(2.5f))
+            .body("dateDebut", startsWith("2026-10-30 09:30"))
+            .body("dateFin", startsWith("2026-10-30 12:00"))
+            .body("dateCorrectionHoraires", notNullValue())
+            .body("dateDebutOriginale", nullValue())
+            .body("dateFinOriginale", startsWith("2026-10-30 17:00"));
+
+        // Une seconde correction garde les horaires d'origine, pas ceux de la première
+        corrigerHorairesForfait(forfaitId, "\"status\":\"TERMINEE\",\"dateDebut\":\"2026-10-30T10:00:00\",\"dateFin\":\"2026-10-30T12:00:00\"")
+            .then()
+            .statusCode(200)
+            .body("dureeReelle", is(2.0f))
+            .body("dateFinOriginale", startsWith("2026-10-30 17:00"));
+    }
+
+    @Test
+    void testCorrigerHorairesEffaceLaReouverture() {
+        int forfaitId = venteAvecForfait("FACTURE_EN_ATTENTE", "TERMINEE").path("venteForfaits[0].id");
+        given().when().post("/technicien-portal/forfaits/" + forfaitId + "/rouvrir").then().statusCode(200);
+
+        // Les deux horaires font foi : le temps compté avant la réouverture n'est plus ajouté
+        corrigerHorairesForfait(forfaitId, "\"status\":\"EN_COURS\",\"dateDebut\":\"2026-10-30T08:00:00\",\"dateFin\":\"2026-10-30T11:00:00\"")
+            .then()
+            .statusCode(200)
+            .body("dureeReelle", is(3.0f))
+            .body("dateReouverture", nullValue());
+    }
+
+    @Test
+    void testCorrigerSeulementLeDebutDUneTacheEnCours() {
+        int forfaitId = venteAvecForfait("FACTURE_EN_ATTENTE", "EN_COURS").path("venteForfaits[0].id");
+
+        corrigerHorairesForfait(forfaitId, "\"status\":\"EN_COURS\",\"dateDebut\":\"2026-10-30T08:00:00\"")
+            .then()
+            .statusCode(200)
+            .body("dateDebut", startsWith("2026-10-30 08:00"))
+            .body("dateFin", nullValue())
+            .body("dateCorrectionHoraires", notNullValue());
+    }
+
+    @Test
+    void testCorrigerHorairesRefuseLesValeursIncoherentes() {
+        int forfaitId = venteAvecForfait("FACTURE_EN_ATTENTE", "TERMINEE").path("venteForfaits[0].id");
+
+        corrigerHorairesForfait(forfaitId, "\"dateDebut\":\"2026-10-30T12:00:00\",\"dateFin\":\"2026-10-30T09:00:00\"")
+            .then().statusCode(400).body("message", is("L'heure de fin doit être postérieure à l'heure de début"));
+
+        corrigerHorairesForfait(forfaitId, "\"dateDebut\":\"2999-01-01T08:00:00\",\"dateFin\":\"2999-01-01T09:00:00\"")
+            .then().statusCode(400).body("message", is("Les horaires ne peuvent pas être dans le futur"));
+
+        corrigerHorairesForfait(forfaitId, "\"dateDebut\":\"2026-01-01T08:00:00\",\"dateFin\":\"2026-10-30T09:00:00\"")
+            .then().statusCode(400).body("message", startsWith("L'écart entre le début et la fin"));
+
+        corrigerHorairesForfait(forfaitId, "\"dateFin\":\"2026-10-30T09:00:00\"")
+            .then().statusCode(400).body("message", is("L'heure de début est requise"));
+    }
+
+    @Test
+    void testCorrigerHorairesRefuseSurVentePayee() {
+        // La vente 100 est payée
+        corrigerHorairesForfait(100, "\"dateDebut\":\"2026-10-30T08:00:00\",\"dateFin\":\"2026-10-30T09:00:00\"")
+            .then().statusCode(400).body("message", is("Une vente payée ne peut plus être modifiée"));
+    }
+
+    @Test
+    void testCorrigerHorairesSurUnService() {
+        int serviceId = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_EN_ATTENTE\",\"bonPourAccord\":true,\"prixVenteTTC\":276.0,"
+                + "\"venteServices\":[{\"service\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("venteServices[0].id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"corrigerHoraires\":true,\"status\":\"TERMINEE\",\"dateDebut\":\"2026-10-30T08:00:00\",\"dateFin\":\"2026-10-30T09:15:00\"}")
+            .when().put("/technicien-portal/services/" + serviceId)
+            .then()
+            .statusCode(200)
+            .body("dureeReelle", is(1.25f))
+            .body("dateCorrectionHoraires", notNullValue());
+    }
 }

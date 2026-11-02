@@ -42,6 +42,10 @@ interface VenteForfaitEntry {
     datePlanification?: string;
     dateDebut?: string;
     dateFin?: string;
+    // Posés par l'application technicien quand il corrige les horaires
+    dateCorrectionHoraires?: string;
+    dateDebutOriginale?: string;
+    dateFinOriginale?: string;
     status?: PlanningStatus;
     statusDate?: string;
     dureeReelle?: number;
@@ -58,6 +62,10 @@ interface VenteServiceEntry {
     datePlanification?: string;
     dateDebut?: string;
     dateFin?: string;
+    // Posés par l'application technicien quand il corrige les horaires
+    dateCorrectionHoraires?: string;
+    dateDebutOriginale?: string;
+    dateFinOriginale?: string;
     status?: PlanningStatus;
     statusDate?: string;
     dureeReelle?: number;
@@ -87,6 +95,9 @@ interface PlanningItem {
     datePlanification?: string;
     dateDebut?: string;
     dateFin?: string;
+    dateCorrectionHoraires?: string;
+    dateDebutOriginale?: string;
+    dateFinOriginale?: string;
     status?: PlanningStatus;
     statusDate?: string;
     dureeEstimee?: number;
@@ -294,6 +305,9 @@ const buildPlanningItems = (ventes: VenteEntity[]): PlanningItemRow[] => {
                 datePlanification: vf.datePlanification,
                 dateDebut: vf.dateDebut,
                 dateFin: vf.dateFin,
+                dateCorrectionHoraires: vf.dateCorrectionHoraires,
+                dateDebutOriginale: vf.dateDebutOriginale,
+                dateFinOriginale: vf.dateFinOriginale,
                 status: vf.status,
                 statusDate: vf.statusDate,
                 dureeEstimee: vf.forfait?.dureeEstimee,
@@ -325,6 +339,9 @@ const buildPlanningItems = (ventes: VenteEntity[]): PlanningItemRow[] => {
                 datePlanification: vs.datePlanification,
                 dateDebut: vs.dateDebut,
                 dateFin: vs.dateFin,
+                dateCorrectionHoraires: vs.dateCorrectionHoraires,
+                dateDebutOriginale: vs.dateDebutOriginale,
+                dateFinOriginale: vs.dateFinOriginale,
                 status: vs.status,
                 statusDate: vs.statusDate,
                 dureeEstimee: vs.service?.dureeEstimee,
@@ -835,6 +852,9 @@ export default function Planning() {
                     datePlanification: savedEntry.datePlanification,
                     dateDebut: savedEntry.dateDebut,
                     dateFin: savedEntry.dateFin,
+                    dateCorrectionHoraires: savedEntry.dateCorrectionHoraires,
+                    dateDebutOriginale: savedEntry.dateDebutOriginale,
+                    dateFinOriginale: savedEntry.dateFinOriginale,
                     status: savedEntry.status,
                     statusDate: savedEntry.statusDate,
                     dureeEstimee: (savedEntry as VenteForfaitEntry).forfait?.dureeEstimee,
@@ -854,6 +874,9 @@ export default function Planning() {
                     datePlanification: savedEntry.datePlanification,
                     dateDebut: savedEntry.dateDebut,
                     dateFin: savedEntry.dateFin,
+                    dateCorrectionHoraires: savedEntry.dateCorrectionHoraires,
+                    dateDebutOriginale: savedEntry.dateDebutOriginale,
+                    dateFinOriginale: savedEntry.dateFinOriginale,
                     status: savedEntry.status,
                     statusDate: savedEntry.statusDate,
                     dureeEstimee: (savedEntry as VenteServiceEntry).service?.dureeEstimee,
@@ -991,6 +1014,13 @@ export default function Planning() {
                     <span style={overrun ? { color: '#fa541c', fontWeight: 600 } : undefined}>
                         {reelle != null ? `${reelle}h` : '-'} / {estimee != null ? `${estimee}h` : '-'}
                         {overrun && <WarningOutlined style={{ marginLeft: 6, color: '#fa541c' }} title="Durée réelle supérieure à la durée estimée" />}
+                        {record.item.dateCorrectionHoraires && (
+                            <Tooltip title={`Horaires corrigés par le technicien le ${dayjs(record.item.dateCorrectionHoraires.replace(' ', 'T')).format('DD/MM/YYYY HH:mm')}`
+                                + ` (d'origine : ${record.item.dateDebutOriginale ? dayjs(record.item.dateDebutOriginale.replace(' ', 'T')).format('DD/MM/YYYY HH:mm') : '-'}`
+                                + ` → ${record.item.dateFinOriginale ? dayjs(record.item.dateFinOriginale.replace(' ', 'T')).format('DD/MM/YYYY HH:mm') : '-'})`}>
+                                <EditOutlined style={{ marginLeft: 6, color: '#faad14' }} aria-label="Horaires corrigés" />
+                            </Tooltip>
+                        )}
                     </span>
                 );
             }

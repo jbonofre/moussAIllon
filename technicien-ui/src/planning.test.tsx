@@ -208,3 +208,49 @@ describe('Planning technicien - recherche par client ou bateau', () => {
         expect(screen.getByText('Aucune tâche disponible ne correspond à la recherche')).toBeInTheDocument();
     });
 });
+
+describe('Planning technicien - correction des horaires', () => {
+    const tache = {
+        ...prestation,
+        venteType: 'FACTURE_EN_ATTENTE',
+        dateDebut: '2026-10-30 08:00:00.0',
+        dureeReelle: 0,
+    };
+
+    const ouvrirFiche = async (item: object) => {
+        get.mockImplementation((url: string) =>
+            Promise.resolve({ data: url === '/technicien-portal/techniciens/1/taches' ? [item] : [] }));
+        render(<Planning technicienId={1} />);
+        fireEvent.click((await screen.findAllByRole('button', { name: /Editer/ }))[0]);
+    };
+
+    afterEach(() => jest.clearAllMocks());
+
+    it('propose de corriger les horaires et ouvre la saisie du début et de la fin', async () => {
+        await ouvrirFiche(tache);
+
+        fireEvent.click(await screen.findByRole('button', { name: /Corriger les horaires/ }));
+
+        expect(await screen.findByText(/indiquez les heures réelles/)).toBeInTheDocument();
+        expect(screen.queryByText(/Horaires corrigés le/)).not.toBeInTheDocument();
+    });
+
+    it("rappelle la correction déjà faite et les horaires d'origine", async () => {
+        await ouvrirFiche({
+            ...tache,
+            dateCorrectionHoraires: '2026-10-30 18:00:00.0',
+            dateDebutOriginale: '2026-10-30 14:00:00.0',
+            dateFinOriginale: '2026-10-30 17:30:00.0',
+        });
+
+        expect(await screen.findByText(/Horaires corrigés le 30\/10\/2026 18:00/)).toBeInTheDocument();
+        expect(screen.getByText(/d'origine : 30\/10\/2026 14:00 → 30\/10\/2026 17:30/)).toBeInTheDocument();
+    });
+
+    it("ne propose pas de corriger les horaires d'une vente payée", async () => {
+        await ouvrirFiche({ ...tache, venteType: 'FACTURE_PAYEE' });
+
+        expect(await screen.findByLabelText('Note client')).toBeInTheDocument();
+        expect(screen.queryByRole('button', { name: /Corriger les horaires/ })).not.toBeInTheDocument();
+    });
+});
