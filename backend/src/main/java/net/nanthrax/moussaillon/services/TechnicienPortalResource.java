@@ -143,6 +143,7 @@ public class TechnicienPortalResource {
         public String venteType;
         public boolean bonPourAccord;
         public String bateauNom;
+        public String bateauImmatriculation;
         public int quantite;
         public List<ChecklistItem> taches;
         public List<ProduitItem> produits;
@@ -177,6 +178,7 @@ public class TechnicienPortalResource {
             item.bonPourAccord = vente.bonPourAccord;
             if (vente.bateau != null) {
                 item.bateauNom = vente.bateau.name;
+                item.bateauImmatriculation = vente.bateau.immatriculation;
             }
             item.taches = new ArrayList<>();
             if (vf.taches != null) {
@@ -258,6 +260,7 @@ public class TechnicienPortalResource {
             item.bonPourAccord = vente.bonPourAccord;
             if (vente.bateau != null) {
                 item.bateauNom = vente.bateau.name;
+                item.bateauImmatriculation = vente.bateau.immatriculation;
             }
             item.taches = new ArrayList<>();
             if (vs.taches != null) {

@@ -212,6 +212,38 @@ public class TechnicienPortalResourceTest {
     }
 
     @Test
+    void testTachesExposentClientEtBateauPourLaRecherche() {
+        int clientId = given().contentType("application/json")
+            .body("{\"nom\":\"Le Gall Yann\",\"type\":\"Particulier\",\"email\":\"recherche-696@test.com\"}")
+            .when().post("/clients").then().statusCode(200).extract().path("id");
+        int bateauId = given().contentType("application/json")
+            .body("{\"name\":\"Galatee\",\"immatriculation\":\"CC 696123\"}")
+            .when().post("/bateaux").then().statusCode(201).extract().path("id");
+        io.restassured.response.Response vente = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,"
+                + "\"client\":{\"id\":" + clientId + "},\"bateau\":{\"id\":" + bateauId + "},"
+                + "\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_ATTENTE\"}],"
+                + "\"venteServices\":[{\"service\":{\"id\":100},\"quantite\":1,\"status\":\"EN_ATTENTE\"}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().response();
+        int forfaitId = vente.path("venteForfaits[0].id");
+        int serviceId = vente.path("venteServices[0].id");
+
+        // L'appli technicien filtre les tâches sur ces champs : ils doivent être renseignés
+        String forfait = "find { it.itemType == 'forfait' && it.itemId == " + forfaitId + " }.";
+        String service = "find { it.itemType == 'service' && it.itemId == " + serviceId + " }.";
+        given()
+            .when().get("/technicien-portal/taches-non-affectees")
+            .then()
+            .statusCode(200)
+            .body(forfait + "clientNom", is("Le Gall Yann"))
+            .body(forfait + "bateauNom", is("Galatee"))
+            .body(forfait + "bateauImmatriculation", is("CC 696123"))
+            .body(service + "bateauImmatriculation", is("CC 696123"));
+    }
+
+    @Test
     void testNoteClientEnregistreeSurLaVente() {
         io.restassured.response.Response vente = given()
             .contentType("application/json")

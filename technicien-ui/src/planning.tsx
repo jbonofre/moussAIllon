@@ -25,6 +25,7 @@ import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import { paginationConfig } from './pagination.ts';
 import { BoutonRouvrir, dureeReelleALaFin, messageErreur, peutEtreRouverte } from './reouverture.tsx';
+import { PLACEHOLDER_RECHERCHE, tacheCorrespond } from './recherche-tache.ts';
 
 type TaskStatus = 'EN_ATTENTE' | 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'INCIDENT' | 'ANNULEE';
 
@@ -67,6 +68,7 @@ interface PlanningItem {
     venteType?: string;
     bonPourAccord?: boolean;
     bateauNom?: string;
+    bateauImmatriculation?: string;
     quantite?: number;
     taches?: ChecklistItem[];
     produits?: ProduitItem[];
@@ -113,6 +115,17 @@ const formatDate = (value?: string) => {
     return parsed.toLocaleString('fr-FR');
 };
 
+// Nom du bateau, avec son immatriculation en dessous pour ne pas élargir la colonne
+const celluleBateau = (_: unknown, record: PlanningItem) => {
+    if (!record.bateauImmatriculation) return record.bateauNom || '-';
+    return (
+        <>
+            {record.bateauNom}
+            <div style={{ fontSize: 12, color: '#888', whiteSpace: 'nowrap' }}>{record.bateauImmatriculation}</div>
+        </>
+    );
+};
+
 const todayIso = () => {
     const now = new Date();
     const offset = now.getTimezoneOffset() * 60000;
@@ -123,6 +136,7 @@ export default function Planning({ technicienId }: PlanningProps) {
     const [items, setItems] = useState<PlanningItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [filterStatus, setFilterStatus] = useState<TaskStatus | undefined>(undefined);
+    const [recherche, setRecherche] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     const [currentItem, setCurrentItem] = useState<PlanningItem | null>(null);
     const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
@@ -172,9 +186,10 @@ export default function Planning({ technicienId }: PlanningProps) {
         fetchNonAffectees();
     }, [technicienId]);
 
-    const filteredItems = filterStatus
-        ? items.filter((t) => t.itemStatus === filterStatus)
-        : items;
+    const filteredItems = items.filter((t) =>
+        (!filterStatus || t.itemStatus === filterStatus) && tacheCorrespond(t, recherche));
+    const nonAffecteesFiltrees = nonAffectees.filter((t) => tacheCorrespond(t, recherche));
+    const rechercheActive = recherche.trim() !== '';
 
     const todayItems = filteredItems.filter((t) => {
         if (!t.statusDate) return false;
@@ -417,9 +432,8 @@ export default function Planning({ technicienId }: PlanningProps) {
         },
         {
             title: 'Bateau',
-            dataIndex: 'bateauNom',
             key: 'bateauNom',
-            render: (val: string) => val || '-',
+            render: celluleBateau,
         },
         {
             title: 'Statut',
@@ -593,9 +607,8 @@ export default function Planning({ technicienId }: PlanningProps) {
         },
         {
             title: 'Bateau',
-            dataIndex: 'bateauNom',
             key: 'bateauNom',
-            render: (val: string) => val || '-',
+            render: celluleBateau,
         },
         {
             title: 'Durée estimée',
@@ -621,6 +634,14 @@ export default function Planning({ technicienId }: PlanningProps) {
 
     return (
         <div>
+            <Input.Search
+                allowClear
+                placeholder={PLACEHOLDER_RECHERCHE}
+                aria-label="Rechercher une tâche"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                style={{ maxWidth: 520, marginBottom: 16 }}
+            />
             <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
                 <Col xs={24} sm={8} lg={6}>
                     <Card>
@@ -665,7 +686,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                         bordered
                     />
                 ) : (
-                    <Empty description="Aucune tache planifiee aujourd'hui" />
+                    <Empty description={rechercheActive ? 'Aucune tâche du jour ne correspond à la recherche' : "Aucune tache planifiee aujourd'hui"} />
                 )}
             </Card>
 
@@ -685,18 +706,18 @@ export default function Planning({ technicienId }: PlanningProps) {
                     <Space>
                         <CalendarOutlined />
                         Taches disponibles (non affectees)
-                        <Tag>{nonAffectees.length}</Tag>
+                        <Tag>{nonAffecteesFiltrees.length}</Tag>
                     </Space>
                 }
                 style={{ marginTop: 16 }}
                 extra={<Button icon={<ReloadOutlined />} size="small" onClick={fetchNonAffectees} />}
             >
-                {nonAffectees.length === 0 ? (
-                    <Empty description="Aucune tache disponible" />
+                {nonAffecteesFiltrees.length === 0 ? (
+                    <Empty description={rechercheActive && nonAffectees.length > 0 ? 'Aucune tâche disponible ne correspond à la recherche' : 'Aucune tache disponible'} />
                 ) : (
                     <Table
                         rowKey="itemId"
-                        dataSource={nonAffectees}
+                        dataSource={nonAffecteesFiltrees}
                         columns={nonAffecteesColumns}
                         loading={loadingNonAffectees}
                         pagination={paginationConfig()}

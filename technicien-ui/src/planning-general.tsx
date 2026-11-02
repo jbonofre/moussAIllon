@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Badge, Button, Card, Empty, Select, Space, Spin, Tag, Tooltip, message } from 'antd';
+import { Badge, Button, Card, Empty, Input, Select, Space, Spin, Tag, Tooltip, message } from 'antd';
 import { LeftOutlined, ReloadOutlined, RightOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
+import { PLACEHOLDER_RECHERCHE, tacheCorrespond } from './recherche-tache.ts';
 
 interface GeneralTechnicien {
     id: number;
@@ -67,6 +68,7 @@ export default function PlanningGeneral({ technicienId, compact = false }: Plann
     const [loading, setLoading] = useState(false);
     const [weekStart, setWeekStart] = useState(() => dayjs().startOf('week'));
     const [filterTechnicien, setFilterTechnicien] = useState<number | undefined>(undefined);
+    const [recherche, setRecherche] = useState('');
 
     const fetchItems = async () => {
         setLoading(true);
@@ -94,6 +96,7 @@ export default function PlanningGeneral({ technicienId, compact = false }: Plann
     const events = useMemo<CalendarEvent[]>(() => {
         const result: CalendarEvent[] = [];
         items.forEach((item, index) => {
+            if (!tacheCorrespond(item, recherche)) return;
             const startSource = item.dateDebut || item.statusDate;
             const start = startSource ? dayjs(startSource) : undefined;
             if (!start || !start.isValid()) return;
@@ -111,7 +114,7 @@ export default function PlanningGeneral({ technicienId, compact = false }: Plann
             });
         });
         return result;
-    }, [items, filterTechnicien]);
+    }, [items, filterTechnicien, recherche]);
 
     const weekDays = useMemo(() => Array.from({ length: 7 }, (_, i) => weekStart.add(i, 'day')), [weekStart]);
     const weekLabel = `${weekStart.format('DD MMM')} – ${weekStart.add(6, 'day').format('DD MMM YYYY')}`;
@@ -127,6 +130,14 @@ export default function PlanningGeneral({ technicienId, compact = false }: Plann
             });
 
     const weekCount = weekDays.reduce((sum, day) => sum + eventsForDay(day).length, 0);
+
+    // Recherche sans résultat cette semaine : semaine de la prochaine prestation trouvée, sinon de la plus récente
+    const semaineTrouvee = (() => {
+        if (!recherche.trim() || weekCount > 0 || events.length === 0) return undefined;
+        const triees = [...events].sort((a, b) => a.start.valueOf() - b.start.valueOf());
+        const cible = triees.find((ev) => !ev.start.isBefore(weekStart)) || triees[triees.length - 1];
+        return cible.start.startOf('week');
+    })();
 
     const tooltip = (ev: CalendarEvent) => {
         const pct = progress(ev.item);
@@ -305,6 +316,15 @@ export default function PlanningGeneral({ technicienId, compact = false }: Plann
                 </Space>
             </div>
 
+            <Input.Search
+                allowClear
+                placeholder={PLACEHOLDER_RECHERCHE}
+                aria-label="Rechercher une prestation"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                style={{ maxWidth: compact ? undefined : 520, marginBottom: 12 }}
+            />
+
             <div style={{ marginBottom: 12, display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                 <span><Badge status="success" /> Planifiees (semaine) : <strong>{weekCount}</strong></span>
                 {techniciens.map((t) => (
@@ -313,7 +333,15 @@ export default function PlanningGeneral({ technicienId, compact = false }: Plann
             </div>
 
             <Spin spinning={loading}>
-                {weekCount === 0 && !loading && <Empty description="Aucune prestation planifiee cette semaine" />}
+                {weekCount === 0 && !loading && (
+                    <Empty description={recherche.trim() ? 'Aucune prestation ne correspond à la recherche cette semaine' : 'Aucune prestation planifiee cette semaine'}>
+                        {semaineTrouvee && (
+                            <Button type="primary" onClick={() => setWeekStart(semaineTrouvee)}>
+                                Aller à la semaine du {semaineTrouvee.format('DD/MM/YYYY')}
+                            </Button>
+                        )}
+                    </Empty>
+                )}
                 {compact ? (
                     weekDays.map(renderAgendaDay)
                 ) : (

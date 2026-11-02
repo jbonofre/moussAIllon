@@ -157,3 +157,54 @@ describe('Planning technicien - réouverture', () => {
         expect(body.dureeReelle).toBe(2.5);
     });
 });
+
+describe('Planning technicien - recherche par client ou bateau', () => {
+    const mesTaches = [
+        { ...prestation, itemId: 7, clientNom: 'Dupont Jean', bateauNom: 'Galatée', bateauImmatriculation: 'CC 696123' },
+        { ...prestation, itemId: 8, itemNom: 'Carénage', clientNom: 'Le Gall Yann', bateauNom: 'Albatros' },
+    ];
+    const disponibles = [
+        { ...prestation, itemId: 20, itemStatus: 'EN_ATTENTE', itemNom: 'Antifouling', clientNom: 'Dupont Jean', bateauNom: 'Galatée' },
+        { ...prestation, itemId: 21, itemStatus: 'EN_ATTENTE', itemNom: 'Révision', clientNom: 'Martin Paul', bateauNom: 'Pen Duick' },
+    ];
+
+    beforeEach(() => {
+        get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/technicien-portal/techniciens/1/taches' ? mesTaches
+                : url === '/technicien-portal/taches-non-affectees' ? disponibles : [],
+        }));
+    });
+
+    afterEach(() => jest.clearAllMocks());
+
+    const rechercher = (texte: string) =>
+        fireEvent.change(screen.getByLabelText('Rechercher une tâche'), { target: { value: texte } });
+
+    it('filtre mes tâches et les tâches disponibles sur le nom du client', async () => {
+        render(<Planning technicienId={1} />);
+        expect(await screen.findByText('CC 696123')).toBeInTheDocument();
+        expect(screen.getByText('Albatros')).toBeInTheDocument();
+        expect(await screen.findByText('Pen Duick')).toBeInTheDocument();
+
+        rechercher('dupont');
+
+        expect(screen.getByText('CC 696123')).toBeInTheDocument();
+        expect(screen.getByText('Antifouling')).toBeInTheDocument();
+        expect(screen.queryByText('Albatros')).not.toBeInTheDocument();
+        expect(screen.queryByText('Pen Duick')).not.toBeInTheDocument();
+    });
+
+    it("trouve une tâche par l'immatriculation du bateau ou par client et bateau", async () => {
+        render(<Planning technicienId={1} />);
+        expect(await screen.findByText('Albatros')).toBeInTheDocument();
+
+        rechercher('cc696123');
+        expect(screen.getByText('CC 696123')).toBeInTheDocument();
+        expect(screen.queryByText('Albatros')).not.toBeInTheDocument();
+
+        rechercher('gall albatros');
+        expect(screen.getByText('Albatros')).toBeInTheDocument();
+        expect(screen.queryByText('CC 696123')).not.toBeInTheDocument();
+        expect(screen.getByText('Aucune tâche disponible ne correspond à la recherche')).toBeInTheDocument();
+    });
+});
