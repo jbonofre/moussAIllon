@@ -122,6 +122,8 @@ interface TaskEntity {
     nom?: string;
     description?: string;
     done?: boolean;
+    nonFait?: boolean;
+    motif?: string;
 }
 
 interface VenteForfaitEntity {
@@ -492,7 +494,7 @@ interface LigneUnifiee {
     notes?: string;
     incidentDate?: string;
     incidentDetails?: string;
-    taches?: Array<{ nom?: string; description?: string; done?: boolean }>;
+    taches?: Array<{ nom?: string; description?: string; done?: boolean; nonFait?: boolean; motif?: string }>;
     images?: string[];
     documents?: string[];
 }
@@ -1791,7 +1793,7 @@ export default function Vente() {
                 notes: vf.notes || '',
                 incidentDate: toDateDayjs(vf.incidentDate) as any,
                 incidentDetails: vf.incidentDetails || '',
-                taches: (vf.taches || []).map(t => ({ nom: t.nom || '', description: t.description || '', done: t.done || false })),
+                taches: (vf.taches || []).map(t => ({ nom: t.nom || '', description: t.description || '', done: t.done || false, nonFait: t.nonFait || false, motif: t.motif })),
                 images: vf.images || [],
                 documents: vf.documents || [],
             });
@@ -1812,7 +1814,7 @@ export default function Vente() {
                 notes: vs.notes || '',
                 incidentDate: toDateDayjs(vs.incidentDate) as any,
                 incidentDetails: vs.incidentDetails || '',
-                taches: (vs.taches || []).map(t => ({ nom: t.nom || '', description: t.description || '', done: t.done || false })),
+                taches: (vs.taches || []).map(t => ({ nom: t.nom || '', description: t.description || '', done: t.done || false, nonFait: t.nonFait || false, motif: t.motif })),
                 images: vs.images || [],
                 documents: vs.documents || [],
             });
@@ -2069,7 +2071,7 @@ export default function Vente() {
                 const selectedForfait = forfaits.find((f) => f.id === line.itemId);
                 const existingTaches = (line.taches || []).filter((t: { nom?: string }) => t.nom?.trim());
                 const taches = existingTaches.length > 0
-                    ? existingTaches.map((t: { nom?: string; description?: string; done?: boolean }) => ({ nom: t.nom, description: t.description, done: t.done || false }))
+                    ? existingTaches.map((t: { nom?: string; description?: string; done?: boolean; nonFait?: boolean; motif?: string }) => ({ nom: t.nom, description: t.description, done: t.done || false, nonFait: t.nonFait || false, motif: t.motif }))
                     : (selectedForfait?.taches || []).filter((t) => t.nom?.trim()).map((t) => ({ nom: t.nom, description: t.description || '', done: false }));
                 const existingVf = (currentVente?.venteForfaits || []).find((vf) => vf.forfait?.id === line.itemId);
                 return {
@@ -2096,8 +2098,8 @@ export default function Vente() {
                 const existingVs = (currentVente?.venteServices || []).find((vs) => vs.service?.id === line.itemId);
                 const existingTaches = (line.taches || []).filter((t: { nom?: string }) => t.nom?.trim());
                 const taches = existingTaches.length > 0
-                    ? existingTaches.map((t: { nom?: string; description?: string; done?: boolean }) => ({ nom: t.nom, description: t.description, done: t.done || false }))
-                    : (existingVs?.taches || []).map((t) => ({ nom: t.nom, description: t.description || '', done: t.done || false }));
+                    ? existingTaches.map((t: { nom?: string; description?: string; done?: boolean; nonFait?: boolean; motif?: string }) => ({ nom: t.nom, description: t.description, done: t.done || false, nonFait: t.nonFait || false, motif: t.motif }))
+                    : (existingVs?.taches || []).map((t) => ({ nom: t.nom, description: t.description || '', done: t.done || false, nonFait: t.nonFait || false, motif: t.motif }));
                 return {
                     service: services.find((s) => s.id === line.itemId),
                     quantite: line.quantite || 1,

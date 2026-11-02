@@ -31,6 +31,8 @@ interface TaskEntity {
     id: number;
     nom: string;
     done: boolean;
+    nonFait?: boolean;
+    motif?: string;
 }
 
 interface VenteForfaitEntry {
@@ -126,6 +128,7 @@ interface CalendarEvent {
     forfaitServiceNom?: string;
     status?: PlanningStatus;
     progressPct?: number;
+    pointsNonFaits?: TaskEntity[];
     technicienId?: number;
     technicienNom?: string;
 }
@@ -640,7 +643,8 @@ export default function Planning() {
                     const typeLabel = item.type === 'forfait' ? 'Forfait' : 'Service';
                     const taches = item.taches || [];
                     const totalTaches = taches.length;
-                    const doneTaches = taches.filter((t) => t.done).length;
+                    const doneTaches = taches.filter((t) => t.done || t.nonFait).length;
+                    const pointsNonFaits = taches.filter((t) => t.nonFait);
                     const progressPct = totalTaches > 0 ? Math.round((doneTaches / totalTaches) * 100) : undefined;
 
                     // Un événement par technicien affecté : une prestation à deux techniciens
@@ -663,6 +667,7 @@ export default function Planning() {
                             forfaitServiceNom: item.nom,
                             status: item.status,
                             progressPct,
+                            pointsNonFaits,
                             technicienId: technicien?.id,
                             technicienNom: `${technicien?.prenom || ''} ${technicien?.nom || ''}`.trim() || undefined,
                         } as CalendarEvent));
@@ -1595,6 +1600,12 @@ export default function Planning() {
                                                             <div>Statut : {statusLabel} {ev.progressPct !== undefined ? `— ${ev.progressPct}%` : ''}</div>
                                                             <div>{start.format('HH:mm')} — {duration}h</div>
                                                             {isLate && <div style={{ color: '#ffbb96', fontWeight: 600 }}>En retard</div>}
+                                                            {ev.pointsNonFaits && ev.pointsNonFaits.length > 0 && (
+                                                                <div style={{ color: '#ffd666', marginTop: 4 }}>
+                                                                    <strong>Points non faits :</strong>
+                                                                    {ev.pointsNonFaits.map((t) => <div key={t.id}>• {t.nom} : {t.motif}</div>)}
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     );
 
@@ -1937,6 +1948,17 @@ export default function Planning() {
                             }))}
                         />
                     </Form.Item>
+                    {(currentRow?.item.taches || []).some((t) => t.nonFait) && (
+                        <Alert
+                            type="warning"
+                            showIcon
+                            style={{ marginBottom: 12 }}
+                            message="Points de la checklist non faits"
+                            description={(currentRow?.item.taches || []).filter((t) => t.nonFait).map((t) => (
+                                <div key={t.id}><strong>{t.nom}</strong> : {t.motif}</div>
+                            ))}
+                        />
+                    )}
                     {currentRow && !currentRow.vente.bonPourAccord && (
                         <Alert
                             type="info"
