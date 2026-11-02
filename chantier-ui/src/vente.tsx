@@ -843,6 +843,7 @@ export default function Vente() {
     const [genAvoirMotif, setGenAvoirMotif] = useState('');
     const [genAvoirNotes, setGenAvoirNotes] = useState('');
     const [generatingAvoir, setGeneratingAvoir] = useState(false);
+    const [genAvoirSelection, setGenAvoirSelection] = useState<string[]>([]);
 
     const clientOptions = useMemo(
         () => clients.map((client) => ({ value: client.id, label: getClientLabel(client) })),
@@ -2451,14 +2452,65 @@ export default function Vente() {
         }
     };
 
+    // Lignes de la facture proposées à la sélection pour l'avoir (clé = type:identifiant de la ligne de vente)
+    const genAvoirLignes = useMemo(() => {
+        const v = genAvoirModalVente;
+        if (!v) return [];
+        const net = (prix?: number, quantite?: number, remise?: number) =>
+            Math.max(0, (prix ?? 0) * (quantite ?? 1) - (remise ?? 0));
+        return [
+            ...(v.venteForfaits || []).filter((l) => l.id && l.forfait).map((l) => ({
+                key: `forfait:${l.id}`, type: 'Forfait', designation: l.forfait!.nom,
+                quantite: l.quantite ?? 1, totalTTC: net(l.forfait!.prixTTC, l.quantite, l.remise),
+            })),
+            ...(v.venteServices || []).filter((l) => l.id && l.service).map((l) => ({
+                key: `service:${l.id}`, type: 'Service', designation: l.service!.nom,
+                quantite: l.quantite ?? 1, totalTTC: net(l.service!.prixTTC, l.quantite, l.remise),
+            })),
+            ...(v.venteProduits || []).filter((l) => l.id && l.produit).map((l) => {
+                const p = l.produit as ProduitCatalogueEntity;
+                return {
+                    key: `produit:${l.id}`, type: 'Produit', designation: p.designation ?? 'Produit',
+                    quantite: l.quantite ?? 1, totalTTC: net(p.prixVenteTTC, l.quantite, l.remise),
+                };
+            }),
+        ];
+    }, [genAvoirModalVente]);
+
+    const openGenerateAvoir = async (vente: VenteEntity) => {
+        let complete = vente;
+        try {
+            // La liste ne porte pas forcément le détail des lignes
+            const res = await api.get<VenteEntity>(`/ventes/${vente.id}`);
+            complete = res.data;
+        } catch {
+            // on se contente de la vente déjà chargée
+        }
+        setGenAvoirMotif('');
+        setGenAvoirNotes('');
+        setGenAvoirSelection([
+            ...(complete.venteForfaits || []).filter((l) => l.id && l.forfait).map((l) => `forfait:${l.id}`),
+            ...(complete.venteServices || []).filter((l) => l.id && l.service).map((l) => `service:${l.id}`),
+            ...(complete.venteProduits || []).filter((l) => l.id && l.produit).map((l) => `produit:${l.id}`),
+        ]);
+        setGenAvoirModalVente(complete);
+    };
+
     const handleGenerateAvoir = async () => {
         if (!genAvoirModalVente?.id) return;
         if (!genAvoirMotif.trim()) { message.warning('Le motif est requis'); return; }
+        if (genAvoirSelection.length === 0) { message.warning('Sélectionnez au moins une ligne'); return; }
+        const ids = (type: string) => genAvoirSelection
+            .filter((k) => k.startsWith(`${type}:`))
+            .map((k) => Number(k.slice(type.length + 1)));
         setGeneratingAvoir(true);
         try {
             await api.post(`/avoirs/from-vente/${genAvoirModalVente.id}`, {
                 motif: genAvoirMotif.trim(),
                 notes: genAvoirNotes || undefined,
+                forfaitIds: ids('forfait'),
+                serviceIds: ids('service'),
+                produitIds: ids('produit'),
             });
             setGenAvoirModalVente(null);
             setGenAvoirMotif('');
@@ -3195,11 +3247,7 @@ export default function Vente() {
                         <Button
                             title="Générer un avoir"
                             icon={<RollbackOutlined />}
-                            onClick={() => {
-                                setGenAvoirMotif('');
-                                setGenAvoirNotes('');
-                                setGenAvoirModalVente(record);
-                            }}
+                            onClick={() => openGenerateAvoir(record)}
                         />
                     )}
                     <Popconfirm
@@ -3319,9 +3367,7 @@ export default function Vente() {
                             disabled={!currentVente}
                             onClick={() => {
                                 if (!currentVente) return;
-                                setGenAvoirMotif('');
-                                setGenAvoirNotes('');
-                                setGenAvoirModalVente(currentVente);
+                                openGenerateAvoir(currentVente);
                             }}
                         >
                             Générer un avoir
@@ -4821,8 +4867,44 @@ export default function Vente() {
                 width="95vw"
             >
                 <p style={{ marginBottom: 16, color: '#595959' }}>
-                    Un avoir en brouillon sera créé avec les lignes de la facture <strong>#{genAvoirModalVente?.id}</strong>.
+                    Un avoir en brouillon sera créé avec les lignes cochées de la facture <strong>#{genAvoirModalVente?.id}</strong>.
                 </p>
+                <Table
+                    size="small"
+                    style={{ marginBottom: 16 }}
+                    pagination={false}
+                    rowKey="key"
+                    dataSource={genAvoirLignes}
+                    rowSelection={{
+                        selectedRowKeys: genAvoirSelection,
+                        onChange: (keys) => setGenAvoirSelection(keys as string[]),
+                    }}
+                    columns={[
+                        { title: 'Type', dataIndex: 'type', width: 100 },
+                        { title: 'Désignation', dataIndex: 'designation' },
+                        { title: 'Qté', dataIndex: 'quantite', width: 70, align: 'right' as const },
+                        {
+                            title: 'Total TTC',
+                            dataIndex: 'totalTTC',
+                            width: 120,
+                            align: 'right' as const,
+                            render: (v: number) => `${v.toFixed(2)} EUR`,
+                        },
+                    ]}
+                    summary={() => (
+                        <Table.Summary.Row>
+                            <Table.Summary.Cell index={0} colSpan={4}>Total de l'avoir (TTC)</Table.Summary.Cell>
+                            <Table.Summary.Cell index={4} align="right">
+                                <strong>
+                                    {genAvoirLignes
+                                        .filter((l) => genAvoirSelection.includes(l.key))
+                                        .reduce((sum, l) => sum + l.totalTTC, 0)
+                                        .toFixed(2)} EUR
+                                </strong>
+                            </Table.Summary.Cell>
+                        </Table.Summary.Row>
+                    )}
+                />
                 <Form layout="vertical">
                     <Form.Item label="Motif" required>
                         <Input

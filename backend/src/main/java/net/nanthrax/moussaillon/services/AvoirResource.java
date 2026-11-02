@@ -3,6 +3,7 @@ package net.nanthrax.moussaillon.services;
 import java.sql.Timestamp;
 import java.util.List;
 
+import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -121,12 +122,30 @@ public class AvoirResource {
     public static class GenerateAvoirRequest {
         public String motif;
         public String notes;
+        // Identifiants des lignes de la facture à reprendre dans l'avoir.
+        // Si aucune des trois listes n'est fournie, toutes les lignes sont reprises.
+        public List<Long> forfaitIds;
+        public List<Long> serviceIds;
+        public List<Long> produitIds;
+
+        boolean hasSelection() {
+            return forfaitIds != null || serviceIds != null || produitIds != null;
+        }
+
+        boolean retient(List<Long> ids, Long id) {
+            return !hasSelection() || (ids != null && ids.contains(id));
+        }
     }
 
     @POST
     @Path("from-vente/{venteId}")
-    @Transactional
     public AvoirEntity generateFromVente(@PathParam("venteId") long venteId, GenerateAvoirRequest request) {
+        long avoirId = QuarkusTransaction.requiringNew().call(() -> createFromVente(venteId, request));
+        // Relu hors transaction : la sérialisation de la facture liée charge ses collections à la demande
+        return get(avoirId);
+    }
+
+    private long createFromVente(long venteId, GenerateAvoirRequest request) {
         VenteEntity vente = VenteEntity.findById(venteId);
         if (vente == null) {
             throw new WebApplicationException("La vente (" + venteId + ") n'est pas trouvée", 404);
@@ -151,7 +170,7 @@ public class AvoirResource {
         // Lignes depuis les forfaits
         if (vente.venteForfaits != null) {
             for (VenteForfaitEntity vf : vente.venteForfaits) {
-                if (vf.forfait == null) continue;
+                if (vf.forfait == null || !request.retient(request.forfaitIds, vf.id)) continue;
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
                 ligne.reference = vf.forfait.reference;
                 ligne.designation = vf.forfait.nom != null ? vf.forfait.nom : "Forfait";
@@ -170,7 +189,7 @@ public class AvoirResource {
         // Lignes depuis les services
         if (vente.venteServices != null) {
             for (VenteServiceEntity vs : vente.venteServices) {
-                if (vs.service == null) continue;
+                if (vs.service == null || !request.retient(request.serviceIds, vs.id)) continue;
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
                 ligne.designation = vs.service.nom != null ? vs.service.nom : "Service";
                 ligne.quantite = Math.max(1, vs.quantite);
@@ -188,7 +207,7 @@ public class AvoirResource {
         // Lignes depuis les produits
         if (vente.venteProduits != null) {
             for (VenteProduitEntity vp : vente.venteProduits) {
-                if (vp.produit == null) continue;
+                if (vp.produit == null || !request.retient(request.produitIds, vp.id)) continue;
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
                 ligne.reference = vp.produit.ref;
                 ligne.designation = vp.produit.designation != null ? vp.produit.designation : "Produit";
@@ -205,6 +224,10 @@ public class AvoirResource {
             }
         }
 
+        if (avoir.lignes.isEmpty()) {
+            throw new WebApplicationException("Aucune ligne de la facture n'est sélectionnée", 400);
+        }
+
         // Totaux globaux
         avoir.tva = tvaTaux;
         avoir.montantHT = round2(avoir.lignes.stream().mapToDouble(l -> l.prixUnitaireHT * l.quantite).sum());
@@ -217,7 +240,7 @@ public class AvoirResource {
             int year = java.time.LocalDate.now().getYear();
             avoir.reference = String.format("AV-%d-%05d", year, avoir.id);
         }
-        return avoir;
+        return avoir.id;
     }
 
     private static double round2(double value) {
