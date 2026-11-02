@@ -232,8 +232,8 @@ describe('Transactions - création de forfait', () => {
         await screen.findByText('Créer un forfait');
         const modal = Array.from(document.querySelectorAll('.ant-modal')).find((m) => m.textContent?.includes('Créer un forfait')) as HTMLElement;
 
-        // la première liste est celle des produits inclus
-        const designation = within(modal.querySelector('.ligne-article') as HTMLElement).getAllByRole('combobox')[1];
+        // la main d'œuvre est la première liste, les produits inclus la seconde
+        const designation = within(modal.querySelectorAll('.ligne-article')[1] as HTMLElement).getAllByRole('combobox')[1];
         fireEvent.mouseDown(designation);
         const option = await waitFor(() => {
             const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
@@ -247,11 +247,11 @@ describe('Transactions - création de forfait', () => {
             const lignes = modal.querySelectorAll('.ligne-article');
             // une ligne vide est ajoutée après le produit, la main d'œuvre garde sa ligne de saisie
             expect(lignes).toHaveLength(3);
-            return lignes[0] as HTMLElement;
+            return lignes[1] as HTMLElement;
         });
         expect(within(premiere).getByText('AN-1')).toBeInTheDocument();
         expect(within(premiere).getByText('Anode zinc')).toBeInTheDocument();
-        expect(within(modal).getByLabelText('Prix TTC')).toHaveValue('12.00');
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00');
     });
 });
 
