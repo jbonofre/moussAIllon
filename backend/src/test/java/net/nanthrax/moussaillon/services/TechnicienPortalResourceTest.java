@@ -212,6 +212,67 @@ public class TechnicienPortalResourceTest {
     }
 
     @Test
+    void testNoteClientEnregistreeSurLaVente() {
+        io.restassured.response.Response vente = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"bonPourAccord\":true,\"prixVenteTTC\":200.0,"
+                + "\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"PLANIFIEE\"}],"
+                + "\"venteServices\":[{\"service\":{\"id\":100},\"quantite\":1,\"status\":\"PLANIFIEE\"}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().response();
+        int venteId = vente.path("id");
+        int forfaitId = vente.path("venteForfaits[0].id");
+        int serviceId = vente.path("venteServices[0].id");
+
+        // La note client va sur la vente, la note interne reste sur la prestation
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"EN_COURS\",\"dureeReelle\":0,\"notes\":\"Pour l'atelier\","
+                + "\"noteVente\":\"Oxydation importante au niveau du thermostat, surveillance a prevoir\"}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then()
+            .statusCode(200)
+            .body("notes", is("Pour l'atelier"))
+            .body("noteVente", is("Oxydation importante au niveau du thermostat, surveillance a prevoir"));
+
+        given().when().get("/ventes/" + venteId).then().statusCode(200)
+            .body("note", is("Oxydation importante au niveau du thermostat, surveillance a prevoir"));
+
+        // Sans noteVente, la note reste inchangée ; elle est visible depuis les autres prestations de la vente
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"EN_COURS\",\"dureeReelle\":0}")
+            .when().put("/technicien-portal/services/" + serviceId)
+            .then()
+            .statusCode(200)
+            .body("noteVente", is("Oxydation importante au niveau du thermostat, surveillance a prevoir"));
+
+        // Une note vide efface la note de la vente
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"EN_COURS\",\"dureeReelle\":0,\"noteVente\":\"  \"}")
+            .when().put("/technicien-portal/services/" + serviceId)
+            .then()
+            .statusCode(200)
+            .body("noteVente", nullValue());
+
+        given().when().get("/ventes/" + venteId).then().statusCode(200).body("note", nullValue());
+    }
+
+    @Test
+    void testNoteClientRefuseeSurVentePayee() {
+        // La vente 100 est payée
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"EN_COURS\",\"dureeReelle\":1.5,\"noteVente\":\"Trop tard\"}")
+            .when().put("/technicien-portal/forfaits/100")
+            .then()
+            .statusCode(400);
+
+        given().when().get("/ventes/100").then().statusCode(200).body("note", nullValue());
+    }
+
+    @Test
     void testModifierForfaitNonTrouve() {
         given()
             .contentType("application/json")

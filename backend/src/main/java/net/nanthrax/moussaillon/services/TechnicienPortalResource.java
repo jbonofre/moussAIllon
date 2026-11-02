@@ -80,6 +80,8 @@ public class TechnicienPortalResource {
         public String incidentDate;
         public String incidentDetails;
         public String notes;
+        // Note client, stockée sur la vente et imprimée ; absente = inchangée, vide = effacée
+        public String noteVente;
         public List<ChecklistUpdate> taches;
         public List<String> images;
         public List<String> documents;
@@ -124,6 +126,8 @@ public class TechnicienPortalResource {
         public String dateFin;
         public String statusDate;
         public String notes;
+        // Note de la vente (commune à toutes ses prestations), imprimée sur le devis, l'OR et la facture
+        public String noteVente;
         public double dureeReelle;
         public Double heuresMoteur;
         public double dureeEstimee;
@@ -152,6 +156,7 @@ public class TechnicienPortalResource {
             item.dateFin = vf.dateFin != null ? vf.dateFin.toString() : null;
             item.statusDate = vf.statusDate != null ? vf.statusDate.toString() : null;
             item.notes = vf.notes;
+            item.noteVente = vente.note;
             item.dureeReelle = vf.dureeReelle;
             item.heuresMoteur = vf.heuresMoteur;
             item.dureeEstimee = vf.forfait != null ? vf.forfait.dureeEstimee : 0;
@@ -231,6 +236,7 @@ public class TechnicienPortalResource {
             item.dateFin = vs.dateFin != null ? vs.dateFin.toString() : null;
             item.statusDate = vs.statusDate != null ? vs.statusDate.toString() : null;
             item.notes = vs.notes;
+            item.noteVente = vente.note;
             item.dureeReelle = vs.dureeReelle;
             item.heuresMoteur = vs.heuresMoteur;
             item.dureeEstimee = vs.service != null ? vs.service.dureeEstimee : 0;
@@ -611,6 +617,7 @@ public class TechnicienPortalResource {
             sendIncidentNotification(parentVente, nom, vf.incidentDetails, vf.incidentDate);
         }
 
+        appliquerNoteVente(parentVente, request.noteVente);
         reporterHeuresMoteur(parentVente, request.heuresMoteur);
         pretRecuperationService.evaluer(parentVente);
         VenteResource.passerEnFactureEnAttenteSiLancee(parentVente);
@@ -702,6 +709,7 @@ public class TechnicienPortalResource {
             sendIncidentNotification(parentVente, nom, vs.incidentDetails, vs.incidentDate);
         }
 
+        appliquerNoteVente(parentVente, request.noteVente);
         reporterHeuresMoteur(parentVente, request.heuresMoteur);
         pretRecuperationService.evaluer(parentVente);
         VenteResource.passerEnFactureEnAttenteSiLancee(parentVente);
@@ -1000,6 +1008,21 @@ public class TechnicienPortalResource {
         if (vente.moteur != null) {
             vente.moteur.heuresMoteur = heuresMoteur;
         }
+    }
+
+    // Enregistre sur la vente la note client saisie par le technicien (imprimée sur le devis, l'OR et la facture)
+    private void appliquerNoteVente(VenteEntity vente, String noteVente) {
+        if (vente == null || noteVente == null) {
+            return;
+        }
+        String note = noteVente.isBlank() ? null : noteVente.strip();
+        if (java.util.Objects.equals(note, vente.note)) {
+            return;
+        }
+        if (vente.status == VenteEntity.Status.FACTURE_PAYEE) {
+            throw new WebApplicationException("Une vente payée ne peut plus être modifiée", Response.Status.BAD_REQUEST);
+        }
+        vente.note = note;
     }
 
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {

@@ -71,6 +71,25 @@ public class VenteResourceTest {
     }
 
     @Test
+    void testModifierNoteVente() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"note\":\"Premiere note\"}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"note\":\"Note corrigee\"}")
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("note", is("Note corrigee"));
+
+        given().when().get("/ventes/" + id).then().statusCode(200).body("note", is("Note corrigee"));
+    }
+
+    @Test
     void testRechercherVentesParStatut() {
         given()
             .queryParam("status", "FACTURE_PAYEE")
