@@ -45,6 +45,17 @@ public class VenteForfaitEntity extends PanacheEntity {
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateReouverture;
 
+    // Traçabilité d'une correction d'horaires par le technicien (tâche démarrée ou terminée avec retard) :
+    // date de la correction et horaires d'origine, conservés à la première correction
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateCorrectionHoraires;
+
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateDebutOriginale;
+
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateFinOriginale;
+
     public enum Status {
         EN_ATTENTE,
         PLANIFIEE,

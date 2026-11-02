@@ -1,6 +1,7 @@
 package net.nanthrax.moussaillon.services;
 
 import java.sql.Date;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -81,6 +82,9 @@ public class TechnicienPortalResource {
         public Double heuresMoteur;
         public String dateDebut;
         public String dateFin;
+        // Le technicien corrige les horaires de début et/ou de fin (oubli de démarrer ou de terminer) :
+        // la durée réelle est recalculée et la correction tracée
+        public boolean corrigerHoraires;
         public String incidentDate;
         public String incidentDetails;
         public String notes;
@@ -130,6 +134,10 @@ public class TechnicienPortalResource {
         public String dateFin;
         // Dernière réouverture : le temps passé depuis s'ajoute à la durée réelle déjà comptée
         public String dateReouverture;
+        // Correction des horaires par le technicien : date de la correction et horaires d'origine
+        public String dateCorrectionHoraires;
+        public String dateDebutOriginale;
+        public String dateFinOriginale;
         public String statusDate;
         public String notes;
         // Note de la vente (commune à toutes ses prestations), imprimée sur le devis, l'OR et la facture
@@ -162,6 +170,9 @@ public class TechnicienPortalResource {
             item.dateDebut = vf.dateDebut != null ? vf.dateDebut.toString() : null;
             item.dateFin = vf.dateFin != null ? vf.dateFin.toString() : null;
             item.dateReouverture = vf.dateReouverture != null ? vf.dateReouverture.toString() : null;
+            item.dateCorrectionHoraires = vf.dateCorrectionHoraires != null ? vf.dateCorrectionHoraires.toString() : null;
+            item.dateDebutOriginale = vf.dateDebutOriginale != null ? vf.dateDebutOriginale.toString() : null;
+            item.dateFinOriginale = vf.dateFinOriginale != null ? vf.dateFinOriginale.toString() : null;
             item.statusDate = vf.statusDate != null ? vf.statusDate.toString() : null;
             item.notes = vf.notes;
             item.noteVente = vente.note;
@@ -244,6 +255,9 @@ public class TechnicienPortalResource {
             item.dateDebut = vs.dateDebut != null ? vs.dateDebut.toString() : null;
             item.dateFin = vs.dateFin != null ? vs.dateFin.toString() : null;
             item.dateReouverture = vs.dateReouverture != null ? vs.dateReouverture.toString() : null;
+            item.dateCorrectionHoraires = vs.dateCorrectionHoraires != null ? vs.dateCorrectionHoraires.toString() : null;
+            item.dateDebutOriginale = vs.dateDebutOriginale != null ? vs.dateDebutOriginale.toString() : null;
+            item.dateFinOriginale = vs.dateFinOriginale != null ? vs.dateFinOriginale.toString() : null;
             item.statusDate = vs.statusDate != null ? vs.statusDate.toString() : null;
             item.notes = vs.notes;
             item.noteVente = vente.note;
@@ -576,11 +590,28 @@ public class TechnicienPortalResource {
         if (request.heuresMoteur != null) {
             vf.heuresMoteur = request.heuresMoteur;
         }
-        if (request.dateDebut != null && !request.dateDebut.isBlank()) {
-            vf.dateDebut = java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateDebut));
-        }
-        if (request.dateFin != null && !request.dateFin.isBlank()) {
-            vf.dateFin = java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateFin));
+        if (request.corrigerHoraires) {
+            verifierVenteNonPayee(venteParenteForfait(itemId));
+            Timestamp[] horaires = horairesCorriges(request, vf.dateDebut, vf.dateFin);
+            if (vf.dateCorrectionHoraires == null) {
+                vf.dateDebutOriginale = vf.dateDebut;
+                vf.dateFinOriginale = vf.dateFin;
+            }
+            vf.dateCorrectionHoraires = new Timestamp(System.currentTimeMillis());
+            vf.dateDebut = horaires[0];
+            vf.dateFin = horaires[1];
+            if (horaires[0] != null && horaires[1] != null) {
+                // Les horaires font foi : le temps déjà compté avant une réouverture n'est plus ajouté
+                vf.dateReouverture = null;
+                vf.dureeReelle = heuresEntre(horaires[0], horaires[1]);
+            }
+        } else {
+            if (request.dateDebut != null && !request.dateDebut.isBlank()) {
+                vf.dateDebut = Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateDebut));
+            }
+            if (request.dateFin != null && !request.dateFin.isBlank()) {
+                vf.dateFin = Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateFin));
+            }
         }
         if (request.notes != null) {
             vf.notes = request.notes;
@@ -677,11 +708,28 @@ public class TechnicienPortalResource {
         if (request.heuresMoteur != null) {
             vs.heuresMoteur = request.heuresMoteur;
         }
-        if (request.dateDebut != null && !request.dateDebut.isBlank()) {
-            vs.dateDebut = java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateDebut));
-        }
-        if (request.dateFin != null && !request.dateFin.isBlank()) {
-            vs.dateFin = java.sql.Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateFin));
+        if (request.corrigerHoraires) {
+            verifierVenteNonPayee(venteParenteService(itemId));
+            Timestamp[] horaires = horairesCorriges(request, vs.dateDebut, vs.dateFin);
+            if (vs.dateCorrectionHoraires == null) {
+                vs.dateDebutOriginale = vs.dateDebut;
+                vs.dateFinOriginale = vs.dateFin;
+            }
+            vs.dateCorrectionHoraires = new Timestamp(System.currentTimeMillis());
+            vs.dateDebut = horaires[0];
+            vs.dateFin = horaires[1];
+            if (horaires[0] != null && horaires[1] != null) {
+                // Les horaires font foi : le temps déjà compté avant une réouverture n'est plus ajouté
+                vs.dateReouverture = null;
+                vs.dureeReelle = heuresEntre(horaires[0], horaires[1]);
+            }
+        } else {
+            if (request.dateDebut != null && !request.dateDebut.isBlank()) {
+                vs.dateDebut = Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateDebut));
+            }
+            if (request.dateFin != null && !request.dateFin.isBlank()) {
+                vs.dateFin = Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateFin));
+            }
         }
         if (request.notes != null) {
             vs.notes = request.notes;
@@ -834,6 +882,41 @@ public class TechnicienPortalResource {
         if (vente != null && vente.status == VenteEntity.Status.FACTURE_PAYEE) {
             throw erreur(MESSAGE_VENTE_PAYEE);
         }
+    }
+
+    // Écart maximal toléré entre le début et la fin d'une tâche corrigée à la main
+    static final long DUREE_MAX_CORRECTION_JOURS = 7;
+
+    /**
+     * Horaires {début, fin} après correction par le technicien : ceux de la requête, sinon les horaires actuels.
+     * Refusés s'ils sont dans le futur, si la fin ne suit pas le début ou si l'écart dépasse une semaine.
+     */
+    static Timestamp[] horairesCorriges(PlanningItemUpdateRequest request, Timestamp debutActuel, Timestamp finActuelle) {
+        Timestamp debut = request.dateDebut != null && !request.dateDebut.isBlank()
+                ? Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateDebut)) : debutActuel;
+        Timestamp fin = request.dateFin != null && !request.dateFin.isBlank()
+                ? Timestamp.valueOf(java.time.LocalDateTime.parse(request.dateFin)) : finActuelle;
+        if (debut == null) {
+            throw erreur("L'heure de début est requise");
+        }
+        // Une minute de tolérance pour l'écart d'horloge entre le téléphone et le serveur
+        long limite = System.currentTimeMillis() + 60_000;
+        if (debut.getTime() > limite || (fin != null && fin.getTime() > limite)) {
+            throw erreur("Les horaires ne peuvent pas être dans le futur");
+        }
+        if (fin != null) {
+            if (!fin.after(debut)) {
+                throw erreur("L'heure de fin doit être postérieure à l'heure de début");
+            }
+            if (fin.getTime() - debut.getTime() > DUREE_MAX_CORRECTION_JOURS * 86_400_000L) {
+                throw erreur("L'écart entre le début et la fin ne peut pas dépasser " + DUREE_MAX_CORRECTION_JOURS + " jours");
+            }
+        }
+        return new Timestamp[] { debut, fin };
+    }
+
+    static double heuresEntre(Timestamp debut, Timestamp fin) {
+        return Math.round((fin.getTime() - debut.getTime()) / 3_600_000.0 * 100) / 100.0;
     }
 
     // Erreur 400 avec un message lisible par l'application ({"message": ...})

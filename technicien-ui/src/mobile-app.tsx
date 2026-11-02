@@ -44,6 +44,7 @@ import DocumentUpload from './DocumentUpload.tsx';
 import PlanningGeneral from './planning-general.tsx';
 import Objectifs from './objectifs.tsx';
 import Parc from './parc.tsx';
+import { BoutonCorrigerHoraires, peutCorrigerHoraires } from './horaires.tsx';
 import { BoutonRouvrir, messageErreur, peutEtreRouverte } from './reouverture.tsx';
 import { PLACEHOLDER_RECHERCHE, libelleBateau, tacheCorrespond } from './recherche-tache.ts';
 
@@ -83,6 +84,9 @@ interface PlanningItem {
     dateDebut?: string;
     dateFin?: string;
     dateReouverture?: string;
+    dateCorrectionHoraires?: string;
+    dateDebutOriginale?: string;
+    dateFinOriginale?: string;
     statusDate?: string;
     notes?: string;
     noteVente?: string;
@@ -560,6 +564,16 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                     <Form.Item name="dureeReelle" label="Temps passe (heures)">
                         <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" />
                     </Form.Item>
+                    {currentItem && peutCorrigerHoraires(currentItem) && (
+                        <BoutonCorrigerHoraires
+                            tache={currentItem}
+                            onCorriges={(corrigee) => {
+                                setCurrentItem({ ...currentItem, ...corrigee, noteVente: currentItem.noteVente });
+                                form.setFieldsValue({ dureeReelle: corrigee.dureeReelle ?? 0 });
+                                fetchItems();
+                            }}
+                        />
+                    )}
                     <Form.Item name="heuresMoteur" label="Heures moteur" extra="Reporte sur la fiche du bateau et du moteur du client">
                         <InputNumber min={0} step={0.1} precision={1} style={{ width: '100%' }} addonAfter="h" />
                     </Form.Item>

@@ -570,6 +570,9 @@ public class VenteResource {
                 cloned.dateDebut = incoming.dateDebut;
                 cloned.dateFin = incoming.dateFin;
                 cloned.dateReouverture = incoming.dateReouverture;
+                cloned.dateCorrectionHoraires = incoming.dateCorrectionHoraires;
+                cloned.dateDebutOriginale = incoming.dateDebutOriginale;
+                cloned.dateFinOriginale = incoming.dateFinOriginale;
                 cloned.status = incoming.status;
                 cloned.statusDate = incoming.statusDate;
                 cloned.dureeReelle = incoming.dureeReelle;
@@ -620,6 +623,9 @@ public class VenteResource {
                 cloned.dateDebut = incoming.dateDebut;
                 cloned.dateFin = incoming.dateFin;
                 cloned.dateReouverture = incoming.dateReouverture;
+                cloned.dateCorrectionHoraires = incoming.dateCorrectionHoraires;
+                cloned.dateDebutOriginale = incoming.dateDebutOriginale;
+                cloned.dateFinOriginale = incoming.dateFinOriginale;
                 cloned.status = incoming.status;
                 cloned.statusDate = incoming.statusDate;
                 cloned.dureeReelle = incoming.dureeReelle;

@@ -136,6 +136,10 @@ interface VenteForfaitEntity {
     dateFin?: string;
     // Posée par l'application technicien quand une tâche terminée est rouverte
     dateReouverture?: string;
+    // Posés par l'application technicien quand il corrige les horaires (date de correction, horaires d'origine)
+    dateCorrectionHoraires?: string;
+    dateDebutOriginale?: string;
+    dateFinOriginale?: string;
     status?: PlanningStatus;
     statusDate?: string;
     dureeReelle?: number;
@@ -159,6 +163,10 @@ interface VenteServiceEntity {
     dateFin?: string;
     // Posée par l'application technicien quand une tâche terminée est rouverte
     dateReouverture?: string;
+    // Posés par l'application technicien quand il corrige les horaires (date de correction, horaires d'origine)
+    dateCorrectionHoraires?: string;
+    dateDebutOriginale?: string;
+    dateFinOriginale?: string;
     status?: PlanningStatus;
     statusDate?: string;
     dureeReelle?: number;
@@ -2082,6 +2090,9 @@ export default function Vente() {
                     dateDebut: line.dateDebut || existingVf?.dateDebut,
                     dateFin: line.dateFin || existingVf?.dateFin,
                     dateReouverture: existingVf?.dateReouverture,
+                    dateCorrectionHoraires: existingVf?.dateCorrectionHoraires,
+                    dateDebutOriginale: existingVf?.dateDebutOriginale,
+                    dateFinOriginale: existingVf?.dateFinOriginale,
                     status: line.status || 'EN_ATTENTE',
                     dureeReelle: line.dureeReelle || existingVf?.dureeReelle || 0,
                     notes: line.notes || '',
@@ -2108,6 +2119,9 @@ export default function Vente() {
                     dateDebut: line.dateDebut || existingVs?.dateDebut,
                     dateFin: line.dateFin || existingVs?.dateFin,
                     dateReouverture: existingVs?.dateReouverture,
+                    dateCorrectionHoraires: existingVs?.dateCorrectionHoraires,
+                    dateDebutOriginale: existingVs?.dateDebutOriginale,
+                    dateFinOriginale: existingVs?.dateFinOriginale,
                     status: line.status || 'EN_ATTENTE',
                     dureeReelle: line.dureeReelle || existingVs?.dureeReelle || 0,
                     notes: line.notes || '',
