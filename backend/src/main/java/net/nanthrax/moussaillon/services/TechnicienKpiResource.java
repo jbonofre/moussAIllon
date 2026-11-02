@@ -124,6 +124,36 @@ public class TechnicienKpiResource {
         }
         kpi.chiffreAffaireMainOeuvreMois = caMainOeuvreMois;
 
+        // Marge sur la main d'oeuvre : (durée estimée - durée réelle) x tarif horaire HT, des tâches terminées
+        double marge = 0;
+        double margeMois = 0;
+        for (VenteForfaitEntity vf : allForfaits) {
+            if (vf.forfait == null || vf.status != VenteForfaitEntity.Status.TERMINEE || vf.dureeReelle <= 0) {
+                continue;
+            }
+            double gain = (vf.forfait.dureeEstimee * vf.quantite - vf.dureeReelle)
+                    * tarifHoraire(vf.forfait.mainOeuvres == null ? List.of()
+                            : vf.forfait.mainOeuvres.stream().map(m -> new double[] { m.mainOeuvre != null ? m.mainOeuvre.prixHT : 0, m.quantite }).toList());
+            marge += gain;
+            if (vf.dateDebut != null && !vf.dateDebut.before(monthStart)) {
+                margeMois += gain;
+            }
+        }
+        for (VenteServiceEntity vs : allServices) {
+            if (vs.service == null || vs.status != VenteServiceEntity.Status.TERMINEE || vs.dureeReelle <= 0) {
+                continue;
+            }
+            double gain = (vs.service.dureeEstimee * vs.quantite - vs.dureeReelle)
+                    * tarifHoraire(vs.service.mainOeuvres == null ? List.of()
+                            : vs.service.mainOeuvres.stream().map(m -> new double[] { m.mainOeuvre != null ? m.mainOeuvre.prixHT : 0, m.quantite }).toList());
+            marge += gain;
+            if (vs.dateDebut != null && !vs.dateDebut.before(monthStart)) {
+                margeMois += gain;
+            }
+        }
+        kpi.margeMainOeuvre = Math.round(marge * 100.0) / 100.0;
+        kpi.margeMainOeuvreMois = Math.round(margeMois * 100.0) / 100.0;
+
         // Tâches en retard (date de planification dépassée)
         Timestamp nowTs = Timestamp.valueOf(now.atStartOfDay());
         kpi.tachesEnRetard = (int) allItems.stream()
@@ -137,6 +167,13 @@ public class TechnicienKpiResource {
                 .count();
 
         return kpi;
+    }
+
+    // Tarif horaire HT moyen pondéré d'une prestation : chaque unité de main d'oeuvre vaut 1 h (prixHT, quantité)
+    private static double tarifHoraire(List<double[]> mainOeuvres) {
+        double heures = mainOeuvres.stream().mapToDouble(m -> m[1]).sum();
+        double cout = mainOeuvres.stream().mapToDouble(m -> m[0] * m[1]).sum();
+        return heures > 0 ? cout / heures : 0;
     }
 
     private record PlanningItem(String status, Timestamp dateDebut, Timestamp statusDate, double dureeReelle, double dureeEstimee) {}
@@ -159,6 +196,8 @@ public class TechnicienKpiResource {
         public int tachesDepassement;
         public double chiffreAffaireMainOeuvre;
         public double chiffreAffaireMainOeuvreMois;
+        public double margeMainOeuvre;
+        public double margeMainOeuvreMois;
     }
 
 }

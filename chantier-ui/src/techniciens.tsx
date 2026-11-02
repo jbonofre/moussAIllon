@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
-import { Space, Table, Button, Input, InputNumber, Form, Modal, Card, Row, Col, Popconfirm, message, Drawer, Statistic, Progress, Divider, Spin, Checkbox, ColorPicker } from 'antd';
+import { Space, Table, Button, Input, InputNumber, Form, Modal, Card, Row, Col, Popconfirm, message, Drawer, Statistic, Progress, Divider, Spin, Checkbox, ColorPicker, Typography } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, UserOutlined, BarChartOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, WarningOutlined, EuroCircleOutlined, KeyOutlined, MailOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
@@ -38,6 +38,8 @@ interface TechnicienKpi {
     tachesDepassement: number;
     chiffreAffaireMainOeuvre: number;
     chiffreAffaireMainOeuvreMois: number;
+    margeMainOeuvre: number;
+    margeMainOeuvreMois: number;
 }
 
 interface TechnicienFormValues {
@@ -504,6 +506,19 @@ const Techniciens: React.FC = () => {
                                 <Statistic title="Ce mois" value={kpiData.chiffreAffaireMainOeuvreMois} precision={2} suffix="€" valueStyle={{ color: '#3f8600' }} prefix={<EuroCircleOutlined />} />
                             </Col>
                         </Row>
+
+                        <Divider orientation="left">Marge main d'œuvre (HT)</Divider>
+                        <Row gutter={[16, 16]}>
+                            <Col span={12}>
+                                <Statistic title="Cumulée" value={kpiData.margeMainOeuvre} precision={2} suffix="€" valueStyle={{ color: kpiData.margeMainOeuvre < 0 ? '#cf1322' : '#3f8600' }} prefix={<EuroCircleOutlined />} />
+                            </Col>
+                            <Col span={12}>
+                                <Statistic title="Ce mois" value={kpiData.margeMainOeuvreMois} precision={2} suffix="€" valueStyle={{ color: kpiData.margeMainOeuvreMois < 0 ? '#cf1322' : '#3f8600' }} prefix={<EuroCircleOutlined />} />
+                            </Col>
+                        </Row>
+                        <Typography.Text type="secondary">
+                            Tâches terminées : (durée estimée - durée réelle) × tarif horaire de la main d'œuvre. Négatif en cas de dépassement.
+                        </Typography.Text>
 
                         <Divider orientation="left">Vue globale</Divider>
                         <Row gutter={[16, 16]}>

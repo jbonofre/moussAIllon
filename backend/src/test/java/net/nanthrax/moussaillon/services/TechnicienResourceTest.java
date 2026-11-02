@@ -30,6 +30,16 @@ public class TechnicienResourceTest {
     }
 
     @Test
+    void testKpiMargeMainOeuvre() {
+        given()
+            .when().get("/techniciens/100/kpi")
+            .then()
+            .statusCode(200)
+            .body("margeMainOeuvre", notNullValue())
+            .body("margeMainOeuvreMois", notNullValue());
+    }
+
+    @Test
     void testObtenirTechnicienNonTrouve() {
         given()
             .when().get("/techniciens/9999")
