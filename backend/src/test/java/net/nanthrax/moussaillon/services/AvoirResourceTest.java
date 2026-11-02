@@ -136,4 +136,43 @@ public class AvoirResourceTest {
                 .body("status", is("EMIS"));
     }
 
+
+    @Test
+    void testAvoirPartielSurLignesSelectionnees() {
+        String vente = "{\"status\":\"DEVIS\",\"comptoir\":true,\"client\":{\"id\":100},\"prixVenteTTC\":46.0,\"venteProduits\":["
+                + "{\"quantite\":1,\"produit\":{\"designation\":\"Ligne A " + System.nanoTime() + "\",\"prixVenteTTC\":12.0,\"tva\":20.0}},"
+                + "{\"quantite\":2,\"produit\":{\"designation\":\"Ligne B " + System.nanoTime() + "\",\"prixVenteTTC\":17.0,\"tva\":20.0}}]}";
+        io.restassured.path.json.JsonPath created = given()
+                .contentType("application/json")
+                .body(vente)
+                .when().post("/ventes")
+                .then().statusCode(201).extract().jsonPath();
+        int venteId = created.getInt("id");
+        int ligneB = created.getInt("venteProduits[1].id");
+
+        // Seule la ligne B est reprise
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Retour partiel\",\"produitIds\":[" + ligneB + "]}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(200)
+                .body("lignes.size()", is(1))
+                .body("montantTTC", is(34.0f));
+
+        // Sans sélection, toutes les lignes sont reprises
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Retour total\"}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(200)
+                .body("lignes.size()", is(2))
+                .body("montantTTC", is(46.0f));
+
+        // Une sélection qui ne correspond à aucune ligne est refusée
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Rien\",\"produitIds\":[]}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(400);
+    }
 }
