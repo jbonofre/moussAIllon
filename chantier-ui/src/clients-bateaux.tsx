@@ -24,6 +24,8 @@ import {
 } from "antd";
 import {
   PlusCircleOutlined,
+  PlusOutlined,
+  MinusCircleOutlined,
   EditOutlined,
   DeleteOutlined,
   SearchOutlined,
@@ -71,6 +73,7 @@ interface BateauClient {
   localisation?: string;
   localisationGps?: string;
   moteurs?: any[];
+  numerosSerieMoteurs?: Array<{ moteurId: number; numeroSerie: string }>;
   helices?: any[];
   remorques?: any[];
   equipements?: any[];
@@ -101,6 +104,30 @@ const defaultBateau: BateauClient = {
 interface BateauxClientsProps {
   clientId?: number;
 }
+
+// Une ligne par moteur physique : permet de monter plusieurs moteurs de même modèle,
+// chacun avec son numéro de série
+type MoteurLigne = { moteurId?: number; numeroSerie?: string };
+
+const moteursToLignes = (record: BateauClient): MoteurLigne[] => {
+  const series = [...(record.numerosSerieMoteurs || [])];
+  return (record.moteurs || []).map((m: any) => {
+    const moteurId = m.id || m;
+    const index = series.findIndex((s) => s.moteurId === moteurId);
+    const numeroSerie = index >= 0 ? series.splice(index, 1)[0].numeroSerie : undefined;
+    return { moteurId, numeroSerie };
+  });
+};
+
+const lignesToPayload = (lignes: MoteurLigne[] | undefined) => {
+  const valides = (lignes || []).filter((l) => l && l.moteurId);
+  return {
+    moteurs: valides.map((l) => ({ id: l.moteurId })),
+    numerosSerieMoteurs: valides
+      .filter((l) => l.numeroSerie && l.numeroSerie.trim())
+      .map((l) => ({ moteurId: l.moteurId, numeroSerie: l.numeroSerie!.trim() })),
+  };
+};
 
 function BateauxClients({ clientId }: BateauxClientsProps) {
   const bateauTypes = useReferenceValeurs('TYPE_BATEAU');
@@ -309,7 +336,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       dateFinDeGuarantie: record.dateFinDeGuarantie ? dayjs(record.dateFinDeGuarantie) : null,
       modeleId: record.modele?.id || undefined,
       proprietaires: record.proprietaires?.map((p: any) => p.id || p) || [],
-      moteurs: record.moteurs?.map((m: any) => m.id || m) || [],
+      moteurs: moteursToLignes(record),
       helices: record.helices?.map((h: any) => h.id || h) || [],
       remorques: record.remorques?.map((r: any) => r.id || r) || [],
       options: record.options?.map((o: any) => o.id || o) || [],
@@ -374,7 +401,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       await fetchMoteursCatalogue();
       // Add the new moteur to the current selection
       const currentMoteurs = form.getFieldValue("moteurs") || [];
-      form.setFieldsValue({ moteurs: [...currentMoteurs, res.data.id] });
+      form.setFieldsValue({ moteurs: [...currentMoteurs, { moteurId: res.data.id }] });
     } catch (e) {
       if (e && e.response) {
         message.error("Erreur lors de l'ajout du moteur catalogue");
@@ -437,9 +464,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
         proprietaires: proprietaires && Array.isArray(proprietaires)
           ? proprietaires.map((id: number) => ({ id }))
           : [],
-        moteurs: moteurs && Array.isArray(moteurs)
-          ? moteurs.map((id: number) => ({ id }))
-          : [],
+        ...lignesToPayload(moteurs),
         remorques: remorques && Array.isArray(remorques)
           ? remorques.map((id: number) => ({ id }))
           : [],
@@ -463,7 +488,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           dateFinDeGuarantie: updated.dateFinDeGuarantie ? dayjs(updated.dateFinDeGuarantie) : null,
           modeleId: updated.modele?.id || undefined,
           proprietaires: updated.proprietaires?.map((p: any) => p.id || p) || [],
-          moteurs: updated.moteurs?.map((m: any) => m.id || m) || [],
+          moteurs: moteursToLignes(updated),
           helices: updated.helices?.map((h: any) => h.id || h) || [],
           remorques: updated.remorques?.map((r: any) => r.id || r) || [],
         });
@@ -480,7 +505,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           dateFinDeGuarantie: created.dateFinDeGuarantie ? dayjs(created.dateFinDeGuarantie) : null,
           modeleId: created.modele?.id || undefined,
           proprietaires: created.proprietaires?.map((p: any) => p.id || p) || [],
-          moteurs: created.moteurs?.map((m: any) => m.id || m) || [],
+          moteurs: moteursToLignes(created),
           helices: created.helices?.map((h: any) => h.id || h) || [],
           remorques: created.remorques?.map((r: any) => r.id || r) || [],
         });
@@ -733,26 +758,42 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           <Row gutter={16}>
             <Col span={12}>
           <Form.Item label="Moteurs" style={{ marginBottom: 0 }}>
-            <Space.Compact style={{ width: "100%" }}>
-              <Form.Item name="moteurs" noStyle>
-                <Select
-                  mode="multiple"
-                  style={{ width: '100%' }}
-                  placeholder="Rechercher un moteur par désignation ou type"
-                  optionFilterProp="label"
-                  showSearch
-                  allowClear
-                  options={moteurSelectOptions}
-                />
-              </Form.Item>
-              <Button
-                icon={<PlusCircleOutlined />}
-                onClick={() => {
-                  moteurForm.resetFields();
-                  setMoteurModalVisible(true);
-                }}
-              />
-            </Space.Compact>
+            <Form.List name="moteurs">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name }) => (
+                    <Space key={key} align="start" style={{ display: "flex", marginBottom: 8 }}>
+                      <Form.Item name={[name, "moteurId"]} noStyle rules={[{ required: true, message: "Moteur requis" }]}>
+                        <Select
+                          style={{ width: 260 }}
+                          placeholder="Rechercher un moteur par désignation ou type"
+                          optionFilterProp="label"
+                          showSearch
+                          options={moteurSelectOptions}
+                        />
+                      </Form.Item>
+                      <Form.Item name={[name, "numeroSerie"]} noStyle>
+                        <Input placeholder="N° de série" style={{ width: 160 }} />
+                      </Form.Item>
+                      <Button icon={<MinusCircleOutlined />} onClick={() => remove(name)} />
+                    </Space>
+                  ))}
+                  <Space>
+                    <Button type="dashed" icon={<PlusOutlined />} onClick={() => add({})}>
+                      Ajouter un moteur
+                    </Button>
+                    <Button
+                      icon={<PlusCircleOutlined />}
+                      title="Créer un moteur au catalogue"
+                      onClick={() => {
+                        moteurForm.resetFields();
+                        setMoteurModalVisible(true);
+                      }}
+                    />
+                  </Space>
+                </>
+              )}
+            </Form.List>
           </Form.Item>
             </Col>
             <Col span={12}>
