@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, Table, Tag, Spin, message, Checkbox, Button, Image, Divider, Typography } from 'antd';
 import { PictureOutlined, TagsOutlined } from '@ant-design/icons';
+import { moteursAvecSerie } from './moteurs-serie.ts';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
@@ -19,6 +20,7 @@ interface BateauClientEntity {
     documents?: string[];
     modele?: { id: number; designation?: string };
     moteurs?: Array<{ id: number; designation?: string }>;
+    numerosSerieMoteurs?: Array<{ moteurId: number; numeroSerie: string }>;
     remorques?: Array<{ id: number; designation?: string }>;
     equipements?: string[];
 }
@@ -125,8 +127,8 @@ export default function MesBateaux({ clientId, onCreateAnnonce }: MesBateauxProp
             title: 'Moteurs',
             key: 'moteurs',
             render: (_: unknown, record: BateauClientEntity) =>
-                (record.moteurs || []).map((m) => (
-                    <Tag key={m.id}>{m.designation || `#${m.id}`}</Tag>
+                moteursAvecSerie(record.moteurs, record.numerosSerieMoteurs).map((label, index) => (
+                    <Tag key={index}>{label}</Tag>
                 )),
         },
         {

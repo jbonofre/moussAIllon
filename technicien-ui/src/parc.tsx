@@ -14,6 +14,7 @@ interface Client {
 }
 
 interface Modele {
+    id?: number;
     designation?: string;
     anneeDebut?: number;
     anneeFin?: number;
@@ -33,6 +34,7 @@ interface Materiel {
     proprietaire?: Client;
     proprietaires?: Client[];
     moteurs?: Modele[];
+    numerosSerieMoteurs?: Array<{ moteurId: number; numeroSerie: string }>;
     remorques?: Modele[];
     equipements?: string[];
     datePretRecuperation?: string | null;
@@ -70,6 +72,17 @@ const formatModele = (m?: Modele) => {
     if (!m?.designation) return '';
     const annee = m.anneeDebut ? (m.anneeFin && m.anneeFin !== m.anneeDebut ? `${m.anneeDebut}-${m.anneeFin}` : `${m.anneeDebut}`) : '';
     return annee ? `${m.designation} (${annee})` : m.designation;
+};
+
+// Un moteur par entrée (modèles identiques possibles), avec son numéro de série s'il est renseigné
+const moteursAvecSerie = (m: Materiel) => {
+    const restantes = [...(m.numerosSerieMoteurs || [])];
+    return (m.moteurs || []).map((moteur) => {
+        const index = restantes.findIndex((s) => s.moteurId === moteur.id);
+        const serie = index >= 0 ? restantes.splice(index, 1)[0].numeroSerie : undefined;
+        const nom = formatModele(moteur);
+        return serie ? `${nom} - N° série ${serie}` : nom;
+    });
 };
 
 const proprietairesNoms = (m: Materiel) => {
@@ -184,7 +197,7 @@ export default function Parc() {
         rows.push([type === 'bateaux' ? 'Propriétaires' : 'Propriétaire', proprietairesNoms(m)]);
         if (type === 'bateaux') {
             rows.push(['Localisation', m.localisation]);
-            rows.push(['Moteurs', (m.moteurs || []).map(formatModele).filter(Boolean).join(', ')]);
+            rows.push(['Moteurs', moteursAvecSerie(m).filter(Boolean).join(', ')]);
             rows.push(['Remorques', (m.remorques || []).map(formatModele).filter(Boolean).join(', ')]);
             rows.push(['Équipements', (m.equipements || []).join(', ')]);
         }

@@ -8,6 +8,7 @@ import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
+import static org.hamcrest.Matchers.hasItems;
 import static org.hamcrest.Matchers.is;
 
 @QuarkusTest
@@ -56,6 +57,48 @@ public class BateauClientResourceTest {
             .then()
             .statusCode(200)
             .body("name", is("ApresUpdate"));
+    }
+
+    @Test
+    void testNumeroSerieParMoteur() {
+        int moteurId = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Moteur SN\",\"type\":\"Hors-bord\"}")
+            .when().post("/catalogue/moteurs")
+            .then().statusCode(200).extract().path("id");
+
+        // Deux moteurs de même modèle, chacun avec son numéro de série ; le numéro d'un moteur
+        // absent du bateau et le troisième numéro du même modèle sont ignorés
+        int id = given()
+            .contentType("application/json")
+            .body("{\"name\":\"Bateau SN\",\"moteurs\":[{\"id\":" + moteurId + "},{\"id\":" + moteurId + "}],"
+                + "\"numerosSerieMoteurs\":[{\"moteurId\":" + moteurId + ",\"numeroSerie\":\" ABC123 \"},"
+                + "{\"moteurId\":" + moteurId + ",\"numeroSerie\":\"ABC124\"},"
+                + "{\"moteurId\":" + moteurId + ",\"numeroSerie\":\"EXCES\"},"
+                + "{\"moteurId\":99999,\"numeroSerie\":\"orphelin\"}]}")
+            .when().post("/bateaux")
+            .then().statusCode(201)
+            .body("moteurs.size()", is(2))
+            .body("numerosSerieMoteurs.size()", is(2))
+            .body("numerosSerieMoteurs.numeroSerie", hasItems("ABC123", "ABC124"))
+            .extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"name\":\"Bateau SN\",\"moteurs\":[{\"id\":" + moteurId + "}],"
+                + "\"numerosSerieMoteurs\":[{\"moteurId\":" + moteurId + ",\"numeroSerie\":\"XYZ789\"}]}")
+            .when().put("/bateaux/" + id)
+            .then().statusCode(200)
+            .body("moteurs.size()", is(1))
+            .body("numerosSerieMoteurs.size()", is(1))
+            .body("numerosSerieMoteurs[0].numeroSerie", is("XYZ789"));
+
+        given()
+            .contentType("application/json")
+            .body("{\"name\":\"Bateau SN\",\"moteurs\":[]}")
+            .when().put("/bateaux/" + id)
+            .then().statusCode(200)
+            .body("numerosSerieMoteurs.size()", is(0));
     }
 
     @Test

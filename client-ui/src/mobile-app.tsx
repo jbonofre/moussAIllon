@@ -32,6 +32,7 @@ import {
     ExclamationCircleOutlined,
     StopOutlined,
 } from '@ant-design/icons';
+import { moteursAvecSerie } from './moteurs-serie.ts';
 import api from './api.ts';
 
 interface Client {
@@ -54,6 +55,8 @@ interface BateauClientEntity {
     dateFinDeGuarantie?: string;
     localisation?: string;
     modele?: { designation?: string };
+    moteurs?: Array<{ id: number; designation?: string }>;
+    numerosSerieMoteurs?: Array<{ moteurId: number; numeroSerie: string }>;
 }
 
 interface MoteurClientEntity {
@@ -255,6 +258,9 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
                     <p style={{ margin: 0 }}>Modele: {modelLabel(b.modele)}</p>
                     <p style={{ margin: 0 }}>Immat.: {b.immatriculation || '-'}</p>
                     <p style={{ margin: 0 }}>Lieu: {b.localisation || '-'}</p>
+                    {(b.moteurs || []).length > 0 && (
+                        <p style={{ margin: 0 }}>Moteurs: {moteursAvecSerie(b.moteurs, b.numerosSerieMoteurs).join(', ')}</p>
+                    )}
                     <p style={{ margin: 0 }}>Garantie: {warrantyTag(b.dateFinDeGuarantie)}</p>
                 </Card>
             )}

@@ -1,6 +1,7 @@
 package net.nanthrax.moussaillon.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
@@ -49,6 +50,11 @@ public class BateauClientEntity extends PanacheEntity {
 
     @ManyToMany
     public List<MoteurCatalogueEntity> moteurs = new ArrayList<>();
+
+    // Numéros de série des moteurs du bateau : une entrée par moteur physique, ce qui permet
+    // de monter plusieurs moteurs de même modèle (la liste `moteurs` peut contenir des doublons)
+    @ElementCollection
+    public List<MoteurSerie> numerosSerieMoteurs = new ArrayList<>();
 
     @ManyToMany
     public List<HeliceCatalogueEntity> helices = new ArrayList<>();

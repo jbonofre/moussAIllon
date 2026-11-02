@@ -13,11 +13,14 @@ import net.nanthrax.moussaillon.persistence.BateauOptionEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.MoteurSerie;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Path("/bateaux")
 @ApplicationScoped
@@ -104,6 +107,7 @@ public class BateauClientResource {
             }
             entity.moteurs = moteursEntities;
         }
+        entity.numerosSerieMoteurs = numerosSerieValides(entity.numerosSerieMoteurs, entity.moteurs);
 
         entity.helices = resoudreHelices(entity.helices);
 
@@ -205,6 +209,7 @@ public class BateauClientResource {
         } else {
             entity.moteurs = new ArrayList<>();
         }
+        entity.numerosSerieMoteurs = numerosSerieValides(updated.numerosSerieMoteurs, entity.moteurs);
         
         entity.helices = resoudreHelices(updated.helices);
 
@@ -228,6 +233,33 @@ public class BateauClientResource {
         }
 
         return Response.ok(entity).build();
+    }
+
+    // Ne conserve que les numéros de série non vides, dans la limite du nombre d'exemplaires
+    // de chaque modèle de moteur effectivement rattaché au bateau
+    private List<MoteurSerie> numerosSerieValides(List<MoteurSerie> numeros, List<MoteurCatalogueEntity> moteurs) {
+        List<MoteurSerie> result = new ArrayList<>();
+        if (numeros == null) {
+            return result;
+        }
+        Map<Long, Integer> restants = new HashMap<>();
+        for (MoteurCatalogueEntity moteur : moteurs) {
+            restants.merge(moteur.id, 1, Integer::sum);
+        }
+        for (MoteurSerie numero : numeros) {
+            if (numero == null || numero.moteurId == null || numero.numeroSerie == null || numero.numeroSerie.isBlank()) {
+                continue;
+            }
+            int reste = restants.getOrDefault(numero.moteurId, 0);
+            if (reste > 0) {
+                restants.put(numero.moteurId, reste - 1);
+                MoteurSerie valide = new MoteurSerie();
+                valide.moteurId = numero.moteurId;
+                valide.numeroSerie = numero.numeroSerie.trim();
+                result.add(valide);
+            }
+        }
+        return result;
     }
 
     private List<HeliceCatalogueEntity> resoudreHelices(List<HeliceCatalogueEntity> helices) {
