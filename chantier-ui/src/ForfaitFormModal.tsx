@@ -19,9 +19,11 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
-import { bateauClientOptions, moteurClientOptions, filterClientOption } from './forfait-clients.ts';
+import { bateauClientOptions, moteurClientOptions, filterClientOption, catalogueOption } from './forfait-clients.ts';
 import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from './forfait-lignes.ts';
 import LignesArticles from './LignesArticles.tsx';
+import SectionLignes from './SectionLignes.tsx';
+import { aplatirTaches } from './checklistParLigne.ts';
 
 interface ProduitCatalogueEntity {
     id: number;
@@ -74,7 +76,6 @@ const defaultForfait = {
     bateauClientIds: [],
     produits: [{}],
     mainOeuvres: [{}],
-    taches: [{}],
     heuresFonctionnement: 0,
     joursFrequence: 0,
     prixHT: 0,
@@ -119,12 +120,12 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
     const [newMainOeuvreFormDirty, setNewMainOeuvreFormDirty] = useState(false);
 
     const moteurOptions = useMemo(
-        () => moteurs.map((m) => ({ value: m.id, label: m.designation })),
+        () => moteurs.map(catalogueOption),
         [moteurs]
     );
 
     const bateauOptions = useMemo(
-        () => bateaux.map((b) => ({ value: b.id, label: b.designation })),
+        () => bateaux.map(catalogueOption),
         [bateaux]
     );
 
@@ -303,6 +304,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
     const handleSave = async () => {
         try {
             const values = await form.validateFields();
+            const lignesMainOeuvre = (values.mainOeuvres || []).filter((item: any) => item.mainOeuvreId);
             const payload = {
                 reference: values.reference,
                 nom: values.nom,
@@ -321,15 +323,12 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                         produit: produits.find((p) => p.id === item.produitId),
                         quantite: item.quantite || 1,
                     })),
-                mainOeuvres: (values.mainOeuvres || [])
-                    .filter((item: any) => item.mainOeuvreId)
-                    .map((item: any) => ({
-                        mainOeuvre: mainOeuvresList.find((mo) => mo.id === item.mainOeuvreId),
-                        quantite: item.quantite || 1,
-                    })),
-                taches: (values.taches || [])
-                    .filter((t: any) => Boolean(t.nom || t.description))
-                    .map((t: any) => ({ nom: t.nom || '', description: t.description || '' })),
+                mainOeuvres: lignesMainOeuvre.map((item: any) => ({
+                    mainOeuvre: mainOeuvresList.find((mo) => mo.id === item.mainOeuvreId),
+                    quantite: item.quantite || 1,
+                })),
+                // Checklist de chaque ligne de main d'oeuvre, rattachée par le rang de la ligne
+                taches: aplatirTaches(lignesMainOeuvre),
                 heuresFonctionnement: values.heuresFonctionnement || 0,
                 joursFrequence: values.joursFrequence || 0,
                 prixHT: values.prixHT || 0,
@@ -395,18 +394,6 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                 }
             }
             form.setFieldValue('mainOeuvres', lines);
-        }
-
-        if (changedValues.taches !== undefined) {
-            const lines = allValues.taches || [];
-            if (lines.length === 0) {
-                form.setFieldValue('taches', [{}]);
-            } else {
-                const last = lines[lines.length - 1];
-                if (!!last?.nom?.trim()) {
-                    form.setFieldValue('taches', [...lines, {}]);
-                }
-            }
         }
 
         if (changedValues.produits !== undefined || changedValues.mainOeuvres !== undefined) {
@@ -508,12 +495,12 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                 <Row gutter={16}>
                     <Col span={12}>
                         <Form.Item name="moteurIds" label="Moteurs associés">
-                            <Select mode="multiple" allowClear options={moteurOptions} placeholder="Sélectionner les moteurs" />
+                            <Select mode="multiple" allowClear showSearch options={moteurOptions} filterOption={filterClientOption} placeholder="Rechercher par référence, désignation, type" />
                         </Form.Item>
                     </Col>
                     <Col span={12}>
                         <Form.Item name="bateauIds" label="Bateaux associés">
-                            <Select mode="multiple" allowClear options={bateauOptions} placeholder="Sélectionner les bateaux" />
+                            <Select mode="multiple" allowClear showSearch options={bateauOptions} filterOption={filterClientOption} placeholder="Rechercher par référence, désignation, type" />
                         </Form.Item>
                     </Col>
                 </Row>
@@ -570,7 +557,18 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                             label: "Produits & Main d'Oeuvres",
                             children: (
                                 <>
-                                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Produits inclus</div>
+                                    <SectionLignes titre="Main d'Oeuvres" couleur="mainOeuvre">
+                                    <LignesArticles
+                                        form={form}
+                                        onValuesChange={onValuesChange}
+                                        liste="mainOeuvres"
+                                        checklist
+                                        produits={produits}
+                                        mainOeuvres={mainOeuvresList}
+                                        onCreate={openNewMainOeuvreModal}
+                                    />
+                                    </SectionLignes>
+                                    <SectionLignes titre="Produits" couleur="produit">
                                     <LignesArticles
                                         form={form}
                                         onValuesChange={onValuesChange}
@@ -579,16 +577,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                                         mainOeuvres={mainOeuvresList}
                                         onCreate={openNewProduitModal}
                                     />
-                                    <Divider style={{ margin: '8px 0 16px' }} />
-                                    <div style={{ fontWeight: 600, marginBottom: 4 }}>Main d'Oeuvres incluses</div>
-                                    <LignesArticles
-                                        form={form}
-                                        onValuesChange={onValuesChange}
-                                        liste="mainOeuvres"
-                                        produits={produits}
-                                        mainOeuvres={mainOeuvresList}
-                                        onCreate={openNewMainOeuvreModal}
-                                    />
+                                    </SectionLignes>
                                     <Divider style={{ margin: '8px 0 16px' }} />
                                     <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                         <div style={{ width: 280, flex: 'none' }}>
@@ -614,34 +603,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                                     </div>
                                 </>
                             ),
-                        },
-                        {
-                            key: 'taches',
-                            label: 'Tâches Associées',
-                            children: (
-                                <Form.List name="taches">
-                                    {(fields, { remove }) => (
-                                        <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                                            {fields.map((field) => (
-                                                <Card
-                                                    key={field.key}
-                                                    size="small"
-                                                    title={`Tâche ${field.name + 1}`}
-                                                    extra={<Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />}
-                                                >
-                                                    <Form.Item {...field} name={[field.name, 'nom']} label="Nom">
-                                                        <Input allowClear />
-                                                    </Form.Item>
-                                                    <Form.Item {...field} name={[field.name, 'description']} label="Description">
-                                                        <Input.TextArea rows={2} />
-                                                    </Form.Item>
-                                                </Card>
-                                            ))}
-                                        </Space>
-                                    )}
-                                </Form.List>
-                            ),
-                        },
+                        }
                     ]}
                 />
 

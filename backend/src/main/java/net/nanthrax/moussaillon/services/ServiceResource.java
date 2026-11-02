@@ -124,6 +124,7 @@ public class ServiceResource {
                 TaskEntity newTache = new TaskEntity();
                 newTache.nom = tache.nom;
                 newTache.description = tache.description;
+                newTache.mainOeuvreIndex = tache.mainOeuvreIndex;
                 newTache.done = tache.done;
                 entity.taches.add(newTache);
             }

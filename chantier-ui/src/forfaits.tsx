@@ -18,11 +18,13 @@ import {
     Table,
     message
 } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import api from './api.ts';
-import { bateauClientOptions, moteurClientOptions, filterClientOption } from './forfait-clients.ts';
+import { bateauClientOptions, moteurClientOptions, filterClientOption, catalogueOption } from './forfait-clients.ts';
 import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from './forfait-lignes.ts';
 import LignesArticles from './LignesArticles.tsx';
+import SectionLignes from './SectionLignes.tsx';
+import { aplatirTaches, tachesDeLigne } from './checklistParLigne.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { paginationConfig } from './pagination.ts';
@@ -31,11 +33,19 @@ import SearchAutoComplete from './SearchAutoComplete.tsx';
 interface MoteurCatalogueEntity {
     id: number;
     designation: string;
+    ref?: string;
+    type?: string;
+    description?: string;
+    referencesFournisseurs?: string[];
 }
 
 interface BateauCatalogueEntity {
     id: number;
     designation: string;
+    ref?: string;
+    type?: string;
+    description?: string;
+    referencesFournisseurs?: string[];
 }
 
 interface ProduitCatalogueEntity {
@@ -96,6 +106,7 @@ interface TaskEntity {
     id?: number;
     nom?: string;
     description?: string;
+    mainOeuvreIndex?: number | null;
     done?: boolean;
 }
 
@@ -128,12 +139,7 @@ interface ForfaitFormValues {
     moteurClientIds: number[];
     bateauClientIds: number[];
     produits: Array<{ produitId?: number; quantite?: number }>;
-    mainOeuvres: Array<{ mainOeuvreId?: number; quantite?: number }>;
-    taches: Array<{
-        id?: number;
-        nom?: string;
-        description?: string;
-    }>;
+    mainOeuvres: Array<{ mainOeuvreId?: number; quantite?: number; taches?: Array<{ nom?: string; description?: string }> }>;
     heuresFonctionnement: number;
     joursFrequence: number;
     prixHT: number;
@@ -154,7 +160,6 @@ const defaultForfait: ForfaitFormValues = {
     bateauClientIds: [],
     produits: [{}],
     mainOeuvres: [{}],
-    taches: [{}],
     heuresFonctionnement: 0,
     joursFrequence: 0,
     prixHT: 0,
@@ -193,12 +198,12 @@ export default function Forfaits() {
     const [newMainOeuvreFormDirty, setNewMainOeuvreFormDirty] = useState(false);
 
     const moteurOptions = useMemo(
-        () => moteurs.map((moteur) => ({ value: moteur.id, label: moteur.designation })),
+        () => moteurs.map(catalogueOption),
         [moteurs]
     );
 
     const bateauOptions = useMemo(
-        () => bateaux.map((bateau) => ({ value: bateau.id, label: bateau.designation })),
+        () => bateaux.map(catalogueOption),
         [bateaux]
     );
 
@@ -349,13 +354,17 @@ export default function Forfaits() {
         }
     };
 
-    const openModal = (forfait?: ForfaitEntity) => {
+    // `duplicate` : pré-remplit un nouveau forfait à partir de celui-ci (la référence doit être saisie)
+    const openModal = (forfait?: ForfaitEntity, duplicate = false) => {
         if (forfait) {
-            setIsEdit(true);
-            setCurrentForfait(forfait);
+            setIsEdit(!duplicate);
+            setCurrentForfait(duplicate ? null : forfait);
+            if (duplicate) {
+                form.resetFields();
+            }
             form.setFieldsValue({
-                reference: forfait.reference || '',
-                nom: forfait.nom || '',
+                reference: duplicate ? '' : forfait.reference || '',
+                nom: duplicate ? `${forfait.nom || ''} (copie)` : forfait.nom || '',
                 dureeEstimee: forfait.dureeEstimee || 0,
                 moteurIds: (forfait.moteursAssocies || []).map((m) => m.id),
                 bateauIds: (forfait.bateauxAssocies || []).map((b) => b.id),
@@ -366,14 +375,12 @@ export default function Forfaits() {
                     .map<ForfaitFormValues['produits'][number]>((item) => ({ produitId: item.produit!.id, quantite: item.quantite || 1 }))
                     .concat({}),
                 mainOeuvres: (forfait.mainOeuvres || [])
-                    .filter((item) => item.mainOeuvre?.id)
-                    .map<ForfaitFormValues['mainOeuvres'][number]>((item) => ({ mainOeuvreId: item.mainOeuvre!.id, quantite: item.quantite || 1 }))
-                    .concat({}),
-                taches: (forfait.taches || [])
-                    .map<ForfaitFormValues['taches'][number]>((tache) => ({
-                        id: tache.id,
-                        nom: tache.nom || '',
-                        description: tache.description || '',
+                    .map((item, index) => ({ item, index }))
+                    .filter(({ item }) => item.mainOeuvre?.id)
+                    .map<ForfaitFormValues['mainOeuvres'][number]>(({ item, index }, position) => ({
+                        mainOeuvreId: item.mainOeuvre!.id,
+                        quantite: item.quantite || 1,
+                        taches: tachesDeLigne(forfait.taches, index, position === 0),
                     }))
                     .concat({}),
                 heuresFonctionnement: forfait.heuresFonctionnement || 0,
@@ -391,7 +398,7 @@ export default function Forfaits() {
             form.resetFields();
             form.setFieldsValue(defaultForfait);
         }
-        setFormDirty(false);
+        setFormDirty(duplicate);
         setModalVisible(true);
     };
 
@@ -446,7 +453,9 @@ export default function Forfaits() {
         }
     };
 
-    const toPayload = (values: ForfaitFormValues): Partial<ForfaitEntity> => ({
+    const toPayload = (values: ForfaitFormValues): Partial<ForfaitEntity> => {
+        const lignesMainOeuvre = (values.mainOeuvres || []).filter((item) => item.mainOeuvreId);
+        return {
         reference: values.reference,
         nom: values.nom,
         dureeEstimee: values.dureeEstimee || 0,
@@ -464,26 +473,20 @@ export default function Forfaits() {
                 produit: produits.find((produit) => produit.id === item.produitId),
                 quantite: item.quantite || 1
             })),
-        mainOeuvres: (values.mainOeuvres || [])
-            .filter((item) => item.mainOeuvreId)
-            .map((item) => ({
-                mainOeuvre: mainOeuvresList.find((mo) => mo.id === item.mainOeuvreId),
-                quantite: item.quantite || 1
-            })),
-        taches: (values.taches || [])
-            .filter((tache) => Boolean(tache.nom || tache.description))
-            .map((tache) => ({
-                id: tache.id,
-                nom: tache.nom || '',
-                description: tache.description || '',
-            })),
+        mainOeuvres: lignesMainOeuvre.map((item) => ({
+            mainOeuvre: mainOeuvresList.find((mo) => mo.id === item.mainOeuvreId),
+            quantite: item.quantite || 1
+        })),
+        // Checklist de chaque ligne de main d'oeuvre, rattachée par le rang de la ligne
+        taches: aplatirTaches(lignesMainOeuvre),
         heuresFonctionnement: values.heuresFonctionnement || 0,
         joursFrequence: values.joursFrequence || 0,
         prixHT: values.prixHT || 0,
         tva: values.tva || 0,
         montantTVA: values.montantTVA || 0,
         prixTTC: values.prixTTC || 0
-    });
+        };
+    };
 
     const handleSave = async () => {
         try {
@@ -556,19 +559,6 @@ export default function Forfaits() {
                 }
             }
             form.setFieldValue('mainOeuvres', currentMoLines);
-        }
-
-        if (changedValues.taches !== undefined) {
-            const currentTaskLines = allValues.taches || [];
-            if (currentTaskLines.length === 0) {
-                form.setFieldValue('taches', [{}]);
-            } else {
-                const lastTaskLine = currentTaskLines[currentTaskLines.length - 1];
-                const isLastLineComplete = !!lastTaskLine?.nom?.trim();
-                if (isLastLineComplete) {
-                    form.setFieldValue('taches', [...currentTaskLines, {}]);
-                }
-            }
         }
 
         if (changedValues.produits !== undefined || changedValues.mainOeuvres !== undefined) {
@@ -713,6 +703,7 @@ export default function Forfaits() {
             render: (_: unknown, record: ForfaitEntity) => (
                 <Space>
                     <Button icon={<EditOutlined />} onClick={() => openModal(record)} />
+                    <Button icon={<CopyOutlined />} title="Dupliquer" onClick={() => openModal(record, true)}>Dupliquer</Button>
                     <Popconfirm
                         title="Supprimer ce forfait ?"
                         onConfirm={() => handleDelete(record.id)}
@@ -801,12 +792,26 @@ export default function Forfaits() {
                     <Row gutter={16}>
                         <Col span={12}>
                             <Form.Item name="moteurIds" label="Moteurs associés">
-                                <Select mode="multiple" allowClear options={moteurOptions} placeholder="Sélectionner les moteurs" />
+                                <Select
+                                    mode="multiple"
+                                    allowClear
+                                    showSearch
+                                    options={moteurOptions}
+                                    filterOption={filterClientOption}
+                                    placeholder="Rechercher par référence, désignation, type"
+                                />
                             </Form.Item>
                         </Col>
                         <Col span={12}>
                             <Form.Item name="bateauIds" label="Bateaux associés">
-                                <Select mode="multiple" allowClear options={bateauOptions} placeholder="Sélectionner les bateaux" />
+                                <Select
+                                    mode="multiple"
+                                    allowClear
+                                    showSearch
+                                    options={bateauOptions}
+                                    filterOption={filterClientOption}
+                                    placeholder="Rechercher par référence, désignation, type"
+                                />
                             </Form.Item>
                         </Col>
                     </Row>
@@ -863,7 +868,18 @@ export default function Forfaits() {
                                 label: "Produits & Main d'Oeuvres",
                                 children: (
                                     <>
-                                        <div style={{ fontWeight: 600, marginBottom: 4 }}>Produits inclus</div>
+                                        <SectionLignes titre="Main d'Oeuvres" couleur="mainOeuvre">
+                                        <LignesArticles
+                                            form={form}
+                                            onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }}
+                                            liste="mainOeuvres"
+                                            checklist
+                                            produits={produits}
+                                            mainOeuvres={mainOeuvresList}
+                                            onCreate={openNewMainOeuvreModal}
+                                        />
+                                        </SectionLignes>
+                                        <SectionLignes titre="Produits" couleur="produit">
                                         <LignesArticles
                                             form={form}
                                             onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }}
@@ -872,16 +888,7 @@ export default function Forfaits() {
                                             mainOeuvres={mainOeuvresList}
                                             onCreate={openNewProduitModal}
                                         />
-                                        <Divider style={{ margin: '8px 0 16px' }} />
-                                        <div style={{ fontWeight: 600, marginBottom: 4 }}>Main d'Oeuvres incluses</div>
-                                        <LignesArticles
-                                            form={form}
-                                            onValuesChange={(...args) => { setFormDirty(true); onValuesChange(...args); }}
-                                            liste="mainOeuvres"
-                                            produits={produits}
-                                            mainOeuvres={mainOeuvresList}
-                                            onCreate={openNewMainOeuvreModal}
-                                        />
+                                        </SectionLignes>
                                         <Divider style={{ margin: '8px 0 16px' }} />
                                         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                                             <div style={{ width: 280, flex: 'none' }}>
@@ -906,33 +913,6 @@ export default function Forfaits() {
                                             </div>
                                         </div>
                                     </>
-                                )
-                            },
-                            {
-                                key: 'taches',
-                                label: 'Tâches Associées',
-                                children: (
-                                    <Form.List name="taches">
-                                        {(fields, { remove }) => (
-                                            <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                                                {fields.map((field) => (
-                                                    <Card
-                                                        key={field.key}
-                                                        size="small"
-                                                        title={`Tâche ${field.name + 1}`}
-                                                        extra={<Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />}
-                                                    >
-                                                        <Form.Item {...field} name={[field.name, 'nom']} label="Nom">
-                                                            <Input allowClear />
-                                                        </Form.Item>
-                                                        <Form.Item {...field} name={[field.name, 'description']} label="Description">
-                                                            <Input.TextArea rows={2} />
-                                                        </Form.Item>
-                                                    </Card>
-                                                ))}
-                                            </Space>
-                                        )}
-                                    </Form.List>
                                 )
                             }
                         ]}

@@ -2,12 +2,15 @@ import React, { useEffect, useMemo, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
 import {
     Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber,
-    Popconfirm, message, Tabs, Select
+    Popconfirm, message, Select
 } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
+import ChecklistMainOeuvre from './ChecklistMainOeuvre.tsx';
+import SectionLignes from './SectionLignes.tsx';
+import MontantsService from './MontantsService.tsx';
 
 interface MainOeuvreEntity {
     id: number;
@@ -41,6 +44,14 @@ interface ServiceProduitEntity {
     quantite: number;
 }
 
+interface TaskEntity {
+    id?: number;
+    nom?: string;
+    description?: string;
+    mainOeuvreIndex?: number | null;
+    done?: boolean;
+}
+
 interface ServiceEntity {
     id?: number;
     nom: string;
@@ -48,6 +59,7 @@ interface ServiceEntity {
     dureeEstimee?: number;
     mainOeuvres: ServiceMainOeuvreEntity[];
     produits: ServiceProduitEntity[];
+    taches?: TaskEntity[];
     prixHT?: number;
     tva?: number;
     montantTVA?: number;
@@ -58,7 +70,7 @@ interface ServiceFormValues {
     nom: string;
     description?: string;
     dureeEstimee?: number;
-    mainOeuvres: Array<{ mainOeuvreId?: number; quantite?: number }>;
+    mainOeuvres: Array<{ mainOeuvreId?: number; quantite?: number; taches?: Array<{ nom?: string; description?: string }> }>;
     produits: Array<{ produitId?: number; quantite?: number }>;
     prixHT?: number;
     tva?: number;
@@ -160,14 +172,22 @@ export default function Services() {
         if (service) {
             setIsEdit(true);
             setCurrentService(service);
+            const lignesMainOeuvre = (service.mainOeuvres || [])
+                    .map((item, index) => ({ item, index }))
+                    .filter(({ item }) => item.mainOeuvre?.id)
+                    .map(({ item, index }, position) => ({
+                        mainOeuvreId: item.mainOeuvre!.id,
+                        quantite: item.quantite || 1,
+                        // Les tâches non rattachées (anciennes checklists) vont sur la première ligne
+                        taches: (service.taches || [])
+                            .filter((t) => t.mainOeuvreIndex === index || (position === 0 && (t.mainOeuvreIndex === null || t.mainOeuvreIndex === undefined)))
+                            .map((t) => ({ nom: t.nom || '', description: t.description || '' })),
+                    }));
             form.setFieldsValue({
                 nom: service.nom || '',
                 description: service.description || '',
                 dureeEstimee: service.dureeEstimee || 0,
-                mainOeuvres: (service.mainOeuvres || [])
-                    .filter((item) => item.mainOeuvre?.id)
-                    .map((item) => ({ mainOeuvreId: item.mainOeuvre!.id, quantite: item.quantite || 1 }))
-                    .concat({}),
+                mainOeuvres: lignesMainOeuvre.length > 0 ? lignesMainOeuvre : [{}],
                 produits: (service.produits || [])
                     .filter((item) => item.produit?.id)
                     .map((item) => ({ produitId: item.produit!.id, quantite: item.quantite || 1 }))
@@ -238,27 +258,34 @@ export default function Services() {
         }
     };
 
-    const toPayload = (values: ServiceFormValues): Partial<ServiceEntity> => ({
+    const toPayload = (values: ServiceFormValues): Partial<ServiceEntity> => {
+        const lignesMainOeuvre = (values.mainOeuvres || []).filter((item) => item.mainOeuvreId);
+        return {
         nom: values.nom,
         description: values.description,
         dureeEstimee: values.dureeEstimee || 0,
-        mainOeuvres: (values.mainOeuvres || [])
-            .filter((item) => item.mainOeuvreId)
-            .map((item) => ({
-                mainOeuvre: allMainOeuvres.find((mo) => mo.id === item.mainOeuvreId),
-                quantite: item.quantite || 1
-            })),
+        mainOeuvres: lignesMainOeuvre.map((item) => ({
+            mainOeuvre: allMainOeuvres.find((mo) => mo.id === item.mainOeuvreId),
+            quantite: item.quantite || 1
+        })),
         produits: (values.produits || [])
             .filter((item) => item.produitId)
             .map((item) => ({
                 produit: allProduits.find((p) => p.id === item.produitId),
                 quantite: item.quantite || 1
             })),
+        // Checklist de chaque ligne de main d'oeuvre, rattachée par le rang de la ligne
+        taches: lignesMainOeuvre.flatMap((item, index) =>
+            (item.taches || [])
+                .filter((t) => t.nom?.trim())
+                .map((t) => ({ nom: t.nom, description: t.description || '', done: false, mainOeuvreIndex: index }))
+        ),
         prixHT: values.prixHT || 0,
         tva: values.tva || 0,
         montantTVA: values.montantTVA || 0,
         prixTTC: values.prixTTC || 0
-    });
+        };
+    };
 
     const handleDelete = async (id?: number) => {
         if (!id) {
@@ -296,7 +323,7 @@ export default function Services() {
 
     const onValuesChange = (changedValues: Partial<ServiceFormValues>, allValues: ServiceFormValues) => {
         if (changedValues.mainOeuvres !== undefined) {
-            let currentLines = (allValues.mainOeuvres || []).map((item: any) => (
+            const currentLines = (allValues.mainOeuvres || []).map((item: any) => (
                 item?.mainOeuvreId && (item.quantite === undefined || item.quantite === null)
                     ? { ...item, quantite: 1 }
                     : item
@@ -305,10 +332,7 @@ export default function Services() {
                 form.setFieldValue('mainOeuvres', [{}]);
                 return;
             }
-            const lastLine = currentLines[currentLines.length - 1];
-            if (!!lastLine?.mainOeuvreId && (lastLine?.quantite || 0) > 0) {
-                currentLines = [...currentLines, {}];
-            }
+            // Un service n'a qu'une seule ligne de main d'oeuvre : pas de nouvelle ligne ajoutée automatiquement
             form.setFieldValue('mainOeuvres', currentLines);
         }
 
@@ -491,16 +515,11 @@ export default function Services() {
             render: (value: string) => value || '-'
         },
         {
-            title: "Main d'Oeuvres",
-            dataIndex: 'mainOeuvres',
-            sorter: (a: ServiceEntity, b: ServiceEntity) => (a.mainOeuvres?.length || 0) - (b.mainOeuvres?.length || 0),
-            render: (values: ServiceMainOeuvreEntity[]) => values?.length || 0
-        },
-        {
             title: 'Produits',
-            dataIndex: 'produits',
-            sorter: (a: ServiceEntity, b: ServiceEntity) => (a.produits?.length || 0) - (b.produits?.length || 0),
-            render: (values: ServiceProduitEntity[]) => values?.length || 0
+            key: 'produits',
+            sorter: (a: ServiceEntity, b: ServiceEntity) =>
+                ((a.mainOeuvres?.length || 0) + (a.produits?.length || 0)) - ((b.mainOeuvres?.length || 0) + (b.produits?.length || 0)),
+            render: (_: unknown, record: ServiceEntity) => (record.mainOeuvres?.length || 0) + (record.produits?.length || 0)
         },
         {
             title: 'Prix TTC',
@@ -598,135 +617,125 @@ export default function Services() {
                         <Input.TextArea rows={2} allowClear />
                     </Form.Item>
 
-                    <Tabs
-                        defaultActiveKey="mainOeuvres"
-                        items={[
-                            {
-                                key: 'mainOeuvres',
-                                label: "Main d'Oeuvres",
-                                children: (
-                                    <Form.List name="mainOeuvres">
-                                        {(fields, { remove }) => (
-                                            <>
-                                                {fields.map((field, index) => (
-                                                    <Row gutter={8} key={field.key} align="middle">
-                                                        <Col span={14}>
-                                                            <Form.Item
-                                                                {...field}
-                                                                name={[field.name, 'mainOeuvreId']}
-                                                                label={index === 0 ? "Main d'Oeuvre" : undefined}
-                                                            >
-                                                                <Select
-                                                                    showSearch
-                                                                    allowClear
-                                                                    placeholder="Sélectionner une main d'oeuvre"
-                                                                    options={mainOeuvreOptions}
-                                                                    filterOption={(input, option) =>
-                                                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                                    }
-                                                                />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={5}>
-                                                            <Form.Item
-                                                                {...field}
-                                                                name={[field.name, 'quantite']}
-                                                                label={index === 0 ? 'Quantité' : undefined}
-                                                            >
-                                                                <InputNumber min={0.25} step={0.25} style={{ width: '100%' }} />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={3}>
-                                                            <Form.Item label={index === 0 ? ' ' : undefined}>
-                                                                <Button
-                                                                    icon={<PlusOutlined />}
-                                                                    onClick={() => openNewMainOeuvreModal(index)}
-                                                                    title="Créer une main d'oeuvre"
-                                                                />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={2}>
-                                                            <Form.Item label={index === 0 ? ' ' : undefined}>
-                                                                {fields.length > 1 && (
-                                                                    <Button
-                                                                        danger
-                                                                        icon={<DeleteOutlined />}
-                                                                        onClick={() => remove(field.name)}
-                                                                    />
-                                                                )}
-                                                            </Form.Item>
-                                                        </Col>
-                                                    </Row>
-                                                ))}
-                                            </>
-                                        )}
-                                    </Form.List>
-                                )
-                            },
-                            {
-                                key: 'produits',
-                                label: 'Produits',
-                                children: (
-                                    <Form.List name="produits">
-                                        {(fields, { remove }) => (
-                                            <>
-                                                {fields.map((field, index) => (
-                                                    <Row gutter={8} key={field.key} align="middle">
-                                                        <Col span={14}>
-                                                            <Form.Item
-                                                                {...field}
-                                                                name={[field.name, 'produitId']}
-                                                                label={index === 0 ? 'Produit' : undefined}
-                                                            >
-                                                                <Select
-                                                                    showSearch
-                                                                    allowClear
-                                                                    placeholder="Sélectionner un produit"
-                                                                    options={produitOptions}
-                                                                    filterOption={(input, option) =>
-                                                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-                                                                    }
-                                                                />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={5}>
-                                                            <Form.Item
-                                                                {...field}
-                                                                name={[field.name, 'quantite']}
-                                                                label={index === 0 ? 'Quantité' : undefined}
-                                                            >
-                                                                <InputNumber min={1} style={{ width: '100%' }} />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={3}>
-                                                            <Form.Item label={index === 0 ? ' ' : undefined}>
-                                                                <Button
-                                                                    icon={<PlusOutlined />}
-                                                                    onClick={() => openNewProduitModal(index)}
-                                                                    title="Créer un produit"
-                                                                />
-                                                            </Form.Item>
-                                                        </Col>
-                                                        <Col span={2}>
-                                                            <Form.Item label={index === 0 ? ' ' : undefined}>
-                                                                {fields.length > 1 && (
-                                                                    <Button
-                                                                        danger
-                                                                        icon={<DeleteOutlined />}
-                                                                        onClick={() => remove(field.name)}
-                                                                    />
-                                                                )}
-                                                            </Form.Item>
-                                                        </Col>
-                                                    </Row>
-                                                ))}
-                                            </>
-                                        )}
-                                    </Form.List>
-                                )
-                            }
-                        ]}
-                    />
+                    <SectionLignes titre="Main d'Oeuvres" couleur="mainOeuvre" compact>
+                    <Form.List name="mainOeuvres">
+                        {(fields, { remove }) => (
+                            <>
+                                {fields.map((field, index) => (
+                                    <React.Fragment key={field.key}>
+                                    <Row gutter={8} align="middle">
+                                        <Col span={14}>
+                                            <Form.Item
+                                                {...field}
+                                                name={[field.name, 'mainOeuvreId']}
+                                                label={index === 0 ? "Main d'Oeuvre" : undefined}
+                                            >
+                                                <Select
+                                                    showSearch
+                                                    allowClear
+                                                    placeholder="Sélectionner une main d'oeuvre"
+                                                    options={mainOeuvreOptions}
+                                                    filterOption={(input, option) =>
+                                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                    }
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={5}>
+                                            <Form.Item
+                                                {...field}
+                                                name={[field.name, 'quantite']}
+                                                label={index === 0 ? 'Quantité' : undefined}
+                                            >
+                                                <InputNumber min={0.25} step={0.25} style={{ width: '100%' }} />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={3}>
+                                            <Form.Item label={index === 0 ? ' ' : undefined}>
+                                                <Button
+                                                    icon={<PlusOutlined />}
+                                                    onClick={() => openNewMainOeuvreModal(index)}
+                                                    title="Créer une main d'oeuvre"
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={2}>
+                                            <Form.Item label={index === 0 ? ' ' : undefined}>
+                                                {fields.length > 1 && (
+                                                    <Button
+                                                        danger
+                                                        icon={<DeleteOutlined />}
+                                                        onClick={() => remove(field.name)}
+                                                    />
+                                                )}
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                    <ChecklistMainOeuvre name={field.name} />
+                                    </React.Fragment>
+                                ))}
+                            </>
+                        )}
+                    </Form.List>
+                    </SectionLignes>
+                    <SectionLignes titre="Produits" couleur="produit" compact>
+                    <Form.List name="produits">
+                        {(fields, { remove }) => (
+                            <>
+                                {fields.map((field, index) => (
+                                    <Row gutter={8} key={field.key} align="middle">
+                                        <Col span={14}>
+                                            <Form.Item
+                                                {...field}
+                                                name={[field.name, 'produitId']}
+                                                label={index === 0 ? 'Produit' : undefined}
+                                            >
+                                                <Select
+                                                    showSearch
+                                                    allowClear
+                                                    placeholder="Sélectionner un produit"
+                                                    options={produitOptions}
+                                                    filterOption={(input, option) =>
+                                                        (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                                                    }
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={5}>
+                                            <Form.Item
+                                                {...field}
+                                                name={[field.name, 'quantite']}
+                                                label={index === 0 ? 'Quantité' : undefined}
+                                            >
+                                                <InputNumber min={1} style={{ width: '100%' }} />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={3}>
+                                            <Form.Item label={index === 0 ? ' ' : undefined}>
+                                                <Button
+                                                    icon={<PlusOutlined />}
+                                                    onClick={() => openNewProduitModal(index)}
+                                                    title="Créer un produit"
+                                                />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={2}>
+                                            <Form.Item label={index === 0 ? ' ' : undefined}>
+                                                {fields.length > 1 && (
+                                                    <Button
+                                                        danger
+                                                        icon={<DeleteOutlined />}
+                                                        onClick={() => remove(field.name)}
+                                                    />
+                                                )}
+                                            </Form.Item>
+                                        </Col>
+                                    </Row>
+                                ))}
+                            </>
+                        )}
+                    </Form.List>
+                    </SectionLignes>
 
                     <Row gutter={16} style={{ marginTop: 16 }}>
                         <Col span={6}>
@@ -742,49 +751,7 @@ export default function Services() {
                         </Col>
                     </Row>
 
-                    <Row gutter={16} style={{ marginTop: 16 }}>
-                        <Col span={6}>
-                            <Form.Item name="prixHT" label="Prix HT">
-                                <InputNumber
-                                    addonAfter="€"
-                                    min={0}
-                                    step={0.01}
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="tva" label="TVA (%)">
-                                <InputNumber
-                                    addonAfter="%"
-                                    min={0}
-                                    max={100}
-                                    step={0.01}
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="montantTVA" label="Montant TVA">
-                                <InputNumber
-                                    addonAfter="€"
-                                    min={0}
-                                    step={0.01}
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                        <Col span={6}>
-                            <Form.Item name="prixTTC" label="Prix TTC">
-                                <InputNumber
-                                    addonAfter="€"
-                                    min={0}
-                                    step={0.01}
-                                    style={{ width: '100%' }}
-                                />
-                            </Form.Item>
-                        </Col>
-                    </Row>
+                    <MontantsService />
                 </Form>
             </Modal>
 
