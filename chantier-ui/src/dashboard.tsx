@@ -2,11 +2,12 @@ import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ArrowDownOutlined, ArrowUpOutlined, ClockCircleOutlined, WarningOutlined, AimOutlined, PlusOutlined, CalendarOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Alert, Badge, Button, Card, Col, Empty, List, Progress, Row, Space, Spin, Statistic, Table, Tag, Typography } from 'antd';
-import { Column, Pie } from '@ant-design/charts';
+import { Column, Line, Pie } from '@ant-design/charts';
 import dayjs from 'dayjs';
 import { useNavigation } from './navigation-context.tsx';
 import { VERSION_LABEL } from './version.ts';
 import { paginationConfig } from './pagination.ts';
+import { calculerMargeVente } from './marge-vente.ts';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -221,6 +222,7 @@ export default function Dashboard({ user }: { user?: string }) {
     const [canalData, setCanalData] = useState<{ canal: string; count: number }[]>([]);
     const [ventesParJour, setVentesParJour] = useState<{ date: string; ventes: number }[]>([]);
     const [caParJour, setCaParJour] = useState<{ date: string; ca: number }[]>([]);
+    const [margeParMois, setMargeParMois] = useState<{ mois: string; marge: number }[]>([]);
     const { navigate } = useNavigation();
     const [largeurGraphique, setLargeurGraphique] = useState(0);
     const observateurGraphique = useRef<ResizeObserver | null>(null);
@@ -235,10 +237,26 @@ export default function Dashboard({ user }: { user?: string }) {
         setLoading(true);
         setError(null);
 
-        const ventesPromise = fetchWithAuth('/ventes')
-            .then(res => res.json())
-            .then((ventes: Array<Record<string, unknown>>) => {
+        const ventesPromise = Promise.all([
+            fetchWithAuth('/ventes').then(res => res.json()),
+            fetchWithAuth('/fournisseur-produit').then(res => res.json()).catch(() => []),
+        ])
+            .then(([ventes, achats]: [Array<Record<string, unknown>>, Array<Record<string, unknown>>]) => {
                 setWarnings(buildWarnings(ventes));
+
+                // Marge par mois (12 derniers mois) : factures payées, à leur date de paiement comme le CA
+                const margeMap: Record<string, number> = {};
+                for (let m = dayjs().subtract(11, 'month').startOf('month'); !m.isAfter(dayjs(), 'month'); m = m.add(1, 'month')) {
+                    margeMap[m.format('YYYY-MM')] = 0;
+                }
+                for (const v of ventes) {
+                    if (v.status !== 'FACTURE_PAYEE') continue;
+                    const key = dayjs((v.dateFacturePayee || v.date) as string).format('YYYY-MM');
+                    if (key in margeMap) margeMap[key] += calculerMargeVente(v, achats);
+                }
+                setMargeParMois(
+                    Object.entries(margeMap).map(([mois, marge]) => ({ mois: dayjs(mois + '-01').format('MM/YYYY'), marge: Math.round(marge * 100) / 100 }))
+                );
                 const now = dayjs();
 
                 // Ventes et CA par jour (30 derniers jours)
@@ -557,6 +575,23 @@ export default function Dashboard({ user }: { user?: string }) {
                         axis={{ x: axeDates, y: { labelFormatter: (v: number) => `${v} €` } }}
                         style={{ radiusEndMax: 4, fill: '#52c41a' }}
                         tooltip={{ items: [{ channel: 'y', name: 'CA TTC', valueFormatter: (v: number) => `${v} €` }] }}
+                    />
+                ) : (
+                    <Empty description="Aucune donnée" />
+                )}
+            </Card>
+
+            <Card title="Évolution de la marge (12 derniers mois)">
+                {margeParMois.length > 0 ? (
+                    <Line
+                        data={margeParMois}
+                        xField="mois"
+                        yField="marge"
+                        height={300}
+                        point={{ shapeField: 'circle', sizeField: 4 }}
+                        axis={{ y: { labelFormatter: (v: number) => `${v} €` } }}
+                        style={{ stroke: '#722ed1', lineWidth: 2 }}
+                        tooltip={{ items: [{ channel: 'y', name: 'Marge HT', valueFormatter: (v: number) => `${v} €` }] }}
                     />
                 ) : (
                     <Empty description="Aucune donnée" />

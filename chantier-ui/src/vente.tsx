@@ -18,6 +18,7 @@ import {
 } from './printing/invoiceTemplate.ts';
 import { calculerTvaVente, calculerTvaVenteDepuisHT, tauxTvaVente } from './tva-vente.ts';
 import { comparerDatesVentes } from './tri-ventes.ts';
+import { calculerMarge } from './marge-vente.ts';
 import {
     Alert,
     Button,
@@ -39,6 +40,7 @@ import {
     Tabs,
     Table,
     Tag,
+    Tooltip,
     DatePicker,
     Dropdown,
     message
@@ -690,6 +692,7 @@ export default function Vente() {
     const [remorques, setRemorques] = useState<RemorqueClientEntity[]>([]);
     const [forfaits, setForfaits] = useState<ForfaitEntity[]>([]);
     const [produits, setProduits] = useState<ProduitCatalogueEntity[]>([]);
+    const [achatsProduits, setAchatsProduits] = useState<Array<{ produit?: { id: number }; prixAchatHT?: number }>>([]);
     const [services, setServices] = useState<ServiceEntity[]>([]);
     const [mainOeuvres, setMainOeuvres] = useState<MainOeuvreEntity[]>([]);
     const [techniciens, setTechniciens] = useState<TechnicienEntity[]>([]);
@@ -701,6 +704,9 @@ export default function Vente() {
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
+    // La marge reste masquée tant qu'on n'a pas cliqué dessus ; elle se remasque à chaque ouverture de la modale
+    const [margeVisible, setMargeVisible] = useState(false);
+    useEffect(() => { setMargeVisible(false); }, [modalVisible]);
     const [formDirty, setFormDirty] = useState(false);
     const suppressDirtyRef = React.useRef(false);
     const savedLinesRef = React.useRef<string[]>([]);
@@ -1050,7 +1056,8 @@ export default function Vente() {
                 catBateauxRes,
                 catMoteursRes,
                 catHelicesRes,
-                catRemorquesRes
+                catRemorquesRes,
+                achatsRes
             ] = await Promise.all([
                 api.get('/clients'),
                 api.get('/bateaux'),
@@ -1064,8 +1071,10 @@ export default function Vente() {
                 api.get('/catalogue/bateaux'),
                 api.get('/catalogue/moteurs'),
                 api.get('/catalogue/helices'),
-                api.get('/catalogue/remorques')
+                api.get('/catalogue/remorques'),
+                api.get('/fournisseur-produit')
             ]);
+            setAchatsProduits(achatsRes.data || []);
             setClients(clientsRes.data || []);
             setBateaux(bateauxRes.data || []);
             setMoteurs(moteursRes.data || []);
@@ -3863,6 +3872,39 @@ export default function Vente() {
                                                 </Form.Item>
                                                 <Form.Item name="prixVenteTTC" label={<strong>Montant TTC</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
                                                     <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                                <Form.Item
+                                                    label={<strong>Marge</strong>}
+                                                    layout="horizontal"
+                                                    labelCol={{ flex: '0 0 150px' }}
+                                                    wrapperCol={{ flex: '0 0 130px' }}
+                                                    labelAlign="right"
+                                                    colon={false}
+                                                    style={{ marginBottom: 8, width: 280 }}
+                                                >
+                                                    <Form.Item noStyle shouldUpdate>
+                                                        {() => (
+                                                            <Tooltip title={(
+                                                                <div>
+                                                                    <div>Marge HT, cliquer pour {margeVisible ? 'masquer' : 'afficher'}.</div>
+                                                                    <div><strong>Produits :</strong> (prix de vente HT - prix d'achat HT moyen chez les fournisseurs) x quantité, remise de ligne déduite.</div>
+                                                                    <div><strong>Services et forfaits :</strong> (durée estimée - durée réelle) x tarif horaire de la main d'œuvre, une fois la durée réelle saisie ; négatif en cas de dépassement.</div>
+                                                                </div>
+                                                            )}>
+                                                            <div
+                                                                role="button"
+                                                                tabIndex={0}
+                                                                onClick={() => setMargeVisible((v) => !v)}
+                                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setMargeVisible((v) => !v); }}
+                                                                style={{ cursor: 'pointer', border: '1px solid #d9d9d9', borderRadius: 6, padding: '4px 11px', textAlign: 'right', background: 'rgba(0,0,0,0.04)', userSelect: 'none' }}
+                                                            >
+                                                                {margeVisible
+                                                                    ? calculerMarge(form.getFieldValue('lignes') || [], produits, achatsProduits, services, forfaits).toFixed(2)
+                                                                    : '••••'}
+                                                            </div>
+                                                            </Tooltip>
+                                                        )}
+                                                    </Form.Item>
                                                 </Form.Item>
                                                 <Form.Item
                                                     label={<strong>Solde dû</strong>}
