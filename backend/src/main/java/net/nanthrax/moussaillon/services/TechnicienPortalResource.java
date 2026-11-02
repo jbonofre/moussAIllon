@@ -22,7 +22,6 @@ import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitProduitEntity;
 import net.nanthrax.moussaillon.persistence.FournisseurProduitEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
@@ -40,6 +39,11 @@ import net.nanthrax.moussaillon.persistence.VenteServiceEntity;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 public class TechnicienPortalResource {
+
+    static final String MESSAGE_VENTE_PAYEE = "Une vente payée ne peut plus être modifiée";
+    static final String MESSAGE_SEULE_TERMINEE = "Seule une tâche terminée peut être rouverte";
+    static final String MESSAGE_FACTURE_REGLEE = "La facture a déjà reçu un paiement : la tâche ne peut plus "
+            + "être rouverte depuis l'application technicien. Voyez avec le bureau.";
 
     @Inject
     Mailer mailer;
@@ -124,6 +128,8 @@ public class TechnicienPortalResource {
         public String datePlanification;
         public String dateDebut;
         public String dateFin;
+        // Dernière réouverture : le temps passé depuis s'ajoute à la durée réelle déjà comptée
+        public String dateReouverture;
         public String statusDate;
         public String notes;
         // Note de la vente (commune à toutes ses prestations), imprimée sur le devis, l'OR et la facture
@@ -154,6 +160,7 @@ public class TechnicienPortalResource {
             item.datePlanification = vf.datePlanification != null ? vf.datePlanification.toString() : null;
             item.dateDebut = vf.dateDebut != null ? vf.dateDebut.toString() : null;
             item.dateFin = vf.dateFin != null ? vf.dateFin.toString() : null;
+            item.dateReouverture = vf.dateReouverture != null ? vf.dateReouverture.toString() : null;
             item.statusDate = vf.statusDate != null ? vf.statusDate.toString() : null;
             item.notes = vf.notes;
             item.noteVente = vente.note;
@@ -234,6 +241,7 @@ public class TechnicienPortalResource {
             item.datePlanification = vs.datePlanification != null ? vs.datePlanification.toString() : null;
             item.dateDebut = vs.dateDebut != null ? vs.dateDebut.toString() : null;
             item.dateFin = vs.dateFin != null ? vs.dateFin.toString() : null;
+            item.dateReouverture = vs.dateReouverture != null ? vs.dateReouverture.toString() : null;
             item.statusDate = vs.statusDate != null ? vs.statusDate.toString() : null;
             item.notes = vs.notes;
             item.noteVente = vente.note;
@@ -557,6 +565,7 @@ public class TechnicienPortalResource {
                 throw new WebApplicationException(VenteResource.MESSAGE_BON_POUR_ACCORD_DEMARRAGE, Response.Status.BAD_REQUEST);
             }
         }
+        boolean etaitTerminee = vf.status == VenteForfaitEntity.Status.TERMINEE;
         if (request.status != null && !request.status.isBlank()) {
             vf.status = VenteForfaitEntity.Status.valueOf(request.status);
         }
@@ -610,6 +619,14 @@ public class TechnicienPortalResource {
         List<VenteEntity> ventes = VenteEntity.list("SELECT v FROM VenteEntity v JOIN v.venteForfaits vf WHERE vf.id = ?1", itemId);
         VenteEntity parentVente = ventes.isEmpty() ? null : ventes.get(0);
 
+        // Quitter « terminée » revient à rouvrir la tâche : mêmes règles que l'action « Rouvrir »
+        if (etaitTerminee && vf.status != VenteForfaitEntity.Status.TERMINEE) {
+            verifierReouverture(parentVente);
+            vf.dateReouverture = new java.sql.Timestamp(System.currentTimeMillis());
+            vf.dateFin = null;
+            VenteResource.repasserEnFactureEnAttente(parentVente);
+        }
+
         // Send incident notification
         if (vf.status == VenteForfaitEntity.Status.INCIDENT && parentVente != null
                 && parentVente.client != null && parentVente.client.email != null && !parentVente.client.email.isBlank()) {
@@ -624,7 +641,7 @@ public class TechnicienPortalResource {
 
         // Decrement stock
         if (vf.status == VenteForfaitEntity.Status.EN_COURS && parentVente != null && !parentVente.stockDecremented) {
-            decrementStock(parentVente);
+            VenteResource.decrementStock(parentVente);
             parentVente.stockDecremented = true;
         }
 
@@ -649,6 +666,7 @@ public class TechnicienPortalResource {
                 throw new WebApplicationException(VenteResource.MESSAGE_BON_POUR_ACCORD_DEMARRAGE, Response.Status.BAD_REQUEST);
             }
         }
+        boolean etaitTerminee = vs.status == VenteServiceEntity.Status.TERMINEE;
         if (request.status != null && !request.status.isBlank()) {
             vs.status = VenteServiceEntity.Status.valueOf(request.status);
         }
@@ -702,6 +720,14 @@ public class TechnicienPortalResource {
         List<VenteEntity> ventes = VenteEntity.list("SELECT v FROM VenteEntity v JOIN v.venteServices vs WHERE vs.id = ?1", itemId);
         VenteEntity parentVente = ventes.isEmpty() ? null : ventes.get(0);
 
+        // Quitter « terminée » revient à rouvrir la tâche : mêmes règles que l'action « Rouvrir »
+        if (etaitTerminee && vs.status != VenteServiceEntity.Status.TERMINEE) {
+            verifierReouverture(parentVente);
+            vs.dateReouverture = new java.sql.Timestamp(System.currentTimeMillis());
+            vs.dateFin = null;
+            VenteResource.repasserEnFactureEnAttente(parentVente);
+        }
+
         // Send incident notification
         if (vs.status == VenteServiceEntity.Status.INCIDENT && parentVente != null
                 && parentVente.client != null && parentVente.client.email != null && !parentVente.client.email.isBlank()) {
@@ -716,7 +742,7 @@ public class TechnicienPortalResource {
 
         // Decrement stock
         if (vs.status == VenteServiceEntity.Status.EN_COURS && parentVente != null && !parentVente.stockDecremented) {
-            decrementStock(parentVente);
+            VenteResource.decrementStock(parentVente);
             parentVente.stockDecremented = true;
         }
 
@@ -724,6 +750,95 @@ public class TechnicienPortalResource {
             return PlanningItemWithVente.fromService(vs, new VenteEntity());
         }
         return PlanningItemWithVente.fromService(vs, parentVente);
+    }
+
+    /**
+     * Rouvre une tâche terminée (pièce oubliée, reprise) : elle repasse en cours. Refusé sur une vente payée,
+     * ou sur une facture prête qui a déjà reçu un paiement ; une facture prête repasse en attente.
+     */
+    @POST
+    @Path("/forfaits/{itemId}/rouvrir")
+    @Consumes(MediaType.WILDCARD)
+    @Transactional
+    public PlanningItemWithVente rouvrirForfait(@PathParam("itemId") long itemId) {
+        VenteForfaitEntity vf = VenteForfaitEntity.findById(itemId);
+        if (vf == null) {
+            throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
+        }
+        if (vf.status != VenteForfaitEntity.Status.TERMINEE) {
+            throw erreur(MESSAGE_SEULE_TERMINEE);
+        }
+        VenteEntity vente = venteParenteForfait(itemId);
+        verifierReouverture(vente);
+        vf.status = VenteForfaitEntity.Status.EN_COURS;
+        vf.dateReouverture = new java.sql.Timestamp(System.currentTimeMillis());
+        vf.dateFin = null;
+        suivreReouverture(vente);
+        return PlanningItemWithVente.fromForfait(vf, vente != null ? vente : new VenteEntity());
+    }
+
+    @POST
+    @Path("/services/{itemId}/rouvrir")
+    @Consumes(MediaType.WILDCARD)
+    @Transactional
+    public PlanningItemWithVente rouvrirService(@PathParam("itemId") long itemId) {
+        VenteServiceEntity vs = VenteServiceEntity.findById(itemId);
+        if (vs == null) {
+            throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
+        }
+        if (vs.status != VenteServiceEntity.Status.TERMINEE) {
+            throw erreur(MESSAGE_SEULE_TERMINEE);
+        }
+        VenteEntity vente = venteParenteService(itemId);
+        verifierReouverture(vente);
+        vs.status = VenteServiceEntity.Status.EN_COURS;
+        vs.dateReouverture = new java.sql.Timestamp(System.currentTimeMillis());
+        vs.dateFin = null;
+        suivreReouverture(vente);
+        return PlanningItemWithVente.fromService(vs, vente != null ? vente : new VenteEntity());
+    }
+
+    // Une tâche terminée se rouvre tant que la facture n'est ni payée ni déjà réglée en partie
+    private static void verifierReouverture(VenteEntity vente) {
+        if (vente == null) {
+            return;
+        }
+        verifierVenteNonPayee(vente);
+        if (vente.status == VenteEntity.Status.FACTURE_PRETE && vente.paiements != null && !vente.paiements.isEmpty()) {
+            throw erreur(MESSAGE_FACTURE_REGLEE);
+        }
+        if (!vente.bonPourAccord) {
+            throw erreur(VenteResource.MESSAGE_BON_POUR_ACCORD_DEMARRAGE);
+        }
+    }
+
+    // La vente suit la tâche rouverte comme au démarrage d'une tâche : facture prête repassée en attente,
+    // signal « prêt à récupérer » retiré, stock de la vente sorti s'il ne l'était pas encore
+    private void suivreReouverture(VenteEntity vente) {
+        if (vente == null) {
+            return;
+        }
+        VenteResource.repasserEnFactureEnAttente(vente);
+        VenteResource.passerEnFactureEnAttenteSiLancee(vente);
+        pretRecuperationService.evaluer(vente);
+        if (!vente.stockDecremented) {
+            VenteResource.decrementStock(vente);
+            vente.stockDecremented = true;
+        }
+    }
+
+    private static void verifierVenteNonPayee(VenteEntity vente) {
+        if (vente != null && vente.status == VenteEntity.Status.FACTURE_PAYEE) {
+            throw erreur(MESSAGE_VENTE_PAYEE);
+        }
+    }
+
+    // Erreur 400 avec un message lisible par l'application ({"message": ...})
+    private static WebApplicationException erreur(String message) {
+        return new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
+                .entity(Map.of("message", message))
+                .type(MediaType.APPLICATION_JSON)
+                .build());
     }
 
     @GET
@@ -910,6 +1025,7 @@ public class TechnicienPortalResource {
         if (vente == null) {
             throw new WebApplicationException("Prestation parente non trouvee", Response.Status.NOT_FOUND);
         }
+        verifierVenteNonPayee(vente);
         if (request == null || request.produitId == null) {
             throw new WebApplicationException("L'identifiant du produit est requis", Response.Status.BAD_REQUEST);
         }
@@ -922,8 +1038,14 @@ public class TechnicienPortalResource {
         ligne.produit = produit;
         ligne.quantite = quantite;
         ligne.ajouteParTechnicien = true;
+        // Enregistrée tout de suite pour renvoyer son identifiant : l'application peut alors la retirer
+        ligne.persist();
         vente.venteProduits.add(ligne);
         appliquerDeltaMontant(vente, produit.prixVenteTTC * quantite);
+        // Le stock de la vente est déjà sorti : la pièce sort tout de suite (sinon elle partira avec le reste)
+        if (vente.stockDecremented) {
+            VenteResource.mouvementStock(produit, quantite, vente);
+        }
     }
 
     // Retire une ligne produit ajoutee par le technicien et met a jour les montants.
@@ -931,6 +1053,7 @@ public class TechnicienPortalResource {
         if (vente == null) {
             throw new WebApplicationException("Prestation parente non trouvee", Response.Status.NOT_FOUND);
         }
+        verifierVenteNonPayee(vente);
         VenteProduitEntity ligne = vente.venteProduits.stream()
                 .filter(vp -> vp.ajouteParTechnicien && vp.id != null && vp.id.equals(produitLigneId))
                 .findFirst().orElse(null);
@@ -940,6 +1063,10 @@ public class TechnicienPortalResource {
         double delta = ligne.produit != null ? -(ligne.produit.prixVenteTTC * ligne.quantite) : 0.0;
         vente.venteProduits.remove(ligne);
         appliquerDeltaMontant(vente, delta);
+        // La pièce était déjà sortie du stock : elle y retourne
+        if (vente.stockDecremented && ligne.produit != null) {
+            VenteResource.mouvementStock(ligne.produit, -Math.max(1, ligne.quantite), vente);
+        }
     }
 
     // Applique un delta TTC et recalcule les montants derives de la vente.
@@ -1019,9 +1146,7 @@ public class TechnicienPortalResource {
         if (java.util.Objects.equals(note, vente.note)) {
             return;
         }
-        if (vente.status == VenteEntity.Status.FACTURE_PAYEE) {
-            throw new WebApplicationException("Une vente payée ne peut plus être modifiée", Response.Status.BAD_REQUEST);
-        }
+        verifierVenteNonPayee(vente);
         vente.note = note;
     }
 
@@ -1043,32 +1168,5 @@ public class TechnicienPortalResource {
                 + "Cordialement,\n" + societeNom;
 
         mailer.send(Mail.withText(vente.client.email, subject, body));
-    }
-
-    private void decrementStock(VenteEntity vente) {
-        if (vente.venteProduits != null) {
-            for (net.nanthrax.moussaillon.persistence.VenteProduitEntity vp : vente.venteProduits) {
-                if (vp.produit == null || vp.produit.id == null) continue;
-                ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(vp.produit.id);
-                if (p != null) {
-                    p.stock = Math.max(0, p.stock - Math.max(1, vp.quantite));
-                }
-            }
-        }
-        for (VenteForfaitEntity vf : vente.venteForfaits) {
-            if (vf.forfait != null) {
-                ForfaitEntity f = ForfaitEntity.findById(vf.forfait.id);
-                if (f != null && f.produits != null) {
-                    for (ForfaitProduitEntity fp : f.produits) {
-                        if (fp.produit != null) {
-                            ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(fp.produit.id);
-                            if (p != null) {
-                                p.stock = Math.max(0, p.stock - fp.quantite * vf.quantite);
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
 }

@@ -876,4 +876,24 @@ public class VenteResourceTest {
             .then().body("datePretRecuperation", nullValue());
     }
 
+    @Test
+    void testDateReouvertureConserveeALaSauvegarde() {
+        // Une tâche rouverte par le technicien garde sa date de réouverture quand le bureau enregistre la vente
+        String corps = "{\"status\":\"FACTURE_EN_ATTENTE\",\"bonPourAccord\":true,\"prixVenteTTC\":576.0,"
+            + "\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\","
+            + "\"dateReouverture\":\"2026-10-31T09:30:00\"}],"
+            + "\"venteServices\":[{\"service\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\","
+            + "\"dateReouverture\":\"2026-10-31T10:00:00\"}]}";
+        int venteId = given().contentType("application/json").body(corps)
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given().contentType("application/json").body(corps)
+            .when().put("/ventes/" + venteId)
+            .then()
+            .statusCode(200)
+            .body("venteForfaits[0].dateReouverture", is("2026-10-31T09:30:00"))
+            .body("venteServices[0].dateReouverture", is("2026-10-31T10:00:00"));
+    }
+
 }

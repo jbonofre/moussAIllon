@@ -15,6 +15,32 @@ jest.mock('@ant-design/charts', () => ({ Line: () => null }));
 
 jest.setTimeout(30000);
 
+// Horloge recalée sur midi pour tout le fichier : les tâches des données sont datées par
+// rapport à maintenant, et à certaines heures (vers 05:30 ou 09:00) l'aimantation du
+// glisser-déposer collerait la tâche glissée à l'une d'elles au lieu de 07:00.
+// Seule la date est décalée : les timers restent réels.
+const VraieDate = Date;
+const midi = new VraieDate();
+midi.setHours(12, 0, 0, 0);
+const decalage = midi.getTime() - VraieDate.now();
+class DateAMidi extends VraieDate {
+    constructor(...args: any[]) {
+        if (args.length === 0) {
+            super(VraieDate.now() + decalage);
+        } else {
+            super(...(args as [string | number | Date]));
+        }
+    }
+
+    static now() {
+        return VraieDate.now() + decalage;
+    }
+}
+globalThis.Date = DateAMidi as DateConstructor;
+afterAll(() => {
+    globalThis.Date = VraieDate;
+});
+
 const ilYA = (minutes: number) => dayjs().subtract(minutes, 'minute').format('YYYY-MM-DDTHH:mm');
 
 const ventes = [
