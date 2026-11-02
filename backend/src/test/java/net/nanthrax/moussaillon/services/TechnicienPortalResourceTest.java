@@ -436,6 +436,65 @@ public class TechnicienPortalResourceTest {
     }
 
     @Test
+    void testChecklistPointNonFaitExigeUnMotif() {
+        var vente = venteAvecForfait("FACTURE_EN_ATTENTE", "EN_COURS");
+        int forfaitId = vente.path("venteForfaits[0].id");
+        int tacheId = vente.path("venteForfaits[0].taches[0].id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"EN_COURS\",\"taches\":[{\"taskId\":" + tacheId + ",\"nonFait\":true,\"motif\":\"  \"}]}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then().statusCode(400);
+    }
+
+    @Test
+    void testChecklistPointNonFaitPermetDeTerminerEtMotifModifiable() {
+        var vente = venteAvecForfait("FACTURE_EN_ATTENTE", "EN_COURS");
+        int forfaitId = vente.path("venteForfaits[0].id");
+        int tacheId = vente.path("venteForfaits[0].taches[0].id");
+
+        // Non renseigné : la prestation ne peut pas être terminée
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"TERMINEE\",\"dureeReelle\":1.0,\"taches\":[{\"taskId\":" + tacheId + ",\"done\":false}]}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then().statusCode(400);
+
+        // Non fait avec motif : c'est une décision, la prestation peut être terminée
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"TERMINEE\",\"dureeReelle\":1.0,\"taches\":[{\"taskId\":" + tacheId + ",\"nonFait\":true,\"motif\":\"Pièce absente\"}]}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then()
+            .statusCode(200)
+            .body("itemStatus", is("TERMINEE"))
+            .body("taches[0].done", is(false))
+            .body("taches[0].nonFait", is(true))
+            .body("taches[0].motif", is("Pièce absente"));
+
+        // Le motif reste modifiable après clôture
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"TERMINEE\",\"dureeReelle\":1.0,\"taches\":[{\"taskId\":" + tacheId + ",\"nonFait\":true,\"motif\":\"Pièce commandée\"}]}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then()
+            .statusCode(200)
+            .body("taches[0].motif", is("Pièce commandée"));
+
+        // Répondre « fait » efface le motif
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"TERMINEE\",\"dureeReelle\":1.0,\"taches\":[{\"taskId\":" + tacheId + ",\"done\":true}]}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then()
+            .statusCode(200)
+            .body("taches[0].done", is(true))
+            .body("taches[0].nonFait", is(false))
+            .body("taches[0].motif", nullValue());
+    }
+
+    @Test
     void testRouvrirTacheTerminee() {
         int forfaitId = venteAvecForfait("FACTURE_EN_ATTENTE", "TERMINEE").path("venteForfaits[0].id");
 

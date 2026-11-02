@@ -586,6 +586,8 @@ public class VenteResource {
                         ct.nom = t.nom;
                         ct.description = t.description;
                         ct.done = t.done;
+                        ct.nonFait = t.nonFait;
+                        ct.motif = t.motif;
                         cloned.taches.add(ct);
                     }
                 } else if (cloned.forfait != null && cloned.forfait.id != null) {
@@ -639,6 +641,8 @@ public class VenteResource {
                         ct.nom = t.nom;
                         ct.description = t.description;
                         ct.done = t.done;
+                        ct.nonFait = t.nonFait;
+                        ct.motif = t.motif;
                         cloned.taches.add(ct);
                     }
                 } else {
