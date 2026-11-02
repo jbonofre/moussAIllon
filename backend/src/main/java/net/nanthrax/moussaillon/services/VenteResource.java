@@ -569,6 +569,7 @@ public class VenteResource {
                 cloned.datePlanification = incoming.datePlanification;
                 cloned.dateDebut = incoming.dateDebut;
                 cloned.dateFin = incoming.dateFin;
+                cloned.dateReouverture = incoming.dateReouverture;
                 cloned.status = incoming.status;
                 cloned.statusDate = incoming.statusDate;
                 cloned.dureeReelle = incoming.dureeReelle;
@@ -618,6 +619,7 @@ public class VenteResource {
                 cloned.datePlanification = incoming.datePlanification;
                 cloned.dateDebut = incoming.dateDebut;
                 cloned.dateFin = incoming.dateFin;
+                cloned.dateReouverture = incoming.dateReouverture;
                 cloned.status = incoming.status;
                 cloned.statusDate = incoming.statusDate;
                 cloned.dureeReelle = incoming.dureeReelle;
@@ -1104,6 +1106,19 @@ public class VenteResource {
         }
     }
 
+    /**
+     * Une prestation rouverte rend la facture à nouveau incomplète : une facture prête repasse en attente.
+     * Elle garde son numéro FA ; sa date d'émission et ses relances repartent de la prochaine clôture.
+     */
+    static void repasserEnFactureEnAttente(VenteEntity vente) {
+        if (vente == null || vente.status != VenteEntity.Status.FACTURE_PRETE) {
+            return;
+        }
+        vente.status = VenteEntity.Status.FACTURE_EN_ATTENTE;
+        vente.dateFacturePrete = null;
+        vente.niveauRelance = 0;
+    }
+
     @DELETE
     @Path("{id}/paiements/{paiementId}")
     @Transactional
@@ -1271,7 +1286,27 @@ public class VenteResource {
         }
     }
 
-    private void decrementStock(VenteEntity vente) {
+    /**
+     * Sort du stock une quantité d'article pour la vente et l'inscrit à l'historique.
+     * Une quantité négative remet l'article en stock (pièce retirée de la vente).
+     */
+    static void mouvementStock(ProduitCatalogueEntity produit, int quantite, VenteEntity vente) {
+        ProduitCatalogueEntity p = produit != null && produit.id != null ? ProduitCatalogueEntity.findById(produit.id) : null;
+        if (p == null) {
+            return;
+        }
+        p.stock = Math.max(0, p.stock - quantite);
+        ProduitMouvementEntity mouvement = new ProduitMouvementEntity();
+        mouvement.produit = p;
+        mouvement.type = ProduitMouvementEntity.Type.VENTE;
+        mouvement.quantite = quantite;
+        mouvement.stockApres = p.stock;
+        mouvement.vente = vente;
+        mouvement.date = new Timestamp(System.currentTimeMillis());
+        mouvement.persist();
+    }
+
+    static void decrementStock(VenteEntity vente) {
         Map<Long, Integer> produitQuantites = new HashMap<>();
         if (vente.venteProduits != null) {
             for (VenteProduitEntity vp : vente.venteProduits) {
@@ -1294,15 +1329,7 @@ public class VenteResource {
         for (Map.Entry<Long, Integer> entry : produitQuantites.entrySet()) {
             ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(entry.getKey());
             if (p != null) {
-                p.stock = Math.max(0, p.stock - entry.getValue());
-                ProduitMouvementEntity mouvement = new ProduitMouvementEntity();
-                mouvement.produit = p;
-                mouvement.type = ProduitMouvementEntity.Type.VENTE;
-                mouvement.quantite = entry.getValue();
-                mouvement.stockApres = p.stock;
-                mouvement.vente = vente;
-                mouvement.date = new Timestamp(System.currentTimeMillis());
-                mouvement.persist();
+                mouvementStock(p, entry.getValue(), vente);
             }
         }
         if (vente.venteBateauxCatalogue != null) {

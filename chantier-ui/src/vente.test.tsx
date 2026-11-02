@@ -285,6 +285,29 @@ describe('Transactions - lignes forfait', () => {
             venteForfaits: [expect.objectContaining({ techniciens: [technicien] })],
         })));
     });
+
+    it('conserve la date de réouverture posée par le technicien', async () => {
+        const vente = {
+            id: 20, date: '2026-10-20T10:00:00', status: 'DEVIS', bonPourAccord: true,
+            client: { id: 3, nom: 'Jean Dupont' },
+            venteForfaits: [{ id: 1, forfait, quantite: 1, status: 'EN_COURS', dureeReelle: 2, dateReouverture: '2026-11-02T14:00:00' }],
+        };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes' ? [vente] : url === '/ventes/20' ? vente : (donnees[url] || []),
+        }) as any);
+        mockedApi.put.mockImplementation((_url: string, body: any) => Promise.resolve({ data: body }) as any);
+        render(<Vente />);
+
+        fireEvent.click(await screen.findByText('FACT-2026-00020'));
+        await screen.findByText('Transaction/Prestation');
+        const modal = document.querySelector('.ant-modal') as HTMLElement;
+        expect(await within(modal).findByText('Hivernage')).toBeInTheDocument();
+
+        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith('/ventes/20', expect.objectContaining({
+            venteForfaits: [expect.objectContaining({ dateReouverture: '2026-11-02T14:00:00', dureeReelle: 2 })],
+        })));
+    });
 });
 
 describe('Transactions - recherche par référence', () => {

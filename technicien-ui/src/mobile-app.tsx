@@ -44,6 +44,7 @@ import DocumentUpload from './DocumentUpload.tsx';
 import PlanningGeneral from './planning-general.tsx';
 import Objectifs from './objectifs.tsx';
 import Parc from './parc.tsx';
+import { BoutonRouvrir, messageErreur, peutEtreRouverte } from './reouverture.tsx';
 
 interface Technicien {
     id: number;
@@ -80,6 +81,7 @@ interface PlanningItem {
     datePlanification?: string;
     dateDebut?: string;
     dateFin?: string;
+    dateReouverture?: string;
     statusDate?: string;
     notes?: string;
     noteVente?: string;
@@ -255,8 +257,8 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                 incidentDetails: updated.incidentDetails || values.incidentDetails,
             });
             fetchItems();
-        } catch {
-            message.error('Erreur lors de la mise a jour');
+        } catch (erreur) {
+            message.error(messageErreur(erreur, 'Erreur lors de la mise a jour'));
         } finally {
             setSaving(false);
         }
@@ -291,8 +293,8 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
             setProduitsExtra((updated.produitsExtra || []).map((p: ProduitItem) => ({ ...p })));
             setAddProduitVisible(false);
             message.success('Produit ajoute');
-        } catch {
-            message.error("Erreur lors de l'ajout du produit");
+        } catch (erreur) {
+            message.error(messageErreur(erreur, "Erreur lors de l'ajout du produit"));
         }
     };
 
@@ -307,8 +309,8 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
             setCurrentItem({ ...currentItem, ...updated });
             setProduitsExtra((updated.produitsExtra || []).map((p: ProduitItem) => ({ ...p })));
             message.success('Produit retire');
-        } catch {
-            message.error('Erreur lors de la suppression du produit');
+        } catch (erreur) {
+            message.error(messageErreur(erreur, 'Erreur lors de la suppression du produit'));
         }
     };
 
@@ -361,6 +363,15 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                     <Button size="small" type="primary" icon={<CheckCircleOutlined />} style={{ background: '#52c41a', borderColor: '#52c41a' }} onClick={() => openModal(item, 'TERMINEE')}>
                         Terminer
                     </Button>
+                )}
+                {peutEtreRouverte(item) && (
+                    <BoutonRouvrir
+                        tache={item}
+                        onRouverte={(rouverte: PlanningItem) => {
+                            fetchItems();
+                            openModal(rouverte);
+                        }}
+                    />
                 )}
             </Space>
         </Card>

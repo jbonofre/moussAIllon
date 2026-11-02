@@ -41,6 +41,10 @@ public class VenteForfaitEntity extends PanacheEntity {
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateFin;
 
+    // Dernière réouverture d'une prestation terminée : le temps passé ensuite s'ajoute à la durée réelle
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateReouverture;
+
     public enum Status {
         EN_ATTENTE,
         PLANIFIEE,

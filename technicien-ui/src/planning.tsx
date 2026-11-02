@@ -24,6 +24,7 @@ import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import { paginationConfig } from './pagination.ts';
+import { BoutonRouvrir, dureeReelleALaFin, messageErreur, peutEtreRouverte } from './reouverture.tsx';
 
 type TaskStatus = 'EN_ATTENTE' | 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'INCIDENT' | 'ANNULEE';
 
@@ -53,6 +54,7 @@ interface PlanningItem {
     datePlanification?: string;
     dateDebut?: string;
     dateFin?: string;
+    dateReouverture?: string;
     statusDate?: string;
     notes?: string;
     noteVente?: string;
@@ -252,14 +254,7 @@ export default function Planning({ technicienId }: PlanningProps) {
             // If all checked, auto-set status to TERMINEE and dateFin, compute dureeReelle
             if (updated.length > 0 && updated.every((c) => c.done)) {
                 const finIso = nowIso();
-                let dureeReelle = 0;
-                if (currentItem?.dateDebut) {
-                    const debut = new Date(currentItem.dateDebut).getTime();
-                    const fin = new Date(finIso).getTime();
-                    if (!isNaN(debut) && !isNaN(fin) && fin > debut) {
-                        dureeReelle = Math.round(((fin - debut) / 3600000) * 100) / 100;
-                    }
-                }
+                const dureeReelle = currentItem ? dureeReelleALaFin(currentItem, new Date(finIso).getTime()) : 0;
                 form.setFieldsValue({ status: 'TERMINEE', dureeReelle });
                 // Auto-save with dateFin
                 const saveComplete = async () => {
@@ -344,8 +339,8 @@ export default function Planning({ technicienId }: PlanningProps) {
                 incidentDetails: updated.incidentDetails || values.incidentDetails,
             });
             fetchItems();
-        } catch {
-            message.error('Erreur lors de la mise a jour');
+        } catch (erreur) {
+            message.error(messageErreur(erreur, 'Erreur lors de la mise a jour'));
         } finally {
             setSaving(false);
         }
@@ -380,8 +375,8 @@ export default function Planning({ technicienId }: PlanningProps) {
             setProduitsExtra((updated.produitsExtra || []).map((p: ProduitItem) => ({ ...p })));
             setAddProduitVisible(false);
             message.success('Produit ajoute');
-        } catch {
-            message.error("Erreur lors de l'ajout du produit");
+        } catch (erreur) {
+            message.error(messageErreur(erreur, "Erreur lors de l'ajout du produit"));
         }
     };
 
@@ -396,8 +391,8 @@ export default function Planning({ technicienId }: PlanningProps) {
             setCurrentItem({ ...currentItem, ...updated });
             setProduitsExtra((updated.produitsExtra || []).map((p: ProduitItem) => ({ ...p })));
             message.success('Produit retire');
-        } catch {
-            message.error('Erreur lors de la suppression du produit');
+        } catch (erreur) {
+            message.error(messageErreur(erreur, 'Erreur lors de la suppression du produit'));
         }
     };
 
@@ -466,7 +461,18 @@ export default function Planning({ technicienId }: PlanningProps) {
             title: 'Actions',
             key: 'actions',
             render: (_: unknown, record: PlanningItem) => {
-                if (record.itemStatus === 'TERMINEE') return null;
+                if (record.itemStatus === 'TERMINEE') {
+                    if (!peutEtreRouverte(record)) return null;
+                    return (
+                        <BoutonRouvrir
+                            tache={record}
+                            onRouverte={(rouverte: PlanningItem) => {
+                                fetchItems();
+                                openUpdateModal(rouverte);
+                            }}
+                        />
+                    );
+                }
                 return (
                     <Space>
                         <Button
@@ -518,14 +524,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                                 type="primary"
                                 icon={<CheckCircleOutlined />}
                                 onClick={() => {
-                                    let dureeReelle = record.dureeReelle || 0;
-                                    if (record.dateDebut) {
-                                        const debut = new Date(record.dateDebut).getTime();
-                                        const fin = Date.now();
-                                        if (!isNaN(debut) && fin > debut) {
-                                            dureeReelle = Math.round(((fin - debut) / 3600000) * 100) / 100;
-                                        }
-                                    }
+                                    const dureeReelle = dureeReelleALaFin(record, Date.now());
                                     setCurrentItem(record);
                                     setChecklist((record.taches || []).map((t) => ({ ...t })));
                                     setProduitsExtra((record.produitsExtra || []).map((p) => ({ ...p })));

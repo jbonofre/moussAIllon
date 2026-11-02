@@ -134,6 +134,8 @@ interface VenteForfaitEntity {
     datePlanification?: string;
     dateDebut?: string;
     dateFin?: string;
+    // Posée par l'application technicien quand une tâche terminée est rouverte
+    dateReouverture?: string;
     status?: PlanningStatus;
     statusDate?: string;
     dureeReelle?: number;
@@ -155,6 +157,8 @@ interface VenteServiceEntity {
     datePlanification?: string;
     dateDebut?: string;
     dateFin?: string;
+    // Posée par l'application technicien quand une tâche terminée est rouverte
+    dateReouverture?: string;
     status?: PlanningStatus;
     statusDate?: string;
     dureeReelle?: number;
@@ -2077,6 +2081,7 @@ export default function Vente() {
                     datePlanification: line.datePlanification || existingVf?.datePlanification,
                     dateDebut: line.dateDebut || existingVf?.dateDebut,
                     dateFin: line.dateFin || existingVf?.dateFin,
+                    dateReouverture: existingVf?.dateReouverture,
                     status: line.status || 'EN_ATTENTE',
                     dureeReelle: line.dureeReelle || existingVf?.dureeReelle || 0,
                     notes: line.notes || '',
@@ -2102,6 +2107,7 @@ export default function Vente() {
                     datePlanification: line.datePlanification || existingVs?.datePlanification,
                     dateDebut: line.dateDebut || existingVs?.dateDebut,
                     dateFin: line.dateFin || existingVs?.dateFin,
+                    dateReouverture: existingVs?.dateReouverture,
                     status: line.status || 'EN_ATTENTE',
                     dureeReelle: line.dureeReelle || existingVs?.dureeReelle || 0,
                     notes: line.notes || '',
