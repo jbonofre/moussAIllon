@@ -14,6 +14,9 @@ public class TaskEntity extends PanacheEntity {
 
     public String description;
 
+    // Rang (0-based) de la ligne de main d'oeuvre du service à laquelle la tâche est rattachée ; null = non rattachée
+    public Integer mainOeuvreIndex;
+
     public boolean done;
 
     // Point volontairement non fait par le technicien (≠ oubli) : le motif est alors obligatoire

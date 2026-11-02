@@ -3,6 +3,7 @@ import { Button, Form, InputNumber, Select, Tag } from 'antd';
 import type { FormInstance } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
+import ChecklistMainOeuvre from './ChecklistMainOeuvre.tsx';
 
 interface ProduitLigne {
     id: number;
@@ -31,6 +32,8 @@ interface LignesArticlesProps {
     navigate?: (route: string) => void;
     // Création d'un article depuis une ligne vide
     onCreate?: (lineIndex: number) => void;
+    // Checklist sous chaque ligne de main d'œuvre
+    checklist?: boolean;
 }
 
 // Lignes de main d'œuvre ou de produits, présentées comme celles d'une transaction
@@ -44,6 +47,7 @@ export default function LignesArticles({
     onProduitSaved,
     navigate,
     onCreate,
+    checklist,
 }: LignesArticlesProps) {
     const estProduit = liste === 'produits';
     const champ = estProduit ? 'produitId' : 'mainOeuvreId';
@@ -79,6 +83,7 @@ export default function LignesArticles({
                                 const stock = article?.stock ?? 0;
                                 const couleurStock = stock === 0 ? 'red' : (stock < (ligne.quantite || 0) || stock < (article?.stockMini ?? 0)) ? 'orange' : 'green';
                                 return (
+                                    <>
                                     <div className="ligne-article" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
                                         <Form.Item label={premiereLigne ? 'Référence' : undefined} style={{ width: 120, flex: 'none', marginBottom: 8 }}>
                                             <Select
@@ -148,6 +153,8 @@ export default function LignesArticles({
                                             )}
                                         </div>
                                     </div>
+                                    {checklist && !estProduit && <ChecklistMainOeuvre name={field.name} />}
+                                    </>
                                 );
                             }}
                         </Form.Item>

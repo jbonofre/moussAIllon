@@ -55,6 +55,9 @@ import DocumentUpload from './DocumentUpload.tsx';
 import PretRecuperationTag from './PretRecuperationTag.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
+import SectionLignes from './SectionLignes.tsx';
+import MontantsService from './MontantsService.tsx';
+import { aplatirTaches } from './checklistParLigne.ts';
 import LignesArticles from './LignesArticles.tsx';
 import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
 import { paginationConfig } from './pagination.ts';
@@ -121,6 +124,7 @@ interface TaskEntity {
     id?: number;
     nom?: string;
     description?: string;
+    mainOeuvreIndex?: number | null;
     done?: boolean;
     nonFait?: boolean;
     motif?: string;
@@ -216,8 +220,7 @@ const defaultNewForfait = {
     moteurIds: [] as number[],
     bateauIds: [] as number[],
     produits: [{}] as Array<{ produitId?: number; quantite?: number }>,
-    mainOeuvres: [{}] as Array<{ mainOeuvreId?: number; quantite?: number }>,
-    taches: [{}] as Array<{ nom?: string; description?: string; done?: boolean }>,
+    mainOeuvres: [{}] as Array<{ mainOeuvreId?: number; quantite?: number; taches?: Array<{ nom?: string; description?: string }> }>,
     heuresFonctionnement: 0,
     joursFrequence: 0,
     prixHT: 0, tva: 20, montantTVA: 0, prixTTC: 0,
@@ -337,9 +340,8 @@ interface ServiceEntity {
 const defaultNewService = {
     nom: '', description: '',
     dureeEstimee: 0,
-    mainOeuvres: [{}] as Array<{ mainOeuvreId?: number; quantite?: number }>,
+    mainOeuvres: [{}] as Array<{ mainOeuvreId?: number; quantite?: number; taches?: Array<{ nom?: string; description?: string }> }>,
     produits: [{}] as Array<{ produitId?: number; quantite?: number }>,
-    taches: [{}] as Array<{ nom?: string; description?: string; done?: boolean }>,
     prixHT: 0, tva: 20, montantTVA: 0, prixTTC: 0,
 };
 
@@ -1264,19 +1266,26 @@ export default function Vente() {
         const service = services.find((s) => s.id === serviceId);
         if (!service) return;
         newServiceForm.resetFields();
+        const lignesMainOeuvre = (service.mainOeuvres || [])
+                .map((item, index) => ({ item, index }))
+                .filter(({ item }) => item.mainOeuvre?.id)
+                .map(({ item, index }, position) => ({
+                    mainOeuvreId: item.mainOeuvre!.id,
+                    quantite: item.quantite || 1,
+                    // Les tâches non rattachées (anciennes checklists) vont sur la première ligne
+                    taches: (service.taches || [])
+                        .filter((t) => t.mainOeuvreIndex === index || (position === 0 && (t.mainOeuvreIndex === null || t.mainOeuvreIndex === undefined)))
+                        .map((t) => ({ nom: t.nom || '', description: t.description || '' })),
+                }));
         newServiceForm.setFieldsValue({
             nom: service.nom || '',
             description: service.description || '',
             dureeEstimee: service.dureeEstimee || 0,
-            mainOeuvres: (service.mainOeuvres || [])
-                .filter((item) => item.mainOeuvre?.id)
-                .map((item) => ({ mainOeuvreId: item.mainOeuvre!.id, quantite: item.quantite || 1 }))
-                .concat([{}]),
+            mainOeuvres: lignesMainOeuvre.length > 0 ? lignesMainOeuvre : [{}],
             produits: (service.produits || [])
                 .filter((item) => item.produit?.id)
                 .map((item) => ({ produitId: item.produit!.id, quantite: item.quantite || 1 }))
                 .concat([{}]),
-            taches: (service.taches || []).map((t) => ({ nom: t.nom || '', description: t.description || '', done: t.done || false })),
             prixHT: service.prixHT || 0,
             tva: service.tva || 0,
             montantTVA: service.montantTVA || 0,
@@ -1289,29 +1298,27 @@ export default function Vente() {
     const handleNewServiceSave = async () => {
         try {
             const values = await newServiceForm.validateFields();
+            const lignesMainOeuvre = (values.mainOeuvres || []).filter((item: { mainOeuvreId?: number }) => item.mainOeuvreId);
             const payload = {
                 nom: values.nom,
                 description: values.description,
                 dureeEstimee: values.dureeEstimee || 0,
-                mainOeuvres: (values.mainOeuvres || [])
-                    .filter((item: { mainOeuvreId?: number }) => item.mainOeuvreId)
-                    .map((item: { mainOeuvreId?: number; quantite?: number }) => ({
-                        mainOeuvre: mainOeuvres.find((mo) => mo.id === item.mainOeuvreId),
-                        quantite: item.quantite || 1
-                    })),
+                mainOeuvres: lignesMainOeuvre.map((item: { mainOeuvreId?: number; quantite?: number }) => ({
+                    mainOeuvre: mainOeuvres.find((mo) => mo.id === item.mainOeuvreId),
+                    quantite: item.quantite || 1
+                })),
                 produits: (values.produits || [])
                     .filter((item: { produitId?: number }) => item.produitId)
                     .map((item: { produitId?: number; quantite?: number }) => ({
                         produit: produits.find((p) => p.id === item.produitId),
                         quantite: item.quantite || 1
                     })),
-                taches: (values.taches || [])
-                    .filter((t: { nom?: string }) => t.nom?.trim())
-                    .map((t: { nom?: string; description?: string; done?: boolean }) => ({
-                        nom: t.nom,
-                        description: t.description || '',
-                        done: t.done || false
-                    })),
+                // Checklist de chaque ligne de main d'oeuvre, rattachée par le rang de la ligne
+                taches: lignesMainOeuvre.flatMap((item: { taches?: Array<{ nom?: string; description?: string }> }, index: number) =>
+                    (item.taches || [])
+                        .filter((t) => t.nom?.trim())
+                        .map((t) => ({ nom: t.nom, description: t.description || '', done: false, mainOeuvreIndex: index }))
+                ),
                 prixHT: values.prixHT || 0,
                 tva: values.tva || 0,
                 montantTVA: values.montantTVA || 0,
@@ -1350,7 +1357,7 @@ export default function Vente() {
         setNewServiceFormDirty(true);
         // Auto-add new line when last line is complete
         if (changedValues.mainOeuvres !== undefined) {
-            let currentLines = (newServiceForm.getFieldValue('mainOeuvres') || []).map((item: any) => (
+            const currentLines = (newServiceForm.getFieldValue('mainOeuvres') || []).map((item: any) => (
                 item?.mainOeuvreId && (item.quantite === undefined || item.quantite === null)
                     ? { ...item, quantite: 1 }
                     : item
@@ -1359,10 +1366,7 @@ export default function Vente() {
                 newServiceForm.setFieldValue('mainOeuvres', [{}]);
                 return;
             }
-            const lastLine = currentLines[currentLines.length - 1];
-            if (!!lastLine?.mainOeuvreId && (lastLine?.quantite || 0) > 0) {
-                currentLines = [...currentLines, {}];
-            }
+            // Un service n'a qu'une seule ligne de main d'oeuvre : pas de nouvelle ligne ajoutée automatiquement
             newServiceForm.setFieldValue('mainOeuvres', currentLines);
         }
         if (changedValues.produits !== undefined) {
@@ -1381,18 +1385,6 @@ export default function Vente() {
             }
             newServiceForm.setFieldValue('produits', currentLines);
         }
-        if (changedValues.taches !== undefined) {
-            const currentLines = newServiceForm.getFieldValue('taches') || [];
-            if (currentLines.length === 0) {
-                newServiceForm.setFieldValue('taches', [{}]);
-            } else {
-                const lastLine = currentLines[currentLines.length - 1];
-                if (!!lastLine?.nom?.trim()) {
-                    newServiceForm.setFieldValue('taches', [...currentLines, {}]);
-                }
-            }
-        }
-
         // Recalculate totals from lines
         if (changedValues.mainOeuvres !== undefined || changedValues.produits !== undefined) {
             const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
@@ -1447,9 +1439,11 @@ export default function Vente() {
         form: FormInstance,
         onValuesChange: (changedValues: Record<string, unknown>) => void,
         liste: 'mainOeuvres' | 'produits',
+        checklist?: boolean,
     ) => (
         <LignesArticles
             form={form}
+            checklist={checklist}
             onValuesChange={onValuesChange}
             liste={liste}
             produits={produits}
@@ -1471,6 +1465,7 @@ export default function Vente() {
     const handleNewForfaitSave = async () => {
         try {
             const values = await newForfaitForm.validateFields();
+            const lignesMainOeuvre = (values.mainOeuvres || []).filter((item: { mainOeuvreId?: number }) => item.mainOeuvreId);
             const payload = {
                 reference: values.reference,
                 nom: values.nom,
@@ -1487,19 +1482,12 @@ export default function Vente() {
                         produit: produits.find((p) => p.id === item.produitId),
                         quantite: item.quantite || 1
                     })),
-                mainOeuvres: (values.mainOeuvres || [])
-                    .filter((item: { mainOeuvreId?: number }) => item.mainOeuvreId)
-                    .map((item: { mainOeuvreId?: number; quantite?: number }) => ({
-                        mainOeuvre: mainOeuvres.find((mo) => mo.id === item.mainOeuvreId),
-                        quantite: item.quantite || 1
-                    })),
-                taches: (values.taches || [])
-                    .filter((t: { nom?: string }) => t.nom?.trim())
-                    .map((t: { nom?: string; description?: string; done?: boolean }) => ({
-                        nom: t.nom,
-                        description: t.description || '',
-                        done: t.done || false
-                    })),
+                mainOeuvres: lignesMainOeuvre.map((item: { mainOeuvreId?: number; quantite?: number }) => ({
+                    mainOeuvre: mainOeuvres.find((mo) => mo.id === item.mainOeuvreId),
+                    quantite: item.quantite || 1
+                })),
+                // Checklist de chaque ligne de main d'oeuvre, rattachée par le rang de la ligne
+                taches: aplatirTaches(lignesMainOeuvre),
                 heuresFonctionnement: values.heuresFonctionnement || 0,
                 joursFrequence: values.joursFrequence || 0,
                 prixHT: values.prixHT || 0,
@@ -1563,18 +1551,6 @@ export default function Vente() {
             }
             newForfaitForm.setFieldValue('mainOeuvres', currentLines);
         }
-        if (changedValues.taches !== undefined) {
-            const currentLines = newForfaitForm.getFieldValue('taches') || [];
-            if (currentLines.length === 0) {
-                newForfaitForm.setFieldValue('taches', [{}]);
-            } else {
-                const lastLine = currentLines[currentLines.length - 1];
-                if (!!lastLine?.nom?.trim()) {
-                    newForfaitForm.setFieldValue('taches', [...currentLines, {}]);
-                }
-            }
-        }
-
         // Recalculate totals from product/MO lines
         if (changedValues.produits !== undefined || changedValues.mainOeuvres !== undefined) {
             const round2 = (v: number) => Math.round((v + Number.EPSILON) * 100) / 100;
@@ -4262,54 +4238,14 @@ export default function Vente() {
                         <Form.Item name="dureeEstimee" label="Durée estimée" tooltip="Calculée automatiquement : 1h par unité de main d'œuvre">
                             <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" disabled />
                         </Form.Item>
-                        <Tabs
-                            defaultActiveKey="mainOeuvres"
-                            items={[
-                                {
-                                    key: 'mainOeuvres',
-                                    label: "Main d'Oeuvres",
-                                    children: renderLignesArticles(newServiceForm, onNewServiceValuesChange, 'mainOeuvres')
-                                },
-                                {
-                                    key: 'produits',
-                                    label: 'Produits',
-                                    children: renderLignesArticles(newServiceForm, onNewServiceValuesChange, 'produits')
-                                },
-                                {
-                                    key: 'taches',
-                                    label: 'Tâches Associées',
-                                    children: (
-                                        <Form.List name="taches">
-                                            {(fields, { remove }) => (
-                                                <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                                                    {fields.map((field) => (
-                                                        <Card
-                                                            key={field.key}
-                                                            size="small"
-                                                            title={`Tâche ${field.name + 1}`}
-                                                            extra={<Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />}
-                                                        >
-                                                            <Form.Item {...field} name={[field.name, 'nom']} label="Nom">
-                                                                <Input allowClear />
-                                                            </Form.Item>
-                                                            <Form.Item {...field} name={[field.name, 'description']} label="Description">
-                                                                <Input.TextArea rows={2} />
-                                                            </Form.Item>
-                                                        </Card>
-                                                    ))}
-                                                </Space>
-                                            )}
-                                        </Form.List>
-                                    )
-                                }
-                            ]}
-                        />
-                        <Row gutter={16} style={{ marginTop: 16 }}>
-                            <Col span={6}><Form.Item name="prixHT" label="Prix HT"><InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} /></Form.Item></Col>
-                            <Col span={6}><Form.Item name="tva" label="TVA (%)"><InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} /></Form.Item></Col>
-                            <Col span={6}><Form.Item name="montantTVA" label="Montant TVA"><InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} /></Form.Item></Col>
-                            <Col span={6}><Form.Item name="prixTTC" label="Prix TTC"><InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} /></Form.Item></Col>
-                        </Row>
+                        <SectionLignes titre="Main d'Oeuvres" couleur="mainOeuvre">
+                            {renderLignesArticles(newServiceForm, onNewServiceValuesChange, 'mainOeuvres', true)}
+                        </SectionLignes>
+
+                        <SectionLignes titre="Produits" couleur="produit">
+                            {renderLignesArticles(newServiceForm, onNewServiceValuesChange, 'produits')}
+                        </SectionLignes>
+                        <MontantsService />
                     </Form>
                 </Modal>
 
@@ -4335,12 +4271,12 @@ export default function Vente() {
                         <Row gutter={16}>
                             <Col span={12}>
                                 <Form.Item name="moteurIds" label="Moteurs associés">
-                                    <Select mode="multiple" allowClear options={moteurOptions} placeholder="Sélectionner les moteurs" />
+                                    <Select mode="multiple" allowClear showSearch optionFilterProp="label" options={moteurOptions} placeholder="Sélectionner les moteurs" />
                                 </Form.Item>
                             </Col>
                             <Col span={12}>
                                 <Form.Item name="bateauIds" label="Bateaux associés">
-                                    <Select mode="multiple" allowClear options={bateauOptions} placeholder="Sélectionner les bateaux" />
+                                    <Select mode="multiple" allowClear showSearch optionFilterProp="label" options={bateauOptions} placeholder="Sélectionner les bateaux" />
                                 </Form.Item>
                             </Col>
                         </Row>
@@ -4370,52 +4306,20 @@ export default function Vente() {
                                     label: "Produits & Main d'Oeuvres",
                                     children: (
                                         <>
-                                            <Form.Item label="Produits inclus">
-                                                {renderLignesArticles(newForfaitForm, onNewForfaitValuesChange, 'produits')}
-                                            </Form.Item>
+                                            <SectionLignes titre="Main d'Oeuvres" couleur="mainOeuvre">
+                                                {renderLignesArticles(newForfaitForm, onNewForfaitValuesChange, 'mainOeuvres', true)}
+                                            </SectionLignes>
 
-                                            <Form.Item label="Main d'Oeuvres incluses">
-                                                {renderLignesArticles(newForfaitForm, onNewForfaitValuesChange, 'mainOeuvres')}
-                                            </Form.Item>
+                                            <SectionLignes titre="Produits" couleur="produit">
+                                                {renderLignesArticles(newForfaitForm, onNewForfaitValuesChange, 'produits')}
+                                            </SectionLignes>
                                         </>
-                                    )
-                                },
-                                {
-                                    key: 'taches',
-                                    label: 'Tâches Associées',
-                                    children: (
-                                        <Form.List name="taches">
-                                            {(fields, { remove }) => (
-                                                <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                                                    {fields.map((field) => (
-                                                        <Card
-                                                            key={field.key}
-                                                            size="small"
-                                                            title={`Tâche ${field.name + 1}`}
-                                                            extra={<Button danger icon={<DeleteOutlined />} onClick={() => remove(field.name)} />}
-                                                        >
-                                                            <Form.Item {...field} name={[field.name, 'nom']} label="Nom">
-                                                                <Input allowClear />
-                                                            </Form.Item>
-                                                            <Form.Item {...field} name={[field.name, 'description']} label="Description">
-                                                                <Input.TextArea rows={2} />
-                                                            </Form.Item>
-                                                        </Card>
-                                                    ))}
-                                                </Space>
-                                            )}
-                                        </Form.List>
                                     )
                                 }
                             ]}
                         />
 
-                        <Row gutter={16}>
-                            <Col span={6}><Form.Item name="prixHT" label="Prix HT"><InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} /></Form.Item></Col>
-                            <Col span={6}><Form.Item name="tva" label="TVA (%)"><InputNumber addonAfter="%" min={0} max={100} step={0.01} style={{ width: '100%' }} /></Form.Item></Col>
-                            <Col span={6}><Form.Item name="montantTVA" label="Montant TVA"><InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} /></Form.Item></Col>
-                            <Col span={6}><Form.Item name="prixTTC" label="Prix TTC"><InputNumber addonAfter="€" min={0} step={0.01} style={{ width: '100%' }} /></Form.Item></Col>
-                        </Row>
+                        <MontantsService terme="Montant" />
                     </Form>
                 </Modal>
             </Modal>

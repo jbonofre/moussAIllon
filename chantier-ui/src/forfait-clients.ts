@@ -48,3 +48,19 @@ export const moteurClientOptions = (moteurs: any[], bateaux: any[]): ClientOptio
 
 export const filterClientOption = (input: string, option?: { search?: string }) =>
     (option?.search || '').includes(input.trim().toLowerCase());
+
+interface CatalogueItem {
+    id: number;
+    designation: string;
+    ref?: string;
+    type?: string;
+    description?: string;
+    referencesFournisseurs?: string[];
+}
+
+// Option du catalogue moteurs / bateaux : recherche sur la référence, la désignation, le type, la description et les références fournisseurs
+export const catalogueOption = (item: CatalogueItem): ClientOption => {
+    const label = [item.ref, item.designation, item.type].filter(Boolean).join(' - ');
+    const search = [label, item.description, ...(item.referencesFournisseurs || [])].filter(Boolean).join(' ').toLowerCase();
+    return { value: item.id, label, search };
+};
