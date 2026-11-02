@@ -673,6 +673,8 @@ public class TechnicienPortalResource {
         reporterHeuresMoteur(parentVente, request.heuresMoteur);
         pretRecuperationService.evaluer(parentVente);
         VenteResource.passerEnFactureEnAttenteSiLancee(parentVente);
+        VenteResource.passerEnFactureCompleteSiTerminee(parentVente);
+        VenteResource.attribuerNumeroDocument(parentVente);
 
         // Decrement stock
         if (vf.status == VenteForfaitEntity.Status.EN_COURS && parentVente != null && !parentVente.stockDecremented) {
@@ -784,6 +786,8 @@ public class TechnicienPortalResource {
         reporterHeuresMoteur(parentVente, request.heuresMoteur);
         pretRecuperationService.evaluer(parentVente);
         VenteResource.passerEnFactureEnAttenteSiLancee(parentVente);
+        VenteResource.passerEnFactureCompleteSiTerminee(parentVente);
+        VenteResource.attribuerNumeroDocument(parentVente);
 
         // Decrement stock
         if (vs.status == VenteServiceEntity.Status.EN_COURS && parentVente != null && !parentVente.stockDecremented) {
@@ -1231,7 +1235,7 @@ public class TechnicienPortalResource {
     }
 
     /**
-     * Applique les réponses de la checklist : fait, non fait (motif obligatoire) ou non renseigné.
+     * Applique les réponses de la checklist : fait, non fait (motif facultatif) ou non renseigné.
      * Retourne les points nouvellement « non fait » ou dont le motif a changé, pour en avertir le bureau.
      */
     private List<TaskEntity> appliquerChecklist(List<ChecklistUpdate> updates) {
@@ -1248,11 +1252,8 @@ public class TechnicienPortalResource {
                 continue;
             }
             if (cu.nonFait && !cu.done) {
-                String motif = cu.motif != null ? cu.motif.strip() : "";
-                if (motif.isEmpty()) {
-                    throw new WebApplicationException("Un motif est obligatoire pour un point non fait : " + task.nom, Response.Status.BAD_REQUEST);
-                }
-                if (!task.nonFait || !motif.equals(task.motif)) {
+                String motif = cu.motif != null && !cu.motif.isBlank() ? cu.motif.strip() : null;
+                if (!task.nonFait || !java.util.Objects.equals(motif, task.motif)) {
                     signales.add(task);
                 }
                 task.done = false;
@@ -1285,7 +1286,7 @@ public class TechnicienPortalResource {
         }
         body.append(" :\n\n");
         for (TaskEntity t : points) {
-            body.append("- ").append(t.nom).append(" : ").append(t.motif).append("\n");
+            body.append("- ").append(t.nom).append(" : ").append(t.motif != null ? t.motif : "(aucun motif)").append("\n");
         }
         mailer.send(Mail.withText(societe.email, subject, body.toString()));
     }

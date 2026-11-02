@@ -25,6 +25,7 @@ import {
     ClockCircleOutlined,
     DeleteOutlined,
     ExclamationCircleOutlined,
+    CloseCircleOutlined,
     FileOutlined,
     KeyOutlined,
     LogoutOutlined,
@@ -211,10 +212,10 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
         setModalVisible(true);
     };
 
-    // Réponse à un point : 'fait' (RAS) ou 'nonFait' (motif obligatoire)
+    // Réponse à un point : 'fait' (RAS) ou 'nonFait' (motif facultatif)
     const handleChecklistChange = (index: number, reponse: 'fait' | 'nonFait') => {
         setChecklist((prev) => prev.map((c, i) => i === index
-            ? { ...c, done: reponse === 'fait', nonFait: reponse === 'nonFait', motif: reponse === 'fait' ? undefined : c.motif }
+            ? { ...c, done: reponse === 'fait', nonFait: reponse === 'nonFait', motif: reponse === 'nonFait' ? c.motif : undefined }
             : c));
     };
 
@@ -230,10 +231,6 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
         if (!currentItem) return;
         try {
             const values = await form.validateFields();
-            if (checklist.some((c) => c.nonFait && !(c.motif || '').trim())) {
-                message.warning('Precisez le motif de chaque point non fait');
-                return;
-            }
             if (values.status === 'TERMINEE' && checklist.some((c) => !c.done && !c.nonFait)) {
                 message.warning('Chaque point de la checklist doit etre fait ou marque non fait pour terminer la prestation');
                 return;
@@ -602,7 +599,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                         <Card size="small" title="Checklist" style={{ marginBottom: 12 }}>
                             {checklist.map((item, index) => (
                                 <div key={item.id || index} style={{ marginBottom: 8 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                                         <span style={{ fontWeight: 500 }}>{item.nom || `Tache ${index + 1}`}</span>
                                         <Radio.Group
                                             size="small"
@@ -610,8 +607,8 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                                             value={item.done ? 'fait' : item.nonFait ? 'nonFait' : undefined}
                                             onChange={(e) => handleChecklistChange(index, e.target.value)}
                                         >
-                                            <Radio.Button value="fait">Oui</Radio.Button>
-                                            <Radio.Button value="nonFait">Non</Radio.Button>
+                                            <Radio.Button value="fait" title="Fait" aria-label="Fait"><CheckCircleOutlined style={{ color: '#52c41a', fontSize: 18 }} /></Radio.Button>
+                                            <Radio.Button value="nonFait" title="Pas fait" aria-label="Pas fait"><CloseCircleOutlined style={{ color: '#f5222d', fontSize: 18 }} /></Radio.Button>
                                         </Radio.Group>
                                     </div>
                                     {item.description && (
@@ -621,9 +618,8 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                                         <Input.TextArea
                                             rows={2}
                                             style={{ marginTop: 4 }}
-                                            placeholder="Pourquoi ce point n'a pas ete fait ? (obligatoire)"
+                                            placeholder="Motif (facultatif)"
                                             value={item.motif}
-                                            status={(item.motif || '').trim() ? undefined : 'error'}
                                             onChange={(e) => handleMotifChange(index, e.target.value)}
                                         />
                                     )}

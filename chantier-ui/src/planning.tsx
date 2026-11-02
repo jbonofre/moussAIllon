@@ -1633,7 +1633,7 @@ export default function Planning() {
                                                             {ev.pointsNonFaits && ev.pointsNonFaits.length > 0 && (
                                                                 <div style={{ color: '#ffd666', marginTop: 4 }}>
                                                                     <strong>Points non faits :</strong>
-                                                                    {ev.pointsNonFaits.map((t) => <div key={t.id}>• {t.nom} : {t.motif}</div>)}
+                                                                    {ev.pointsNonFaits.map((t) => <div key={t.id}>• {t.nom}{t.motif ? ` : ${t.motif}` : ''}</div>)}
                                                                 </div>
                                                             )}
                                                         </div>
@@ -1985,7 +1985,7 @@ export default function Planning() {
                             style={{ marginBottom: 12 }}
                             message="Points de la checklist non faits"
                             description={(currentRow?.item.taches || []).filter((t) => t.nonFait).map((t) => (
-                                <div key={t.id}><strong>{t.nom}</strong> : {t.motif}</div>
+                                <div key={t.id}><strong>{t.nom}</strong>{t.motif ? ` : ${t.motif}` : ''}</div>
                             ))}
                         />
                     )}

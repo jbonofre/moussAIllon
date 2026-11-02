@@ -368,9 +368,9 @@ const statusColor: Record<VenteStatus, string> = {
 
 const statusLabel: Record<VenteStatus, string> = {
     DEVIS: 'Devis',
-    FACTURE_EN_ATTENTE: 'Facture en attente',
-    FACTURE_PRETE: 'Facture complète',
-    FACTURE_PAYEE: 'Facture payée',
+    FACTURE_EN_ATTENTE: 'En cours',
+    FACTURE_PRETE: 'Terminé',
+    FACTURE_PAYEE: 'Payé',
 };
 
 const defaultVente: VenteFormValues = {
@@ -2026,7 +2026,7 @@ export default function Comptoir() {
                     <Form.Item noStyle name="bonPourAccord"><input type="hidden" /></Form.Item>
                     <Form.Item noStyle name="montantTTC"><input type="hidden" /></Form.Item>
                     {isReadOnly && (
-                        <Tag color="green" style={{ marginBottom: 16, fontSize: 14, padding: '4px 12px' }}>Facture payée — consultation uniquement</Tag>
+                        <Tag color="green" style={{ marginBottom: 16, fontSize: 14, padding: '4px 12px' }}>Payé — consultation uniquement</Tag>
                     )}
                     {currentVente?.id && (linkedCommandesByVente.get(currentVente.id) || []).length > 0 && (
                         <Alert

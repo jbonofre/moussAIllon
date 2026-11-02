@@ -436,7 +436,7 @@ public class TechnicienPortalResourceTest {
     }
 
     @Test
-    void testChecklistPointNonFaitExigeUnMotif() {
+    void testChecklistPointNonFaitSansMotifAccepte() {
         var vente = venteAvecForfait("FACTURE_EN_ATTENTE", "EN_COURS");
         int forfaitId = vente.path("venteForfaits[0].id");
         int tacheId = vente.path("venteForfaits[0].taches[0].id");
@@ -445,7 +445,48 @@ public class TechnicienPortalResourceTest {
             .contentType("application/json")
             .body("{\"status\":\"EN_COURS\",\"taches\":[{\"taskId\":" + tacheId + ",\"nonFait\":true,\"motif\":\"  \"}]}")
             .when().put("/technicien-portal/forfaits/" + forfaitId)
-            .then().statusCode(400);
+            .then().statusCode(200)
+            .body("taches[0].nonFait", is(true))
+            .body("taches[0].motif", nullValue());
+    }
+
+    @Test
+    void testToutesLesTachesFaitesOuNonFaitesPasseLaFactureEnComplete() {
+        var vente = venteAvecForfait("FACTURE_EN_ATTENTE", "EN_COURS");
+        int venteId = vente.path("id");
+        int forfaitId = vente.path("venteForfaits[0].id");
+        int tacheId = vente.path("venteForfaits[0].taches[0].id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"TERMINEE\",\"dureeReelle\":1.0,\"taches\":[{\"taskId\":" + tacheId + ",\"nonFait\":true}]}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then().statusCode(200);
+
+        given().when().get("/ventes/" + venteId)
+            .then().statusCode(200)
+            .body("status", is("FACTURE_PRETE"))
+            .body("numeroFacture", startsWith("FA"));
+    }
+
+    @Test
+    void testAjouterUnForfaitAUnePrestationTermineeRepasseEnAttenteDeBonPourAccord() {
+        var vente = venteAvecForfait("FACTURE_PRETE", "TERMINEE");
+        int venteId = vente.path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"bonPourAccord\":true,"
+                + "\"montantTTC\":600.0,\"prixVenteTTC\":600.0,\"tva\":20.0,"
+                + "\"venteForfaits\":["
+                + "{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"TERMINEE\",\"dureeReelle\":2.0,"
+                + "\"dateFin\":\"2026-10-30T17:00:00\",\"taches\":[{\"nom\":\"Revision moteur\",\"done\":true}]},"
+                + "{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_ATTENTE\"}]}")
+            .when().put("/ventes/" + venteId)
+            .then().statusCode(200)
+            .body("status", is("DEVIS"))
+            .body("bonPourAccord", is(false))
+            .body("venteForfaits.size()", is(2));
     }
 
     @Test
