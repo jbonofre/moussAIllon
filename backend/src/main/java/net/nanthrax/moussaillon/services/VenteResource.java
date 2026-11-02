@@ -554,6 +554,9 @@ public class VenteResource {
         entity.moteur = vente.moteur;
         entity.remorque = vente.remorque;
 
+        int nbForfaitsAvant = entity.venteForfaits.size();
+        int nbServicesAvant = entity.venteServices.size();
+
         // Update venteForfaits
         entity.venteForfaits.clear();
         if (vente.venteForfaits != null) {
@@ -664,6 +667,14 @@ public class VenteResource {
             }
         }
 
+        // Une prestation terminée à laquelle on ajoute un forfait ou un service redevient à accepter :
+        // retour en attente de bon pour accord, les nouvelles tâches pouvant alors être planifiées
+        boolean repasseEnAttenteBonPourAccord = factureEmise
+                && (entity.venteForfaits.size() > nbForfaitsAvant || entity.venteServices.size() > nbServicesAvant);
+        if (repasseEnAttenteBonPourAccord) {
+            repasserEnAttenteBonPourAccord(entity);
+        }
+
         // Update venteProduits (new line entity with quantite + remise per line)
         creerArticlesALaVolee(vente.venteProduits);
         entity.venteProduits.clear();
@@ -765,12 +776,16 @@ public class VenteResource {
         // Planifier est possible dès la création ; démarrer une tâche exige le bon pour accord signé
         if (!entity.bonPourAccord) {
             for (VenteForfaitEntity vf : entity.venteForfaits) {
-                if (vf.status != null && demarrageInterdit(vf.status.name())) {
+                // Les tâches déjà terminées avant le retour en attente ne sont pas concernées
+                if (vf.status != null && demarrageInterdit(vf.status.name())
+                        && !(repasseEnAttenteBonPourAccord && vf.status == VenteForfaitEntity.Status.TERMINEE)) {
                     throw new WebApplicationException(MESSAGE_BON_POUR_ACCORD_DEMARRAGE, 400);
                 }
             }
             for (VenteServiceEntity vs : entity.venteServices) {
-                if (vs.status != null && demarrageInterdit(vs.status.name())) {
+                // Les tâches déjà terminées avant le retour en attente ne sont pas concernées
+                if (vs.status != null && demarrageInterdit(vs.status.name())
+                        && !(repasseEnAttenteBonPourAccord && vs.status == VenteServiceEntity.Status.TERMINEE)) {
                     throw new WebApplicationException(MESSAGE_BON_POUR_ACCORD_DEMARRAGE, 400);
                 }
             }
@@ -812,22 +827,8 @@ public class VenteResource {
         }
 
         // Auto-compute status: FACTURE_PRETE when all forfaits/services are TERMINEE
-        if (hasForfaitsOrServices && entity.bonPourAccord
-                && entity.status != VenteEntity.Status.FACTURE_PAYEE) {
-            boolean allTerminee = entity.venteForfaits.stream()
-                    .allMatch(vf -> vf.status == VenteForfaitEntity.Status.TERMINEE || vf.status == VenteForfaitEntity.Status.ANNULEE)
-                    && entity.venteServices.stream()
-                    .allMatch(vs -> vs.status == VenteServiceEntity.Status.TERMINEE || vs.status == VenteServiceEntity.Status.ANNULEE);
-            boolean hasAtLeastOneTerminee = entity.venteForfaits.stream()
-                    .anyMatch(vf -> vf.status == VenteForfaitEntity.Status.TERMINEE)
-                    || entity.venteServices.stream()
-                    .anyMatch(vs -> vs.status == VenteServiceEntity.Status.TERMINEE);
-            if (allTerminee && hasAtLeastOneTerminee) {
-                entity.status = VenteEntity.Status.FACTURE_PRETE;
-                if (entity.dateFacturePrete == null) {
-                    entity.dateFacturePrete = new Timestamp(System.currentTimeMillis());
-                }
-            }
+        if (entity.status != VenteEntity.Status.FACTURE_PAYEE) {
+            passerEnFactureCompleteSiTerminee(entity);
         }
 
         // Signal « prêt à récupérer » : posé quand toutes les interventions sont terminées
@@ -881,7 +882,7 @@ public class VenteResource {
         return v.ordreDeReparation ? "OR" : "DE";
     }
 
-    private static void attribuerNumeroDocument(VenteEntity v) {
+    static void attribuerNumeroDocument(VenteEntity v) {
         if (v.id == null || v.status == null) {
             return;
         }
@@ -1098,6 +1099,37 @@ public class VenteResource {
     }
 
     /**
+     * Quand toutes les prestations d'une vente acceptée sont terminées (ou annulées, une au moins étant terminée),
+     * la facture passe de « en attente » à « complète » (FACTURE_PRETE).
+     */
+    static void passerEnFactureCompleteSiTerminee(VenteEntity vente) {
+        if (vente == null || !vente.bonPourAccord) {
+            return;
+        }
+        boolean hasForfaitsOrServices = !vente.venteForfaits.isEmpty() || !vente.venteServices.isEmpty();
+        if (!hasForfaitsOrServices) {
+            return;
+        }
+        boolean allTerminee = vente.venteForfaits.stream()
+                .allMatch(vf -> vf.status == VenteForfaitEntity.Status.TERMINEE || vf.status == VenteForfaitEntity.Status.ANNULEE)
+                && vente.venteServices.stream()
+                .allMatch(vs -> vs.status == VenteServiceEntity.Status.TERMINEE || vs.status == VenteServiceEntity.Status.ANNULEE);
+        boolean hasAtLeastOneTerminee = vente.venteForfaits.stream()
+                .anyMatch(vf -> vf.status == VenteForfaitEntity.Status.TERMINEE)
+                || vente.venteServices.stream()
+                .anyMatch(vs -> vs.status == VenteServiceEntity.Status.TERMINEE);
+        if (allTerminee && hasAtLeastOneTerminee) {
+            vente.status = VenteEntity.Status.FACTURE_PRETE;
+            if (vente.dateFacturePrete == null) {
+                vente.dateFacturePrete = new Timestamp(System.currentTimeMillis());
+            }
+            if (!vente.paiements.isEmpty()) {
+                marquerPayeeSiSoldee(vente);
+            }
+        }
+    }
+
+    /**
      * Dès qu'une prestation est lancée (en cours), le devis passe directement en « facture en attente ».
      */
     static void passerEnFactureEnAttenteSiLancee(VenteEntity vente) {
@@ -1114,6 +1146,19 @@ public class VenteResource {
                 vente.dateFactureEnAttente = new Timestamp(System.currentTimeMillis());
             }
         }
+    }
+
+    /**
+     * L'ajout d'un forfait ou d'un service à une prestation terminée la remet en attente de bon pour accord.
+     * La facture garde son numéro FA ; sa date d'émission et ses relances repartent de la prochaine clôture.
+     */
+    static void repasserEnAttenteBonPourAccord(VenteEntity vente) {
+        vente.status = VenteEntity.Status.DEVIS;
+        vente.bonPourAccord = false;
+        vente.signatureBonPourAccord = null;
+        vente.dateBonPourAccord = null;
+        vente.dateFacturePrete = null;
+        vente.niveauRelance = 0;
     }
 
     /**

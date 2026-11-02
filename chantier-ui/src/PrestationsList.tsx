@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Table, Tag, Spin, Button, message } from 'antd';
-import { EyeOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import { EyeOutlined, PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useNavigation } from './navigation-context.tsx';
 import PretRecuperationTag from './PretRecuperationTag.tsx';
 import { paginationConfig } from './pagination.ts';
+import ProgressionVente from './ProgressionVente.tsx';
 
 interface Vente {
     id: number;
@@ -13,6 +14,8 @@ interface Vente {
     status: string;
     datePretRecuperation?: string | null;
     montantTTC: number;
+    venteForfaits?: Array<{ taches?: Array<{ done?: boolean; nonFait?: boolean }> }>;
+    venteServices?: Array<{ taches?: Array<{ done?: boolean; nonFait?: boolean }> }>;
     client?: { id: number; nom?: string };
 }
 
@@ -32,9 +35,9 @@ const statusColor: Record<string, string> = {
 
 const statusLabel: Record<string, string> = {
     DEVIS: 'Devis / OR',
-    FACTURE_EN_ATTENTE: 'Facture en attente',
-    FACTURE_PRETE: 'Facture prête',
-    FACTURE_PAYEE: 'Facture payée',
+    FACTURE_EN_ATTENTE: 'En cours',
+    FACTURE_PRETE: 'Terminé',
+    FACTURE_PAYEE: 'Payé',
 };
 
 export default function PrestationsList({ clientId, bateauId, moteurId, remorqueId }: PrestationsListProps) {
@@ -86,7 +89,12 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
             title: 'Statut',
             dataIndex: 'status',
             key: 'status',
-            render: (s: string) => <Tag color={statusColor[s] || 'default'}>{statusLabel[s] || s}</Tag>,
+            render: (s: string, record: Vente) => (
+                <>
+                    <Tag color={statusColor[s] || 'default'}>{statusLabel[s] || s}</Tag>
+                    {s === 'FACTURE_EN_ATTENTE' && <ProgressionVente vente={record} width={120} />}
+                </>
+            ),
         },
         {
             title: 'Retrait',
@@ -122,7 +130,8 @@ export default function PrestationsList({ clientId, bateauId, moteurId, remorque
 
     return (
         <div>
-            <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end' }}>
+            <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <Button size="small" title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={load} />
                 <Button
                     type="primary"
                     size="small"

@@ -44,7 +44,7 @@ import {
     message
 } from 'antd';
 import type { FormInstance, MenuProps } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, ReloadOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
@@ -53,6 +53,7 @@ import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import PretRecuperationTag from './PretRecuperationTag.tsx';
+import ProgressionVente, { PopoverProgressionVente } from './ProgressionVente.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import SectionLignes from './SectionLignes.tsx';
@@ -541,10 +542,10 @@ interface VenteFormValues {
 const RELANCE_COULEURS: Record<number, string> = { 1: 'gold', 2: 'orange', 3: 'red' };
 
 const statusOptions: Array<{ value: VenteStatus; label: string }> = [
-    { value: 'DEVIS', label: 'Devis/Ordre de Réparation' },
-    { value: 'FACTURE_EN_ATTENTE', label: 'Facture en attente' },
-    { value: 'FACTURE_PRETE', label: 'Facture prête' },
-    { value: 'FACTURE_PAYEE', label: 'Facture payée' }
+    { value: 'DEVIS', label: 'Devis/OR' },
+    { value: 'FACTURE_EN_ATTENTE', label: 'En cours' },
+    { value: 'FACTURE_PRETE', label: 'Terminé' },
+    { value: 'FACTURE_PAYEE', label: 'Payé' }
 ];
 
 const modePaiementOptions: Array<{ value: ModePaiement; label: string }> = [
@@ -594,9 +595,9 @@ const formatStepDate = (date?: string) => {
 const venteStepItems = (vente?: VenteEntity | null) => [
     { title: 'Devis/OR', icon: <FileTextOutlined />, description: formatStepDate(vente?.dateDevis) },
     { title: 'Bon pour accord', icon: <SolutionOutlined />, description: formatStepDate(vente?.dateBonPourAccord) },
-    { title: 'Facture en attente', icon: <FileDoneOutlined />, description: formatStepDate(vente?.dateFactureEnAttente) },
-    { title: 'Facture complète', icon: <WalletOutlined />, description: formatStepDate(vente?.dateFacturePrete) },
-    { title: 'Facture payée', icon: <CheckCircleOutlined />, description: formatStepDate(vente?.dateFacturePayee) },
+    { title: 'En cours', icon: <FileDoneOutlined />, description: formatStepDate(vente?.dateFactureEnAttente) },
+    { title: 'Terminé', icon: <WalletOutlined />, description: formatStepDate(vente?.dateFacturePrete) },
+    { title: 'Payé', icon: <CheckCircleOutlined />, description: formatStepDate(vente?.dateFacturePayee) },
 ];
 
 const getTodayDayjs = () => dayjs();
@@ -2191,9 +2192,13 @@ export default function Vente() {
             suppressDirtyRef.current = true;
             let saved: VenteEntity;
             if (isEdit && currentVente?.id) {
+                const etaitTerminee = currentVente.status === 'FACTURE_PRETE';
                 const res = await api.put(`/ventes/${currentVente.id}`, { ...currentVente, ...payload });
                 capturedSignatureRef.current = null;
                 message.success('Vente modifiee avec succes');
+                if (etaitTerminee && res.data.status === 'DEVIS') {
+                    message.info('Une prestation a été ajoutée : la vente repasse en attente de bon pour accord, les nouvelles tâches peuvent être planifiées');
+                }
                 setCurrentVente(res.data);
                 snapshotSavedLines(res.data);
                 populateForm(res.data);
@@ -2272,7 +2277,7 @@ export default function Vente() {
                 );
                 const hasTerminee = allLines.some((l: { status?: PlanningStatus }) => l.status === 'TERMINEE');
                 if (!allDone || !hasTerminee) {
-                    message.warning('Toutes les prestations doivent être terminées avant de passer en facture complète');
+                    message.warning('Toutes les prestations doivent être terminées avant de passer en Terminé');
                     return;
                 }
             }
@@ -3108,7 +3113,11 @@ export default function Vente() {
                     ? 'Bon pour accord'
                     : statusOptions.find((item) => item.value === value)?.label || value;
                 const color = value === 'DEVIS' && record.bonPourAccord ? 'cyan' : statusColor[value] || 'default';
-                return <Tag color={color}>{label}</Tag>;
+                const tag = <Tag color={color}>{label}</Tag>;
+                if (value !== 'FACTURE_EN_ATTENTE') {
+                    return tag;
+                }
+                return <PopoverProgressionVente vente={record}>{tag}</PopoverProgressionVente>;
             }
         },
         {
@@ -3218,6 +3227,7 @@ export default function Vente() {
                     source={ventes.map((v) => v.client?.nom)}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={fetchVentes} />
                 <Button
                     icon={<WalletOutlined />}
                     onClick={() => {
@@ -3376,10 +3386,15 @@ export default function Vente() {
                             watchedBonPourAccord
                         )}
                         size="small"
-                        style={{ marginBottom: 24 }}
+                        style={{ marginBottom: watchedStatus === 'FACTURE_EN_ATTENTE' ? 8 : 24 }}
                         items={venteStepItems(currentVente)}
                         onChange={isReadOnly ? undefined : (step) => goToStep(step)}
                     />
+                    {watchedStatus === 'FACTURE_EN_ATTENTE' && (
+                        <div style={{ marginBottom: 16 }}>
+                            <ProgressionVente vente={currentVente} />
+                        </div>
+                    )}
                     <Row gutter={16}>
                         <Col span={8}>
                             <Form.Item label="Référence" htmlFor="vente-reference">

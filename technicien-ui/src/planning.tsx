@@ -3,7 +3,6 @@ import {
     Badge,
     Button,
     Card,
-    Checkbox,
     Col,
     Empty,
     Form,
@@ -11,6 +10,7 @@ import {
     Input,
     InputNumber,
     Modal,
+    Radio,
     Row,
     Select,
     Space,
@@ -18,7 +18,7 @@ import {
     Tag,
     message,
 } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, DeleteOutlined, EditOutlined, ExclamationCircleOutlined, FileOutlined, PictureOutlined, PlusOutlined, ReloadOutlined, ShoppingOutlined, UserAddOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, ClockCircleOutlined, CloseCircleOutlined, DeleteOutlined, EditOutlined, ExclamationCircleOutlined, FileOutlined, PictureOutlined, PlusOutlined, ReloadOutlined, ShoppingOutlined, UserAddOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
@@ -35,6 +35,8 @@ interface ChecklistItem {
     nom?: string;
     description?: string;
     done?: boolean;
+    nonFait?: boolean;
+    motif?: string;
 }
 
 interface ProduitItem {
@@ -264,14 +266,14 @@ export default function Planning({ technicienId }: PlanningProps) {
         }
     };
 
-    const handleChecklistChange = (index: number, done: boolean) => {
+    // Réponse à un point : 'fait' ou 'nonFait' (motif facultatif)
+    const handleChecklistChange = (index: number, reponse: 'fait' | 'nonFait') => {
         setChecklist((prev) => {
-            const updated = prev.map((c, i) => i === index ? { ...c, done } : c);
-            if (!done && form.getFieldValue('status') === 'TERMINEE') {
-                form.setFieldsValue({ status: 'EN_COURS' });
-            }
-            // If all checked, auto-set status to TERMINEE and dateFin, compute dureeReelle
-            if (updated.length > 0 && updated.every((c) => c.done)) {
+            const updated = prev.map((c, i) => i === index
+                ? { ...c, done: reponse === 'fait', nonFait: reponse === 'nonFait', motif: reponse === 'nonFait' ? c.motif : undefined }
+                : c);
+            // If every point is done or marked not done, auto-set status to TERMINEE and dateFin, compute dureeReelle
+            if (updated.length > 0 && updated.every((c) => c.done || c.nonFait)) {
                 const finIso = nowIso();
                 const dureeReelle = currentItem ? dureeReelleALaFin(currentItem, new Date(finIso).getTime()) : 0;
                 form.setFieldsValue({ status: 'TERMINEE', dureeReelle });
@@ -290,7 +292,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                             dureeReelle,
                             notes: values.notes || '',
                             noteVente: noteVenteModifiee(values.noteVente),
-                            taches: updated.map((c) => ({ taskId: c.id, done: c.done })),
+                            taches: updated.map((c) => ({ taskId: c.id, done: !!c.done, nonFait: !!c.nonFait, motif: c.nonFait ? (c.motif || '').trim() || null : null })),
                             images,
                             documents,
                         });
@@ -308,12 +310,16 @@ export default function Planning({ technicienId }: PlanningProps) {
         });
     };
 
+    const handleMotifChange = (index: number, motif: string) => {
+        setChecklist((prev) => prev.map((c, i) => i === index ? { ...c, motif } : c));
+    };
+
     const handleSave = async () => {
         if (!currentItem) return;
         try {
             const values = await form.validateFields();
-            if (values.status === 'TERMINEE' && checklist.some((c) => !c.done)) {
-                message.warning('Toutes les taches doivent etre cochees pour terminer la prestation');
+            if (values.status === 'TERMINEE' && checklist.some((c) => !c.done && !c.nonFait)) {
+                message.warning('Chaque point de la checklist doit etre fait ou marque non fait pour terminer la prestation');
                 return;
             }
             setSaving(true);
@@ -329,7 +335,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                 noteVente: noteVenteModifiee(values.noteVente),
                 incidentDate: values.status === 'INCIDENT' ? (dayjs.isDayjs(values.incidentDate) ? values.incidentDate.format('YYYY-MM-DDTHH:mm:ss') : values.incidentDate) : null,
                 incidentDetails: values.status === 'INCIDENT' ? values.incidentDetails : null,
-                taches: checklist.map((c) => ({ taskId: c.id, done: c.done })),
+                taches: checklist.map((c) => ({ taskId: c.id, done: !!c.done, nonFait: !!c.nonFait, motif: c.nonFait ? (c.motif || '').trim() : null })),
                 images,
                 documents,
             });
@@ -888,85 +894,106 @@ export default function Planning({ technicienId }: PlanningProps) {
                     >
                         <Input.TextArea rows={3} placeholder="Ex. : oxydation importante au niveau du thermostat, surveillance à prévoir" />
                     </Form.Item>
-                    {checklist.length > 0 && (
-                        <Card size="small" title="Checklist" style={{ marginBottom: 12 }}>
-                            {checklist.map((item, index) => (
-                                <div key={item.id || index} style={{ marginBottom: 4 }}>
-                                    <Checkbox
-                                        checked={item.done}
-                                        onChange={(e) => handleChecklistChange(index, e.target.checked)}
-                                    >
-                                        <span style={{ fontWeight: 500 }}>{item.nom || `Tache ${index + 1}`}</span>
-                                    </Checkbox>
-                                    {item.description && (
-                                        <p style={{ margin: '0 0 0 24px', fontSize: 12, color: '#999' }}>{item.description}</p>
-                                    )}
-                                </div>
-                            ))}
-                        </Card>
-                    )}
-                    {currentItem?.produits && currentItem.produits.length > 0 && (
-                        <Card size="small" title={<><ShoppingOutlined /> Produits</>} style={{ marginBottom: 12 }}>
-                            <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '1px solid #f0f0f0', textAlign: 'left' }}>
-                                        <th style={{ padding: '4px 8px' }}>Produit</th>
-                                        <th style={{ padding: '4px 8px' }}>Ref</th>
-                                        <th style={{ padding: '4px 8px' }}>Emplacement</th>
-                                        <th style={{ padding: '4px 8px', textAlign: 'right' }}>Qte</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {currentItem.produits.map((p) => (
-                                        <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
-                                            <td style={{ padding: '4px 8px' }}>{p.designation || '-'}</td>
-                                            <td style={{ padding: '4px 8px', color: '#888' }}>{p.ref || '-'}</td>
-                                            <td style={{ padding: '4px 8px', color: '#888' }}>
-                                                {[p.emplacement ? `Atelier: ${p.emplacement}` : '', p.emplacementMagasin ? `Magasin: ${p.emplacementMagasin}` : ''].filter(Boolean).join(' / ') || '-'}
-                                            </td>
-                                            <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 500 }}>{p.quantite ?? 0}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </Card>
-                    )}
-                    <Card
-                        size="small"
-                        title={<><ShoppingOutlined /> Produits supplementaires</>}
-                        style={{ marginBottom: 12 }}
-                        extra={<Button size="small" icon={<PlusOutlined />} onClick={openAddProduit}>Ajouter</Button>}
-                    >
-                        {produitsExtra.length === 0 ? (
-                            <div style={{ color: '#999', fontSize: 13 }}>Aucun produit supplementaire</div>
-                        ) : (
-                            produitsExtra.map((p) => (
-                                <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
-                                    <div>
-                                        <div style={{ fontWeight: 500 }}>{p.designation || '-'}</div>
-                                        <div style={{ fontSize: 11, color: '#888' }}>
-                                            {p.ref && <span>Ref: {p.ref}</span>}
+                    <Row gutter={16}>
+                        <Col xs={24} md={12}>
+                        {checklist.length > 0 && (
+                            <Card size="small" title="Checklist" style={{ marginBottom: 12 }}>
+                                {checklist.map((item, index) => (
+                                    <div key={item.id || index} style={{ marginBottom: 8 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                            <span style={{ fontWeight: 500 }}>{item.nom || `Tache ${index + 1}`}</span>
+                                            <Radio.Group
+                                                size="small"
+                                                optionType="button"
+                                                value={item.done ? 'fait' : item.nonFait ? 'nonFait' : undefined}
+                                                onChange={(e) => handleChecklistChange(index, e.target.value)}
+                                            >
+                                                <Radio.Button value="fait" title="Fait" aria-label="Fait"><CheckCircleOutlined style={{ color: '#52c41a', fontSize: 18 }} /></Radio.Button>
+                                                <Radio.Button value="nonFait" title="Pas fait" aria-label="Pas fait"><CloseCircleOutlined style={{ color: '#f5222d', fontSize: 18 }} /></Radio.Button>
+                                            </Radio.Group>
                                         </div>
-                                        {(p.emplacement || p.emplacementMagasin) && (
-                                            <div style={{ fontSize: 11, color: '#888' }}>
-                                                {p.emplacement && <span>Empl. atelier: {p.emplacement} </span>}
-                                                {p.emplacementMagasin && <span>Empl. magasin: {p.emplacementMagasin}</span>}
-                                            </div>
+                                        {item.description && (
+                                            <p style={{ margin: 0, fontSize: 12, color: '#999' }}>{item.description}</p>
+                                        )}
+                                        {item.nonFait && (
+                                            <Input.TextArea
+                                                rows={2}
+                                                style={{ marginTop: 4 }}
+                                                placeholder="Motif (facultatif)"
+                                                value={item.motif}
+                                                onChange={(e) => handleMotifChange(index, e.target.value)}
+                                            />
                                         )}
                                     </div>
-                                    <Space>
-                                        <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>x{p.quantite ?? 0}</span>
-                                        <Button
-                                            size="small"
-                                            danger
-                                            icon={<DeleteOutlined />}
-                                            onClick={() => p.id && handleRemoveProduit(p.id)}
-                                        />
-                                    </Space>
-                                </div>
-                            ))
+                                ))}
+                            </Card>
                         )}
-                    </Card>
+                        </Col>
+                        <Col xs={24} md={12}>
+                        {currentItem?.produits && currentItem.produits.length > 0 && (
+                            <Card size="small" title={<><ShoppingOutlined /> Produits</>} style={{ marginBottom: 12 }}>
+                                <table style={{ width: '100%', fontSize: 13, borderCollapse: 'collapse' }}>
+                                    <thead>
+                                        <tr style={{ borderBottom: '1px solid #f0f0f0', textAlign: 'left' }}>
+                                            <th style={{ padding: '4px 8px' }}>Produit</th>
+                                            <th style={{ padding: '4px 8px' }}>Ref</th>
+                                            <th style={{ padding: '4px 8px' }}>Emplacement</th>
+                                            <th style={{ padding: '4px 8px', textAlign: 'right' }}>Qte</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {currentItem.produits.map((p) => (
+                                            <tr key={p.id} style={{ borderBottom: '1px solid #f0f0f0' }}>
+                                                <td style={{ padding: '4px 8px' }}>{p.designation || '-'}</td>
+                                                <td style={{ padding: '4px 8px', color: '#888' }}>{p.ref || '-'}</td>
+                                                <td style={{ padding: '4px 8px', color: '#888' }}>
+                                                    {[p.emplacement ? `Atelier: ${p.emplacement}` : '', p.emplacementMagasin ? `Magasin: ${p.emplacementMagasin}` : ''].filter(Boolean).join(' / ') || '-'}
+                                                </td>
+                                                <td style={{ padding: '4px 8px', textAlign: 'right', fontWeight: 500 }}>{p.quantite ?? 0}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </Card>
+                        )}
+                        <Card
+                            size="small"
+                            title={<><ShoppingOutlined /> Produits supplementaires</>}
+                            style={{ marginBottom: 12 }}
+                            extra={<Button size="small" icon={<PlusOutlined />} onClick={openAddProduit}>Ajouter</Button>}
+                        >
+                            {produitsExtra.length === 0 ? (
+                                <div style={{ color: '#999', fontSize: 13 }}>Aucun produit supplementaire</div>
+                            ) : (
+                                produitsExtra.map((p) => (
+                                    <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0', borderBottom: '1px solid #f0f0f0', fontSize: 13 }}>
+                                        <div>
+                                            <div style={{ fontWeight: 500 }}>{p.designation || '-'}</div>
+                                            <div style={{ fontSize: 11, color: '#888' }}>
+                                                {p.ref && <span>Ref: {p.ref}</span>}
+                                            </div>
+                                            {(p.emplacement || p.emplacementMagasin) && (
+                                                <div style={{ fontSize: 11, color: '#888' }}>
+                                                    {p.emplacement && <span>Empl. atelier: {p.emplacement} </span>}
+                                                    {p.emplacementMagasin && <span>Empl. magasin: {p.emplacementMagasin}</span>}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <Space>
+                                            <span style={{ fontWeight: 500, whiteSpace: 'nowrap' }}>x{p.quantite ?? 0}</span>
+                                            <Button
+                                                size="small"
+                                                danger
+                                                icon={<DeleteOutlined />}
+                                                onClick={() => p.id && handleRemoveProduit(p.id)}
+                                            />
+                                        </Space>
+                                    </div>
+                                ))
+                            )}
+                        </Card>
+                        </Col>
+                    </Row>
                     <Card size="small" title={<><PictureOutlined /> Images</>} style={{ marginBottom: 12 }}>
                         <ImageUpload value={images} onChange={setImages} />
                     </Card>
