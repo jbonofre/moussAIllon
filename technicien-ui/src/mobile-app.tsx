@@ -3,13 +3,13 @@ import {
     Badge,
     Button,
     Card,
-    Checkbox,
     DatePicker,
     Form,
     Input,
     InputNumber,
     List,
     Modal,
+    Radio,
     Segmented,
     Select,
     Space,
@@ -59,6 +59,8 @@ interface ChecklistItem {
     nom?: string;
     description?: string;
     done?: boolean;
+    nonFait?: boolean;
+    motif?: string;
 }
 
 interface ProduitItem {
@@ -197,11 +199,15 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
         setModalVisible(true);
     };
 
-    const handleChecklistChange = (index: number, done: boolean) => {
-        if (!done && form.getFieldValue('status') === 'TERMINEE') {
-            form.setFieldsValue({ status: 'EN_COURS' });
-        }
-        setChecklist((prev) => prev.map((c, i) => i === index ? { ...c, done } : c));
+    // Réponse à un point : 'fait' (RAS) ou 'nonFait' (motif obligatoire)
+    const handleChecklistChange = (index: number, reponse: 'fait' | 'nonFait') => {
+        setChecklist((prev) => prev.map((c, i) => i === index
+            ? { ...c, done: reponse === 'fait', nonFait: reponse === 'nonFait', motif: reponse === 'fait' ? undefined : c.motif }
+            : c));
+    };
+
+    const handleMotifChange = (index: number, motif: string) => {
+        setChecklist((prev) => prev.map((c, i) => i === index ? { ...c, motif } : c));
     };
 
     // N'envoie la note client que si le technicien l'a modifiée, pour ne pas écraser une correction faite au bureau
@@ -212,8 +218,12 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
         if (!currentItem) return;
         try {
             const values = await form.validateFields();
-            if (values.status === 'TERMINEE' && checklist.some((c) => !c.done)) {
-                message.warning('Toutes les taches doivent etre cochees pour terminer la prestation');
+            if (checklist.some((c) => c.nonFait && !(c.motif || '').trim())) {
+                message.warning('Precisez le motif de chaque point non fait');
+                return;
+            }
+            if (values.status === 'TERMINEE' && checklist.some((c) => !c.done && !c.nonFait)) {
+                message.warning('Chaque point de la checklist doit etre fait ou marque non fait pour terminer la prestation');
                 return;
             }
             setSaving(true);
@@ -228,7 +238,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                 noteVente: noteVenteModifiee(values.noteVente),
                 incidentDate: values.status === 'INCIDENT' ? (dayjs.isDayjs(values.incidentDate) ? values.incidentDate.format('YYYY-MM-DDTHH:mm:ss') : values.incidentDate) : null,
                 incidentDetails: values.status === 'INCIDENT' ? values.incidentDetails : null,
-                taches: checklist.map((c) => ({ taskId: c.id, done: c.done })),
+                taches: checklist.map((c) => ({ taskId: c.id, done: !!c.done, nonFait: !!c.nonFait, motif: c.nonFait ? (c.motif || '').trim() : null })),
                 images,
                 documents,
             });
@@ -335,7 +345,8 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
             {item.statusDate && <p style={{ margin: '2px 0', fontSize: 12 }}>Planifiee: {formatDate(item.statusDate)}</p>}
             {item.taches && item.taches.length > 0 && (
                 <div style={{ margin: '4px 0', fontSize: 12, color: '#666' }}>
-                    Checklist: {item.taches.filter((t) => t.done).length}/{item.taches.length}
+                    Checklist: {item.taches.filter((t) => t.done || t.nonFait).length}/{item.taches.length}
+                    {item.taches.some((t) => t.nonFait) && ` (dont ${item.taches.filter((t) => t.nonFait).length} non fait)`}
                 </div>
             )}
             {item.itemStatus === 'INCIDENT' && item.incidentDetails && (
@@ -551,15 +562,31 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                     {checklist.length > 0 && (
                         <Card size="small" title="Checklist" style={{ marginBottom: 12 }}>
                             {checklist.map((item, index) => (
-                                <div key={item.id || index} style={{ marginBottom: 4 }}>
-                                    <Checkbox
-                                        checked={item.done}
-                                        onChange={(e) => handleChecklistChange(index, e.target.checked)}
-                                    >
+                                <div key={item.id || index} style={{ marginBottom: 8 }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
                                         <span style={{ fontWeight: 500 }}>{item.nom || `Tache ${index + 1}`}</span>
-                                    </Checkbox>
+                                        <Radio.Group
+                                            size="small"
+                                            optionType="button"
+                                            value={item.done ? 'fait' : item.nonFait ? 'nonFait' : undefined}
+                                            onChange={(e) => handleChecklistChange(index, e.target.value)}
+                                        >
+                                            <Radio.Button value="fait">Oui</Radio.Button>
+                                            <Radio.Button value="nonFait">Non</Radio.Button>
+                                        </Radio.Group>
+                                    </div>
                                     {item.description && (
-                                        <p style={{ margin: '0 0 0 24px', fontSize: 12, color: '#999' }}>{item.description}</p>
+                                        <p style={{ margin: '0', fontSize: 12, color: '#999' }}>{item.description}</p>
+                                    )}
+                                    {item.nonFait && (
+                                        <Input.TextArea
+                                            rows={2}
+                                            style={{ marginTop: 4 }}
+                                            placeholder="Pourquoi ce point n'a pas ete fait ? (obligatoire)"
+                                            value={item.motif}
+                                            status={(item.motif || '').trim() ? undefined : 'error'}
+                                            onChange={(e) => handleMotifChange(index, e.target.value)}
+                                        />
                                     )}
                                 </div>
                             ))}

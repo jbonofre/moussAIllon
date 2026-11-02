@@ -94,6 +94,8 @@ public class TechnicienPortalResource {
     public static class ChecklistUpdate {
         public Long taskId;
         public boolean done;
+        public boolean nonFait;
+        public String motif;
     }
 
     public static class AddProduitRequest {
@@ -106,6 +108,8 @@ public class TechnicienPortalResource {
         public String nom;
         public String description;
         public boolean done;
+        public boolean nonFait;
+        public String motif;
     }
 
     public static class ProduitItem {
@@ -186,6 +190,8 @@ public class TechnicienPortalResource {
                     ci.nom = t.nom;
                     ci.description = t.description;
                     ci.done = t.done;
+                    ci.nonFait = t.nonFait;
+                    ci.motif = t.motif;
                     item.taches.add(ci);
                 }
             }
@@ -267,6 +273,8 @@ public class TechnicienPortalResource {
                     ci.nom = t.nom;
                     ci.description = t.description;
                     ci.done = t.done;
+                    ci.nonFait = t.nonFait;
+                    ci.motif = t.motif;
                     item.taches.add(ci);
                 }
             }
@@ -480,7 +488,7 @@ public class TechnicienPortalResource {
         }
         if (taches != null) {
             item.tachesTotal = taches.size();
-            item.tachesFaites = (int) taches.stream().filter(t -> t.done).count();
+            item.tachesFaites = (int) taches.stream().filter(t -> t.done || t.nonFait).count();
         }
         item.techniciens = toPlanningGeneralTechniciens(techniciens);
         return item;
@@ -598,26 +606,19 @@ public class TechnicienPortalResource {
         }
 
         // Update checklist items
-        if (request.taches != null) {
-            for (ChecklistUpdate cu : request.taches) {
-                if (cu.taskId != null) {
-                    TaskEntity task = TaskEntity.findById(cu.taskId);
-                    if (task != null) {
-                        task.done = cu.done;
-                    }
-                }
-            }
-        }
+        List<TaskEntity> pointsNonFaits = appliquerChecklist(request.taches);
 
         // A prestation cannot be TERMINEE while some of its tasks are not done
         if (vf.status == VenteForfaitEntity.Status.TERMINEE && vf.taches != null
-                && vf.taches.stream().anyMatch(t -> !t.done)) {
-            throw new WebApplicationException("Toutes les taches doivent etre terminees avant de terminer la prestation", Response.Status.BAD_REQUEST);
+                && vf.taches.stream().anyMatch(t -> !t.done && !t.nonFait)) {
+            throw new WebApplicationException("Chaque point de la checklist doit etre fait ou marque non fait avant de terminer la prestation", Response.Status.BAD_REQUEST);
         }
 
         // Find parent vente
         List<VenteEntity> ventes = VenteEntity.list("SELECT v FROM VenteEntity v JOIN v.venteForfaits vf WHERE vf.id = ?1", itemId);
         VenteEntity parentVente = ventes.isEmpty() ? null : ventes.get(0);
+
+        notifierPointsNonFaits(parentVente, vf.forfait != null ? vf.forfait.nom : "Forfait", pointsNonFaits);
 
         // Quitter « terminée » revient à rouvrir la tâche : mêmes règles que l'action « Rouvrir »
         if (etaitTerminee && vf.status != VenteForfaitEntity.Status.TERMINEE) {
@@ -699,26 +700,19 @@ public class TechnicienPortalResource {
         }
 
         // Update checklist items
-        if (request.taches != null) {
-            for (ChecklistUpdate cu : request.taches) {
-                if (cu.taskId != null) {
-                    TaskEntity task = TaskEntity.findById(cu.taskId);
-                    if (task != null) {
-                        task.done = cu.done;
-                    }
-                }
-            }
-        }
+        List<TaskEntity> pointsNonFaits = appliquerChecklist(request.taches);
 
         // A prestation cannot be TERMINEE while some of its tasks are not done
         if (vs.status == VenteServiceEntity.Status.TERMINEE && vs.taches != null
-                && vs.taches.stream().anyMatch(t -> !t.done)) {
-            throw new WebApplicationException("Toutes les taches doivent etre terminees avant de terminer la prestation", Response.Status.BAD_REQUEST);
+                && vs.taches.stream().anyMatch(t -> !t.done && !t.nonFait)) {
+            throw new WebApplicationException("Chaque point de la checklist doit etre fait ou marque non fait avant de terminer la prestation", Response.Status.BAD_REQUEST);
         }
 
         // Find parent vente
         List<VenteEntity> ventes = VenteEntity.list("SELECT v FROM VenteEntity v JOIN v.venteServices vs WHERE vs.id = ?1", itemId);
         VenteEntity parentVente = ventes.isEmpty() ? null : ventes.get(0);
+
+        notifierPointsNonFaits(parentVente, vs.service != null ? vs.service.nom : "Service", pointsNonFaits);
 
         // Quitter « terminée » revient à rouvrir la tâche : mêmes règles que l'action « Rouvrir »
         if (etaitTerminee && vs.status != VenteServiceEntity.Status.TERMINEE) {
@@ -1148,6 +1142,66 @@ public class TechnicienPortalResource {
         }
         verifierVenteNonPayee(vente);
         vente.note = note;
+    }
+
+    /**
+     * Applique les réponses de la checklist : fait, non fait (motif obligatoire) ou non renseigné.
+     * Retourne les points nouvellement « non fait » ou dont le motif a changé, pour en avertir le bureau.
+     */
+    private List<TaskEntity> appliquerChecklist(List<ChecklistUpdate> updates) {
+        List<TaskEntity> signales = new ArrayList<>();
+        if (updates == null) {
+            return signales;
+        }
+        for (ChecklistUpdate cu : updates) {
+            if (cu.taskId == null) {
+                continue;
+            }
+            TaskEntity task = TaskEntity.findById(cu.taskId);
+            if (task == null) {
+                continue;
+            }
+            if (cu.nonFait && !cu.done) {
+                String motif = cu.motif != null ? cu.motif.strip() : "";
+                if (motif.isEmpty()) {
+                    throw new WebApplicationException("Un motif est obligatoire pour un point non fait : " + task.nom, Response.Status.BAD_REQUEST);
+                }
+                if (!task.nonFait || !motif.equals(task.motif)) {
+                    signales.add(task);
+                }
+                task.done = false;
+                task.nonFait = true;
+                task.motif = motif;
+            } else {
+                task.done = cu.done;
+                task.nonFait = false;
+                task.motif = null;
+            }
+        }
+        return signales;
+    }
+
+    private void notifierPointsNonFaits(VenteEntity vente, String itemNom, List<TaskEntity> points) {
+        if (points.isEmpty()) {
+            return;
+        }
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        if (societe == null || societe.email == null || societe.email.isBlank()) {
+            return;
+        }
+        String clientNom = vente != null && vente.client != null ? vente.client.nom : null;
+        String subject = "Point de checklist non fait - " + itemNom;
+        StringBuilder body = new StringBuilder("Bonjour,\n\n")
+                .append("Un technicien a marque des points de checklist comme non faits sur l'intervention \"")
+                .append(itemNom).append("\"");
+        if (clientNom != null) {
+            body.append(" (client : ").append(clientNom).append(")");
+        }
+        body.append(" :\n\n");
+        for (TaskEntity t : points) {
+            body.append("- ").append(t.nom).append(" : ").append(t.motif).append("\n");
+        }
+        mailer.send(Mail.withText(societe.email, subject, body.toString()));
     }
 
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {
