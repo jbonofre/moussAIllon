@@ -1,6 +1,7 @@
 import React from 'react';
-import { render, screen, waitFor, fireEvent, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import dayjs from 'dayjs';
 import MobileApp from './mobile-app.tsx';
 import api from './api.ts';
 
@@ -64,5 +65,56 @@ describe('Application mobile technicien - réouverture', () => {
 
         expect(await screen.findByText('Vidange')).toBeInTheDocument();
         expect(screen.queryByRole('button', { name: /Rouvrir/ })).not.toBeInTheDocument();
+    });
+});
+
+const tache = (over: any) => ({
+    itemId: 1,
+    itemType: 'forfait',
+    itemNom: 'Hivernage',
+    itemStatus: 'PLANIFIEE',
+    bonPourAccord: true,
+    taches: [],
+    ...over,
+});
+
+describe('Appli mobile technicien - recherche par client ou bateau', () => {
+    beforeEach(() => {
+        (api.get as jest.Mock).mockImplementation((url: string) => Promise.resolve({
+            data: url === '/technicien-portal/techniciens/1/taches'
+                ? [
+                    tache({ clientNom: 'Dupont Jean', bateauNom: 'Galatée', bateauImmatriculation: 'CC 696123', statusDate: `${dayjs().format('YYYY-MM-DD')}T09:00:00` }),
+                    tache({ itemId: 2, itemNom: 'Carénage', clientNom: 'Le Gall Yann', bateauNom: 'Albatros', statusDate: dayjs().add(3, 'day').format('YYYY-MM-DDT09:00:00') }),
+                ]
+                : [],
+        }));
+    });
+
+    afterEach(() => jest.clearAllMocks());
+
+    const rechercher = (texte: string) =>
+        fireEvent.change(screen.getByLabelText('Rechercher une tâche'), { target: { value: texte } });
+
+    it("filtre les tâches de l'onglet affiché", async () => {
+        render(<MobileApp user={{ id: 1, nom: 'Leclerc' }} onLogout={jest.fn()} onChangePassword={jest.fn()} />);
+        expect(await screen.findByText('Dupont Jean / Galatée (CC 696123)')).toBeInTheDocument();
+
+        rechercher('galatee');
+        expect(screen.getByText('Dupont Jean / Galatée (CC 696123)')).toBeInTheDocument();
+
+        rechercher('martin');
+        expect(screen.queryByText('Dupont Jean / Galatée (CC 696123)')).not.toBeInTheDocument();
+        expect(screen.getByText('Aucune tâche ne correspond à la recherche')).toBeInTheDocument();
+    });
+
+    it("propose d'aller dans « Toutes » quand la tâche cherchée n'est pas aujourd'hui", async () => {
+        render(<MobileApp user={{ id: 1, nom: 'Leclerc' }} onLogout={jest.fn()} onChangePassword={jest.fn()} />);
+        expect(await screen.findByText('Dupont Jean / Galatée (CC 696123)')).toBeInTheDocument();
+
+        rechercher('albatros');
+        fireEvent.click(screen.getByRole('button', { name: 'Voir 1 tâche(s) dans « Toutes »' }));
+
+        expect(screen.getByText('Le Gall Yann / Albatros')).toBeInTheDocument();
+        expect(screen.queryByText('Dupont Jean / Galatée (CC 696123)')).not.toBeInTheDocument();
     });
 });

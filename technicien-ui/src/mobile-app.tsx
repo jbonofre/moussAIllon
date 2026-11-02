@@ -45,6 +45,7 @@ import PlanningGeneral from './planning-general.tsx';
 import Objectifs from './objectifs.tsx';
 import Parc from './parc.tsx';
 import { BoutonRouvrir, messageErreur, peutEtreRouverte } from './reouverture.tsx';
+import { PLACEHOLDER_RECHERCHE, libelleBateau, tacheCorrespond } from './recherche-tache.ts';
 
 interface Technicien {
     id: number;
@@ -94,6 +95,7 @@ interface PlanningItem {
     venteType?: string;
     bonPourAccord?: boolean;
     bateauNom?: string;
+    bateauImmatriculation?: string;
     quantite?: number;
     taches?: ChecklistItem[];
     produits?: ProduitItem[];
@@ -143,6 +145,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
     const [items, setItems] = useState<PlanningItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [tab, setTab] = useState<Tab>('today');
+    const [recherche, setRecherche] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     const [currentItem, setCurrentItem] = useState<PlanningItem | null>(null);
     const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
@@ -177,7 +180,12 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
     const incidentItems = items.filter((t) => t.itemStatus === 'INCIDENT');
     const pendingCount = items.filter((t) => t.itemStatus === 'EN_ATTENTE' || t.itemStatus === 'PLANIFIEE' || t.itemStatus === 'EN_COURS').length;
 
-    const displayedItems = tab === 'today' ? todayItems : tab === 'incidents' ? incidentItems : items;
+    const displayedItems = (tab === 'today' ? todayItems : tab === 'incidents' ? incidentItems : items)
+        .filter((t) => tacheCorrespond(t, recherche));
+    // Tâches trouvées hors de l'onglet affiché, pour proposer d'aller les voir dans « Toutes »
+    const trouveesDansToutes = recherche.trim() && tab !== 'all'
+        ? items.filter((t) => tacheCorrespond(t, recherche)).length
+        : 0;
 
     const openModal = (item: PlanningItem, presetStatus?: TaskStatus) => {
         setCurrentItem(item);
@@ -323,7 +331,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                     <Tag color={statusColor[item.itemStatus || '']}>{statusLabel[item.itemStatus || ''] || item.itemStatus}</Tag>
                 </Space>
             </div>
-            <p style={{ margin: '2px 0', color: '#666' }}>{item.clientNom || '-'} {item.bateauNom ? `/ ${item.bateauNom}` : ''}</p>
+            <p style={{ margin: '2px 0', color: '#666' }}>{item.clientNom || '-'} {item.bateauNom || item.bateauImmatriculation ? `/ ${libelleBateau(item)}` : ''}</p>
             <div style={{ display: 'flex', justifyContent: 'space-between', margin: '4px 0' }}>
                 <span>Reelle: {item.dureeReelle ? `${item.dureeReelle}h` : '-'}</span>
                 {item.dureeEstimee != null && item.dureeEstimee > 0 && <span>Estimee: {item.dureeEstimee}h</span>}
@@ -413,11 +421,28 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                             </h3>
                             <Button size="small" icon={<ReloadOutlined />} onClick={fetchItems} />
                         </div>
+                        <Input.Search
+                            allowClear
+                            placeholder={PLACEHOLDER_RECHERCHE}
+                            aria-label="Rechercher une tâche"
+                            value={recherche}
+                            onChange={(e) => setRecherche(e.target.value)}
+                            style={{ marginBottom: 8 }}
+                        />
                         <Spin spinning={loading}>
                             {displayedItems.length > 0 ? (
                                 <List dataSource={displayedItems} renderItem={renderItemCard} />
                             ) : (
-                                <Card style={{ textAlign: 'center', color: '#999' }}>Aucune tache</Card>
+                                <Card style={{ textAlign: 'center', color: '#999' }}>
+                                    {recherche.trim() ? 'Aucune tâche ne correspond à la recherche' : 'Aucune tache'}
+                                    {trouveesDansToutes > 0 && (
+                                        <div style={{ marginTop: 8 }}>
+                                            <Button type="link" onClick={() => setTab('all')}>
+                                                Voir {trouveesDansToutes} tâche(s) dans « Toutes »
+                                            </Button>
+                                        </div>
+                                    )}
+                                </Card>
                             )}
                         </Spin>
                     </>
