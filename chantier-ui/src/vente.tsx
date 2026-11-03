@@ -8,6 +8,7 @@ import {
     buildInvoiceTableHtml,
     buildLegalLine,
     buildBancaireHtml,
+    buildReceptionHtml,
     buildSocieteBlockHtml,
     buildTotalsHtml,
     buildTvaBreakdownHtml,
@@ -21,6 +22,7 @@ import { comparerDatesVentes } from './tri-ventes.ts';
 import { calculerMarge } from './marge-vente.ts';
 import {
     Alert,
+    AutoComplete,
     Button,
     Card,
     Checkbox,
@@ -55,6 +57,8 @@ import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import DocumentUpload from './DocumentUpload.tsx';
 import PretRecuperationTag from './PretRecuperationTag.tsx';
+import ReceptionResume from './ReceptionResume.tsx';
+import { Reception, VOLUMES_CARBURANT, receptionRenseignee } from './reception.ts';
 import ProgressionVente, { PopoverProgressionVente } from './ProgressionVente.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
@@ -477,6 +481,7 @@ interface VenteEntity {
     // Dernière relance de paiement automatique envoyée (0 = aucune)
     niveauRelance?: number;
     note?: string;
+    reception?: Reception | null;
 }
 
 interface RappelHistoriqueEntity {
@@ -537,6 +542,7 @@ interface VenteFormValues {
     documents?: string[];
     dateEcheance?: string;
     note?: string;
+    reception?: Reception;
 }
 
 
@@ -1854,6 +1860,7 @@ export default function Vente() {
             documents: vente.documents || [],
             dateEcheance: toDateDayjs(vente.dateEcheance) as any,
             note: vente.note,
+            reception: vente.reception || undefined,
         });
     };
 
@@ -2186,7 +2193,8 @@ export default function Vente() {
             modePaiement: values.modePaiement,
             images: values.images || [],
             documents: values.documents || [],
-            note: values.note
+            note: values.note,
+            reception: receptionRenseignee(values.reception) ? values.reception : undefined,
         };
     };
 
@@ -2742,6 +2750,9 @@ export default function Vente() {
         const noteHtml = vente.note
             ? `<div class="section"><h3>Note</h3><div class="row" style="white-space:pre-wrap;">${escapeHtml(vente.note)}</div></div>` : '';
 
+        // Placée juste avant la signature : le client signe le bon pour accord au vu de la réception
+        const receptionHtml = !isFacture ? buildReceptionHtml(vente.reception) : '';
+
         const legalLine = buildLegalLine(societe);
 
         return `<html>
@@ -2767,6 +2778,7 @@ export default function Vente() {
                     ${totalsHtml}
                 </div>` : ''}
                 ${noteHtml}
+                ${receptionHtml}
                 ${conditionsLegalesHtml}
                 ${signatureHtml}
                 ${legalLine ? `<div class="page-footer">${escapeHtml(legalLine)}</div>` : ''}
@@ -4057,6 +4069,70 @@ export default function Vente() {
                                 )
                             },
                             {
+                                key: 'reception',
+                                label: 'Bon de Réception',
+                                // Rendu dès l'ouverture : validateFields() ignore les champs d'un onglet
+                                // jamais affiché, ce qui effacerait la réception à l'enregistrement
+                                forceRender: true,
+                                children: (
+                                    <>
+                                        <Row gutter={16}>
+                                            <Col span={6}>
+                                                <Form.Item name={['reception', 'nombreCles']} label="Nombre de clés">
+                                                    <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={6}>
+                                                <Form.Item name={['reception', 'volumeCarburant']} label="Volume de carburant dans le réservoir">
+                                                    <AutoComplete
+                                                        allowClear
+                                                        options={VOLUMES_CARBURANT.map((volume) => ({ value: volume }))}
+                                                        placeholder="ex : 1/2, 40 L"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={6}>
+                                                <Form.Item name={['reception', 'nombreCoupeCircuits']} label="Nombre de coupe-circuits">
+                                                    <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col span={6}>
+                                                <Form.Item name={['reception', 'nombreSanglesArrimage']} label="Nombre de sangles d'arrimage">
+                                                    <InputNumber min={0} precision={0} style={{ width: '100%' }} />
+                                                </Form.Item>
+                                            </Col>
+                                        </Row>
+                                        <Row gutter={16}>
+                                            {([
+                                                ['nableCoque', 'Nable de coque', false],
+                                                ['nourriceCarburant', 'Nourrice de carburant', true],
+                                                ['rampeFeuxRemorque', 'Rampe de feux de remorque', true],
+                                                ['manivelleRemorque', 'Manivelle de remorque', true],
+                                            ] as Array<[keyof Reception, string, boolean]>).map(([champ, label, feminin]) => (
+                                                <Col span={6} key={champ}>
+                                                    <Form.Item name={['reception', champ]} label={label}>
+                                                        <Select
+                                                            allowClear
+                                                            placeholder="Non renseigné"
+                                                            options={[
+                                                                { value: true, label: feminin ? 'Présente' : 'Présent' },
+                                                                { value: false, label: feminin ? 'Absente' : 'Absent' },
+                                                            ]}
+                                                        />
+                                                    </Form.Item>
+                                                </Col>
+                                            ))}
+                                        </Row>
+                                        <Form.Item name={['reception', 'informations']} label="Informations complémentaires">
+                                            <Input.TextArea rows={4} allowClear placeholder="État général, choc, rayure, objets laissés à bord… (imprimé sur le devis/OR)" />
+                                        </Form.Item>
+                                        <Form.Item name={['reception', 'photos']} label="Photos à la réception">
+                                            <ImageUpload />
+                                        </Form.Item>
+                                    </>
+                                )
+                            },
+                            {
                                 key: 'rappels',
                                 label: 'Relances',
                                 children: (
@@ -4855,6 +4931,7 @@ export default function Vente() {
                         } : undefined}
                     />
                 </div>
+                <ReceptionResume reception={form.getFieldValue('reception')} />
                 <Divider />
                 <div style={{ marginBottom: 8, fontWeight: 500 }}>Signature du client :</div>
                 <canvas

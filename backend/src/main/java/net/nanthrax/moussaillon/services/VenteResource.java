@@ -846,6 +846,7 @@ public class VenteResource {
         entity.images = vente.images != null ? vente.images : new java.util.ArrayList<>();
         entity.documents = vente.documents != null ? vente.documents : new java.util.ArrayList<>();
         entity.note = vente.note;
+        entity.reception = vente.reception;
         entity.date = vente.date;
         entity.dateEcheance = vente.dateEcheance;
         if (!factureEmise) {
