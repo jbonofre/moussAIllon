@@ -19,6 +19,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.AnnonceEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
+import net.nanthrax.moussaillon.persistence.MoteurClientEntity;
 
 @Path("/annonces")
 @ApplicationScoped
@@ -81,6 +82,15 @@ public class AnnonceResource {
         entity.photos = annonce.photos;
         entity.status = annonce.status;
         entity.bateau = annonce.bateau;
+        if (annonce.moteur != null && annonce.moteur.id != null) {
+            MoteurClientEntity moteur = MoteurClientEntity.findById(annonce.moteur.id);
+            if (moteur == null) {
+                throw new WebApplicationException("Le moteur (" + annonce.moteur.id + ") n'est pas trouvé", 404);
+            }
+            entity.moteur = moteur;
+        } else {
+            entity.moteur = null;
+        }
         if (annonce.client != null && annonce.client.id != null) {
             ClientEntity client = ClientEntity.findById(annonce.client.id);
             if (client == null) {

@@ -32,6 +32,7 @@ import {
 } from "@ant-design/icons";
 import api from "./api.ts";
 import PretRecuperationTag from "./PretRecuperationTag.tsx";
+import AVendreIcon, { useMaterielsAVendre } from "./AVendreIcon.tsx";
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import AiPhotoIdentify, { IdentifyResult } from './ai-photo-identify.tsx';
 import ImageUpload from './ImageUpload.tsx';
@@ -102,6 +103,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const [annonceImageMoteur, setAnnonceImageMoteur] = useState<MoteurClient | null>(null);
   const [annonceSelectedImages, setAnnonceSelectedImages] = useState<Set<string>>(new Set());
   const { navigate } = useNavigation();
+  const aVendre = useMaterielsAVendre();
 
   const openAnnonceImageModal = (moteur: MoteurClient) => {
     setAnnonceImageMoteur(moteur);
@@ -126,6 +128,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
     setAnnonceImageModalVisible(false);
     navigate("/annonces", {
       photos: Array.from(annonceSelectedImages),
+      moteurId: annonceImageMoteur?.id,
       clientId: annonceImageMoteur?.proprietaire?.id,
     });
   };
@@ -350,7 +353,14 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   };
 
   const columns = [
-    { title: "Numéro de série", dataIndex: "numeroSerie", key: "numeroSerie", sorter: (a, b) => a.numeroSerie.localeCompare(b.numeroSerie) },
+    { title: "Numéro de série", dataIndex: "numeroSerie", key: "numeroSerie", sorter: (a, b) => a.numeroSerie.localeCompare(b.numeroSerie),
+      render: (numeroSerie: string, record: MoteurClient) => (
+        <Space size={6}>
+          {numeroSerie}
+          <AVendreIcon aVendre={record.id != null && aVendre.moteurs.has(record.id)} />
+        </Space>
+      ),
+    },
     {
       title: "Propriétaire",
       dataIndex: "proprietaire",
@@ -427,7 +437,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
           labelOf={(m) => m.numeroSerie}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
-        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchMoteurs(searchQuery)} />
+        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => { fetchMoteurs(searchQuery); aVendre.recharger(); }} />
       </Space>
       <Spin spinning={loading}>
         <MosaicTable thumbnail
@@ -447,7 +457,14 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       </Spin>
       <Modal
         open={modalVisible}
-        title={editing ? "Modifier le moteur" : "Ajouter un moteur"}
+        title={
+          editing ? (
+            <Space>
+              <span>Modifier le moteur</span>
+              <AVendreIcon aVendre={editing.id != null && aVendre.moteurs.has(editing.id)} />
+            </Space>
+          ) : "Ajouter un moteur"
+        }
         onCancel={handleModalCancel}
         onOk={handleModalOk}
         okText="Enregistrer"

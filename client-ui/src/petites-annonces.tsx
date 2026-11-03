@@ -44,6 +44,7 @@ interface Annonce {
     dateCreation?: string;
     client?: { id: number };
     bateau?: BateauClientEntity;
+    moteur?: { id: number };
 }
 
 const plateformesLabel: Record<string, string> = {
@@ -167,6 +168,10 @@ export default function PetitesAnnonces({ clientId, initialPhotos, initialBateau
             };
             if (values.bateauId) {
                 payload.bateau = { id: values.bateauId };
+            }
+            // Le moteur est associé depuis le chantier : il est conservé tel quel
+            if (editing?.moteur) {
+                payload.moteur = { id: editing.moteur.id };
             }
             if (editing) {
                 const res = await api.put(`/annonces/${editing.id}`, payload);

@@ -47,4 +47,8 @@ public class AnnonceEntity extends PanacheEntity {
     @ManyToOne
     public BateauClientEntity bateau;
 
+    // Moteur client mis en vente : signalé « à vendre » dans la liste des moteurs tant que l'annonce est active
+    @ManyToOne
+    public MoteurClientEntity moteur;
+
 }
