@@ -4,6 +4,7 @@ import type { FormInstance } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import ChecklistMainOeuvre from './ChecklistMainOeuvre.tsx';
+import { LigneTriable, ListeTriable, PoigneeLigne } from './LignesTriables.tsx';
 
 interface ProduitLigne {
     id: number;
@@ -67,10 +68,15 @@ export default function LignesArticles({
     };
     return (
         <Form.List name={liste}>
-            {(fields, { remove }) => (
-                <>
+            {(fields, { remove, move }) => (
+                <ListeTriable
+                    fields={fields}
+                    move={move}
+                    triable={(field) => field.name < fields.length - 1 || !!form.getFieldValue([liste, field.name, champ])}
+                >
                     {fields.map((field) => (
-                        <Form.Item key={field.key} noStyle shouldUpdate>
+                        <LigneTriable key={field.key} field={field}>
+                        <Form.Item noStyle shouldUpdate>
                             {() => {
                                 // Entêtes affichées une seule fois, au-dessus de la première ligne
                                 const premiereLigne = field.name === 0;
@@ -85,6 +91,7 @@ export default function LignesArticles({
                                 return (
                                     <>
                                     <div className="ligne-article" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                        <PoigneeLigne style={{ marginTop: decalageEntete }} />
                                         <Form.Item label={premiereLigne ? 'Référence' : undefined} style={{ width: 120, flex: 'none', marginBottom: 8 }}>
                                             <Select
                                                 allowClear
@@ -158,8 +165,9 @@ export default function LignesArticles({
                                 );
                             }}
                         </Form.Item>
+                        </LigneTriable>
                     ))}
-                </>
+                </ListeTriable>
             )}
         </Form.List>
     );

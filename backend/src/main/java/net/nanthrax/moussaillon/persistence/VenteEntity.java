@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.FetchType;
 
 @Entity
@@ -49,30 +50,37 @@ public class VenteEntity extends PanacheEntity {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumn(name = "vente_id")
+    @OrderBy("id")
     public List<VenteForfaitEntity> venteForfaits = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumn(name = "vente_id")
+    @OrderBy("id")
     public List<VenteServiceEntity> venteServices = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumn(name = "vente_id")
+    @OrderBy("id")
     public List<VenteProduitEntity> venteProduits = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumn(name = "vente_id")
+    @OrderBy("id")
     public List<VenteBateauCatalogueEntity> venteBateauxCatalogue = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumn(name = "vente_id")
+    @OrderBy("id")
     public List<VenteMoteurCatalogueEntity> venteMoteursCatalogue = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumn(name = "vente_id")
+    @OrderBy("id")
     public List<VenteHeliceCatalogueEntity> venteHelicesCatalogue = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumn(name = "vente_id")
+    @OrderBy("id")
     public List<VenteRemorqueCatalogueEntity> venteRemorquesCatalogue = new ArrayList<>();
 
     // Legacy @ManyToMany lists kept temporarily for data migration on startup.

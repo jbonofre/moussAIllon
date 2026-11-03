@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
@@ -637,6 +638,32 @@ public class VenteResourceTest {
             .statusCode(200)
             .body("venteProduits.produit.designation", hasItem(designation))
             .body("venteProduits.find { it.produit.designation == '" + designation + "' }.produit.id", notNullValue());
+    }
+
+    @Test
+    void testOrdreDesLignesConserve() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"comptoir\":true,\"prixVenteTTC\":38.4,\"venteProduits\":["
+                + "{\"quantite\":1,\"produit\":{\"id\":100}},"
+                + "{\"quantite\":1,\"produit\":{\"id\":101}}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        // Lignes réordonnées à l'écran : la vente les restitue dans le nouvel ordre
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"comptoir\":true,\"prixVenteTTC\":38.4,\"venteProduits\":["
+                + "{\"quantite\":1,\"produit\":{\"id\":101}},"
+                + "{\"quantite\":1,\"produit\":{\"id\":100}}]}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200);
+
+        given()
+            .when().get("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("venteProduits.produit.id", contains(101, 100));
     }
 
     @Test
