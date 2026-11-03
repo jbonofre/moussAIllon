@@ -1,6 +1,8 @@
 // Blocs HTML/CSS communs aux impressions devis/factures (Ventes et Comptoir),
 // pour éviter que le format EBP ne diverge entre les deux écrans.
 
+import { Reception, lignesReception, receptionRenseignee } from '../reception.ts';
+
 export interface InvoicePrintSociete {
     nom?: string;
     siren?: string;
@@ -160,6 +162,30 @@ export const buildBoatBoxHtml = (bateau?: InvoicePrintBateau, moteur?: InvoicePr
     </div>`;
 };
 
+// L'impression se fait dans une iframe : les URLs relatives des images sont rendues absolues.
+const urlAbsolue = (url: string) => {
+    try {
+        return new URL(url, window.location.origin).href;
+    } catch {
+        return url;
+    }
+};
+
+// Fiche de réception du devis/OR : vide (chaîne vide) quand rien n'a été relevé à la réception.
+export const buildReceptionHtml = (reception?: Reception | null) => {
+    if (!reception || !receptionRenseignee(reception)) return '';
+    const lignes = lignesReception(reception);
+    const informations = reception.informations?.trim();
+    const photos = reception.photos || [];
+    return `
+    <div class="section reception">
+        <h3>Bon de Réception</h3>
+        ${lignes.length > 0 ? `<div class="reception-grid">${lignes.map(([label, value]) => `<div class="reception-row"><span>${escapeHtml(label)} :</span> <strong>${escapeHtml(value)}</strong></div>`).join('')}</div>` : ''}
+        ${informations ? `<div class="row" style="white-space:pre-wrap;">${escapeHtml(informations)}</div>` : ''}
+        ${photos.length > 0 ? `<div class="reception-photos">${photos.map((url) => `<img src="${escapeHtml(urlAbsolue(url))}" alt="" />`).join('')}</div>` : ''}
+    </div>`;
+};
+
 // Cadre document en tête, puis client (gauche) et bateau/moteur (droite) en dessous.
 export const buildInfoSectionHtml = (docBoxHtml: string, clientBoxHtml: string, boatBoxHtml: string) => `
     <div class="info-section">
@@ -316,6 +342,9 @@ export const INVOICE_PRINT_STYLES = `
     .totals-box { border-collapse: collapse; min-width: 260px; }
     .totals-box td { padding: 4px 10px; }
     .totals-box tr.net td { font-weight: bold; border-top: 1px solid #1f1f1f; padding-top: 6px; }
+    .reception-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 24px; margin-bottom: 6px; }
+    .reception-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+    .reception-photos img { width: 160px; height: 120px; object-fit: cover; border: 1px solid #d9d9d9; border-radius: 4px; break-inside: avoid; }
     .legal { font-size: 12px; border-top: 1px solid #d9d9d9; padding-top: 12px; margin-top: 20px; color: #595959; }
     .page-footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 10px; color: #595959; border-top: 1px solid #d9d9d9; padding-top: 6px; }
 `;

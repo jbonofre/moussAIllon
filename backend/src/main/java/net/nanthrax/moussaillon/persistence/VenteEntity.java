@@ -170,4 +170,7 @@ public class VenteEntity extends PanacheEntity {
     @jakarta.persistence.Column(columnDefinition = "TEXT")
     public String note;
 
+    @jakarta.persistence.Embedded
+    public Reception reception;
+
 }

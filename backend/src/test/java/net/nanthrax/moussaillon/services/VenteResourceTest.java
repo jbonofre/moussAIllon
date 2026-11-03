@@ -90,6 +90,48 @@ public class VenteResourceTest {
     }
 
     @Test
+    void testReceptionVente() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"reception\":{\"nombreCles\":2,\"volumeCarburant\":\"1/2\","
+                + "\"nableCoque\":true,\"nombreCoupeCircuits\":1,\"nourriceCarburant\":false,\"rampeFeuxRemorque\":true,"
+                + "\"nombreSanglesArrimage\":3,\"informations\":\"Rayure babord\",\"photos\":[\"/images/reception.jpg\"]}}")
+            .when().post("/ventes")
+            .then().statusCode(201)
+            .body("reception.nombreCles", is(2))
+            .body("reception.volumeCarburant", is("1/2"))
+            .body("reception.nableCoque", is(true))
+            .body("reception.nourriceCarburant", is(false))
+            .body("reception.photos", hasItem("/images/reception.jpg"))
+            .extract().path("id");
+
+        // La manivelle, non renseignée à la création, est complétée ; les autres informations sont conservées
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"reception\":{\"nombreCles\":2,\"volumeCarburant\":\"1/2\","
+                + "\"nableCoque\":true,\"nombreCoupeCircuits\":1,\"nourriceCarburant\":false,\"rampeFeuxRemorque\":true,"
+                + "\"manivelleRemorque\":true,\"nombreSanglesArrimage\":3,\"informations\":\"Rayure babord\","
+                + "\"photos\":[\"/images/reception.jpg\",\"/images/reception-2.jpg\"]}}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200)
+            .body("reception.manivelleRemorque", is(true))
+            .body("reception.nombreSanglesArrimage", is(3))
+            .body("reception.photos.size()", is(2));
+
+        given().when().get("/ventes/" + id).then().statusCode(200)
+            .body("reception.informations", is("Rayure babord"))
+            .body("reception.rampeFeuxRemorque", is(true))
+            .body("reception.photos.size()", is(2));
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":200.0,\"reception\":{}}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200)
+            .body("reception.nombreCles", nullValue());
+    }
+
+    @Test
     void testRechercherVentesParStatut() {
         given()
             .queryParam("status", "FACTURE_PAYEE")

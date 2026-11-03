@@ -4,6 +4,8 @@ import { CheckCircleOutlined, CreditCardOutlined, EyeOutlined, PrinterOutlined }
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
 import { paginationConfig } from './pagination.ts';
+import ReceptionResume from './ReceptionResume.tsx';
+import { Reception, lignesReception, receptionRenseignee, urlAbsolue } from './reception.ts';
 
 interface ProduitRef { id: number; designation: string; ref?: string; prixVenteTTC?: number; occasion?: boolean }
 interface CompositionRef {
@@ -96,6 +98,7 @@ interface VenteEntity {
     modePaiement?: string;
     signatureBonPourAccord?: string;
     note?: string;
+    reception?: Reception | null;
     paiements?: VentePaiement[];
     venteForfaits?: VenteForfaitEntry[];
     venteServices?: VenteServiceEntry[];
@@ -545,6 +548,21 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
             ? `<div class="section"><h3>Note</h3><div class="row" style="white-space:pre-wrap;">${escapeHtml(vente.note)}</div></div>`
             : '';
 
+        // Réception du devis/OR, juste avant la signature du bon pour accord
+        const reception = vente.reception;
+        const receptionHtml = !isFacture && reception && receptionRenseignee(reception) ? (() => {
+            const lignes = lignesReception(reception);
+            const informations = reception.informations?.trim();
+            const photos = reception.photos || [];
+            return `
+            <div class="section">
+                <h3>Bon de Réception</h3>
+                ${lignes.length > 0 ? `<div class="reception-grid">${lignes.map(([label, value]) => `<div><span>${escapeHtml(label)} :</span> <strong>${escapeHtml(value)}</strong></div>`).join('')}</div>` : ''}
+                ${informations ? `<div class="row" style="white-space:pre-wrap;">${escapeHtml(informations)}</div>` : ''}
+                ${photos.length > 0 ? `<div class="reception-photos">${photos.map((url) => `<img src="${escapeHtml(urlAbsolue(url))}" alt="" />`).join('')}</div>` : ''}
+            </div>`;
+        })() : '';
+
         const legalLine = societe ? [
             societe.forme || '',
             societe.siren ? `SIREN : ${societe.siren}` : '',
@@ -586,6 +604,9 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                 .totals-box { border-collapse: collapse; min-width: 260px; }
                 .totals-box td { padding: 4px 10px; }
                 .totals-box tr.net td { font-weight: bold; border-top: 1px solid #1f1f1f; padding-top: 6px; }
+                .reception-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 24px; margin-bottom: 6px; }
+                .reception-photos { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+                .reception-photos img { width: 160px; height: 120px; object-fit: cover; border: 1px solid #d9d9d9; border-radius: 4px; break-inside: avoid; }
                 .legal { font-size: 12px; border-top: 1px solid #d9d9d9; padding-top: 12px; margin-top: 20px; color: #595959; }
                 .page-footer { position: fixed; bottom: 0; left: 0; right: 0; text-align: center; font-size: 10px; color: #595959; border-top: 1px solid #d9d9d9; padding-top: 6px; }
             </style></head><body>
@@ -599,6 +620,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                 ${totalsHtml}
             </div>` : ''}
             ${noteHtml}
+            ${receptionHtml}
             ${conditionsLegalesHtml}
             ${signatureHtml}
             ${legalLine ? `<div class="page-footer">${escapeHtml(legalLine)}</div>` : ''}
@@ -613,8 +635,22 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
         win.document.write(html);
         win.document.close();
         win.focus();
-        win.print();
-        setTimeout(() => iframe.remove(), 1000);
+        const doPrint = () => {
+            win.print();
+            setTimeout(() => iframe.remove(), 1000);
+        };
+        // Les photos de réception doivent être chargées pour apparaître à l'impression
+        const pending = Array.from(win.document.images).filter((img) => !img.complete);
+        if (pending.length === 0) {
+            doPrint();
+        } else {
+            let remaining = pending.length;
+            const onSettle = () => { remaining--; if (remaining === 0) doPrint(); };
+            pending.forEach((img) => {
+                img.addEventListener('load', onSettle, { once: true });
+                img.addEventListener('error', onSettle, { once: true });
+            });
+        }
     };
 
     const columns = [
@@ -772,6 +808,8 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                             style={{ marginBottom: 16 }}
                         />
 
+                        {detailDocType !== 'facture' && <ReceptionResume reception={detailVente.reception} />}
+
                         {detailShowPrices && (
                             <>
                                 <p><strong>Montant HT :</strong> {formatEuro(detailVente.montantHT)}</p>
@@ -847,6 +885,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                             } : undefined}
                             style={{ marginBottom: 16 }}
                         />
+                        <ReceptionResume reception={bpaModalVente.reception} />
                         <Divider />
                         <div style={{ marginBottom: 8, fontWeight: 500 }}>Signature :</div>
                         <canvas
