@@ -235,6 +235,26 @@ describe('Packages', () => {
         await waitFor(() => expect(mockedApi.get).toHaveBeenCalledWith('/catalogue/packages/search', { params: { q: 'naviguer' } }));
     });
 
+    it('recharge les packages en conservant la recherche en cours', async () => {
+        // Les suggestions de saisie interrogent le même endpoint : on vérifie le contenu de la table, pas les appels
+        let trouves = [{ ...pack, id: 8, designation: 'Pack trouvé' }];
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/catalogue/packages/search' ? trouves : (donnees[url] || []),
+        }) as any);
+        const designationsListees = () => Array.from(document.querySelectorAll('.ant-table-tbody tr.ant-table-row'))
+            .map((ligne) => ligne.querySelectorAll('td')[0]?.textContent);
+        await renderPackages();
+
+        fireEvent.change(screen.getByPlaceholderText('Recherche'), { target: { value: 'naviguer' } });
+        fireEvent.keyDown(screen.getByPlaceholderText('Recherche'), { key: 'Enter', code: 'Enter', keyCode: 13 });
+        await waitFor(() => expect(designationsListees()).toEqual(['Pack trouvé']));
+
+        trouves = [...trouves, { ...pack, id: 9, designation: 'Pack ajouté' }];
+        fireEvent.click(screen.getByTitle('Recharger'));
+
+        await waitFor(() => expect(designationsListees()).toEqual(['Pack trouvé', 'Pack ajouté']));
+    });
+
     it('supprime un package', async () => {
         await renderPackages();
         const row = screen.getByText('Pack prêt à naviguer').closest('tr') as HTMLElement;

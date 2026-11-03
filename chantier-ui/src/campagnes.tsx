@@ -15,7 +15,7 @@ import {
     Tag,
     message,
 } from 'antd';
-import { ClockCircleOutlined, DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
+import { ClockCircleOutlined, DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -404,6 +404,7 @@ export default function Campagnes() {
                     source={campagnes.flatMap((c) => [c.nom, c.sujet])}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
+                <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={fetchCampagnes} />
             </Space>
             <Table
                 rowKey="id"

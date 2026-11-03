@@ -36,6 +36,7 @@ import {
   ShopOutlined,
   GlobalOutlined,
   PhoneOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
 import { useNavigation } from "./navigation-context.tsx";
@@ -118,6 +119,7 @@ function Clients() {
   const [editing, setEditing] = useState<Client | null>(null);
   const [searchNom, setSearchNom] = useState("");
   const [searchType, setSearchType] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [form] = Form.useForm();
   const [formDirty, setFormDirty] = useState(false);
 
@@ -135,6 +137,18 @@ function Clients() {
       message.error("Erreur lors du chargement des clients");
     }
     setLoading(false);
+  };
+
+  const searchClients = async (value: string) => {
+    setLoading(true);
+    try {
+      const response = await api.get('/clients/search', { params: { q: value } });
+      setClients(response.data);
+    } catch (error) {
+      message.error('Erreur lors de la recherche');
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -315,19 +329,13 @@ function Clients() {
         <SearchAutoComplete
           style={{ width: 600 }}
           searchUrl="/clients/search"
-          onSearch={async (value) => {
-            setLoading(true);
-            try {
-              const response = await api.get('/clients/search', { params: { q: value } });
-              setClients(response.data);
-            } catch (error) {
-              message.error('Erreur lors de la recherche');
-            } finally {
-              setLoading(false);
-            }
+          onSearch={(value) => {
+            setSearchQuery(value);
+            searchClients(value);
           }}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
+        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => (searchQuery ? searchClients(searchQuery) : fetchClients())} />
         <ImportCsvButton endpoint="/clients/import" label="Importer des clients (CSV)" onImported={() => fetchClients()} />
       </Space>
       <Spin spinning={loading}>

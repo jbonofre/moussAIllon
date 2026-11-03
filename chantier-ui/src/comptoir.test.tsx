@@ -111,6 +111,21 @@ describe('Comptoir - liste', () => {
             .map((ligne) => ligne.querySelectorAll('td')[2]?.textContent);
         expect(clients).toEqual(['Même jour, après', 'Même jour, avant', 'Vente du milieu', 'Vente ancienne']);
     });
+
+    it('recharge la table des ventes avec le bouton Recharger', async () => {
+        let ventes = [{ id: 1, date: '2026-10-01T00:00:00', status: 'DEVIS', comptoir: true, client: { id: 1, nom: 'Vente initiale' } }];
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes/search' ? ventes : (donnees[url] || []),
+        }) as any);
+        render(<Comptoir />);
+        await screen.findByText('Vente initiale');
+
+        ventes = [...ventes, { id: 2, date: '2026-10-02T00:00:00', status: 'DEVIS', comptoir: true, client: { id: 2, nom: 'Vente ajoutée' } }];
+        fireEvent.click(screen.getByTitle('Recharger'));
+
+        expect(await screen.findByText('Vente ajoutée')).toBeInTheDocument();
+        expect(screen.getByText('Vente initiale')).toBeInTheDocument();
+    });
 });
 
 describe('Comptoir - saisie des produits', () => {

@@ -22,6 +22,7 @@ import {
   EditOutlined,
   DeleteOutlined,
   PlusCircleOutlined,
+  ReloadOutlined,
   SaveOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
@@ -83,6 +84,7 @@ const defaultFournisseur: Fournisseur = {
 const Fournisseurs = () => {
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [modalVisible, setModalVisible] = useState<boolean>(false);
   const [editing, setEditing] = useState<Fournisseur | null>(null);
   const [form] = Form.useForm();
@@ -193,6 +195,7 @@ const Fournisseurs = () => {
   };
 
   const handleSearch = async (value: string) => {
+    setSearchQuery(value);
     setLoading(true);
     try {
       const response = await api.get("/catalogue/fournisseurs/search", { params: { q: value } });
@@ -254,6 +257,7 @@ const Fournisseurs = () => {
               <Space>
                 <SearchAutoComplete placeholder="Rechercher" enterButton={<SearchOutlined />} style={{ width: 600 }} onSearch={handleSearch} searchUrl="/catalogue/fournisseurs/search" />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleNew} />
+                <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => (searchQuery ? handleSearch(searchQuery) : fetchFournisseurs())} />
               </Space>
             </div>
           </Col>

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
 import { Alert, Button, Form, Input, List, Modal, Popconfirm, Select, Space, Switch, Tag, Typography, Upload, message } from 'antd';
-import { BankOutlined, DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, SettingOutlined, SyncOutlined, UploadOutlined } from '@ant-design/icons';
+import { BankOutlined, DeleteOutlined, EditOutlined, LinkOutlined, PlusOutlined, ReloadOutlined, SettingOutlined, SyncOutlined, UploadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { fetchWithAuth } from './api.ts';
 import { useNavigation } from './navigation-context.tsx';
@@ -221,7 +221,10 @@ export default function Connecteurs() {
         <div>
             <Space style={{ width: '100%', justifyContent: 'space-between', marginBottom: 16 }}>
                 <Typography.Title level={3} style={{ margin: 0 }}>Connecteurs bancaires</Typography.Title>
-                <Button type="primary" icon={<PlusOutlined />} onClick={() => openForm()}>Ajouter un compte</Button>
+                <Space>
+                    <Button type="primary" icon={<PlusOutlined />} onClick={() => openForm()}>Ajouter un compte</Button>
+                    <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={load} />
+                </Space>
             </Space>
             <MosaicTable rowKey="id" loading={loading} dataSource={connecteurs} columns={columns} pagination={paginationConfig()} bordered />
 

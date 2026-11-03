@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Alert, Badge, Button, Card, Col, DatePicker, Empty, Form, Input, List, Modal, Row, Select, Space, Table, Tag, Tooltip, Typography, message } from 'antd';
-import { CalendarOutlined, EditOutlined, EyeOutlined, HolderOutlined, LeftOutlined, RightOutlined, SearchOutlined, WarningOutlined } from '@ant-design/icons';
+import { CalendarOutlined, EditOutlined, EyeOutlined, HolderOutlined, LeftOutlined, ReloadOutlined, RightOutlined, SearchOutlined, WarningOutlined } from '@ant-design/icons';
 import { Line } from '@ant-design/charts';
 import axios from 'axios';
 import api from './api.ts';
@@ -1157,7 +1157,7 @@ export default function Planning() {
     };
 
     return (
-        <Card title="Planning">
+        <Card title="Planning" extra={<Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={fetchVentes} />}>
             <Row gutter={[16, 16]} align="stretch">
                 <Col flex="auto" style={{ display: 'flex', flexDirection: 'column', minWidth: 300 }}>
                     <Card
