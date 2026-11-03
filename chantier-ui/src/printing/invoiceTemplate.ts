@@ -70,7 +70,7 @@ export interface InvoicePrintComposition {
     produits?: Array<{ produit?: { ref?: string; designation?: string }; quantite?: number }>;
 }
 
-const escapeHtml = (value: string) =>
+export const escapeHtml = (value: string) =>
     value
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
@@ -163,7 +163,7 @@ export const buildBoatBoxHtml = (bateau?: InvoicePrintBateau, moteur?: InvoicePr
 };
 
 // L'impression se fait dans une iframe : les URLs relatives des images sont rendues absolues.
-const urlAbsolue = (url: string) => {
+export const urlAbsolue = (url: string) => {
     try {
         return new URL(url, window.location.origin).href;
     } catch {

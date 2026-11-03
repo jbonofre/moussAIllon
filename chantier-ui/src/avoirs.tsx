@@ -174,7 +174,6 @@ export default function Avoirs() {
     const [formReference, setFormReference] = useState('');
     const [formMotif, setFormMotif] = useState('');
     const [formNotes, setFormNotes] = useState('');
-    const [formModeRemboursement, setFormModeRemboursement] = useState<string | null>(null);
     const [formLignes, setFormLignes] = useState<AvoirLigne[]>([defaultLigne()]);
     const [saving, setSaving] = useState(false);
 
@@ -213,6 +212,12 @@ export default function Avoirs() {
     const [appliquerMontant, setAppliquerMontant] = useState<number>(0);
     const [appliquerNotes, setAppliquerNotes] = useState('');
     const [applying, setApplying] = useState(false);
+
+    // Modal "Rembourser un avoir"
+    const [rembourserModalOpen, setRembourserModalOpen] = useState(false);
+    const [rembourserAvoir, setRembourserAvoir] = useState<AvoirEntity | null>(null);
+    const [rembourserMode, setRembourserMode] = useState<string | null>(null);
+    const [remboursing, setRemboursing] = useState(false);
 
     const fetchAvoirs = useCallback(() => {
         setLoading(true);
@@ -378,7 +383,6 @@ export default function Avoirs() {
         setFormReference('');
         setFormMotif('');
         setFormNotes('');
-        setFormModeRemboursement(null);
         setFormLignes([defaultLigne()]);
         setVentes([]);
         setModalOpen(true);
@@ -391,7 +395,6 @@ export default function Avoirs() {
         setFormReference(avoir.reference ?? '');
         setFormMotif(avoir.motif ?? '');
         setFormNotes(avoir.notes ?? '');
-        setFormModeRemboursement(avoir.modeRemboursement ?? null);
         setFormLignes(avoir.lignes && avoir.lignes.length > 0 ? [...avoir.lignes] : [defaultLigne()]);
         if (avoir.client?.id) fetchVentesForClient(avoir.client.id);
         setModalOpen(true);
@@ -434,7 +437,6 @@ export default function Avoirs() {
             reference: formReference.trim() || undefined,
             motif: formMotif,
             notes: formNotes,
-            modeRemboursement: formModeRemboursement ?? undefined,
             lignes: formLignes,
             ...totals,
         };
@@ -475,13 +477,30 @@ export default function Avoirs() {
         }
     };
 
-    const handleRembourser = async (id: number) => {
+    const openRembourserModal = (avoir: AvoirEntity) => {
+        setRembourserAvoir(avoir);
+        setRembourserMode(null);
+        setRembourserModalOpen(true);
+    };
+
+    const handleRembourser = async () => {
+        if (!rembourserAvoir?.id) return;
+        if (!rembourserMode) { message.warning('Veuillez sélectionner un mode de remboursement'); return; }
+        setRemboursing(true);
         try {
-            await fetchWithAuth(`./avoirs/${id}/rembourser`, { method: 'POST' });
+            const res = await fetchWithAuth(`./avoirs/${rembourserAvoir.id}/rembourser`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ modeRemboursement: rembourserMode }),
+            });
+            if (!res.ok) throw new Error();
             message.success('Avoir marqué comme remboursé');
+            setRembourserModalOpen(false);
             fetchAvoirs();
         } catch {
             message.error("Erreur lors du remboursement de l'avoir");
+        } finally {
+            setRemboursing(false);
         }
     };
 
@@ -680,7 +699,7 @@ export default function Avoirs() {
                         </Button>
                     )}
                     {r.status === 'EMIS' && (
-                        <Button size="small" icon={<RollbackOutlined />} onClick={() => handleRembourser(r.id!)}>
+                        <Button size="small" icon={<RollbackOutlined />} onClick={() => openRembourserModal(r)}>
                             Rembourser
                         </Button>
                     )}
@@ -889,7 +908,7 @@ export default function Avoirs() {
                 onOk={handleSave}
                 okText={editingAvoir ? 'Enregistrer' : 'Créer'}
                 confirmLoading={saving}
-                width="95vw"
+                width="47.5vw"
                 destroyOnHidden
             >
                 <Form layout="vertical">
@@ -901,7 +920,9 @@ export default function Avoirs() {
                                     placeholder="Rechercher un client par prénom ou nom"
                                     value={formClientId ?? undefined}
                                     onChange={handleClientChange}
-                                    filterOption={false}
+                                    filterOption={(input, option) =>
+                                        (option?.label as string ?? '').toLowerCase().includes(input.toLowerCase())
+                                    }
                                     onSearch={handleClientSearch}
                                     notFoundContent={null}
                                     options={clients.map((c) => ({
@@ -964,17 +985,6 @@ export default function Avoirs() {
                             value={formNotes}
                             onChange={(e) => setFormNotes(e.target.value)}
                             placeholder="Notes internes"
-                        />
-                    </Form.Item>
-
-                    <Form.Item label="Mode de remboursement">
-                        <Select
-                            allowClear
-                            placeholder="Sélectionner un mode"
-                            value={formModeRemboursement ?? undefined}
-                            onChange={(v) => setFormModeRemboursement(v ?? null)}
-                            options={MODE_REMBOURSEMENT_OPTIONS}
-                            style={{ width: 200 }}
                         />
                     </Form.Item>
 
@@ -1070,6 +1080,37 @@ export default function Avoirs() {
                                 value={appliquerNotes}
                                 onChange={(e) => setAppliquerNotes(e.target.value)}
                                 placeholder="Ex: application partielle"
+                            />
+                        </Form.Item>
+                    </Form>
+                )}
+            </Modal>
+
+            {/* Modal remboursement d'un avoir */}
+            <Modal
+                title={rembourserAvoir ? `Rembourser l'avoir #${rembourserAvoir.id}` : 'Rembourser un avoir'}
+                open={rembourserModalOpen}
+                onCancel={() => setRembourserModalOpen(false)}
+                onOk={handleRembourser}
+                okText="Rembourser"
+                confirmLoading={remboursing}
+                destroyOnHidden
+                width="38vw"
+            >
+                {rembourserAvoir && (
+                    <Form layout="vertical">
+                        <div style={{ marginBottom: 12, padding: '8px 12px', background: '#f6ffed', border: '1px solid #b7eb8f', borderRadius: 6 }}>
+                            <strong>Avoir #{rembourserAvoir.id}</strong> — {rembourserAvoir.motif}<br />
+                            Montant à rembourser : <strong>{formatEuro(Math.round(((rembourserAvoir.montantTTC ?? 0) - (rembourserAvoir.montantUtilise ?? 0)) * 100) / 100)}</strong>
+                        </div>
+
+                        <Form.Item label="Mode de remboursement" required>
+                            <Select
+                                placeholder="Sélectionner un mode"
+                                value={rembourserMode ?? undefined}
+                                onChange={(v) => setRembourserMode(v)}
+                                options={MODE_REMBOURSEMENT_OPTIONS}
+                                style={{ width: '100%' }}
                             />
                         </Form.Item>
                     </Form>

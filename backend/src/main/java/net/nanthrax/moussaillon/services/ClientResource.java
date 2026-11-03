@@ -251,6 +251,26 @@ public class ClientResource {
         return entity;
     }
 
+    public static class ConsentementRequest {
+        public List<Long> ids;
+        public boolean consentement;
+    }
+
+    /**
+     * Donne ou retire le consentement (campagnes, rappels) à plusieurs clients en une fois.
+     * Retourne le nombre de clients modifiés.
+     */
+    @PUT
+    @Path("consentement")
+    @Transactional
+    public Map<String, Long> updateConsentement(ConsentementRequest request) {
+        if (request == null || request.ids == null || request.ids.isEmpty()) {
+            throw new WebApplicationException("Aucun client sélectionné", 400);
+        }
+        long modifies = ClientEntity.update("consentement = ?1 where id in ?2", request.consentement, request.ids);
+        return Map.of("modifies", modifies);
+    }
+
     private double computeSoldeDu(long clientId) {
         List<VenteEntity> unpaid = VenteEntity.list(
             "client.id = ?1 and (status = ?2 or status = ?3)",

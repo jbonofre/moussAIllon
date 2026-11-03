@@ -4284,7 +4284,7 @@ export default function Vente() {
                     onOk={handleNewProduitSave}
                     onCancel={makeInnerModalCancel(newProduitFormDirty, setNewProduitFormDirty, setNewProduitModalVisible)}
                     maskClosable={false}
-                width="95vw"
+                    width="47.5vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden

@@ -21,6 +21,7 @@ import {
   Tabs,
   Collapse,
   Tooltip,
+  Tag,
 } from "antd";
 import {
   PlusCircleOutlined,
@@ -37,6 +38,8 @@ import {
   GlobalOutlined,
   PhoneOutlined,
   ReloadOutlined,
+  CheckCircleOutlined,
+  StopOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
 import { useNavigation } from "./navigation-context.tsx";
@@ -120,6 +123,7 @@ function Clients() {
   const [searchNom, setSearchNom] = useState("");
   const [searchType, setSearchType] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [form] = Form.useForm();
   const [formDirty, setFormDirty] = useState(false);
 
@@ -214,6 +218,21 @@ function Clients() {
     setLoading(false);
   };
 
+  const handleConsentement = async (consentement: boolean) => {
+    setLoading(true);
+    try {
+      const res = await api.put("/clients/consentement", { ids: selectedIds, consentement });
+      const n = res.data?.modifies ?? selectedIds.length;
+      message.success(consentement ? `Consentement donné pour ${n} client(s)` : `Consentement retiré pour ${n} client(s)`);
+      setSelectedIds([]);
+      if (searchQuery) searchClients(searchQuery);
+      else fetchClients();
+    } catch {
+      message.error("Erreur lors de la mise à jour du consentement");
+    }
+    setLoading(false);
+  };
+
   const handleSendPassword = async (record: Client) => {
     if (!record.email) {
       message.warning("Ce client n'a pas d'adresse email.");
@@ -286,6 +305,17 @@ function Clients() {
       },
     },
     {
+      title: "Consentement",
+      dataIndex: "consentement",
+      key: "consentement",
+      filters: [
+        { text: "Oui", value: true },
+        { text: "Non", value: false },
+      ],
+      onFilter: (value, record) => !!record.consentement === value,
+      render: (val) => (val ? <Tag color="green">Oui</Tag> : <Tag>Non</Tag>),
+    },
+    {
       title: "Bateau(x)",
       dataIndex: "bateaux",
       key: "bateaux",
@@ -337,6 +367,23 @@ function Clients() {
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
         <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => (searchQuery ? searchClients(searchQuery) : fetchClients())} />
         <ImportCsvButton endpoint="/clients/import" label="Importer des clients (CSV)" onImported={() => fetchClients()} />
+        {selectedIds.length > 0 && (
+          <>
+            <Popconfirm
+              title={`Donner le consentement à ${selectedIds.length} client(s) ?`}
+              description="Ils recevront les campagnes et les rappels."
+              onConfirm={() => handleConsentement(true)}
+            >
+              <Button icon={<CheckCircleOutlined />}>Donner le consentement ({selectedIds.length})</Button>
+            </Popconfirm>
+            <Popconfirm
+              title={`Retirer le consentement à ${selectedIds.length} client(s) ?`}
+              onConfirm={() => handleConsentement(false)}
+            >
+              <Button icon={<StopOutlined />}>Retirer le consentement</Button>
+            </Popconfirm>
+          </>
+        )}
       </Space>
       <Spin spinning={loading}>
         <MosaicTable
@@ -345,9 +392,13 @@ function Clients() {
           dataSource={clients}
           bordered
           pagination={paginationConfig()}
+          rowSelection={{
+            selectedRowKeys: selectedIds,
+            onChange: (keys) => setSelectedIds(keys as number[]),
+          }}
           onRow={(record) => ({
             onClick: (e) => {
-              if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"]')) return;
+              if ((e.target as HTMLElement).closest('button, .ant-btn, [role="button"], .ant-table-selection-column')) return;
               handleEdit(record);
             },
             style: { cursor: 'pointer' },

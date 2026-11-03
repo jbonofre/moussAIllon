@@ -1871,60 +1871,6 @@ export default function Comptoir() {
             }
         },
         {
-            title: 'Fournisseur',
-            key: 'commandesFournisseur',
-            width: 170,
-            render: (_: unknown, record: VenteEntity) => {
-                const linked = record.id ? (linkedCommandesByVente.get(record.id) || []) : [];
-                if (linked.length === 0) {
-                    return (
-                        <Button
-                            size="small"
-                            icon={<ShoppingCartOutlined />}
-                            title="Créer une commande fournisseur liée à cette vente"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenCommandeFournisseur(record);
-                            }}
-                        >
-                            Commander
-                        </Button>
-                    );
-                }
-                return (
-                    <Space direction="vertical" size={2}>
-                        {linked.map((cf) => (
-                            <Tag
-                                key={cf.id}
-                                color="purple"
-                                icon={<ShoppingCartOutlined />}
-                                style={{ cursor: 'pointer' }}
-                                title={`Voir la commande fournisseur ${cf.reference} (${cf.fournisseur?.nom || ''})`}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    navigate('/commandes-fournisseur');
-                                }}
-                            >
-                                {cf.reference}
-                            </Tag>
-                        ))}
-                        <Button
-                            type="link"
-                            size="small"
-                            style={{ padding: 0, height: 'auto', fontSize: 12 }}
-                            icon={<PlusOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                handleOpenCommandeFournisseur(record);
-                            }}
-                        >
-                            Autre commande
-                        </Button>
-                    </Space>
-                );
-            }
-        },
-        {
             title: 'Actions',
             key: 'actions',
             render: (_: unknown, record: VenteEntity) => (
@@ -2499,7 +2445,7 @@ export default function Comptoir() {
                     onOk={handleNewProduitSave}
                     onCancel={handleNewProduitCancel}
                     maskClosable={false}
-                width="95vw"
+                    width="47.5vw"
                     okText="Enregistrer"
                     cancelText="Fermer"
                     destroyOnHidden

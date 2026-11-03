@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
 import {
     Button,
@@ -14,13 +14,18 @@ import {
     Space,
     Table,
     Tag,
+    Typography,
     message,
 } from 'antd';
-import { DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, PrinterOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { useNavigation } from './navigation-context.tsx';
 import { paginationConfig } from './pagination.ts';
+import { anneeMiseEnService, buildAfficheAnnonceHtml, motorisation } from './printing/afficheAnnonce.ts';
+import { InvoicePrintSociete } from './printing/invoiceTemplate.ts';
+import { openPrintDocument } from './printing/printDocument.ts';
+import { PlateformeConfig, plateformes } from './plateformes-annonces.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 interface ClientEntity {
@@ -34,7 +39,10 @@ interface BateauClientEntity {
     id: number;
     name?: string;
     immatriculation?: string;
-    modele?: { id: number; designation?: string };
+    dateMeS?: string;
+    modele?: { id: number; designation?: string; prixVenteTTC?: number };
+    moteurs?: { id: number; designation?: string }[];
+    proprietaires?: ClientEntity[];
 }
 
 interface Annonce {
@@ -52,13 +60,7 @@ interface Annonce {
     bateau?: BateauClientEntity;
 }
 
-const plateformes = [
-    { key: 'YOUBOAT', label: 'YouBoat', color: '#0070c0' },
-    { key: 'LEBONCOIN', label: 'Leboncoin', color: '#f56a00' },
-    { key: 'BAND_OF_BOATS', label: 'Band of Boats', color: '#1a3c5e' },
-    { key: 'BOAT24', label: 'Boat24', color: '#006837' },
-    { key: 'YACHTWORLD', label: 'YachtWorld', color: '#003366' },
-];
+type ChampAuto = 'titre' | 'prix' | 'contact' | 'telephone';
 
 const statusColor: Record<string, string> = { ACTIVE: 'green', VENDU: 'blue', EXPIRE: 'red' };
 const statusLabel: Record<string, string> = { ACTIVE: 'Active', VENDU: 'Vendu', EXPIRE: 'Expiree' };
@@ -84,8 +86,12 @@ export default function Annonces() {
     const [editing, setEditing] = useState<Annonce | null>(null);
     const [publishModalOpen, setPublishModalOpen] = useState(false);
     const [publishAnnonce, setPublishAnnonce] = useState<Annonce | null>(null);
+    const [plateformesConfig, setPlateformesConfig] = useState<PlateformeConfig[]>([]);
     const [form] = Form.useForm();
     const [formDirty, setFormDirty] = useState(false);
+    const watchedClientId = Form.useWatch('clientId', form);
+    // Valeurs déduites du bateau et du client : mémorisées pour ne pas écraser une saisie manuelle
+    const valeursAuto = useRef<Partial<Record<ChampAuto, string | number>>>({});
     const { navigate, pageState } = useNavigation();
 
     const fetchAnnonces = () => {
@@ -103,7 +109,7 @@ export default function Annonces() {
     };
 
     const fetchBateaux = () => {
-        api.get('/bateaux/clients')
+        api.get('/bateaux')
             .then((res) => setBateaux(res.data || []))
             .catch(() => {});
     };
@@ -118,12 +124,23 @@ export default function Annonces() {
         if (pageState?.photos && pageState.photos.length > 0) {
             setEditing(null);
             form.resetFields();
+            valeursAuto.current = {};
             form.setFieldsValue({
                 status: 'ACTIVE',
                 photos: pageState.photos,
                 bateauId: pageState.bateauId,
                 clientId: pageState.clientId,
             });
+            if (pageState.bateauId) {
+                // La liste des bateaux n'est pas forcément chargée à ce stade
+                api.get(`/bateaux/${pageState.bateauId}`)
+                    .then((res) => {
+                        const bateau: BateauClientEntity = res.data;
+                        remplirDepuisBateau(bateau);
+                        remplirDepuisClient(bateau.proprietaires?.find((p) => p.id === pageState.clientId));
+                    })
+                    .catch(() => {});
+            }
             setFormDirty(false);
             setModalOpen(true);
             // Clear page state to prevent re-opening on re-render
@@ -134,6 +151,7 @@ export default function Annonces() {
     const openCreate = () => {
         setEditing(null);
         form.resetFields();
+        valeursAuto.current = {};
         form.setFieldsValue({ status: 'ACTIVE' });
         setFormDirty(false);
         setModalOpen(true);
@@ -141,6 +159,7 @@ export default function Annonces() {
 
     const openEdit = (annonce: Annonce) => {
         setEditing(annonce);
+        valeursAuto.current = {};
         form.setFieldsValue({
             titre: annonce.titre,
             description: annonce.description,
@@ -223,29 +242,74 @@ export default function Annonces() {
         }
     };
 
+    const handlePrintAffiche = async (annonce: Annonce) => {
+        let societe: InvoicePrintSociete | undefined;
+        try {
+            const res = await api.get<InvoicePrintSociete>('/societe');
+            societe = res.data;
+        } catch {
+            // affiche sans les coordonnées du chantier en cas d'erreur
+        }
+        openPrintDocument(buildAfficheAnnonceHtml(annonce, societe));
+    };
+
     const openPublishModal = (annonce: Annonce) => {
         setPublishAnnonce(annonce);
         setPublishModalOpen(true);
+        api.get<PlateformeConfig[]>('/plateformes-annonces')
+            .then((res) => setPlateformesConfig(res.data || []))
+            .catch(() => setPlateformesConfig([]));
     };
+
+    // Plateforme alimentée par un flux actif : la diffusion est automatique
+    const fluxActif = (plateforme: string) => plateformesConfig.find((c) => c.code === plateforme && c.actif);
+
+    const plateformeLabel = (plateforme: string) => plateformes.find(p => p.key === plateforme)?.label || plateforme;
 
     const handlePublish = async (id: number, plateforme: string) => {
         try {
             await api.post(`/annonces/${id}/publier`, { plateforme });
-            message.success(`Annonce publiee sur ${plateformes.find(p => p.key === plateforme)?.label || plateforme}`);
+            message.success(fluxActif(plateforme)
+                ? `Annonce ajoutee au flux ${plateformeLabel(plateforme)}`
+                : `Annonce marquee comme diffusee sur ${plateformeLabel(plateforme)}`);
             fetchAnnonces();
+            return true;
         } catch {
             message.error('Erreur lors de la publication');
+            return false;
         }
     };
 
     const handleUnpublish = async (id: number, plateforme: string) => {
         try {
             await api.post(`/annonces/${id}/depublier`, { plateforme });
-            message.success(`Annonce retiree de ${plateformes.find(p => p.key === plateforme)?.label || plateforme}`);
+            message.success(fluxActif(plateforme)
+                ? `Annonce retiree du flux ${plateformeLabel(plateforme)}`
+                : `Annonce retiree de ${plateformeLabel(plateforme)}`);
             fetchAnnonces();
+            return true;
         } catch {
             message.error('Erreur lors du retrait');
+            return false;
         }
+    };
+
+    const etatDiffusion = (pf: typeof plateformes[number]) => {
+        const flux = fluxActif(pf.key);
+        if (flux) {
+            return flux.derniereLecture
+                ? `Diffusion automatique : flux lu par ${pf.label} le ${new Date(flux.derniereLecture).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })}`
+                : `Diffusion automatique : flux actif, pas encore lu par ${pf.label}`;
+        }
+        if (pf.flux) {
+            return (
+                <>
+                    Flux non configuré : la diffusion reste à faire sur la plateforme.{' '}
+                    <a onClick={() => navigate('/connecteurs', { onglet: 'annonces' })}>Configurer le flux</a>
+                </>
+            );
+        }
+        return 'Suivi manuel : la diffusion se fait directement sur la plateforme';
     };
 
     const clientLabel = (c?: ClientEntity) => {
@@ -257,6 +321,61 @@ export default function Annonces() {
         if (!b) return '-';
         const model = b.modele?.designation || '';
         return b.name || model || b.immatriculation || `Bateau #${b.id}`;
+    };
+
+    const estProprietaire = (b: BateauClientEntity | undefined, clientId: number) =>
+        !!b?.proprietaires?.some((p) => p.id === clientId);
+
+    // Le champ Bateau ne propose que les bateaux du client sélectionné
+    const bateauxClient = watchedClientId
+        ? bateaux.filter((b) => estProprietaire(b, watchedClientId))
+        : bateaux;
+
+    const handleClientChange = (clientId: number | undefined) => {
+        if (!clientId) {
+            return;
+        }
+        remplirDepuisClient(clients.find((c) => c.id === clientId));
+        // Un bateau choisi pour un autre client n'est plus valable
+        const bateauCourantId = form.getFieldValue('bateauId');
+        if (bateauCourantId && !estProprietaire(bateaux.find((b) => b.id === bateauCourantId), clientId)) {
+            form.setFieldValue('bateauId', undefined);
+        }
+        // Sélection automatique si le client n'a qu'un seul bateau
+        const bateauxDuClient = bateaux.filter((b) => estProprietaire(b, clientId));
+        if (bateauxDuClient.length === 1 && !form.getFieldValue('bateauId')) {
+            form.setFieldValue('bateauId', bateauxDuClient[0].id);
+            remplirDepuisBateau(bateauxDuClient[0]);
+        }
+    };
+
+    // Ex : "Beneteau Flyer 7.7 (2018) - 2 x Yamaha F150"
+    const titreBateau = (b: BateauClientEntity) => {
+        const annee = anneeMiseEnService(b.dateMeS);
+        const moteurs = motorisation(b.moteurs);
+        const titre = [b.modele?.designation || b.name, annee && `(${annee})`].filter(Boolean).join(' ');
+        return moteurs ? `${titre} - ${moteurs}` : titre;
+    };
+
+    // Ne remplace un champ que s'il est vide ou encore issu d'un remplissage automatique précédent
+    const remplirChamp = (champ: ChampAuto, valeur?: string | number) => {
+        const courant = form.getFieldValue(champ);
+        if (courant == null || courant === '' || courant === valeursAuto.current[champ]) {
+            form.setFieldValue(champ, valeur);
+            valeursAuto.current[champ] = valeur;
+        }
+    };
+
+    const remplirDepuisBateau = (b?: BateauClientEntity) => {
+        if (!b) return;
+        remplirChamp('titre', titreBateau(b) || undefined);
+        remplirChamp('prix', b.modele?.prixVenteTTC || undefined);
+    };
+
+    const remplirDepuisClient = (c?: ClientEntity) => {
+        if (!c) return;
+        remplirChamp('contact', c.email || undefined);
+        remplirChamp('telephone', c.telephone || undefined);
     };
 
     const columns = [
@@ -342,6 +461,7 @@ export default function Annonces() {
                 <Space wrap size={[4, 4]}>
                     <Button size="small" icon={<EyeOutlined />} onClick={() => openDetail(record)} />
                     <Button size="small" icon={<EditOutlined />} onClick={() => openEdit(record)} />
+                    <Button size="small" title="Imprimer l'affiche" icon={<PrinterOutlined />} onClick={() => handlePrintAffiche(record)} />
                     <Button size="small" icon={<SendOutlined />} onClick={() => openPublishModal(record)}>
                         Diffuser
                     </Button>
@@ -418,6 +538,7 @@ export default function Annonces() {
                                 allowClear
                                 showSearch
                                 placeholder="Selectionner un client"
+                                onChange={handleClientChange}
                                 filterOption={(input, option) =>
                                     (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
                                 }
@@ -434,10 +555,12 @@ export default function Annonces() {
                                 allowClear
                                 showSearch
                                 placeholder="Selectionner un bateau"
+                                onChange={(id) => remplirDepuisBateau(bateaux.find((b) => b.id === id))}
                                 filterOption={(input, option) =>
                                     (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
                                 }
-                                options={bateaux.map((b) => ({
+                                notFoundContent={watchedClientId ? 'Aucun bateau pour ce client' : undefined}
+                                options={bateauxClient.map((b) => ({
                                     value: b.id,
                                     label: bateauLabel(b),
                                 }))}
@@ -551,21 +674,26 @@ export default function Annonces() {
                     <div>
                         <p style={{ marginBottom: 16 }}>
                             Selectionnez les plateformes sur lesquelles publier ou retirer cette annonce.
+                            Sur les plateformes à flux actif, l'annonce est transmise (ou retirée) automatiquement
+                            à la prochaine lecture du flux par la plateforme.
                         </p>
                         {plateformes.map((pf) => {
                             const isPublished = (publishAnnonce.publications || []).includes(pf.key);
                             return (
                                 <Card size="small" key={pf.key} style={{ marginBottom: 8 }}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Space>
-                                            <Tag color={pf.color} style={{ fontSize: 14, padding: '2px 10px' }}>{pf.label}</Tag>
-                                            {isPublished && <Tag color="green">En ligne</Tag>}
+                                        <Space direction="vertical" size={2}>
+                                            <Space>
+                                                <Tag color={pf.color} style={{ fontSize: 14, padding: '2px 10px' }}>{pf.label}</Tag>
+                                                {isPublished && <Tag color="green">{fluxActif(pf.key) ? 'Dans le flux' : 'Marquee diffusee'}</Tag>}
+                                            </Space>
+                                            <Typography.Text type="secondary" style={{ fontSize: 12 }}>{etatDiffusion(pf)}</Typography.Text>
                                         </Space>
                                         {isPublished ? (
                                             <Popconfirm
                                                 title={`Retirer de ${pf.label} ?`}
                                                 onConfirm={async () => {
-                                                    await handleUnpublish(publishAnnonce.id, pf.key);
+                                                    if (!await handleUnpublish(publishAnnonce.id, pf.key)) return;
                                                     setPublishAnnonce({
                                                         ...publishAnnonce,
                                                         publications: (publishAnnonce.publications || []).filter(p => p !== pf.key),
@@ -582,7 +710,7 @@ export default function Annonces() {
                                                 type="primary"
                                                 icon={<SendOutlined />}
                                                 onClick={async () => {
-                                                    await handlePublish(publishAnnonce.id, pf.key);
+                                                    if (!await handlePublish(publishAnnonce.id, pf.key)) return;
                                                     setPublishAnnonce({
                                                         ...publishAnnonce,
                                                         publications: [...(publishAnnonce.publications || []), pf.key],

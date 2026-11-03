@@ -451,7 +451,7 @@ const FournisseurProduits = ({
         }
         okText="Enregistrer"
         cancelText="Fermer"
-                width="95vw"
+                width="47.5vw"
       >
         <Form
           form={form}

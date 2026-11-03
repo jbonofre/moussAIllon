@@ -383,7 +383,7 @@ const FournisseurBateaux = ({ fournisseurId, bateauId }: { fournisseurId?: numbe
         title={editing && editing.id ? "Modifier l'association" : (isBateauMode ? "Associer un Fournisseur" : "Associer un Bateau")}
         okText="Enregistrer"
         cancelText="Fermer"
-                width="95vw"
+                width="47.5vw"
       >
         <Form
           form={form}

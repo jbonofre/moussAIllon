@@ -34,6 +34,57 @@ public class ClientResourceTest {
     }
 
     @Test
+    void testConsentementEnMasse() {
+        int id1 = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Consentement Un\",\"type\":\"Particulier\"}")
+            .when().post("/clients")
+            .then()
+            .statusCode(200)
+            .body("consentement", is(false))
+            .extract().path("id");
+        int id2 = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Consentement Deux\",\"type\":\"Particulier\"}")
+            .when().post("/clients")
+            .then()
+            .statusCode(200)
+            .extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"ids\":[" + id1 + "," + id2 + "],\"consentement\":true}")
+            .when().put("/clients/consentement")
+            .then()
+            .statusCode(200)
+            .body("modifies", is(2));
+
+        given().when().get("/clients/" + id1).then().statusCode(200).body("consentement", is(true));
+        given().when().get("/clients/" + id2).then().statusCode(200).body("consentement", is(true));
+
+        given()
+            .contentType("application/json")
+            .body("{\"ids\":[" + id1 + "],\"consentement\":false}")
+            .when().put("/clients/consentement")
+            .then()
+            .statusCode(200)
+            .body("modifies", is(1));
+
+        given().when().get("/clients/" + id1).then().statusCode(200).body("consentement", is(false));
+        given().when().get("/clients/" + id2).then().statusCode(200).body("consentement", is(true));
+    }
+
+    @Test
+    void testConsentementEnMasseSansSelection() {
+        given()
+            .contentType("application/json")
+            .body("{\"ids\":[],\"consentement\":true}")
+            .when().put("/clients/consentement")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
     void testObtenirClientNonTrouve() {
         given()
             .when().get("/clients/9999")
