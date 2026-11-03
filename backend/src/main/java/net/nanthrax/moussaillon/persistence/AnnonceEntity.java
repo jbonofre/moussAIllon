@@ -37,6 +37,10 @@ public class AnnonceEntity extends PanacheEntity {
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateCreation;
 
+    // Transmise aux plateformes dans le flux : elles ne réimportent que les annonces modifiées
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateModification;
+
     @ManyToOne
     public ClientEntity client;
 

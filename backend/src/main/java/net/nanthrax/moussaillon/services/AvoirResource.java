@@ -109,6 +109,8 @@ public class AvoirResource {
 
         avoir.status = AvoirEntity.Status.BROUILLON;
         avoir.dateCreation = new Timestamp(System.currentTimeMillis());
+        // Le mode de remboursement n'est renseigné qu'au remboursement de l'avoir
+        avoir.modeRemboursement = null;
 
         avoir.persist();
 
@@ -289,7 +291,6 @@ public class AvoirResource {
         entity.tva = data.tva;
         entity.montantTVA = data.montantTVA;
         entity.montantTTC = data.montantTTC;
-        entity.modeRemboursement = data.modeRemboursement;
 
         entity.lignes.clear();
         if (data.lignes != null) {
@@ -330,11 +331,15 @@ public class AvoirResource {
         return entity;
     }
 
+    public static class RembourserRequest {
+        public AvoirEntity.ModeRemboursement modeRemboursement;
+    }
+
     @POST
     @Path("{id}/rembourser")
     @Consumes({MediaType.APPLICATION_JSON, MediaType.WILDCARD})
     @Transactional
-    public AvoirEntity rembourser(@PathParam("id") long id) {
+    public AvoirEntity rembourser(@PathParam("id") long id, RembourserRequest request) {
         AvoirEntity entity = AvoirEntity.findById(id);
         if (entity == null) {
             throw new WebApplicationException("L'avoir (" + id + ") n'est pas trouvé", 404);
@@ -342,6 +347,10 @@ public class AvoirResource {
         if (entity.status != AvoirEntity.Status.EMIS) {
             throw new WebApplicationException("Seul un avoir émis peut être marqué comme remboursé", 400);
         }
+        if (request == null || request.modeRemboursement == null) {
+            throw new WebApplicationException("Le mode de remboursement est requis", 400);
+        }
+        entity.modeRemboursement = request.modeRemboursement;
         entity.status = AvoirEntity.Status.REMBOURSE;
         entity.dateRemboursement = new Timestamp(System.currentTimeMillis());
         return entity;

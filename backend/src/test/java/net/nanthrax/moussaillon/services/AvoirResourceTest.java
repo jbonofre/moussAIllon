@@ -136,6 +136,62 @@ public class AvoirResourceTest {
                 .body("status", is("EMIS"));
     }
 
+    @Test
+    void testRembourserAvoirExigeModeRemboursement() {
+        // Le mode de remboursement fourni à la création est ignoré
+        String jsonCreate = "{\n" +
+                "  \"client\": {\"id\": 100},\n" +
+                "  \"motif\": \"Remboursement client\",\n" +
+                "  \"modeRemboursement\": \"CHEQUE\",\n" +
+                "  \"montantHT\": 10.0,\n" +
+                "  \"tva\": 20.0,\n" +
+                "  \"montantTVA\": 2.0,\n" +
+                "  \"montantTTC\": 12.0,\n" +
+                "  \"lignes\": [\n" +
+                "    {\n" +
+                "      \"designation\": \"Remise commerciale\",\n" +
+                "      \"quantite\": 1,\n" +
+                "      \"prixUnitaireHT\": 10.0,\n" +
+                "      \"tva\": 20.0,\n" +
+                "      \"montantTVA\": 2.0,\n" +
+                "      \"totalTTC\": 12.0\n" +
+                "    }\n" +
+                "  ]\n" +
+                "}";
+
+        int id = given()
+                .contentType("application/json")
+                .body(jsonCreate)
+                .when().post("/avoirs")
+                .then()
+                .statusCode(200)
+                .body("modeRemboursement", nullValue())
+                .extract().path("id");
+
+        given()
+                .contentType("application/json")
+                .when().post("/avoirs/" + id + "/emettre")
+                .then()
+                .statusCode(200);
+
+        // Sans mode de remboursement : refusé
+        given()
+                .contentType("application/json")
+                .body("{}")
+                .when().post("/avoirs/" + id + "/rembourser")
+                .then()
+                .statusCode(400);
+
+        given()
+                .contentType("application/json")
+                .body("{\"modeRemboursement\": \"VIREMENT\"}")
+                .when().post("/avoirs/" + id + "/rembourser")
+                .then()
+                .statusCode(200)
+                .body("status", is("REMBOURSE"))
+                .body("modeRemboursement", is("VIREMENT"));
+    }
+
 
     @Test
     void testAvoirPartielSurLignesSelectionnees() {

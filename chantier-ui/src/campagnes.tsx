@@ -105,6 +105,7 @@ export default function Campagnes() {
     const [detailCampagne, setDetailCampagne] = useState<Campagne | null>(null);
     const [destinataires, setDestinataires] = useState<Destinataire[]>([]);
     const [destLoading, setDestLoading] = useState(false);
+    const [destErreur, setDestErreur] = useState(false);
     const [historique, setHistorique] = useState<Historique[]>([]);
     const [historiqueLoading, setHistoriqueLoading] = useState(false);
     const [contenu, setContenu] = useState('');
@@ -217,13 +218,17 @@ export default function Campagnes() {
     const openDetail = (campagne: Campagne) => {
         setDetailCampagne(campagne);
         setDestinataires([]);
+        setDestErreur(false);
         setHistorique([]);
         setDetailOpen(true);
         setDestLoading(true);
         setHistoriqueLoading(true);
         api.get(`/campagnes/${campagne.id}/destinataires`)
             .then((res) => setDestinataires(res.data || []))
-            .catch(() => {})
+            .catch(() => {
+                setDestErreur(true);
+                message.error('Erreur lors du chargement des destinataires');
+            })
             .finally(() => setDestLoading(false));
         api.get(`/campagnes/${campagne.id}/historique`)
             .then((res) => setHistorique(res.data || []))
@@ -366,8 +371,16 @@ export default function Campagnes() {
 
     const destColumns = [
         { title: 'Nom', dataIndex: 'nom', key: 'nom' },
-        { title: selectedCanal === 'SMS' ? 'Téléphone' : 'Email', dataIndex: 'email', key: 'email' },
+        { title: detailCampagne?.canal === 'SMS' ? 'Téléphone' : 'Email', dataIndex: 'email', key: 'email' },
     ];
+
+    // Explique pourquoi la liste des destinataires est vide (mêmes règles que CampagneResource.resolveDestinataires).
+    const destVideTexte = () => {
+        if (destErreur) return 'Impossible de charger les destinataires';
+        const contact = detailCampagne?.canal === 'SMS' ? 'un téléphone' : 'un email';
+        if (detailCampagne?.cible === 'FOURNISSEUR') return `Aucun fournisseur avec ${contact} renseigné`;
+        return `Aucun client correspondant à cette cible n'a à la fois donné son consentement et ${contact} renseigné`;
+    };
 
     const historiqueColumns = [
         { title: 'Date', dataIndex: 'dateEnvoi', key: 'dateEnvoi', render: (val: string) => formatDate(val) },
@@ -570,6 +583,7 @@ export default function Campagnes() {
                             pagination={paginationConfig(10)}
                             size="small"
                             bordered
+                            locale={{ emptyText: destVideTexte() }}
                         />
                         <p style={{ marginTop: 16 }}><strong>Historique d'envoi :</strong></p>
                         <Table

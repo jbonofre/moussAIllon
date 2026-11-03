@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -18,6 +18,7 @@ import Societe from './societe.tsx';
 import Facturation from './facturation.tsx';
 import Reglements from './reglements.tsx';
 import Connecteurs from './connecteurs.tsx';
+import RapprochementBancaire from './rapprochement-bancaire.tsx';
 import Utilisateurs from './utilisateurs.tsx';
 import Forfaits from './forfaits.tsx';
 import Packages from './packages.tsx';
@@ -116,18 +117,19 @@ function SideMenu(props) {
       ] },
       { key: 'market', label: 'Marketing', icon: <RocketOutlined/>, requiredRole: 'admin', children: [
         { key: '/annonces', label: 'Petites annonces', icon: <NotificationOutlined/> },
-        { key: '/campagnes', label: 'Campagnes', icon: <SendOutlined/> }
+        { key: '/campagnes', label: 'Campagnes', icon: <SendOutlined/> },
+        { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> }
       ] },
       { key: 'comptabilite', label: 'Comptabilité', icon: <AuditOutlined/>, requiredRole: 'admin', children: [
         { key: '/reglements', label: 'Règlements', icon: <WalletOutlined/> },
-        { key: '/connecteurs', label: 'Connecteurs', icon: <ApiOutlined/> },
+        { key: '/rapprochement-bancaire', label: 'Rapprochement bancaire', icon: <ReconciliationOutlined/> },
       ] },
       { key: 'parametrage', label: 'Paramétrage', icon: <SettingOutlined/>, requiredRole: 'admin', children: [
         { key: '/societe', label: 'Société', icon: <BankOutlined/> },
         { key: '/facturation', label: 'Facturation', icon: <DollarOutlined/> },
         { key: '/utilisateurs', label: 'Utilisateurs', icon: <UserOutlined/> },
         { key: '/emails', label: 'Emails', icon: <MailOutlined/> },
-        { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> },
+        { key: '/connecteurs', label: 'Connecteurs', icon: <ApiOutlined/> },
         { key: '/reference-valeurs', label: 'Valeurs de Référence', icon: <DatabaseOutlined/> }
       ] }
     ];
@@ -502,6 +504,8 @@ export default function Workspace(props) {
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Reglements /></ProtectedRoute>;
             case '/connecteurs':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Connecteurs /></ProtectedRoute>;
+            case '/rapprochement-bancaire':
+                return <ProtectedRoute roles={props.roles} requiredRole="admin"><RapprochementBancaire /></ProtectedRoute>;
             case '/utilisateurs':
                 return <ProtectedRoute roles={props.roles} requiredRole="admin"><Utilisateurs /></ProtectedRoute>;
             case '/emails':
