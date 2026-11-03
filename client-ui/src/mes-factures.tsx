@@ -7,13 +7,13 @@ import { paginationConfig } from './pagination.ts';
 import ReceptionResume from './ReceptionResume.tsx';
 import { Reception, lignesReception, receptionRenseignee, urlAbsolue } from './reception.ts';
 
-interface ProduitRef { id: number; designation: string; ref?: string; prixVenteTTC?: number; occasion?: boolean }
+interface ProduitRef { id: number; designation: string; ref?: string; prixVenteHT?: number; tva?: number; prixVenteTTC?: number; occasion?: boolean }
 interface CompositionRef {
     mainOeuvres?: Array<{ mainOeuvre?: { reference?: string; nom?: string }; quantite?: number }>;
     produits?: Array<{ produit?: ProduitRef; quantite?: number }>;
 }
-interface ForfaitRef extends CompositionRef { id: number; nom: string; reference?: string; prixTTC?: number }
-interface ServiceRef extends CompositionRef { id: number; nom: string; prixTTC?: number }
+interface ForfaitRef extends CompositionRef { id: number; nom: string; reference?: string; prixHT?: number; tva?: number; prixTTC?: number }
+interface ServiceRef extends CompositionRef { id: number; nom: string; prixHT?: number; tva?: number; prixTTC?: number }
 
 interface VenteProduitEntry {
     id?: number;
@@ -80,6 +80,7 @@ interface VentePaiement {
 interface VenteEntity {
     id: number;
     status: string;
+    client?: { type?: string };
     bonPourAccord?: boolean;
     ordreDeReparation?: boolean;
     comptoir?: boolean;
@@ -203,13 +204,25 @@ const remisePourcentFacture = (remise: number, puTTC: number, quantite: number) 
     return Math.min(100, Math.max(0, pct));
 };
 
+// Un professionnel de la mer est exonéré de TVA : il est facturé au prix HT des articles
+const MENTION_EXONERATION_TVA = 'Exonération de TVA, article 262 II du Code général des impôts';
+
+const venteExoneree = (vente: VenteEntity) => vente.client?.type === 'PROFESSIONNEL_MER';
+
+// Prix unitaire facturé : TTC, ou HT pour un client exonéré (déduit du TTC et du taux s'il n'est pas renseigné)
+const prixFacture = (prixTTC: number | undefined, prixHT: number | undefined, tva: number | undefined, exonere: boolean) => {
+    if (!exonere) return prixTTC || 0;
+    return prixHT || Math.round(((prixTTC || 0) / (1 + (tva || 0) / 100) + Number.EPSILON) * 100) / 100;
+};
+
 const buildLines = (vente: VenteEntity): DocLine[] => {
     const lines: DocLine[] = [];
+    const exonere = venteExoneree(vente);
 
     // venteForfaits (prestation-style)
     (vente.venteForfaits || []).forEach((vf) => {
         if (!vf.forfait) return;
-        const pu = vf.forfait.prixTTC || 0;
+        const pu = prixFacture(vf.forfait.prixTTC, vf.forfait.prixHT, vf.forfait.tva, exonere);
         const qty = vf.quantite || 1;
         const remise = vf.remise || 0;
         lines.push({
@@ -224,7 +237,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
     // venteServices (prestation-style)
     (vente.venteServices || []).forEach((vs) => {
         if (!vs.service) return;
-        const pu = vs.service.prixTTC || 0;
+        const pu = prixFacture(vs.service.prixTTC, vs.service.prixHT, vs.service.tva, exonere);
         const qty = vs.quantite || 1;
         const remise = vs.remise || 0;
         lines.push({
@@ -239,7 +252,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
     // venteProduits (prestation-style)
     (vente.venteProduits || []).forEach((vp) => {
         if (!vp.produit) return;
-        const pu = vp.produit.prixVenteTTC || 0;
+        const pu = prixFacture(vp.produit.prixVenteTTC, vp.produit.prixVenteHT, vp.produit.tva, exonere);
         const qty = vp.quantite || 1;
         const remise = vp.remise || 0;
         lines.push({
@@ -253,7 +266,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
 
     // flat forfaits (comptoir-style)
     (vente.forfaits || []).forEach((f, i) => {
-        const pu = f.prixTTC || 0;
+        const pu = prixFacture(f.prixTTC, f.prixHT, f.tva, exonere);
         lines.push({
             key: `f-${f.id}-${i}`, type: 'Forfait', reference: f.reference || '', designation: f.nom,
             quantite: 1, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu,
@@ -262,7 +275,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
 
     // flat services (comptoir-style)
     (vente.services || []).forEach((s, i) => {
-        const pu = s.prixTTC || 0;
+        const pu = prixFacture(s.prixTTC, s.prixHT, s.tva, exonere);
         lines.push({
             key: `s-${s.id}-${i}`, type: 'Service', reference: '', designation: s.nom,
             quantite: 1, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu,
@@ -276,7 +289,7 @@ const buildLines = (vente: VenteEntity): DocLine[] => {
         if (existing) { existing.quantite += 1; } else { produitMap.set(p.id, { produit: p, quantite: 1 }); }
     });
     produitMap.forEach(({ produit, quantite }, id) => {
-        const pu = produit.prixVenteTTC || 0;
+        const pu = prixFacture(produit.prixVenteTTC, produit.prixVenteHT, produit.tva, exonere);
         lines.push({
             key: `p-${id}`, type: 'Produit', reference: produit.ref || '', designation: produit.designation,
             quantite, prixUnitaire: pu, remise: 0, remisePct: 0, totalTTC: pu * quantite,
@@ -468,10 +481,11 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
               </table>`
             : '<p>Aucun élément</p>';
 
-        // Les articles d'occasion, vendus sans TVA, ont leur propre ligne à 0 %
+        // Les articles d'occasion, vendus sans TVA, ont leur propre ligne à 0 % ; un client exonéré n'a qu'une ligne à 0 %
+        const exonere = venteExoneree(vente);
         const montantOccasion = lines.filter((line) => line.occasion).reduce((sum, line) => sum + line.totalTTC, 0);
         const baseTaxable = (vente.montantHT || 0) - montantOccasion;
-        const tvaRows: Array<[string, number, number]> = [
+        const tvaRows: Array<[string, number, number]> = exonere ? [['0.00 (exonéré)', vente.montantHT || 0, 0]] : [
             ...(montantOccasion <= 0 || baseTaxable > 0.005
                 ? [[vente.tva != null ? vente.tva.toFixed(2) : '-', baseTaxable, vente.montantTVA || 0] as [string, number, number]]
                 : []),
@@ -485,7 +499,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                     <td class="num">${escapeHtml(formatEuro(base))}</td>
                     <td class="num">${escapeHtml(formatEuro(montant))}</td>
                 </tr>`).join('')}</tbody>
-            </table>` : '';
+            </table>${exonere ? `<div class="tva-mention">${escapeHtml(MENTION_EXONERATION_TVA)}</div>` : ''}` : '';
 
         const bancaireLines = [
             societe?.banque ? `Banque : ${societe.banque}` : '',
@@ -599,6 +613,7 @@ export default function MesFactures({ clientId }: MesFacturesProps) {
                 .tva-box { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
                 .tva-box th, .tva-box td { border: 1px solid #d9d9d9; padding: 5px 8px; }
                 .tva-box th { background: #f0f0f0; text-align: left; }
+                .tva-mention { font-style: italic; margin: -6px 0 12px; }
                 .bancaire-box { font-size: 12px; }
                 .bancaire-title { font-weight: bold; text-decoration: underline; margin-bottom: 4px; }
                 .totals-box { border-collapse: collapse; min-width: 260px; }

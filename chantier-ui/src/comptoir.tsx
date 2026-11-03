@@ -15,7 +15,17 @@ import {
     InvoicePrintLine,
     montantOccasion,
 } from './printing/invoiceTemplate.ts';
-import { calculerTvaVente, calculerTvaVenteDepuisHT, tauxTvaVente } from './tva-vente.ts';
+import {
+    calculerTvaVente,
+    calculerTvaVenteDepuisHT,
+    clientExonereTva,
+    MENTION_EXONERATION_TVA,
+    prixArticleVente,
+    prixPrestationVente,
+    tauxTvaVente,
+    TOOLTIP_EXONERATION_TVA,
+    TVA_VENTE_DEFAUT,
+} from './tva-vente.ts';
 import { comparerDatesVentes } from './tri-ventes.ts';
 import {
     Alert,
@@ -67,6 +77,7 @@ import SearchAutoComplete from './SearchAutoComplete.tsx';
 interface ClientEntity {
     id: number;
     nom: string;
+    type?: string;
     codeTiers?: string;
     email?: string;
     telephone?: string;
@@ -122,6 +133,8 @@ interface ForfaitEntity {
     id: number;
     reference?: string;
     nom: string;
+    prixHT?: number;
+    tva?: number;
     prixTTC?: number;
     taches?: TaskEntity[];
 }
@@ -150,6 +163,8 @@ interface ProduitCatalogueEntity {
 interface CatalogueBateauEntity {
     id: number;
     designation: string;
+    prixVenteHT?: number;
+    tva?: number;
     prixVenteTTC?: number;
     stock?: number;
     occasion?: boolean;
@@ -158,6 +173,8 @@ interface CatalogueBateauEntity {
 interface CatalogueMoteurEntity {
     id: number;
     designation: string;
+    prixVenteHT?: number;
+    tva?: number;
     prixVenteTTC?: number;
     stock?: number;
     occasion?: boolean;
@@ -166,6 +183,8 @@ interface CatalogueMoteurEntity {
 interface CatalogueHeliceEntity {
     id: number;
     designation: string;
+    prixVenteHT?: number;
+    tva?: number;
     prixVenteTTC?: number;
     stock?: number;
     occasion?: boolean;
@@ -174,6 +193,8 @@ interface CatalogueHeliceEntity {
 interface CatalogueRemorqueEntity {
     id: number;
     designation: string;
+    prixVenteHT?: number;
+    tva?: number;
     prixVenteTTC?: number;
     stock?: number;
     occasion?: boolean;
@@ -201,6 +222,8 @@ const defaultNewProduit = {
 interface ServiceEntity {
     id: number;
     nom: string;
+    prixHT?: number;
+    tva?: number;
     prixTTC?: number;
 }
 
@@ -464,7 +487,9 @@ export default function Comptoir() {
     const [searchQuery, setSearchQuery] = useState('');
     const [form] = Form.useForm<VenteFormValues>();
     const watchedStatus = Form.useWatch('status', form) as VenteStatus | undefined;
+    const watchedClientId = Form.useWatch('clientId', form) as number | undefined;
     const isReadOnly = watchedStatus === 'FACTURE_PAYEE';
+    const exonereTva = clientExonereTva(clients.find((client) => client.id === watchedClientId));
     const [formDirty, setFormDirty] = useState(false);
     // Ligne en cours de déplacement : aucune valeur ne change, rien n'est recalculé
     const deplacementLigneRef = React.useRef(false);
@@ -656,7 +681,11 @@ export default function Comptoir() {
         },
     ], [packages, produits, catalogueBateaux, catalogueMoteurs, catalogueHelices, catalogueRemorques]);
 
-    const getCatalogueItem = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): { prixVenteTTC?: number; occasion?: boolean } | undefined => {
+    // Un client exonéré de TVA (professionnel de la mer) achète au prix HT des articles, sans TVA
+    const venteExoneree = (clientId: number | undefined = form.getFieldValue('clientId')) =>
+        clientExonereTva(clients.find((client) => client.id === clientId));
+
+    const getCatalogueItem = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): { prixVenteHT?: number; tva?: number; prixVenteTTC?: number; occasion?: boolean } | undefined => {
         if (!ref) return undefined;
         const [type, idStr] = ref.split(':');
         const id = parseInt(idStr, 10);
@@ -669,11 +698,9 @@ export default function Comptoir() {
         return undefined;
     };
 
-    const getCatalogueItemPrice = (ref?: string, allProduits: ProduitCatalogueEntity[] = produits): number =>
-        getCatalogueItem(ref, allProduits)?.prixVenteTTC || 0;
-    // Prix unitaire TTC d'une ligne : saisi sur une ligne libre, sinon celui de l'article du catalogue
-    const getLignePrice = (line?: LigneProduitForm, allProduits?: ProduitCatalogueEntity[]): number =>
-        line?.libre ? (line.libre.prixVenteTTC || 0) : getCatalogueItemPrice(line?.produitRef, allProduits);
+    // Prix unitaire d'une ligne : saisi sur une ligne libre, sinon celui de l'article du catalogue (HT pour un client exonéré de TVA)
+    const getLignePrice = (line?: LigneProduitForm, allProduits?: ProduitCatalogueEntity[], exonere: boolean = venteExoneree()): number =>
+        prixArticleVente(line?.libre ?? getCatalogueItem(line?.produitRef, allProduits), exonere);
 
     const autresLignesLibres = (index: number): LigneLibre[] =>
         ((form.getFieldValue('produits') || []) as LigneProduitForm[])
@@ -945,6 +972,7 @@ export default function Comptoir() {
             message.success('Client ajouté avec succès');
             setClients((prev) => mergeById(prev, [created]));
             form.setFieldValue('clientId', created.id);
+            appliquerTvaClient(created);
             setNewClientFormDirty(false);
             setNewClientModalVisible(false);
         } catch {
@@ -1291,27 +1319,28 @@ export default function Comptoir() {
     };
 
     const getProduitLines = (vente: VenteEntity) => {
-        type LineItem = { id: number; nom: string; prixVenteTTC?: number; quantite: number; remise: number };
+        type LineItem = { id: number; nom: string; prixUnitaire: number; quantite: number; remise: number };
         const lines: LineItem[] = [];
+        const exonere = clientExonereTva(vente.client);
         (vente.venteProduits || []).forEach((l) => {
             if (!l.produit?.id) return;
-            lines.push({ id: l.produit.id, nom: l.produit.designation, prixVenteTTC: l.produit.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.produit.id, nom: l.produit.designation, prixUnitaire: prixArticleVente(l.produit, exonere), quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         (vente.venteBateauxCatalogue || []).forEach((l) => {
             if (!l.bateau?.id) return;
-            lines.push({ id: l.bateau.id, nom: l.bateau.designation, prixVenteTTC: l.bateau.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.bateau.id, nom: l.bateau.designation, prixUnitaire: prixArticleVente(l.bateau, exonere), quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         (vente.venteMoteursCatalogue || []).forEach((l) => {
             if (!l.moteur?.id) return;
-            lines.push({ id: l.moteur.id, nom: l.moteur.designation, prixVenteTTC: l.moteur.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.moteur.id, nom: l.moteur.designation, prixUnitaire: prixArticleVente(l.moteur, exonere), quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         (vente.venteHelicesCatalogue || []).forEach((l) => {
             if (!l.helice?.id) return;
-            lines.push({ id: l.helice.id, nom: l.helice.designation, prixVenteTTC: l.helice.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.helice.id, nom: l.helice.designation, prixUnitaire: prixArticleVente(l.helice, exonere), quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         (vente.venteRemorquesCatalogue || []).forEach((l) => {
             if (!l.remorque?.id) return;
-            lines.push({ id: l.remorque.id, nom: l.remorque.designation, prixVenteTTC: l.remorque.prixVenteTTC, quantite: l.quantite || 1, remise: l.remise || 0 });
+            lines.push({ id: l.remorque.id, nom: l.remorque.designation, prixUnitaire: prixArticleVente(l.remorque, exonere), quantite: l.quantite || 1, remise: l.remise || 0 });
         });
         return lines;
     };
@@ -1381,18 +1410,20 @@ export default function Comptoir() {
 
     const buildInvoiceLines = (vente: VenteEntity): InvoicePrintLine[] => {
         const lines: InvoicePrintLine[] = [];
+        // Un client exonéré de TVA est facturé au prix HT : c'est aussi son prix TTC
+        const exonere = clientExonereTva(vente.client);
         (vente.forfaits || []).forEach((f) => {
             if (!f?.id) return;
-            const puTTC = f.prixTTC || 0;
+            const puTTC = prixPrestationVente(f, exonere);
             lines.push({ type: 'Forfait', reference: f.reference || '', label: f.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
         });
         (vente.services || []).forEach((s) => {
             if (!s?.id) return;
-            const puTTC = s.prixTTC || 0;
+            const puTTC = prixPrestationVente(s, exonere);
             lines.push({ type: 'Service', reference: '', label: s.nom, quantite: 1, puTTC, remise: 0, remisePct: 0, totalPrixTTC: puTTC });
         });
-        const fromCatalogue = (item: { designation?: string; prixVenteTTC?: number; ref?: string; occasion?: boolean } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
-            const puTTC = item?.prixVenteTTC || 0;
+        const fromCatalogue = (item: { designation?: string; prixVenteHT?: number; tva?: number; prixVenteTTC?: number; ref?: string; occasion?: boolean } | undefined, typeLabel: string, quantite: number, remise: number, remisePourcentage?: number) => {
+            const puTTC = prixArticleVente(item, exonere);
             const brut = puTTC * quantite;
             const label = item?.designation || '';
             const reference = item?.ref || '';
@@ -1447,7 +1478,7 @@ export default function Comptoir() {
 
         const tableHtml = buildInvoiceTableHtml(lines, { showPrices: true, tva: vente.tva });
 
-        const tvaBreakdownHtml = buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA, montantOccasion: montantOccasion(lines) });
+        const tvaBreakdownHtml = buildTvaBreakdownHtml({ tva: vente.tva, montantHT: vente.montantHT, montantTVA: vente.montantTVA, montantOccasion: montantOccasion(lines), exonere: clientExonereTva(client) });
 
         const bancaireHtml = buildBancaireHtml(societe);
 
@@ -1495,7 +1526,7 @@ export default function Comptoir() {
         const title = `Ticket #${vente.id || '-'}`;
         const produitRows = getProduitLines(vente)
             .map((item) => {
-                const pu = item.prixVenteTTC || 0;
+                const pu = item.prixUnitaire;
                 const brut = pu * item.quantite;
                 const total = Math.max(0, brut - item.remise);
                 const remiseLine = item.remise > 0
@@ -1536,6 +1567,7 @@ export default function Comptoir() {
                     ${produitRows || '<div class="line"><span>Aucun produit</span><span>-</span></div>'}
                     <div class="separator"></div>
                     <div class="line"><strong>TOTAL TTC</strong><strong>${escapeHtml(formatEuro(vente.prixVenteTTC))}</strong></div>
+                    ${clientExonereTva(vente.client) ? `<div class="center">${escapeHtml(MENTION_EXONERATION_TVA)}</div>` : ''}
                     ${(vente.paiements ?? []).length > 0
                         ? (vente.paiements ?? []).map((p) => {
                             const modeLabels: Record<string, string> = { CHEQUE: 'Chèque', VIREMENT: 'Virement', CARTE: 'Carte', 'ESPÈCES': 'Espèces', AVOIR: 'Avoir' };
@@ -1585,26 +1617,29 @@ export default function Comptoir() {
 
     const recalculateFromLines = (
         remiseSource: 'amount' | 'percentage' | 'auto' = 'auto',
-        overrides?: { produits?: ProduitCatalogueEntity[] }
+        overrides?: { produits?: ProduitCatalogueEntity[]; exonere?: boolean }
     ) => {
         const forfaitLines = form.getFieldValue('forfaits') || [];
         const produitLines = form.getFieldValue('produits') || [];
         const serviceLines = form.getFieldValue('services') || [];
         let remise = form.getFieldValue('remise') || 0;
         let remisePourcentage = form.getFieldValue('remisePourcentage') || 0;
+        const exonere = overrides?.exonere ?? venteExoneree();
+        // Un client exonéré ne paie aucune TVA : les lignes sont à leur prix HT
+        if (exonere) form.setFieldValue('tva', 0);
         const tva = form.getFieldValue('tva') || 0;
 
         const forfaitsTTC = forfaitLines.reduce((sum: number, line: { forfaitId?: number; quantite?: number; remise?: number }) => {
-            const prixUnitaire = forfaits.find((item) => item.id === line.forfaitId)?.prixTTC || 0;
+            const prixUnitaire = prixPrestationVente(forfaits.find((item) => item.id === line.forfaitId), exonere);
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
         const produitsTTC = produitLines.reduce((sum: number, line: LigneProduitForm) => {
-            const prixUnitaire = getLignePrice(line, overrides?.produits);
+            const prixUnitaire = getLignePrice(line, overrides?.produits, exonere);
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
         const occasionTTC = montantOccasionLignes(overrides?.produits);
         const servicesTTC = serviceLines.reduce((sum: number, line: { serviceId?: number; quantite?: number; remise?: number }) => {
-            const prixUnitaire = services.find((item) => item.id === line.serviceId)?.prixTTC || 0;
+            const prixUnitaire = prixPrestationVente(services.find((item) => item.id === line.serviceId), exonere);
             return sum + sumLine(prixUnitaire, line.quantite || 1, line.remise || 0);
         }, 0);
 
@@ -1629,13 +1664,16 @@ export default function Comptoir() {
         form.setFieldValue('prixVenteTTC', prixVenteTTC);
     };
 
-    const syncLineRemise = (changedProduitLines: Array<Partial<{ produitRef: string; quantite: number; remise: number; remisePourcentage: number }> | undefined>) => {
+    const syncLineRemise = (
+        changedProduitLines: Array<Partial<{ produitRef: string; quantite: number; remise: number; remisePourcentage: number }> | undefined>,
+        exonere: boolean = venteExoneree(),
+    ) => {
         const currentLines = form.getFieldValue('produits') || [];
         changedProduitLines.forEach((changed, index) => {
             if (!changed) return;
             const line = currentLines[index];
             if (!line) return;
-            const prixUnitaire = getLignePrice(line);
+            const prixUnitaire = getLignePrice(line, undefined, exonere);
             const quantite = Math.max(1, Math.floor(line.quantite || 1));
             const brut = Math.round(prixUnitaire * quantite * 100) / 100;
             if (changed.remisePourcentage !== undefined) {
@@ -1648,6 +1686,21 @@ export default function Comptoir() {
                 form.setFieldValue(['produits', index, 'remisePourcentage'], remisePourcentage);
             }
         });
+    };
+
+    // Un professionnel de la mer est exonéré de TVA : au changement de client, le taux de la vente et le prix
+    // des lignes (HT ou TTC) suivent le client choisi, les remises en % étant conservées
+    const appliquerTvaClient = (client?: ClientEntity) => {
+        const exonere = clientExonereTva(client);
+        const tva = form.getFieldValue('tva') || 0;
+        const changement = exonere ? tva !== 0 : tva === 0;
+        if (!changement && !exonere) return;
+        if (!exonere) form.setFieldValue('tva', TVA_VENTE_DEFAUT);
+        if (changement) {
+            const lignes: LigneProduitForm[] = form.getFieldValue('produits') || [];
+            syncLineRemise(lignes.map((line) => (line?.remisePourcentage ? { remisePourcentage: line.remisePourcentage } : undefined)), exonere);
+        }
+        recalculateFromLines(changement ? 'percentage' : 'auto', { exonere });
     };
 
     // Un package n'est pas une ligne de vente : la ligne où il est choisi est remplacée par les articles qu'il regroupe.
@@ -1680,6 +1733,10 @@ export default function Comptoir() {
 
     const onValuesChange = (changedValues: Partial<VenteFormValues>, allValues: VenteFormValues) => {
         if (deplacementLigneRef.current) {
+            return;
+        }
+        if ('clientId' in changedValues) {
+            appliquerTvaClient(clients.find((client) => client.id === changedValues.clientId));
             return;
         }
         if (changedValues.produits !== undefined) {
@@ -2200,7 +2257,7 @@ export default function Comptoir() {
                                                             <InputNumber min={0} style={{ width: '100%' }} placeholder="P.U." title="Prix unitaire TTC" />
                                                         </Form.Item>
                                                     ) : (
-                                                        <Form.Item label={premiereLigne ? "PU TTC €" : undefined} style={{ width: 95, flex: 'none', marginBottom: 8 }}>
+                                                        <Form.Item label={premiereLigne ? (exonereTva ? "PU HT €" : "PU TTC €") : undefined} style={{ width: 95, flex: 'none', marginBottom: 8 }}>
                                                             <InputNumber
                                                                 value={prixUnitaire ?? undefined}
                                                                 disabled
@@ -2351,11 +2408,11 @@ export default function Comptoir() {
                             <Form.Item name="remise" label={<strong>Remise (EUR)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
                                 <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
                             </Form.Item>
-                            <Form.Item name="tva" label={<strong>TVA (%)</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
-                                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} />
+                            <Form.Item name="tva" label={<strong>TVA (%)</strong>} tooltip={exonereTva ? TOOLTIP_EXONERATION_TVA : undefined} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
+                                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} disabled={isReadOnly || exonereTva} />
                             </Form.Item>
                             <Form.Item name="montantTVA" label={<strong>Montant TVA</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
-                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} />
+                                <InputNumber min={0} step={0.01} style={{ width: '100%' }} disabled={isReadOnly || exonereTva} />
                             </Form.Item>
                             <Form.Item name="prixVenteTTC" label={<strong>Montant TTC</strong>} layout="horizontal" labelCol={{ flex: '0 0 150px' }} wrapperCol={{ flex: '0 0 130px' }} labelAlign="right" colon={false} style={{ marginBottom: 8, width: 280 }}>
                                 <InputNumber min={0} step={0.01} style={{ width: '100%' }} />

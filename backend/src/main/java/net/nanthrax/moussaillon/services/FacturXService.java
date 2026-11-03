@@ -127,7 +127,7 @@ public class FacturXService {
                 List<LignePdf> lignes = extraireLignes(vente);
                 if (lignes.isEmpty()) {
                     lignes.add(new LignePdf("-", "Prestations diverses", 1,
-                        vente.montantHT, vente.prixVenteTTC, vente.tva > 0 ? vente.tva : TVA_DEFAUT, 0));
+                        vente.montantHT, vente.prixVenteTTC, tauxVente(vente), 0));
                 }
                 for (LignePdf ligne : lignes) {
                     if (y < 130) break;
@@ -157,6 +157,9 @@ public class FacturXService {
                     y = drawTextRight(cs, fontNormal, 10, String.format("Remise : -%.2f €", vente.remise), xRight, y - 4, fontNormal, 10);
                 }
                 y = drawTextRight(cs, fontGras, 12, String.format("TOTAL TTC : %.2f €", vente.prixVenteTTC), xRight, y - 6, fontGras, 12);
+                if (vente.exonereTva()) {
+                    y = drawText(cs, fontNormal, 9, VenteEntity.MENTION_EXONERATION_TVA, margin, y - 6);
+                }
 
                 // Conditions de paiement
                 y -= 20;
@@ -253,11 +256,16 @@ public class FacturXService {
         List<LignePdf> lignes = extraireLignes(vente);
         if (lignes.isEmpty()) {
             lignes.add(new LignePdf("-", "Prestations diverses", 1,
-                vente.montantHT, vente.prixVenteTTC, vente.tva > 0 ? vente.tva : TVA_DEFAUT, 0));
+                vente.montantHT, vente.prixVenteTTC, tauxVente(vente), 0));
         }
         for (LignePdf ligne : lignes) {
             Product produit = new Product(ligne.designation, "", "C62",
                 BigDecimal.valueOf(ligne.tva).setScale(2, RoundingMode.HALF_UP));
+            if (vente.exonereTva()) {
+                // Catégorie « exonéré » (E) : le motif de l'exonération est obligatoire
+                produit.setTaxCategoryCode("E");
+                produit.setTaxExemptionReason(VenteEntity.MENTION_EXONERATION_TVA);
+            }
             if (ligne.reference != null && !"-".equals(ligne.reference) && !ligne.reference.isBlank()) {
                 produit.setSellerAssignedID(ligne.reference);
             }
@@ -276,6 +284,24 @@ public class FacturXService {
         return invoice;
     }
 
+    // Taux de TVA de la vente : nul pour un client exonéré, 20 % à défaut de taux renseigné
+    private static double tauxVente(VenteEntity vente) {
+        if (vente.exonereTva()) {
+            return 0;
+        }
+        return vente.tva > 0 ? vente.tva : TVA_DEFAUT;
+    }
+
+    // Ligne de la facture ; un client exonéré de TVA est facturé au prix HT de l'article, sans TVA
+    private static LignePdf lignePdf(VenteEntity vente, String reference, String designation, int quantite,
+                                     double prixHT, double prixTTC, double tva, double prixHTArticle, double remise) {
+        if (vente.exonereTva()) {
+            double prix = vente.prixLigne(prixTTC, prixHTArticle, tva);
+            return new LignePdf(reference, designation, quantite, prix, prix, 0, remise);
+        }
+        return new LignePdf(reference, designation, quantite, prixHT, prixTTC, tva, remise);
+    }
+
     private List<LignePdf> extraireLignes(VenteEntity vente) {
         List<LignePdf> lignes = new ArrayList<>();
         double tvaGlobale = vente.tva > 0 ? vente.tva : TVA_DEFAUT;
@@ -286,7 +312,7 @@ public class FacturXService {
                 double tva = vf.forfait.tva > 0 ? vf.forfait.tva : tvaGlobale;
                 double prixHT = vf.forfait.prixHT > 0 ? vf.forfait.prixHT
                     : vf.forfait.prixTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(safe(vf.forfait.reference, "-"), safe(vf.forfait.nom, "Forfait"), vf.quantite, prixHT, vf.forfait.prixTTC, tva, vf.remise));
+                lignes.add(lignePdf(vente, safe(vf.forfait.reference, "-"), safe(vf.forfait.nom, "Forfait"), vf.quantite, prixHT, vf.forfait.prixTTC, tva, vf.forfait.prixHT, vf.remise));
             }
         }
 
@@ -296,7 +322,7 @@ public class FacturXService {
                 double tva = vs.service.tva > 0 ? vs.service.tva : tvaGlobale;
                 double prixHT = vs.service.prixHT > 0 ? vs.service.prixHT
                     : vs.service.prixTTC / (1 + tva / 100);
-                lignes.add(new LignePdf("-", safe(vs.service.nom, "Service"), vs.quantite, prixHT, vs.service.prixTTC, tva, vs.remise));
+                lignes.add(lignePdf(vente, "-", safe(vs.service.nom, "Service"), vs.quantite, prixHT, vs.service.prixTTC, tva, vs.service.prixHT, vs.remise));
             }
         }
 
@@ -305,7 +331,7 @@ public class FacturXService {
                 if (vp.produit == null) continue;
                 double tva = vp.produit.tva > 0 ? vp.produit.tva : tvaGlobale;
                 double prixHT = vp.produit.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf(safe(vp.produit.ref, "-"), safe(vp.produit.designation, "Produit"), vp.quantite, prixHT, vp.produit.prixVenteTTC, tva, vp.remise));
+                lignes.add(lignePdf(vente, safe(vp.produit.ref, "-"), safe(vp.produit.designation, "Produit"), vp.quantite, prixHT, vp.produit.prixVenteTTC, tva, vp.produit.prixVenteHT, vp.remise));
             }
         }
 
@@ -314,7 +340,7 @@ public class FacturXService {
                 if (vb.bateau == null) continue;
                 double tva = vb.bateau.tva > 0 ? vb.bateau.tva : tvaGlobale;
                 double prixHT = vb.bateau.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf("-", safe(vb.bateau.designation, "Bateau"), vb.quantite, prixHT, vb.bateau.prixVenteTTC, tva, vb.remise));
+                lignes.add(lignePdf(vente, "-", safe(vb.bateau.designation, "Bateau"), vb.quantite, prixHT, vb.bateau.prixVenteTTC, tva, vb.bateau.prixVenteHT, vb.remise));
             }
         }
 
@@ -323,7 +349,7 @@ public class FacturXService {
                 if (vm.moteur == null) continue;
                 double tva = vm.moteur.tva > 0 ? vm.moteur.tva : tvaGlobale;
                 double prixHT = vm.moteur.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf("-", safe(vm.moteur.designation, "Moteur"), vm.quantite, prixHT, vm.moteur.prixVenteTTC, tva, vm.remise));
+                lignes.add(lignePdf(vente, "-", safe(vm.moteur.designation, "Moteur"), vm.quantite, prixHT, vm.moteur.prixVenteTTC, tva, vm.moteur.prixVenteHT, vm.remise));
             }
         }
 
@@ -332,7 +358,7 @@ public class FacturXService {
                 if (vh.helice == null) continue;
                 double tva = vh.helice.tva > 0 ? vh.helice.tva : tvaGlobale;
                 double prixHT = vh.helice.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf("-", safe(vh.helice.designation, "Hélice"), vh.quantite, prixHT, vh.helice.prixVenteTTC, tva, vh.remise));
+                lignes.add(lignePdf(vente, "-", safe(vh.helice.designation, "Hélice"), vh.quantite, prixHT, vh.helice.prixVenteTTC, tva, vh.helice.prixVenteHT, vh.remise));
             }
         }
 
@@ -341,7 +367,7 @@ public class FacturXService {
                 if (vr.remorque == null) continue;
                 double tva = vr.remorque.tva > 0 ? vr.remorque.tva : tvaGlobale;
                 double prixHT = vr.remorque.prixVenteTTC / (1 + tva / 100);
-                lignes.add(new LignePdf("-", safe(vr.remorque.designation, "Remorque"), vr.quantite, prixHT, vr.remorque.prixVenteTTC, tva, vr.remise));
+                lignes.add(lignePdf(vente, "-", safe(vr.remorque.designation, "Remorque"), vr.quantite, prixHT, vr.remorque.prixVenteTTC, tva, vr.remorque.prixVenteHT, vr.remise));
             }
         }
 

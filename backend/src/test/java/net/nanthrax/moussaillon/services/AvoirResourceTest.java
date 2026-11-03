@@ -194,6 +194,35 @@ public class AvoirResourceTest {
 
 
     @Test
+    void testAvoirProfessionnelDeLaMerSansTva() {
+        int clientId = given()
+                .contentType("application/json")
+                .body("{\"nom\":\"Armement Avoir\",\"type\":\"PROFESSIONNEL_MER\"}")
+                .when().post("/clients")
+                .then().statusCode(200).extract().path("id");
+        // Article à 60 € TTC (50 € HT, TVA 20 %) facturé au prix HT
+        String vente = "{\"status\":\"FACTURE_PRETE\",\"comptoir\":true,\"client\":{\"id\":" + clientId + "},"
+                + "\"tva\":0.0,\"montantHT\":100.0,\"montantTTC\":100.0,\"prixVenteTTC\":100.0,\"venteProduits\":["
+                + "{\"quantite\":2,\"produit\":{\"designation\":\"Ligne Pro Mer " + System.nanoTime() + "\",\"prixVenteTTC\":60.0,\"tva\":20.0}}]}";
+        int venteId = given()
+                .contentType("application/json")
+                .body(vente)
+                .when().post("/ventes")
+                .then().statusCode(201).extract().path("id");
+
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Retour\"}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(200)
+                .body("tva", is(0.0f))
+                .body("lignes[0].tva", is(0.0f))
+                .body("montantTVA", is(0.0f))
+                .body("montantHT", is(100.0f))
+                .body("montantTTC", is(100.0f));
+    }
+
+    @Test
     void testAvoirPartielSurLignesSelectionnees() {
         String vente = "{\"status\":\"DEVIS\",\"comptoir\":true,\"client\":{\"id\":100},\"prixVenteTTC\":46.0,\"venteProduits\":["
                 + "{\"quantite\":1,\"produit\":{\"designation\":\"Ligne A " + System.nanoTime() + "\",\"prixVenteTTC\":12.0,\"tva\":20.0}},"

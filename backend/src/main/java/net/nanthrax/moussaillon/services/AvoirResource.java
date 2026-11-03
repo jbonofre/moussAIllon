@@ -167,7 +167,9 @@ public class AvoirResource {
         avoir.notes = request.notes;
         avoir.dateCreation = new Timestamp(System.currentTimeMillis());
 
-        double tvaTaux = vente.tva > 0 ? vente.tva : 20.0;
+        // Un client exonéré de TVA (professionnel de la mer) a été facturé au prix HT, sans TVA : son avoir aussi
+        boolean exonere = vente.exonereTva();
+        double tvaTaux = exonere ? 0.0 : vente.tva > 0 ? vente.tva : 20.0;
 
         // Lignes depuis les forfaits
         if (vente.venteForfaits != null) {
@@ -178,8 +180,8 @@ public class AvoirResource {
                 ligne.designation = vf.forfait.nom != null ? vf.forfait.nom : "Forfait";
                 ligne.quantite = Math.max(1, vf.quantite);
                 ligne.prixUnitaireHT = vf.forfait.prixHT;
-                ligne.tva = vf.forfait.tva > 0 ? vf.forfait.tva : tvaTaux;
-                double brutTTC = vf.forfait.prixTTC * ligne.quantite;
+                ligne.tva = exonere ? 0 : vf.forfait.tva > 0 ? vf.forfait.tva : tvaTaux;
+                double brutTTC = vente.prixLigne(vf.forfait.prixTTC, vf.forfait.prixHT, vf.forfait.tva) * ligne.quantite;
                 double netTTC = Math.max(0, brutTTC - vf.remise);
                 double ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
                 ligne.montantTVA = round2(ligne.prixUnitaireHT * ligne.quantite * (ligne.tva / 100.0) * ratio);
@@ -196,8 +198,8 @@ public class AvoirResource {
                 ligne.designation = vs.service.nom != null ? vs.service.nom : "Service";
                 ligne.quantite = Math.max(1, vs.quantite);
                 ligne.prixUnitaireHT = vs.service.prixHT;
-                ligne.tva = vs.service.tva > 0 ? vs.service.tva : tvaTaux;
-                double brutTTC = vs.service.prixTTC * ligne.quantite;
+                ligne.tva = exonere ? 0 : vs.service.tva > 0 ? vs.service.tva : tvaTaux;
+                double brutTTC = vente.prixLigne(vs.service.prixTTC, vs.service.prixHT, vs.service.tva) * ligne.quantite;
                 double netTTC = Math.max(0, brutTTC - vs.remise);
                 double ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
                 ligne.montantTVA = round2(ligne.prixUnitaireHT * ligne.quantite * (ligne.tva / 100.0) * ratio);
@@ -216,8 +218,8 @@ public class AvoirResource {
                 ligne.quantite = Math.max(1, vp.quantite);
                 ligne.prixUnitaireHT = vp.produit.prixVenteHT;
                 // Un article d'occasion est vendu sans TVA : son avoir non plus
-                ligne.tva = vp.produit.occasion ? 0 : vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
-                double brutTTC = vp.produit.prixVenteTTC * ligne.quantite;
+                ligne.tva = exonere || vp.produit.occasion ? 0 : vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
+                double brutTTC = vente.prixLigne(vp.produit.prixVenteTTC, vp.produit.prixVenteHT, vp.produit.tva) * ligne.quantite;
                 double netTTC = Math.max(0, brutTTC - vp.remise);
                 double ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
                 ligne.montantTVA = round2(ligne.prixUnitaireHT * ligne.quantite * (ligne.tva / 100.0) * ratio);

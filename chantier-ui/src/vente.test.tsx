@@ -21,10 +21,10 @@ jest.setTimeout(90000);
 const PLACEHOLDER_LIGNE = 'Package, forfait, produit, bateau, moteur...';
 
 // Même identifiant dans chaque référentiel : chaque ligne doit garder le type de son article
-const produit = { id: 1, designation: 'Anode zinc', ref: 'AN-1', stock: 10, prixVenteTTC: 12 };
+const produit = { id: 1, designation: 'Anode zinc', ref: 'AN-1', stock: 10, prixVenteHT: 10, tva: 20, prixVenteTTC: 12 };
 const bateau = { id: 1, designation: 'Cap Camarat 6.5', stock: 1, prixVenteTTC: 45000 };
 const moteur = { id: 1, designation: 'F115 XB', stock: 2, prixVenteTTC: 13000 };
-const forfait = { id: 1, nom: 'Hivernage', reference: 'FORFAIT-001', prixTTC: 300 };
+const forfait = { id: 1, nom: 'Hivernage', reference: 'FORFAIT-001', prixHT: 250, tva: 20, prixTTC: 300 };
 
 const donnees: Record<string, any[]> = {
     '/catalogue/packages': [
@@ -53,7 +53,7 @@ const donnees: Record<string, any[]> = {
     '/catalogue/bateaux': [bateau],
     '/catalogue/moteurs': [moteur],
     '/forfaits': [forfait],
-    '/clients': [{ id: 3, nom: 'Jean Dupont' }],
+    '/clients': [{ id: 3, nom: 'Jean Dupont' }, { id: 4, nom: 'Armement Le Goff', type: 'PROFESSIONNEL_MER' }],
 };
 
 const mockedApi = api as jest.Mocked<typeof api>;
@@ -120,6 +120,25 @@ describe('Transactions - saisie des lignes', () => {
         await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('13.00'));
         expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('30.00');
         expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00');
+    });
+});
+
+describe('Transactions - professionnel de la mer', () => {
+    it('facture au prix HT, sans TVA, un professionnel de la mer', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+        await within(modal).findByText('Anode zinc');
+        await choisirDansLaLigneVide(modal, 'FORFAIT-001 - Hivernage');
+        await within(modal).findByText('Hivernage');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('312.00'));
+
+        await choisir(modal, 'Rechercher un client par prénom ou nom', 'Armement Le Goff');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('260.00'));
+        expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('260.00');
+        expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('0.00');
+        expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('0.00');
+        await waitFor(() => expect(within(modal).getByLabelText('TVA (%)')).toBeDisabled());
     });
 });
 

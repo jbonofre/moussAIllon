@@ -1,5 +1,32 @@
 const arrondir = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
+export const TVA_VENTE_DEFAUT = 20;
+
+// Mention légale portée sur les devis et factures d'un client exonéré de TVA
+export const MENTION_EXONERATION_TVA = 'Exonération de TVA, article 262 II du Code général des impôts';
+
+export const TOOLTIP_EXONERATION_TVA = 'Client professionnel de la mer : exonéré de TVA, ses lignes sont au prix HT';
+
+/** Un professionnel de la mer est exonéré de TVA : ses ventes sont au taux de 0 %, au prix HT des articles. */
+export const clientExonereTva = (client?: { type?: string } | null) => client?.type === 'PROFESSIONNEL_MER';
+
+/**
+ * Prix unitaire d'un article sur une vente : son prix TTC, ou son prix HT pour un client exonéré de TVA
+ * (déduit du TTC et du taux de l'article s'il n'est pas renseigné).
+ */
+export const prixUnitaireVente = (prixTTC: number | undefined, prixHT: number | undefined, tva: number | undefined, exonere: boolean) => {
+    if (!exonere) return prixTTC || 0;
+    return prixHT || arrondir((prixTTC || 0) / (1 + (tva || 0) / 100));
+};
+
+// Article du catalogue (produit, bateau, moteur, hélice, remorque) ou ligne libre
+export const prixArticleVente = (article: { prixVenteTTC?: number; prixVenteHT?: number; tva?: number } | undefined, exonere: boolean) =>
+    prixUnitaireVente(article?.prixVenteTTC, article?.prixVenteHT, article?.tva, exonere);
+
+// Forfait ou service
+export const prixPrestationVente = (prestation: { prixTTC?: number; prixHT?: number; tva?: number } | undefined, exonere: boolean) =>
+    prixUnitaireVente(prestation?.prixTTC, prestation?.prixHT, prestation?.tva, exonere);
+
 /**
  * TVA d'une vente : le taux de la vente s'applique au montant TTC, sauf aux articles d'occasion,
  * vendus sans TVA (montantOccasionTTC : leur montant TTC, remises de ligne déduites).

@@ -19,7 +19,7 @@ jest.mock('./FicheCatalogueModal.tsx', () => ({ __esModule: true, default: () =>
 jest.setTimeout(60000);
 
 // Même identifiant dans chaque référentiel : chaque ligne doit garder le type de son article
-const produit = { id: 1, designation: 'Anode zinc', ref: 'AN-1', stock: 10, prixVenteTTC: 12 };
+const produit = { id: 1, designation: 'Anode zinc', ref: 'AN-1', stock: 10, prixVenteHT: 10, tva: 20, prixVenteTTC: 12 };
 const bateau = { id: 1, designation: 'Cap Camarat 6.5', stock: 1, prixVenteTTC: 45000 };
 const moteur = { id: 1, designation: 'F115 XB', stock: 2, prixVenteTTC: 13000 };
 const forfait = { id: 1, nom: 'Hivernage', reference: 'FORFAIT-001', prixTTC: 300 };
@@ -194,6 +194,60 @@ describe('Comptoir - saisie des produits', () => {
         await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('13.00'));
         expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('30.00');
         expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00');
+    });
+});
+
+describe('Comptoir - professionnel de la mer', () => {
+    const clients = [
+        { id: 5, nom: 'Armement Le Goff', type: 'PROFESSIONNEL_MER' },
+        { id: 6, nom: 'Hamon Jean-Luc', type: 'PARTICULIER' },
+    ];
+
+    beforeEach(() => {
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url.startsWith('/clients/search') ? clients : donnees[url] || [],
+        }) as any);
+    });
+
+    const choisirClient = async (modal: HTMLElement, nom: string) => {
+        const champ = modal.querySelector('#clientId') as HTMLElement;
+        fireEvent.mouseDown(champ);
+        fireEvent.change(champ, { target: { value: nom } });
+        const option = await waitFor(() => {
+            const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+                .find((element) => element.textContent === nom);
+            expect(found).toBeTruthy();
+            return found as HTMLElement;
+        });
+        fireEvent.click(option);
+    };
+
+    it('vend au prix HT, sans TVA, à un professionnel de la mer', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00'));
+
+        await choisirClient(modal, 'Armement Le Goff');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('10.00'));
+        expect(within(modal).getByLabelText('Montant HT (EUR)')).toHaveValue('10.00');
+        expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('0.00');
+        expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('0.00');
+        await waitFor(() => expect(within(modal).getByLabelText('TVA (%)')).toBeDisabled());
+    });
+
+    it('rétablit la TVA et le prix TTC pour un client qui n\'est pas exonéré', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
+        await choisirClient(modal, 'Armement Le Goff');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('10.00'));
+
+        await choisirClient(modal, 'Hamon Jean-Luc');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00'));
+        expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('20.00');
+        expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('2.00');
+        await waitFor(() => expect(within(modal).getByLabelText('TVA (%)')).toBeEnabled());
     });
 });
 
