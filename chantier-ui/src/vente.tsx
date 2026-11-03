@@ -66,6 +66,7 @@ import SectionLignes from './SectionLignes.tsx';
 import MontantsService from './MontantsService.tsx';
 import { aplatirTaches } from './checklistParLigne.ts';
 import LignesArticles from './LignesArticles.tsx';
+import { LigneTriable, ListeTriable, PoigneeLigne } from './LignesTriables.tsx';
 import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
 import { paginationConfig } from './pagination.ts';
 import { CLIENT_NOM_AIDE, CLIENT_NOM_PLACEHOLDER } from './client-nom.ts';
@@ -718,6 +719,8 @@ export default function Vente() {
     const savedLinesRef = React.useRef<string[]>([]);
     // Nombre d'interventions déjà connues, pour détecter l'ajout d'un forfait ou d'un service
     const interventionsConnuesRef = React.useRef(0);
+    // Ligne en cours de déplacement : aucune valeur ne change, rien n'est recalculé
+    const deplacementLigneRef = React.useRef(false);
     const [isEdit, setIsEdit] = useState(false);
     const [currentVente, setCurrentVente] = useState<VenteEntity | null>(null);
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
@@ -1209,6 +1212,16 @@ export default function Vente() {
         const lignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
         form.setFieldValue('lignes', insererLigneLibre(lignes, { libre: nouvelleLigneLibre(), quantite: 1 }, { quantite: 1 }, estLigneVide));
         setFormDirty(true);
+    };
+
+    // Recalculer les remises d'une ligne déplacée les arrondirait à nouveau
+    const deplacerLigne = (move: (from: number, to: number) => void, from: number, to: number) => {
+        deplacementLigneRef.current = true;
+        try {
+            move(from, to);
+        } finally {
+            deplacementLigneRef.current = false;
+        }
     };
 
     const autresLignesLibres = (index: number): LigneLibre[] =>
@@ -2053,12 +2066,12 @@ export default function Vente() {
         const allLignes = (values.lignes || []).filter((l) => l.type && l.itemId);
         const forfaitLines = allLignes.filter((l) => l.type === 'forfait');
         const serviceLines = allLignes.filter((l) => l.type === 'service');
-        const produitLines = allLignes.filter((l) => l.type === 'produit');
+        // Produits du catalogue et articles saisis à la volée, dans l'ordre des lignes
+        const produitLines = (values.lignes || []).filter((l) => l.libre || (l.type === 'produit' && l.itemId));
         const bateauLines = allLignes.filter((l) => l.type === 'bateau');
         const moteurLines = allLignes.filter((l) => l.type === 'moteur');
         const heliceLines = allLignes.filter((l) => l.type === 'helice');
         const remorqueLines = allLignes.filter((l) => l.type === 'remorque');
-        const lignesLibres = (values.lignes || []).filter((l) => l.libre);
 
         return {
             status: values.status,
@@ -2128,24 +2141,16 @@ export default function Vente() {
                     documents: line.documents || existingVs?.documents || [],
                 };
             }),
-            venteProduits: [
-                ...produitLines.flatMap<VenteProduitLigne>((line) => {
-                    const produit = produits.find((p) => p.id === line.itemId);
-                    return produit ? [{
-                        produit,
-                        quantite: Math.max(1, Math.floor(line.quantite || 1)),
-                        remise: line.remise || 0,
-                        remisePourcentage: line.remisePourcentage || 0,
-                    }] : [];
-                }),
-                // Articles saisis à la volée : le backend les crée au catalogue
-                ...lignesLibres.map<VenteProduitLigne>((line) => ({
-                    produit: articleALaVolee(line.libre!),
+            venteProduits: produitLines.flatMap<VenteProduitLigne>((line) => {
+                // Article saisi à la volée : le backend le crée au catalogue
+                const produit = line.libre ? articleALaVolee(line.libre) : produits.find((p) => p.id === line.itemId);
+                return produit ? [{
+                    produit,
                     quantite: Math.max(1, Math.floor(line.quantite || 1)),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
-                })),
-            ],
+                }] : [];
+            }),
             venteBateauxCatalogue: bateauLines.flatMap<VenteBateauCatalogueLigne>((line) => {
                 const bateau = catalogueBateaux.find((b) => b.id === line.itemId);
                 return bateau ? [{
@@ -3039,6 +3044,9 @@ export default function Vente() {
         if (!suppressDirtyRef.current) {
             setFormDirty(true);
         }
+        if (deplacementLigneRef.current) {
+            return;
+        }
         if (changedValues.lignes !== undefined) {
             const changedLignesArr = changedValues.lignes as Array<Partial<LigneUnifiee> | undefined>;
             const lineRemiseChanged = changedLignesArr.some((l) => l && (l.remise !== undefined || l.remisePourcentage !== undefined));
@@ -3557,8 +3565,14 @@ export default function Vente() {
                                 children: (
                                     <>
                                     <Form.List name="lignes">
-                                        {(fields, { remove }) => (
+                                        {(fields, { remove, move }) => (
                                             <>
+                                                <ListeTriable
+                                                    fields={fields}
+                                                    move={(from, to) => deplacerLigne(move, from, to)}
+                                                    triable={(field) => field.name < fields.length - 1 || !estLigneVide(form.getFieldValue(['lignes', field.name]))}
+                                                    disabled={isReadOnly}
+                                                >
                                                 {fields.map((field) => {
                                                     const ligne: LigneUnifiee = form.getFieldValue(['lignes', field.name]) || {};
                                                     const lineType = ligne.type;
@@ -3597,7 +3611,9 @@ export default function Vente() {
                                                     const premiereLigne = field.name === 0;
                                                     const decalageEntete = premiereLigne ? 30 : 0;
                                                     return (
-                                                    <div key={field.key} className="ligne-vente" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                                    <LigneTriable key={field.key} field={field}>
+                                                    <div className="ligne-vente" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                                        <PoigneeLigne style={{ marginTop: decalageEntete }} />
                                                         <Form.Item
                                                             name={[field.name, 'type']}
                                                             hidden
@@ -3838,8 +3854,10 @@ export default function Vente() {
                                                             <Button style={{ marginLeft: 'auto' }} danger icon={<DeleteOutlined />} title="Supprimer la ligne" onClick={() => remove(field.name)} />
                                                         </div>
                                                     </div>
+                                                    </LigneTriable>
                                                     );
                                                 })}
+                                                </ListeTriable>
                                                 <Space style={{ marginTop: -12, marginBottom: 16, marginLeft: 16 }}>
                                                     <Button icon={<PlusOutlined />} onClick={() => openNewServiceModal(findOrCreateEmptyLineIndex())}>
                                                         Ajouter Service

@@ -48,6 +48,7 @@ import { useNavigation } from './navigation-context.tsx';
 import ImageUpload from './ImageUpload.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
+import { LigneTriable, ListeTriable, PoigneeLigne } from './LignesTriables.tsx';
 import { PackageEntity, articlesDuPackage, getPackageLabel, parsePackageRef } from './package-lignes.ts';
 import { paginationConfig } from './pagination.ts';
 import { CLIENT_NOM_AIDE, CLIENT_NOM_PLACEHOLDER } from './client-nom.ts';
@@ -465,6 +466,8 @@ export default function Comptoir() {
     const watchedStatus = Form.useWatch('status', form) as VenteStatus | undefined;
     const isReadOnly = watchedStatus === 'FACTURE_PAYEE';
     const [formDirty, setFormDirty] = useState(false);
+    // Ligne en cours de déplacement : aucune valeur ne change, rien n'est recalculé
+    const deplacementLigneRef = React.useRef(false);
     const [newProduitModalVisible, setNewProduitModalVisible] = useState(false);
     const [newProduitTargetLine, setNewProduitTargetLine] = useState<number | null>(null);
     const [newProduitForm] = Form.useForm();
@@ -675,6 +678,16 @@ export default function Comptoir() {
     const autresLignesLibres = (index: number): LigneLibre[] =>
         ((form.getFieldValue('produits') || []) as LigneProduitForm[])
             .flatMap((line, i) => (i !== index && line?.libre ? [line.libre] : []));
+
+    // Recalculer les remises d'une ligne déplacée les arrondirait à nouveau
+    const deplacerLigne = (move: (from: number, to: number) => void, from: number, to: number) => {
+        deplacementLigneRef.current = true;
+        try {
+            move(from, to);
+        } finally {
+            deplacementLigneRef.current = false;
+        }
+    };
 
     const ajouterLigneLibre = () => {
         const lignes: LigneProduitForm[] = form.getFieldValue('produits') || [];
@@ -1666,6 +1679,9 @@ export default function Comptoir() {
     };
 
     const onValuesChange = (changedValues: Partial<VenteFormValues>, allValues: VenteFormValues) => {
+        if (deplacementLigneRef.current) {
+            return;
+        }
         if (changedValues.produits !== undefined) {
             if (deplierPackages(allValues.produits || [])) {
                 return;
@@ -2040,10 +2056,17 @@ export default function Comptoir() {
 
                     <Form.Item label="Produits">
                         <Form.List name="produits">
-                            {(fields, { remove }) => (
+                            {(fields, { remove, move }) => (
                                 <>
+                                    <ListeTriable
+                                        fields={fields}
+                                        move={(from, to) => deplacerLigne(move, from, to)}
+                                        triable={(field) => field.name < fields.length - 1 || !estLigneVide(form.getFieldValue(['produits', field.name]))}
+                                        disabled={isReadOnly}
+                                    >
                                     {fields.map((field) => (
-                                        <Form.Item key={field.key} shouldUpdate noStyle>
+                                        <LigneTriable key={field.key} field={field}>
+                                        <Form.Item shouldUpdate noStyle>
                                             {() => {
                                                 const ligne: LigneProduitForm = form.getFieldValue(['produits', field.name]) || {};
                                                 const produitRef = ligne.produitRef;
@@ -2085,6 +2108,7 @@ export default function Comptoir() {
                                                 ];
                                                 return (
                                                 <div className="ligne-vente" style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                                                    <PoigneeLigne style={{ marginTop: decalageEntete }} />
                                                     {libre && (
                                                         <Form.Item
                                                             name={[field.name, 'libre', 'ref']}
@@ -2296,7 +2320,9 @@ export default function Comptoir() {
                                                 );
                                             }}
                                         </Form.Item>
+                                        </LigneTriable>
                                     ))}
+                                    </ListeTriable>
                                     <Button
                                         icon={<PlusOutlined />}
                                         title="Saisir un article absent du catalogue : il y est créé à l'enregistrement de la vente"

@@ -10,6 +10,7 @@ import { paginationConfig } from './pagination.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
 import ChecklistMainOeuvre from './ChecklistMainOeuvre.tsx';
 import SectionLignes from './SectionLignes.tsx';
+import { LigneTriable, ListeTriable, PoigneeLigne } from './LignesTriables.tsx';
 import MontantsService from './MontantsService.tsx';
 
 interface MainOeuvreEntity {
@@ -680,11 +681,21 @@ export default function Services() {
                     </SectionLignes>
                     <SectionLignes titre="Produits" couleur="produit" compact>
                     <Form.List name="produits">
-                        {(fields, { remove }) => (
-                            <>
+                        {(fields, { remove, move }) => (
+                            <ListeTriable
+                                fields={fields}
+                                move={move}
+                                triable={(field) => field.name < fields.length - 1 || !!form.getFieldValue(['produits', field.name, 'produitId'])}
+                            >
                                 {fields.map((field, index) => (
-                                    <Row gutter={8} key={field.key} align="middle">
-                                        <Col span={14}>
+                                    <LigneTriable key={field.key} field={field}>
+                                    <Row gutter={8} align="middle">
+                                        <Col span={1}>
+                                            <Form.Item label={index === 0 ? ' ' : undefined}>
+                                                <PoigneeLigne />
+                                            </Form.Item>
+                                        </Col>
+                                        <Col span={13}>
                                             <Form.Item
                                                 {...field}
                                                 name={[field.name, 'produitId']}
@@ -731,8 +742,9 @@ export default function Services() {
                                             </Form.Item>
                                         </Col>
                                     </Row>
+                                    </LigneTriable>
                                 ))}
-                            </>
+                            </ListeTriable>
                         )}
                     </Form.List>
                     </SectionLignes>

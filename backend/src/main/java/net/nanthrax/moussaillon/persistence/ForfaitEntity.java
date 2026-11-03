@@ -9,6 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.JoinColumn;
 
 @Entity
@@ -31,10 +32,12 @@ public class ForfaitEntity extends PanacheEntity {
     
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "forfait_id")
+    @OrderBy("id")
     public List<ForfaitProduitEntity> produits = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "forfait_id")
+    @OrderBy("id")
     public List<ForfaitMainOeuvreEntity> mainOeuvres = new ArrayList<>();
     
     public double dureeEstimee;

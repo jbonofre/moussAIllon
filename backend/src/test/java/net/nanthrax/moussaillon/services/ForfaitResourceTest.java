@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 
 @QuarkusTest
@@ -63,6 +64,32 @@ public class ForfaitResourceTest {
             .then()
             .statusCode(200)
             .body("nom", is("ApresUpdate"));
+    }
+
+    @Test
+    void testOrdreDesLignesConserve() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Forfait ordre\",\"reference\":\"REF-ORDRE\",\"produits\":["
+                + "{\"quantite\":1,\"produit\":{\"id\":100}},"
+                + "{\"quantite\":1,\"produit\":{\"id\":101}}]}")
+            .when().post("/forfaits")
+            .then().statusCode(201).extract().path("id");
+
+        // Lignes réordonnées à l'écran : le forfait les restitue dans le nouvel ordre
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Forfait ordre\",\"reference\":\"REF-ORDRE\",\"produits\":["
+                + "{\"quantite\":1,\"produit\":{\"id\":101}},"
+                + "{\"quantite\":1,\"produit\":{\"id\":100}}]}")
+            .when().put("/forfaits/" + id)
+            .then().statusCode(200);
+
+        given()
+            .when().get("/forfaits/" + id)
+            .then()
+            .statusCode(200)
+            .body("produits.produit.id", contains(101, 100));
     }
 
     @Test

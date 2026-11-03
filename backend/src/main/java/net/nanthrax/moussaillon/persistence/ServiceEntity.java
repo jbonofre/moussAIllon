@@ -9,6 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
@@ -21,10 +22,12 @@ public class ServiceEntity extends PanacheEntity {
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "service_id")
+    @OrderBy("id")
     public List<ServiceMainOeuvreEntity> mainOeuvres = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "service_id")
+    @OrderBy("id")
     public List<ServiceProduitEntity> produits = new ArrayList<>();
 
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
