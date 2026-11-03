@@ -3,6 +3,7 @@ package net.nanthrax.moussaillon.services;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import net.nanthrax.moussaillon.persistence.AnnonceEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
@@ -116,6 +117,8 @@ public class MoteurClientResource {
         for (ForfaitEntity forfait : forfaits) {
             forfait.moteursClientsAssocies.removeIf(m -> id.equals(m.id));
         }
+        // Les annonces du moteur sont conservées, sans le moteur supprimé
+        AnnonceEntity.update("moteur = null where moteur.id = ?1", id);
         moteur.delete();
     }
 }

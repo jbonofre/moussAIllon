@@ -35,6 +35,7 @@ import {
 } from "@ant-design/icons";
 import api from "./api.ts";
 import PretRecuperationTag from "./PretRecuperationTag.tsx";
+import AVendreIcon, { useMaterielsAVendre } from "./AVendreIcon.tsx";
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import AiPhotoIdentify, { IdentifyResult } from './ai-photo-identify.tsx';
 import ImageUpload from './ImageUpload.tsx';
@@ -160,6 +161,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [annonceSelectedImages, setAnnonceSelectedImages] = useState<Set<string>>(new Set());
   const [availableOptions, setAvailableOptions] = useState<any[]>([]);
   const { navigate, pageState } = useNavigation();
+  const aVendre = useMaterielsAVendre();
 
   const openAnnonceImageModal = (bateau: BateauClient) => {
     setAnnonceImageBateau(bateau);
@@ -524,7 +526,14 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   };
 
   const columns = [
-    { title: "Nom", dataIndex: "name", key: "name", sorter: (a, b) => a.name.localeCompare(b.name) },
+    { title: "Nom", dataIndex: "name", key: "name", sorter: (a, b) => a.name.localeCompare(b.name),
+      render: (name: string, record: BateauClient) => (
+        <Space size={6}>
+          {name}
+          <AVendreIcon aVendre={record.id != null && aVendre.bateaux.has(record.id)} />
+        </Space>
+      ),
+    },
     { title: "Immatriculation", dataIndex: "immatriculation", key: "immatriculation", sorter: (a, b) => a.immatriculation.localeCompare(b.immatriculation) },
     { title: "Propriétaires", dataIndex: "proprietaires", key: "proprietaires",
       render: (proprietaires: any[]) =>
@@ -587,7 +596,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           labelOf={(b) => b.name}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
-        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchBateaux(searchQuery)} />
+        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => { fetchBateaux(searchQuery); aVendre.recharger(); }} />
       </Space>
       <Spin spinning={loading}>
         <MosaicTable thumbnail
@@ -611,6 +620,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
           editing ? (
             <Space>
               <span>Modifier le bateau</span>
+              <AVendreIcon aVendre={editing.id != null && aVendre.bateaux.has(editing.id)} />
               {(editing.images || []).length > 0 && (
                 <Button
                   size="small"

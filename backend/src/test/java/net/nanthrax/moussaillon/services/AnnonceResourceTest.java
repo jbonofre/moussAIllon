@@ -206,6 +206,42 @@ public class AnnonceResourceTest {
     }
 
     @Test
+    void testAnnonceAvecMoteur() {
+        int moteurId = given()
+            .contentType("application/json")
+            .body("{\"numeroSerie\":\"MOT-ANNONCE\"}")
+            .when().post("/moteurs")
+            .then().statusCode(200).extract().path("id");
+        int id = given()
+            .contentType("application/json")
+            .body("{\"titre\":\"Moteur a vendre\",\"prix\":3000.0,\"moteur\":{\"id\":" + moteurId + "}}")
+            .when().post("/annonces")
+            .then()
+            .statusCode(200)
+            .body("moteur.id", is(moteurId))
+            .extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"titre\":\"Moteur a vendre\",\"prix\":2500.0,\"status\":\"ACTIVE\",\"moteur\":{\"id\":" + moteurId + "}}")
+            .when().put("/annonces/" + id)
+            .then()
+            .statusCode(200)
+            .body("moteur.numeroSerie", is("MOT-ANNONCE"));
+
+        // La suppression du moteur conserve l'annonce, sans le moteur
+        given()
+            .when().delete("/moteurs/" + moteurId)
+            .then()
+            .statusCode(204);
+        given()
+            .when().get("/annonces/" + id)
+            .then()
+            .statusCode(200)
+            .body("moteur", nullValue());
+    }
+
+    @Test
     void testPublierAnnoncePlateformeManquante() {
         given()
             .contentType("application/json")

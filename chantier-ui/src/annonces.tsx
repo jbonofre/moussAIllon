@@ -45,6 +45,13 @@ interface BateauClientEntity {
     proprietaires?: ClientEntity[];
 }
 
+interface MoteurClientEntity {
+    id: number;
+    numeroSerie?: string;
+    modele?: { id: number; designation?: string };
+    proprietaire?: ClientEntity;
+}
+
 interface Annonce {
     id: number;
     titre?: string;
@@ -58,6 +65,7 @@ interface Annonce {
     dateCreation?: string;
     client?: ClientEntity;
     bateau?: BateauClientEntity;
+    moteur?: MoteurClientEntity;
 }
 
 type ChampAuto = 'titre' | 'prix' | 'contact' | 'telephone';
@@ -78,6 +86,7 @@ export default function Annonces() {
     const [annonces, setAnnonces] = useState<Annonce[]>([]);
     const [clients, setClients] = useState<ClientEntity[]>([]);
     const [bateaux, setBateaux] = useState<BateauClientEntity[]>([]);
+    const [moteurs, setMoteurs] = useState<MoteurClientEntity[]>([]);
     const [loading, setLoading] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [modalOpen, setModalOpen] = useState(false);
@@ -114,10 +123,17 @@ export default function Annonces() {
             .catch(() => {});
     };
 
+    const fetchMoteurs = () => {
+        api.get('/moteurs')
+            .then((res) => setMoteurs(res.data || []))
+            .catch(() => {});
+    };
+
     useEffect(() => {
         fetchAnnonces();
         fetchClients();
         fetchBateaux();
+        fetchMoteurs();
     }, []);
 
     useEffect(() => {
@@ -129,6 +145,7 @@ export default function Annonces() {
                 status: 'ACTIVE',
                 photos: pageState.photos,
                 bateauId: pageState.bateauId,
+                moteurId: pageState.moteurId,
                 clientId: pageState.clientId,
             });
             if (pageState.bateauId) {
@@ -170,6 +187,7 @@ export default function Annonces() {
             status: annonce.status,
             clientId: annonce.client?.id,
             bateauId: annonce.bateau?.id,
+            moteurId: annonce.moteur?.id,
         });
         setFormDirty(false);
         setModalOpen(true);
@@ -215,6 +233,9 @@ export default function Annonces() {
             }
             if (values.bateauId) {
                 payload.bateau = { id: values.bateauId };
+            }
+            if (values.moteurId) {
+                payload.moteur = { id: values.moteurId };
             }
             if (editing) {
                 const res = await api.put(`/annonces/${editing.id}`, payload);
@@ -323,13 +344,21 @@ export default function Annonces() {
         return b.name || model || b.immatriculation || `Bateau #${b.id}`;
     };
 
+    const moteurLabel = (m?: MoteurClientEntity) => {
+        if (!m) return '-';
+        return [m.modele?.designation, m.numeroSerie].filter(Boolean).join(' - ') || `Moteur #${m.id}`;
+    };
+
     const estProprietaire = (b: BateauClientEntity | undefined, clientId: number) =>
         !!b?.proprietaires?.some((p) => p.id === clientId);
 
-    // Le champ Bateau ne propose que les bateaux du client sélectionné
+    // Les champs Bateau et Moteur ne proposent que le matériel du client sélectionné
     const bateauxClient = watchedClientId
         ? bateaux.filter((b) => estProprietaire(b, watchedClientId))
         : bateaux;
+    const moteursClient = watchedClientId
+        ? moteurs.filter((m) => m.proprietaire?.id === watchedClientId)
+        : moteurs;
 
     const handleClientChange = (clientId: number | undefined) => {
         if (!clientId) {
@@ -340,6 +369,10 @@ export default function Annonces() {
         const bateauCourantId = form.getFieldValue('bateauId');
         if (bateauCourantId && !estProprietaire(bateaux.find((b) => b.id === bateauCourantId), clientId)) {
             form.setFieldValue('bateauId', undefined);
+        }
+        const moteurCourantId = form.getFieldValue('moteurId');
+        if (moteurCourantId && moteurs.find((m) => m.id === moteurCourantId)?.proprietaire?.id !== clientId) {
+            form.setFieldValue('moteurId', undefined);
         }
         // Sélection automatique si le client n'a qu'un seul bateau
         const bateauxDuClient = bateaux.filter((b) => estProprietaire(b, clientId));
@@ -532,7 +565,7 @@ export default function Annonces() {
                         </Col>
                     </Row>
                     <Row gutter={16}>
-                        <Col span={12}>
+                        <Col span={8}>
                         <Form.Item name="clientId" label="Client">
                             <Select
                                 allowClear
@@ -549,7 +582,7 @@ export default function Annonces() {
                             />
                         </Form.Item>
                         </Col>
-                        <Col span={12}>
+                        <Col span={8}>
                         <Form.Item name="bateauId" label="Bateau associe">
                             <Select
                                 allowClear
@@ -563,6 +596,23 @@ export default function Annonces() {
                                 options={bateauxClient.map((b) => ({
                                     value: b.id,
                                     label: bateauLabel(b),
+                                }))}
+                            />
+                        </Form.Item>
+                        </Col>
+                        <Col span={8}>
+                        <Form.Item name="moteurId" label="Moteur associe">
+                            <Select
+                                allowClear
+                                showSearch
+                                placeholder="Selectionner un moteur"
+                                filterOption={(input, option) =>
+                                    (option?.label as string || '').toLowerCase().includes(input.toLowerCase())
+                                }
+                                notFoundContent={watchedClientId ? 'Aucun moteur pour ce client' : undefined}
+                                options={moteursClient.map((m) => ({
+                                    value: m.id,
+                                    label: moteurLabel(m),
                                 }))}
                             />
                         </Form.Item>
@@ -627,6 +677,7 @@ export default function Annonces() {
                     <div>
                         <p><strong>Client:</strong> {clientLabel(detailAnnonce.client)}</p>
                         <p><strong>Bateau:</strong> {bateauLabel(detailAnnonce.bateau)}</p>
+                        {detailAnnonce.moteur && <p><strong>Moteur:</strong> {moteurLabel(detailAnnonce.moteur)}</p>}
                         <p><strong>Prix:</strong> <span style={{ fontSize: 18, color: '#1890ff' }}>{formatEuro(detailAnnonce.prix)}</span></p>
                         <p><strong>Description:</strong></p>
                         <p style={{ whiteSpace: 'pre-wrap', background: '#fafafa', padding: 12, borderRadius: 4 }}>
