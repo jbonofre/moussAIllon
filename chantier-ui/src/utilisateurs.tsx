@@ -2,7 +2,7 @@ import { fetchWithAuth } from './api.ts';
 import MosaicTable from "./MosaicTable.tsx";
 import React, { useEffect, useState } from 'react';
 import { Space, Table, Button, Input, Form, Modal, Avatar, Spin, Select, Popconfirm, message, Row, Col } from 'antd';
-import { UserOutlined, PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { UserOutlined, PlusCircleOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import { paginationConfig } from './pagination.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
 
@@ -298,6 +298,7 @@ export default function Utilisateurs() {
                                 setEditUser(null);
                                 setModalOpen(true);
                             }} />
+                            <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchUsers(search)} />
                         </Space>
                     </div>
                     </Col>

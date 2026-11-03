@@ -31,6 +31,7 @@ import {
   SearchOutlined,
   PictureOutlined,
   TagsOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
 import PretRecuperationTag from "./PretRecuperationTag.tsx";
@@ -140,6 +141,7 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
   const [produitsCatalogue, setProduitsCatalogue] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
   const [editing, setEditing] = useState<BateauClient | null>(null);
@@ -577,11 +579,15 @@ function BateauxClients({ clientId }: BateauxClientsProps) {
       <Space style={{ marginBottom: 16 }}>
         <SearchAutoComplete
           style={{ width: 600 }}
-          onSearch={fetchBateaux}
+          onSearch={(q: string) => {
+            setSearchQuery(q);
+            fetchBateaux(q);
+          }}
           searchUrl="/bateaux/search"
           labelOf={(b) => b.name}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
+        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchBateaux(searchQuery)} />
       </Space>
       <Spin spinning={loading}>
         <MosaicTable thumbnail

@@ -39,7 +39,7 @@ import {
     message
 } from 'antd';
 import type { MenuProps } from 'antd';
-import { CreditCardOutlined, DeleteOutlined, EditOutlined, EnvironmentOutlined, InfoCircleOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, FileTextOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { CreditCardOutlined, DeleteOutlined, EditOutlined, EnvironmentOutlined, InfoCircleOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, ReloadOutlined, FileTextOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import axios from 'axios';
 import api from './api.ts';
@@ -1961,6 +1961,7 @@ export default function Comptoir() {
                     source={ventes.map((v) => v.client?.nom)}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={fetchVentes} />
             </Space>
 
             <Table

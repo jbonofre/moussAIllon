@@ -28,6 +28,7 @@ import {
   DeleteOutlined,
   SearchOutlined,
   TagsOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
 import PretRecuperationTag from "./PretRecuperationTag.tsx";
@@ -88,6 +89,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
   const [catalogueMoteurs, setCatalogueMoteurs] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
   const [editing, setEditing] = useState<MoteurClient | null>(null);
@@ -417,11 +419,15 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
       <Space style={{ marginBottom: 16 }}>
         <SearchAutoComplete
           style={{ width: 600 }}
-          onSearch={fetchMoteurs}
+          onSearch={(q: string) => {
+            setSearchQuery(q);
+            fetchMoteurs(q);
+          }}
           searchUrl="/moteurs/search"
           labelOf={(m) => m.numeroSerie}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
+        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchMoteurs(searchQuery)} />
       </Space>
       <Spin spinning={loading}>
         <MosaicTable thumbnail

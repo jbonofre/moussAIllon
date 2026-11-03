@@ -18,7 +18,7 @@ import {
     Table,
     message
 } from 'antd';
-import { CopyOutlined, DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { CopyOutlined, DeleteOutlined, EditOutlined, PlusCircleOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { bateauClientOptions, moteurClientOptions, filterClientOption, catalogueOption } from './forfait-clients.ts';
 import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from './forfait-lignes.ts';
@@ -738,6 +738,7 @@ export default function Forfaits() {
                             labelOf={(f) => f.nom}
                         />
                         <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchForfaits(searchQuery)} />
                     </Space>
                 </Col>
             </Row>

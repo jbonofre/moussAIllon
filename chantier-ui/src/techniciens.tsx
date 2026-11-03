@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
 import { Space, Table, Button, Input, InputNumber, Form, Modal, Card, Row, Col, Popconfirm, message, Drawer, Statistic, Progress, Divider, Spin, Checkbox, ColorPicker, Typography } from 'antd';
-import { PlusCircleOutlined, EditOutlined, DeleteOutlined, UserOutlined, BarChartOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, WarningOutlined, EuroCircleOutlined, KeyOutlined, MailOutlined } from '@ant-design/icons';
+import { PlusCircleOutlined, EditOutlined, DeleteOutlined, UserOutlined, BarChartOutlined, CheckCircleOutlined, ClockCircleOutlined, ExclamationCircleOutlined, WarningOutlined, EuroCircleOutlined, KeyOutlined, MailOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
@@ -306,6 +306,7 @@ const Techniciens: React.FC = () => {
                                 }}
                             />
                             <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                            <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchTechniciens(searchQuery)} />
                         </Space>
                     </Col>
                 </Row>

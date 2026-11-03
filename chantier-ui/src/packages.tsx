@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
 import { Button, Card, Col, Form, Input, InputNumber, Modal, Popconfirm, Row, Select, Space, Table, Tag, message } from 'antd';
-import { DeleteOutlined, EditOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, PlusCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import {
     ArticlePackage,
@@ -71,6 +71,7 @@ export default function Packages() {
         forfait: [],
     });
     const [loading, setLoading] = useState(false);
+    const [searchQuery, setSearchQuery] = useState('');
     const [modalVisible, setModalVisible] = useState(false);
     const [currentPackage, setCurrentPackage] = useState<PackageEntity | null>(null);
     const [form] = Form.useForm<PackageFormValues>();
@@ -286,11 +287,15 @@ export default function Packages() {
                     <Space>
                         <SearchAutoComplete
                             style={{ width: 600 }}
-                            onSearch={(value) => fetchPackages(value)}
+                            onSearch={(value) => {
+                                setSearchQuery(value);
+                                fetchPackages(value);
+                            }}
                             searchUrl="/catalogue/packages/search"
                             labelOf={(p) => p.designation}
                         />
                         <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchPackages(searchQuery)} />
                     </Space>
                 </Col>
             </Row>

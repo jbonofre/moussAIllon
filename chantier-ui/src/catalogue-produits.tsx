@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
 import { Image, Table, Rate, Row, Col, Card, Button, Modal, Form, Input, InputNumber, Select, Space, Popconfirm, message, Divider, Tag, Segmented, Checkbox } from 'antd';
-import { PlusCircleOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { PlusCircleOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import { useNavigation } from './navigation-context.tsx';
@@ -894,6 +894,7 @@ const CatalogueProduits: React.FC = () => {
                                 ]}
                             />
                             <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                            <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchCatalogue()} />
                             <ImportCsvButton endpoint="/catalogue/produits/import" label="Importer des articles (CSV)" onImported={() => fetchCatalogue()} />
                         </Space>
                     </Col>

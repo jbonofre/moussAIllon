@@ -16,7 +16,7 @@ import {
     Tag,
     message,
 } from 'antd';
-import { DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { useNavigation } from './navigation-context.tsx';
@@ -375,6 +375,7 @@ export default function Annonces() {
                     source={annonces.flatMap((a) => [a.titre, a.client?.nom])}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
+                <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={fetchAnnonces} />
             </Space>
             <MosaicTable
                 rowKey="id"

@@ -29,6 +29,7 @@ import {
   SearchOutlined,
   DeleteOutlined as DeleteIcon,
   TagsOutlined,
+  ReloadOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
 import PretRecuperationTag from "./PretRecuperationTag.tsx";
@@ -82,6 +83,7 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
   const [remorquesCatalogue, setRemorquesCatalogue] = useState<any[]>([]);
   const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [formDirty, setFormDirty] = useState(false);
   const [editing, setEditing] = useState<RemorqueClient | null>(null);
@@ -373,11 +375,15 @@ function RemorquesClients({ clientId }: RemorquesClientsProps) {
       <Space style={{ marginBottom: 16 }}>
         <SearchAutoComplete
           style={{ width: 600 }}
-          onSearch={(q: string) => fetchRemorques(q)}
+          onSearch={(q: string) => {
+            setSearchQuery(q);
+            fetchRemorques(q);
+          }}
           searchUrl="/remorques/search"
           labelOf={(r) => r.immatriculation}
         />
         <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleAdd} />
+        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchRemorques(searchQuery)} />
       </Space>
       <Spin spinning={loading}>
         <MosaicTable thumbnail

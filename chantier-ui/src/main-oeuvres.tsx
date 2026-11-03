@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
 import { Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber, Popconfirm, message } from 'antd';
-import { PlusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusCircleOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
@@ -221,6 +221,7 @@ export default function MainOeuvres() {
                             }}
                         />
                         <Button type="primary" icon={<PlusCircleOutlined />} onClick={() => openModal()} />
+                        <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => fetchMainOeuvres(searchQuery)} />
                     </Space>
                 </Col>
             </Row>

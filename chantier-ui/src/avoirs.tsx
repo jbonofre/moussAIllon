@@ -27,6 +27,7 @@ import {
     MailOutlined,
     MinusCircleOutlined,
     PlusCircleOutlined,
+    ReloadOutlined,
     RollbackOutlined,
     StopOutlined,
 } from '@ant-design/icons';
@@ -830,6 +831,7 @@ export default function Avoirs() {
                     source={avoirs.flatMap((a) => [a.reference, a.client?.nom, a.motif])}
                 />
                 <Button type="primary" icon={<PlusCircleOutlined />} onClick={openCreate} />
+                <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={fetchAvoirs} />
             </Space>
 
             {/* Filtres */}

@@ -25,6 +25,7 @@ import {
   DeleteOutlined,
   PlusCircleOutlined,
   MinusCircleOutlined,
+  ReloadOutlined,
   SearchOutlined,
 } from "@ant-design/icons";
 import api from "./api.ts";
@@ -174,6 +175,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
   const [fournisseurs, setFournisseurs] = useState<Fournisseur[]>([]);
   const [articles, setArticles] = useState<ArticleItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [editing, setEditing] = useState<CommandeFournisseur | null>(null);
   const [lignes, setLignes] = useState<CommandeFournisseurLigne[]>([]);
@@ -316,6 +318,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
   };
 
   const handleSearch = async (value: string) => {
+    setSearchQuery(value);
     setLoading(true);
     try {
       const params: any = { q: value };
@@ -613,6 +616,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
             <Space>
               <SearchAutoComplete placeholder="Rechercher" enterButton={<SearchOutlined />} style={{ width: 600 }} onSearch={handleSearch} searchUrl="/commandes-fournisseur/search" labelOf={(c) => c.reference} />
               <Button type="primary" icon={<PlusCircleOutlined />} onClick={handleNew} />
+              <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={() => (searchQuery ? handleSearch(searchQuery) : fetchCommandes())} />
             </Space>
           </div>
         </Col>

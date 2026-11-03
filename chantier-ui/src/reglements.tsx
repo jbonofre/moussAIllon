@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
-import { Card, Checkbox, Col, DatePicker, Input, InputNumber, Row, Select, Space, Statistic, Tag, Typography, message } from 'antd';
+import { Button, Card, Checkbox, Col, DatePicker, Input, InputNumber, Row, Select, Space, Statistic, Tag, Typography, message } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { fetchWithAuth } from './api.ts';
 import { paginationConfig } from './pagination.ts';
@@ -178,6 +179,9 @@ export default function Reglements() {
                         onChange={(v) => setPointage(v ?? null)}
                         options={[{ value: 'oui', label: 'Retrouvés en banque' }, { value: 'non', label: 'Non retrouvés' }]}
                     />
+                </Col>
+                <Col>
+                    <Button title="Recharger" icon={<ReloadOutlined />} loading={loading} onClick={load} />
                 </Col>
             </Row>
             <MosaicTable
