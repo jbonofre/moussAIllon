@@ -26,7 +26,7 @@ export default function App() {
 
     if (user) {
         return(
-            <Workspace user={user.name} modules={user.modules} abonnementImpaye={user.abonnementImpaye} setUser={handleSetUser} />
+            <Workspace user={user.name} modules={user.modules} accesLimiteFacturation={user.accesLimiteFacturation} abonnementActif={user.abonnementActif} setUser={handleSetUser} />
         );
     } else {
         return(

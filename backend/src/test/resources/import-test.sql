@@ -6,7 +6,12 @@ INSERT INTO UserEntity (name, password, email, theme) VALUES ('technicien1', 'te
 INSERT INTO UserEntity_modules (UserEntity_name, modules) VALUES ('admin', 'VENTE'), ('admin', 'PARC'), ('admin', 'CATALOGUE'), ('admin', 'ATELIER'), ('admin', 'MARKETING'), ('admin', 'COMPTABILITE'), ('admin', 'PARAMETRAGE');
 
 -- Societe (ID=1 required by SocieteResource)
-INSERT INTO SocieteEntity (id, nom, siren, adresse, siret, email, telephone, capital, abonnementResilie) VALUES (1, 'MS Plaisance', '123456789', '10 quai du Port', '12345678900010', 'contact@msplaisance.com', '0400000000', 10000, false);
+INSERT INTO SocieteEntity (id, nom, siren, adresse, siret, email, telephone, capital, abonnementResilie, abonnementActivationDate, abonnementActivationMontant, abonnementProchainPaiementDate) VALUES (1, 'MS Plaisance', '123456789', '10 quai du Port', '12345678900010', 'contact@msplaisance.com', '0400000000', 10000, false, LOCALTIMESTAMP, 350.0, DATEADD(MONTH, 1, LOCALTIMESTAMP));
+-- Abonnement activé aujourd'hui : frais d'activation et mois en cours payés (ids élevés : séquences)
+INSERT INTO SocietePaiementEntity (id, type, mode, montant, montantActivation, date, periodeDebut, periodeFin, nombreUtilisateurs, nombreTechniciens, nombreClients, societe_id) VALUES (10000, 'MENSUEL', 'VIREMENT', 500.1, 350.0, LOCALTIMESTAMP, LOCALTIMESTAMP, DATEADD(MONTH, 1, LOCALTIMESTAMP), 2, 1, 1, 1);
+INSERT INTO SocietePaiementEntity_modules (SocietePaiementEntity_id, modules) VALUES (10000, 'VENTE'), (10000, 'PARC'), (10000, 'CATALOGUE'), (10000, 'ATELIER'), (10000, 'MARKETING'), (10000, 'COMPTABILITE'), (10000, 'PARAMETRAGE');
+INSERT INTO SocieteAbonnementMoisEntity (id, debut, fin, montant, nombreUtilisateurs, nombreTechniciens, nombreClients, payeLe, typePaiement, societe_id) VALUES (10000, LOCALTIMESTAMP, DATEADD(MONTH, 1, LOCALTIMESTAMP), 150.1, 2, 1, 1, LOCALTIMESTAMP, 'MENSUEL', 1);
+INSERT INTO SocieteAbonnementMoisEntity_modules (SocieteAbonnementMoisEntity_id, modules) VALUES (10000, 'VENTE'), (10000, 'PARC'), (10000, 'CATALOGUE'), (10000, 'ATELIER'), (10000, 'MARKETING'), (10000, 'COMPTABILITE'), (10000, 'PARAMETRAGE');
 
 -- Clients (use high IDs to avoid sequence conflicts)
 INSERT INTO ClientEntity (id, nom, type, email, telephone, adresse, consentement, evaluation, remise, date, motDePasse) VALUES (100, 'Jean Dupont', 'Particulier', 'jean.dupont@test.com', '0612345678', '1 rue du Port', true, 4.5, 0.0, '2025-01-15', 'client123');

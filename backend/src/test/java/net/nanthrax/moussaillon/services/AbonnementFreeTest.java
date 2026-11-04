@@ -7,6 +7,7 @@ import io.quarkus.test.junit.TestProfile;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Timestamp;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
@@ -20,6 +21,31 @@ public class AbonnementFreeTest {
         @Override
         public Map<String, String> getConfigOverrides() {
             return Map.of("abonnement.free", "true");
+        }
+    }
+
+    @Test
+    void testVersionFreeSansAbonnementActive() {
+        Timestamp[] origine = AbonnementBlocageTest.activation();
+        try {
+            AbonnementBlocageTest.activation(new Timestamp[] { null, null });
+
+            given()
+                .when().get("/societe")
+                .then()
+                .statusCode(200)
+                .body("abonnementActif", is(false))
+                .body("accesLimiteFacturation", is(false));
+
+            given()
+                .contentType("application/json")
+                .body("{\"name\":\"technicien1\",\"password\":\"tech123\"}")
+                .when().post("/users/authenticate")
+                .then()
+                .statusCode(200)
+                .body("accesLimiteFacturation", is(false));
+        } finally {
+            AbonnementBlocageTest.activation(origine);
         }
     }
 
@@ -49,7 +75,7 @@ public class AbonnementFreeTest {
             .when().post("/users/authenticate")
             .then()
             .statusCode(200)
-            .body("abonnementImpaye", is(false));
+            .body("accesLimiteFacturation", is(false));
 
         given()
             .contentType("application/json")

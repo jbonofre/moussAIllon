@@ -44,10 +44,10 @@ const mockedFetch = fetchWithAuth as jest.Mock;
 
 const reponse = (data: any) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) });
 
-const serveur = (modules: string[], accesBloqueImpaye: boolean) => {
+const serveur = (modules: string[], accesLimiteFacturation: boolean, abonnementActif = true) => {
     mockedFetch.mockReset();
     mockedFetch.mockImplementation((url: string) => {
-        if (url === '/societe') return reponse({ id: 1, accesBloqueImpaye });
+        if (url === '/societe') return reponse({ id: 1, accesLimiteFacturation, abonnementActif });
         return reponse({ name: 'marie', modules, theme: 'LIGHT' });
     });
 };
@@ -65,11 +65,21 @@ describe('Workspace - modules et abonnement', () => {
 
     it("limite l'accès à la facturation quand l'abonnement est impayé", async () => {
         serveur(['VENTE', 'PARAMETRAGE'], true);
-        render(<Workspace user="marie" modules={['VENTE', 'PARAMETRAGE']} abonnementImpaye setUser={() => {}} />);
+        render(<Workspace user="marie" modules={['VENTE', 'PARAMETRAGE']} accesLimiteFacturation setUser={() => {}} />);
 
         expect(await screen.findByText('Page Facturation')).toBeInTheDocument();
         expect(screen.getByText('Accès limité à la facturation')).toBeInTheDocument();
+        expect(screen.getByText(/impayée depuis 2 mois/)).toBeInTheDocument();
         expect(screen.queryByText('Vente')).not.toBeInTheDocument();
+        expect(screen.queryByText('Page Accueil')).not.toBeInTheDocument();
+    });
+
+    it("limite l'accès à la facturation tant que l'abonnement n'est pas activé", async () => {
+        serveur(['VENTE', 'PARAMETRAGE'], true, false);
+        render(<Workspace user="marie" modules={['VENTE', 'PARAMETRAGE']} setUser={() => {}} />);
+
+        expect(await screen.findByText(/L'abonnement n'est pas activé/)).toBeInTheDocument();
+        expect(screen.getByText('Page Facturation')).toBeInTheDocument();
         expect(screen.queryByText('Page Accueil')).not.toBeInTheDocument();
     });
 

@@ -41,8 +41,9 @@ public class UserResource {
         public Set<ModuleApplication> modules;
         public String email;
         public UserEntity.Theme theme;
-        // Échéance impayée depuis 2 mois ou plus : l'accès est limité à la facturation.
-        public boolean abonnementImpaye;
+        // Abonnement non activé, ou échéance impayée depuis 2 mois ou plus : l'accès est limité à la facturation.
+        public boolean accesLimiteFacturation;
+        public boolean abonnementActif;
     }
 
     public static class ChangePasswordRequest {
@@ -69,11 +70,12 @@ public class UserResource {
         if (PasswordUtil.needsRehash(entity.password)) {
             entity.password = PasswordUtil.hash(request.password);
         }
-        // Abonnement impayé : seuls les utilisateurs du module Paramétrage se connectent, pour régler la facturation.
-        boolean impaye = SocieteResource.accesBloqueParImpaye();
-        if (impaye && !entity.modules.contains(ModuleApplication.PARAMETRAGE)) {
+        // Abonnement non activé ou impayé : seuls les utilisateurs du module Paramétrage se connectent,
+        // pour activer l'abonnement ou régler les échéances en retard.
+        String limitation = SocieteResource.motifLimitationFacturation();
+        if (limitation != null && !entity.modules.contains(ModuleApplication.PARAMETRAGE)) {
             return Response.status(Response.Status.FORBIDDEN)
-                .entity("Accès bloqué : l'abonnement est impayé depuis 2 mois ou plus. Contactez un administrateur.").build();
+                .entity("Accès bloqué : " + limitation + ". Contactez un administrateur.").build();
         }
         AuthResponse auth = new AuthResponse();
         Set<String> groupes = entity.modules.stream().map(Enum::name).collect(Collectors.toCollection(HashSet::new));
@@ -83,7 +85,8 @@ public class UserResource {
         auth.modules = entity.modules;
         auth.email = entity.email;
         auth.theme = entity.theme;
-        auth.abonnementImpaye = impaye;
+        auth.accesLimiteFacturation = limitation != null;
+        auth.abonnementActif = SocieteResource.abonnementActif();
         return Response.ok(auth).build();
     }
 

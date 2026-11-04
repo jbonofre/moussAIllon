@@ -20,7 +20,7 @@ export default function Login(props) {
         })
         .then(async (response) => {
             if (!response.ok) {
-                // Accès bloqué (abonnement résilié ou impayé) : le serveur en donne la raison
+                // Accès bloqué (abonnement résilié, non activé ou impayé) : le serveur en donne la raison
                 const raison = response.status === 403 ? await response.text() : '';
                 throw new Error(raison || 'Erreur (code ' + response.status + ')');
             }
@@ -28,7 +28,13 @@ export default function Login(props) {
         })
         .then((data) => {
             localStorage.setItem('moussaillon-token', data.token);
-            const user = { name: data.name, modules: data.modules || [], theme: data.theme, abonnementImpaye: !!data.abonnementImpaye };
+            const user = {
+                name: data.name,
+                modules: data.modules || [],
+                theme: data.theme,
+                accesLimiteFacturation: !!data.accesLimiteFacturation,
+                abonnementActif: data.abonnementActif !== false,
+            };
             localStorage.setItem('moussaillon-user', JSON.stringify(user));
             props.setUser(user);
         })

@@ -153,6 +153,7 @@ public class SocieteResourceTest {
             .when().get("/societe")
             .then()
             .statusCode(200)
+            .body("abonnementActif", is(true))
             .body("abonnementActivationDate", notNullValue())
             .body("abonnementActivationMontant", is(350.0f))
             .body("abonnementProchainPaiementDate", notNullValue())

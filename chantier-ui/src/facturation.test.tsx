@@ -16,13 +16,27 @@ jest.mock('jspdf', () => ({ jsPDF: jest.fn() }));
 const mockedFetch = fetchWithAuth as jest.Mock;
 
 const reponse = (data: any, ok = true) =>
-    Promise.resolve({ ok, status: ok ? 200 : 400, json: () => Promise.resolve(data) });
+    Promise.resolve({ ok, status: ok ? 200 : 400, json: () => Promise.resolve(data), text: () => Promise.resolve('') });
+
+const dans = (jours: number) => new Date(Date.now() + jours * 86400000).toISOString().slice(0, 19);
+
+// Mois payés non terminés : le mois en cours et le suivant (paiement d'avance), avec Vente et Parc
+const moisPaye = (debut: number, fin: number) => ({
+    id: debut + 100, debut: dans(debut), fin: dans(fin), montant: 106.5, statut: 'PAYE', typePaiement: 'MENSUEL',
+    payeLe: dans(-10), nombreUtilisateurs: 3, nombreTechniciens: 2, nombreClients: 15, modules: ['VENTE', 'PARC', 'PARAMETRAGE'],
+});
 
 // 3 utilisateurs × 10 € + 2 techniciens × 10 € + 15 clients du portail × 0,10 € + Vente 35 € + Parc 20 € = 106,50 € par mois
 const societe = {
     id: 1, nom: 'MS Plaisance', modules: ['VENTE', 'PARC', 'PARAMETRAGE'], abonnementNombreUtilisateurs: 3,
-    abonnementNombreTechniciens: 2, abonnementNombreClients: 15,
+    abonnementNombreTechniciens: 2, abonnementNombreClients: 15, abonnementActivationMontant: 350,
+    abonnementActif: true, abonnementAJour: true, abonnementProchainPaiementDate: dans(50),
+    abonnementMois: [ moisPaye(20, 50), moisPaye(-10, 20) ],
     abonnementProchainPaiementMontant: 106.5, abonnementMontantAnnuel: 1171.5, abonnementResilie: false, paiements: [],
+};
+const nonActive = {
+    ...societe, abonnementActif: false, abonnementAJour: false, abonnementActivationDate: null,
+    abonnementProchainPaiementDate: null, abonnementMois: [],
 };
 const tarifs = {
     prixUtilisateur: 10, prixTechnicien: 10, prixClient: 0.1, moisFacturesAnnuel: 11,
@@ -57,20 +71,81 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
         expect(screen.getByLabelText(/Paramétrage — inclus/)).toBeDisabled();
     });
 
-    it('recalcule le prix en cochant un module puis enregistre les modules souscrits', async () => {
+    it('recalcule le prix en cochant un module puis enregistre les modules avant l\'activation', async () => {
+        mockedFetch.mockImplementation((url: string, options?: RequestInit) => {
+            if (url === './societe/tarifs') return reponse(tarifs);
+            if (url === './societe/modules') {
+                const modules = JSON.parse(options!.body as string);
+                return reponse({ ...nonActive, modules: [ ...modules, 'PARAMETRAGE' ], abonnementProchainPaiementMontant: 131.5, abonnementMontantAnnuel: 1446.5 });
+            }
+            return reponse(nonActive);
+        });
         render(<Facturation />);
 
-        fireEvent.click(await screen.findByLabelText(/Catalogue/));
+        // Le premier paiement comprend les frais d'activation : 106,50 € + 350 €
+        expect(await screen.findByRole('button', { name: /Activer au mois — 456,50/ })).toBeEnabled();
+        expect(screen.getByRole('button', { name: /Activer à l'année — 1\s521,50/ })).toBeEnabled();
+        expect(screen.getByText(/Non activé/)).toBeInTheDocument();
+
+        fireEvent.click(screen.getByLabelText(/Catalogue/));
 
         expect(screen.getByText(/131,50/, { selector: 'strong' })).toBeInTheDocument();
         // Le paiement attend l'enregistrement des modules
-        expect(screen.getByRole('button', { name: /Payer ce mois/ })).toBeDisabled();
+        expect(screen.getByRole('button', { name: /Activer au mois/ })).toBeDisabled();
 
         fireEvent.click(screen.getByRole('button', { name: 'Enregistrer les modules' }));
 
         await waitFor(() => expect(appel('./societe/modules', 'PUT')).toBeDefined());
         expect(JSON.parse(appel('./societe/modules', 'PUT')[1].body)).toEqual(expect.arrayContaining(['VENTE', 'PARC', 'CATALOGUE']));
-        expect(await screen.findByRole('button', { name: /Payer ce mois — 131,50/ })).toBeEnabled();
+        expect(await screen.findByRole('button', { name: /Activer au mois — 481,50/ })).toBeEnabled();
+    });
+
+    it("fait payer tout de suite un module ajouté, pour chaque mois déjà payé", async () => {
+        mockedFetch.mockImplementation((url: string) => {
+            if (url === './societe/tarifs') return reponse({ ...tarifs, paiementEnLigne: { STRIPE: true, PAYPLUG: false } });
+            if (url === './societe/paiement/en-ligne') return reponse({ url: 'https://checkout.stripe.com/modules' });
+            return reponse(societe);
+        });
+        const fenetre: any = { location: { href: '' } };
+        const ouvrir = jest.spyOn(window, 'open').mockReturnValue(fenetre);
+        try {
+            render(<Facturation />);
+
+            fireEvent.click(await screen.findByLabelText(/Catalogue/));
+
+            // Catalogue : 25 € pour le mois en cours et 25 € pour le mois suivant déjà payé
+            expect(screen.queryByRole('button', { name: 'Enregistrer les modules' })).not.toBeInTheDocument();
+            fireEvent.click(screen.getByRole('button', { name: /Payer et activer les modules — 50,00/ }));
+            expect(screen.getByText(/Ajout de modules — 50,00/)).toBeInTheDocument();
+
+            fireEvent.mouseDown(screen.getByRole('combobox'));
+            fireEvent.click(await screen.findByText('Stripe', { selector: '.ant-select-item-option-content' }));
+            fireEvent.click(screen.getByRole('button', { name: /Payer via Stripe — 50,00/ }));
+
+            await waitFor(() => expect(fenetre.location.href).toBe('https://checkout.stripe.com/modules'));
+            expect(JSON.parse(appel('./societe/paiement/en-ligne', 'POST')[1].body))
+                .toEqual({ type: 'MODULES', mode: 'STRIPE', modules: ['VENTE', 'PARC', 'PARAMETRAGE', 'CATALOGUE'] });
+            expect(appel('./societe/modules', 'PUT')).toBeUndefined();
+        } finally {
+            ouvrir.mockRestore();
+        }
+    });
+
+    it("refuse l'ajout de modules tant qu'une échéance est en retard, et suit les mois", async () => {
+        const enRetard = {
+            ...societe, abonnementAJour: false, abonnementProchainPaiementDate: dans(-5),
+            abonnementMois: [ { debut: dans(-5), fin: dans(25), montant: 106.5, statut: 'A_PAYER', modules: ['VENTE', 'PARC', 'PARAMETRAGE'] }, moisPaye(-35, -5) ],
+        };
+        mockedFetch.mockImplementation((url: string) => reponse(url === './societe/tarifs' ? tarifs : enRetard));
+        render(<Facturation />);
+
+        expect(await screen.findByText('À payer')).toBeInTheDocument();
+        expect(screen.getByText(/Payé le/)).toBeInTheDocument();
+        expect(screen.getByText('En cours')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByLabelText(/Catalogue/));
+        expect(screen.getByText("Réglez d'abord les échéances en retard pour ajouter des modules.")).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'Enregistrer les modules' })).toBeDisabled();
     });
 
     it("affiche l'échéance impayée et la version Free, et en informe l'espace de travail", async () => {

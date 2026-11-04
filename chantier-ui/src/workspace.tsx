@@ -133,8 +133,8 @@ function SideMenu(props) {
         localStorage.setItem('siderWidth', String(siderWidth));
     }, [siderWidth]);
 
-    // Abonnement impayé : seule la facturation reste accessible
-    const items = props.abonnementImpaye
+    // Abonnement non activé ou impayé : seule la facturation reste accessible
+    const items = props.accesLimite
         ? [ { key: '/facturation', label: 'Facturation', icon: <DollarOutlined/>, module: 'PARAMETRAGE' } ]
         : MENU_ITEMS;
     const menuItems = items
@@ -432,17 +432,21 @@ export default function Workspace(props) {
     const [ modules, setModules ] = useState<string[]>(props.modules || []);
     const [ currentPage, setCurrentPage ] = useState('/dashboard');
     const [ pageState, setPageState ] = useState<any>(null);
-    // Échéance impayée depuis 2 mois ou plus : l'accès est limité à la facturation
-    const [ abonnementImpaye, setAbonnementImpaye ] = useState<boolean>(!!props.abonnementImpaye);
+    // Abonnement non activé, ou échéance impayée depuis 2 mois ou plus : l'accès est limité à la facturation
+    const [ accesLimite, setAccesLimite ] = useState<boolean>(!!props.accesLimiteFacturation);
+    const [ abonnementActif, setAbonnementActif ] = useState<boolean>(props.abonnementActif !== false);
 
     const navigate = useCallback((page: string, state?: any) => {
         setPageState(state || null);
         setCurrentPage(page);
     }, []);
 
-    const majAbonnement = useCallback((societe: any) => setAbonnementImpaye(!!societe.accesBloqueImpaye), []);
+    const majAbonnement = useCallback((societe: any) => {
+        setAccesLimite(!!societe.accesLimiteFacturation);
+        setAbonnementActif(!!societe.abonnementActif);
+    }, []);
 
-    // L'impayé a pu survenir (ou être réglé) depuis la connexion
+    // L'abonnement a pu être activé, l'impayé survenir ou être réglé depuis la connexion
     useEffect(() => {
         fetchWithAuth('/societe')
             .then((response) => (response.ok ? response.json() : null))
@@ -457,10 +461,10 @@ export default function Workspace(props) {
     }, [ majAbonnement ]);
 
     useEffect(() => {
-        if (abonnementImpaye) {
+        if (accesLimite) {
             navigate('/facturation');
         }
-    }, [ abonnementImpaye, navigate ]);
+    }, [ accesLimite, navigate ]);
 
     // Retour du consentement bancaire Powens : on revient sur la page Connecteurs avec l'identifiant de connexion
     useEffect(() => {
@@ -501,9 +505,10 @@ export default function Workspace(props) {
 
     const renderPage = () => {
         const accueil = <Dashboard user={props.user} />;
-        if (abonnementImpaye) {
+        if (accesLimite) {
             if (!hasModule(modules, 'PARAMETRAGE')) {
-                return <Result status="403" title="Accès bloqué" subTitle="L'abonnement est impayé depuis 2 mois ou plus. Contactez un administrateur." />;
+                const raison = abonnementActif ? "L'abonnement est impayé depuis 2 mois ou plus." : "L'abonnement n'est pas activé.";
+                return <Result status="403" title="Accès bloqué" subTitle={`${raison} Contactez un administrateur.`} />;
             }
             return (
                 <>
@@ -512,7 +517,9 @@ export default function Workspace(props) {
                         showIcon
                         style={{ marginBottom: 16 }}
                         message="Accès limité à la facturation"
-                        description="Une échéance de l'abonnement est impayée depuis 2 mois ou plus. Réglez les échéances en retard pour rétablir l'accès à l'application."
+                        description={abonnementActif
+                            ? "Une échéance de l'abonnement est impayée depuis 2 mois ou plus. Réglez les échéances en retard pour rétablir l'accès à l'application."
+                            : "L'abonnement n'est pas activé. Activez-le en payant les frais d'activation avec le premier mois ou la première année pour accéder à l'application."}
                     />
                     <Facturation onSocieteChange={majAbonnement} />
                 </>
@@ -595,7 +602,7 @@ export default function Workspace(props) {
             <Layout style={{ minHeight: "100vh", background: isDarkTheme ? '#101010' : '#f0f2f5' }}>
               <Header user={props.user} setUser={props.setUser} theme={theme} setTheme={setTheme} />
               <Layout hasSider={true}>
-                <SideMenu user={props.user} modules={modules} abonnementImpaye={abonnementImpaye} theme={theme} currentPage={currentPage} onNavigate={navigate} />
+                <SideMenu user={props.user} modules={modules} accesLimite={accesLimite} theme={theme} currentPage={currentPage} onNavigate={navigate} />
                 <Layout.Content style={{
                     margin: "20px",
                     color: isDarkTheme ? '#f5f5f5' : undefined,
@@ -615,7 +622,7 @@ export default function Workspace(props) {
                   {VERSION_LABEL}
               </Layout.Footer>
             </Layout>
-            {!abonnementImpaye && <ChatbotWidget currentPage={currentPage} />}
+            {!accesLimite && <ChatbotWidget currentPage={currentPage} />}
             </NavigationContext.Provider>
         </ConfigProvider>
     );

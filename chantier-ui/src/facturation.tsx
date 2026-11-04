@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import MosaicTable from "./MosaicTable.tsx";
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Card, Checkbox, Descriptions, Divider, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
+import { Alert, Button, Card, Checkbox, Descriptions, Divider, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
 import { CreditCardOutlined, DownloadOutlined, LinkOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { jsPDF } from 'jspdf';
@@ -13,7 +13,21 @@ const formatMontant = (value: any) => (value != null
     ? new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(value)
     : '—');
 
-type PaiementType = 'MENSUEL' | 'ANNUEL';
+const arrondi = (montant: number) => Math.round(montant * 100) / 100;
+
+const libellesModules = (modules: string[] = []) => trierModules(modules).map((m) => MODULE_LABEL[m] || m).join(', ');
+
+// Réponse en erreur : le serveur en donne la raison quand il le peut
+const verifier = async (r: Response) => {
+    if (!r.ok) {
+        const raison = await r.text().catch(() => '');
+        throw new Error(raison || 'Erreur ' + r.status);
+    }
+    return r.json();
+};
+
+// MODULES : modules ajoutés en cours de période, payés tout de suite pour les mois déjà réglés
+type PaiementType = 'MENSUEL' | 'ANNUEL' | 'MODULES';
 type PaiementMode = 'VIREMENT' | 'CARTE' | 'STRIPE' | 'PAYPLUG';
 
 const MODE_LABEL: Record<string, string> = {
@@ -23,15 +37,15 @@ const MODE_LABEL: Record<string, string> = {
     PAYPLUG: 'PayPlug',
 };
 
-const TYPE_LABEL: Record<string, string> = { MENSUEL: 'Mensuel', ANNUEL: 'Annuel' };
-const TYPE_COLOR: Record<string, string> = { MENSUEL: 'blue', ANNUEL: 'gold' };
+const TYPE_LABEL: Record<string, string> = { MENSUEL: 'Mensuel', ANNUEL: 'Annuel', MODULES: 'Ajout de modules' };
+const TYPE_COLOR: Record<string, string> = { MENSUEL: 'blue', ANNUEL: 'gold', MODULES: 'purple' };
 
 function downloadFacturePdf(paiement: any, societe: any) {
-    const dateDebut = dayjs(paiement.date).format('DD/MM/YYYY');
-    const dateFin = (paiement.type === 'ANNUEL'
-        ? dayjs(paiement.date).add(12, 'month')
-        : dayjs(paiement.date).add(1, 'month')
-    ).format('DD/MM/YYYY');
+    // Période couverte enregistrée avec le paiement ; à défaut (anciens paiements), comptée depuis sa date
+    const dateDebut = formatDate(paiement.periodeDebut ?? paiement.date);
+    const dateFin = paiement.periodeFin
+        ? formatDate(paiement.periodeFin)
+        : dayjs(paiement.date).add(paiement.type === 'ANNUEL' ? 12 : 1, 'month').format('DD/MM/YYYY');
     const nomSociete = societe?.nom ?? 'moussAIllon';
     const montantStr = formatMontant(paiement.montant);
 
@@ -79,6 +93,12 @@ function downloadFacturePdf(paiement: any, societe: any) {
     y += 2;
     row('Période couverte', dateDebut + ' au ' + dateFin);
     y += 2;
+    if (paiement.montantActivation) {
+        row("Frais d'activation", formatMontant(paiement.montantActivation));
+        y += 2;
+        row('Abonnement', formatMontant(arrondi(paiement.montant - paiement.montantActivation)));
+        y += 2;
+    }
     if (paiement.nombreUtilisateurs != null) {
         row('Utilisateurs', String(paiement.nombreUtilisateurs));
         y += 2;
@@ -88,7 +108,7 @@ function downloadFacturePdf(paiement: any, societe: any) {
             row('Clients (accès au portail)', String(paiement.nombreClients ?? 0));
             y += 2;
         }
-        row('Modules', trierModules(paiement.modules).map((m) => MODULE_LABEL[m] || m).join(', '));
+        row(paiement.type === 'MODULES' ? 'Modules ajoutés' : 'Modules', libellesModules(paiement.modules));
         y += 2;
     }
     row('Mode de paiement', MODE_LABEL[paiement.mode] ?? paiement.mode);
@@ -131,7 +151,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
 
     const fetchSociete = useCallback(() => {
         fetchWithAuth('./societe')
-            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(verifier)
             .then((data) => {
                 setSociete(data);
                 setModulesSelectionnes(data.modules || []);
@@ -141,7 +161,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
 
     useEffect(() => { fetchSociete(); }, [fetchSociete]);
 
-    // Informe l'espace de travail d'un blocage pour impayé levé (ou survenu), par exemple après un paiement
+    // Informe l'espace de travail d'une limitation de l'accès levée (ou survenue), par exemple après l'activation
     const { onSocieteChange } = props;
     useEffect(() => {
         if (societe) onSocieteChange?.(societe);
@@ -200,13 +220,14 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
     const isExternalMode = (mode: PaiementMode) => mode === 'STRIPE' || mode === 'PAYPLUG';
 
     const getPaymentLink = (type: PaiementType, mode: PaiementMode): string | undefined => {
-        if (!societe) return undefined;
+        // Les liens fixes ont le montant d'une échéance : pas celui d'un ajout de modules
+        if (!societe || type === 'MODULES') return undefined;
         if (mode === 'STRIPE') return type === 'ANNUEL' ? societe.stripePaymentLinkAnnuel : societe.stripePaymentLinkMensuel;
         if (mode === 'PAYPLUG') return type === 'ANNUEL' ? societe.payplugPaymentLinkAnnuel : societe.payplugPaymentLinkMensuel;
         return undefined;
     };
 
-    // Paiement en ligne au montant de l'échéance (clé API de l'éditeur), ou à défaut par le lien fixe de la société
+    // Paiement en ligne au montant à payer (clé API de l'éditeur), ou à défaut par le lien fixe de la société
     const paiementEnLigneDisponible = (type: PaiementType, mode: PaiementMode): boolean =>
         !!tarifs?.paiementEnLigne?.[mode] || !!getPaymentLink(type, mode);
 
@@ -217,9 +238,9 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
         setOuvertureEnLigne(true);
         fetchWithAuth('./societe/paiement/en-ligne', {
             method: 'POST',
-            body: JSON.stringify({ type: paiementType, mode: paiementMode }),
+            body: JSON.stringify({ type: paiementType, mode: paiementMode, ...modulesDuPaiement() }),
         })
-            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(verifier)
             .then(({ url }) => {
                 if (fenetre) {
                     fenetre.location.href = url;
@@ -264,13 +285,14 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
         setSubmitting(true);
         fetchWithAuth('./societe/paiement', {
             method: 'POST',
-            body: JSON.stringify({ type: paiementType, mode: paiementMode, signature }),
+            body: JSON.stringify({ type: paiementType, mode: paiementMode, signature, ...modulesDuPaiement() }),
         })
-            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(verifier)
             .then((data) => {
                 setSociete(data);
+                setModulesSelectionnes(data.modules || []);
                 setSignatureModalOpen(false);
-                message.success('Paiement enregistré avec succès');
+                message.success(paiementType === 'MODULES' ? 'Paiement enregistré : modules activés' : 'Paiement enregistré avec succès');
             })
             .catch((e) => message.error('Erreur : ' + e.message))
             .finally(() => setSubmitting(false));
@@ -282,7 +304,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
             method: 'PUT',
             body: JSON.stringify(modulesSelectionnes),
         })
-            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(verifier)
             .then((data) => {
                 setSociete(data);
                 setModulesSelectionnes(data.modules || []);
@@ -294,7 +316,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
 
     const handleResilier = () => {
         fetchWithAuth('./societe/resilier', { method: 'POST' })
-            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(verifier)
             .then((data) => {
                 setSociete(data);
                 message.success('Abonnement résilié');
@@ -304,7 +326,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
 
     const handleReactiver = () => {
         fetchWithAuth('./societe/reactiver', { method: 'POST' })
-            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(verifier)
             .then((data) => {
                 setSociete(data);
                 message.success('Abonnement réactivé');
@@ -327,12 +349,12 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
         },
     ];
 
-    const montantMensuel = societe?.abonnementProchainPaiementMontant;
-    const montantAnnuel = societe?.abonnementMontantAnnuel;
-    const montantPaiement = paiementType === 'ANNUEL' ? montantAnnuel : montantMensuel;
-    const labelPaiement = paiementType === 'ANNUEL'
-        ? `Paiement annuel — ${formatMontant(montantAnnuel)} (1 mois offert)`
-        : `Paiement mensuel — ${formatMontant(montantMensuel)}`;
+    // Le premier paiement (mois ou année) active l'abonnement et comprend les frais d'activation
+    const actif = !!societe?.abonnementActif;
+    const fraisActivation = societe && !actif ? (societe.abonnementActivationMontant ?? 0) : 0;
+    const montantMensuel = societe ? arrondi(societe.abonnementProchainPaiementMontant + fraisActivation) : undefined;
+    const montantAnnuel = societe ? arrondi(societe.abonnementMontantAnnuel + fraisActivation) : undefined;
+    const activationComprise = fraisActivation > 0 ? `, dont ${formatMontant(fraisActivation)} d'activation` : '';
 
     // Simulation du prix mensuel selon les modules cochés : utilisateurs, techniciens et clients ayant accès
     // au portail, chacun à son prix, plus le prix des modules.
@@ -348,6 +370,25 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
     const moisFacturesAnnuel = tarifs?.moisFacturesAnnuel ?? 11;
     const modulesModifies = !!societe && trierModules(societe.modules).join() !== trierModules(modulesSelectionnes).join();
     const modulesRetires = trierModules((societe?.modules || []).filter((m: string) => !modulesSelectionnes.includes(m)));
+    const modulesAjoutes = trierModules(modulesSelectionnes.filter((m) => !(societe?.modules || []).includes(m)));
+
+    // Une fois l'abonnement activé, un module ajouté est payé tout de suite : le prix d'un mois entier pour
+    // chaque mois payé non terminé (mois en cours compris) qui ne le comprend pas déjà.
+    const moisPayesRestants = (societe?.abonnementMois || [])
+        .filter((m: any) => m.statut === 'PAYE' && dayjs(m.fin).isAfter(dayjs()));
+    const montantAjout = arrondi(moisPayesRestants.reduce((total: number, m: any) => total
+        + modulesAjoutes.filter((a) => !(m.modules || []).includes(a)).reduce((t, a) => t + prixModule(a), 0), 0));
+    const paiementAjoutRequis = actif && !societe?.versionFree && modulesAjoutes.length > 0;
+    const ajoutEnRetard = paiementAjoutRequis && !societe?.abonnementAJour;
+    const ajoutAPayer = paiementAjoutRequis && !ajoutEnRetard && montantAjout > 0;
+    const modulesDuPaiement = () => (paiementType === 'MODULES' ? { modules: modulesSelectionnes } : {});
+
+    const montantPaiement = paiementType === 'MODULES' ? montantAjout : paiementType === 'ANNUEL' ? montantAnnuel : montantMensuel;
+    const labelPaiement = paiementType === 'MODULES'
+        ? `Ajout de modules — ${formatMontant(montantAjout)}`
+        : paiementType === 'ANNUEL'
+            ? `Paiement annuel — ${formatMontant(montantAnnuel)} (1 mois offert${activationComprise})`
+            : `Paiement mensuel — ${formatMontant(montantMensuel)}${fraisActivation > 0 ? ` (${activationComprise.slice(2)})` : ''}`;
 
     const paiementEnLigne = !!paiementType && paiementEnLigneDisponible(paiementType, paiementMode);
 
@@ -361,8 +402,20 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
         {
             title: 'Type',
             dataIndex: 'type',
-            width: 100,
-            render: (v: string) => <Tag color={TYPE_COLOR[v] ?? 'default'}>{TYPE_LABEL[v] ?? v}</Tag>,
+            width: 160,
+            render: (v: string, record: any) => (
+                <Space size={4} wrap>
+                    <Tag color={TYPE_COLOR[v] ?? 'default'}>{TYPE_LABEL[v] ?? v}</Tag>
+                    {record.montantActivation ? <Tag color="cyan">Activation</Tag> : null}
+                </Space>
+            ),
+        },
+        {
+            title: 'Période',
+            key: 'periode',
+            render: (_: unknown, record: any) => (record.periodeDebut
+                ? `${formatDate(record.periodeDebut)} au ${formatDate(record.periodeFin)}`
+                : '—'),
         },
         {
             title: 'Mode',
@@ -392,6 +445,43 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
         },
     ];
 
+    const STATUT_MOIS: Record<string, { label: string; color: string }> = {
+        PAYE: { label: 'Payé', color: 'green' },
+        A_PAYER: { label: 'À payer', color: 'orange' },
+        IMPAYE: { label: 'Impayé', color: 'red' },
+    };
+
+    const moisColumns = [
+        {
+            title: 'Mois',
+            key: 'mois',
+            render: (_: unknown, record: any) => (
+                <Space size={4} wrap>
+                    {`${formatDate(record.debut)} au ${formatDate(record.fin)}`}
+                    {!dayjs(record.debut).isAfter(dayjs()) && dayjs(record.fin).isAfter(dayjs()) && <Tag color="blue">En cours</Tag>}
+                </Space>
+            ),
+        },
+        { title: 'Utilisateurs', dataIndex: 'nombreUtilisateurs', width: 110, render: (v: any) => v ?? '—' },
+        { title: 'Techniciens', dataIndex: 'nombreTechniciens', width: 110, render: (v: any) => v ?? '—' },
+        { title: 'Clients (portail)', dataIndex: 'nombreClients', width: 130, render: (v: any) => v ?? '—' },
+        { title: 'Modules', dataIndex: 'modules', render: (v: string[]) => libellesModules((v || []).filter((m) => m !== MODULE_PARAMETRAGE)) },
+        { title: 'Montant', dataIndex: 'montant', align: 'right' as const, width: 120, render: (v: number) => formatMontant(v) },
+        {
+            title: 'Statut',
+            dataIndex: 'statut',
+            width: 220,
+            render: (v: string, record: any) => (
+                <Space size={4} wrap>
+                    <Tag color={STATUT_MOIS[v]?.color ?? 'default'}>
+                        {STATUT_MOIS[v]?.label ?? v}{v === 'PAYE' && record.payeLe ? ` le ${formatDate(record.payeLe)}` : ''}
+                    </Tag>
+                    {v === 'PAYE' && record.typePaiement && <Tag color={TYPE_COLOR[record.typePaiement]}>{TYPE_LABEL[record.typePaiement]}</Tag>}
+                </Space>
+            ),
+        },
+    ];
+
     if (!societe) return <Spin />;
 
     return (
@@ -399,15 +489,16 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
             <Card title={<Space><CreditCardOutlined /> Facturation</Space>}>
                 <Descriptions title="Abonnement" column={1} bordered size="small">
                     <Descriptions.Item label="Date d'activation">
-                        {formatDate(societe.abonnementActivationDate)}
+                        {actif ? formatDate(societe.abonnementActivationDate) : 'Au premier paiement'}
                     </Descriptions.Item>
                     <Descriptions.Item label="Montant d'activation">
                         {formatMontant(societe.abonnementActivationMontant)}
+                        {!actif && ' — payé avec le premier mois ou la première année'}
                     </Descriptions.Item>
                     <Descriptions.Item label="Prochaine échéance">
-                        {formatDate(societe.abonnementProchainPaiementDate)}
+                        {actif ? formatDate(societe.abonnementProchainPaiementDate) : '—'}
                     </Descriptions.Item>
-                    <Descriptions.Item label="Montant à payer">
+                    <Descriptions.Item label="Montant mensuel">
                         {formatMontant(societe.abonnementProchainPaiementMontant)}
                     </Descriptions.Item>
                     {effectifs.map((e) => (
@@ -419,7 +510,12 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                         <Space direction="vertical" size={4}>
                             {societe.abonnementResilie
                                 ? <Tag color="red">Résilié le {formatDate(societe.abonnementResiliationDate)}</Tag>
-                                : <Tag color="green">Actif</Tag>}
+                                : actif
+                                    ? <Tag color="green">Actif</Tag>
+                                    : <Tag color="orange">Non activé : accès limité à la facturation jusqu'au premier paiement</Tag>}
+                            {actif && societe.abonnementAJour && (
+                                <Tag color="green">Payé jusqu'au {formatDate(societe.abonnementProchainPaiementDate)}</Tag>
+                            )}
                             {societe.abonnementResilie && societe.abonnementBlocageDate && (societe.accesBloque
                                 ? <Tag color="volcano">Accès bloqué depuis le {formatDate(societe.abonnementBlocageDate)}</Tag>
                                 : <Tag color="orange">Accès bloqué à partir du {formatDate(societe.abonnementBlocageDate)} (fin de la période de rétractation de 14 jours)</Tag>)}
@@ -461,24 +557,48 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                     </Descriptions.Item>
                 </Descriptions>
 
+                {ajoutEnRetard && (
+                    <Alert
+                        type="warning"
+                        showIcon
+                        style={{ marginTop: 16 }}
+                        message="Réglez d'abord les échéances en retard pour ajouter des modules."
+                    />
+                )}
+                {ajoutAPayer && (
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginTop: 16 }}
+                        message={`Les modules ajoutés (${libellesModules(modulesAjoutes)}) sont payés tout de suite : ${formatMontant(montantAjout)}`}
+                        description={`Prix d'un mois entier pour le mois en cours et chaque mois suivant déjà payé (${moisPayesRestants.length} mois). Ils sont activés dès le paiement.`}
+                    />
+                )}
+
                 <Space style={{ marginTop: 16 }}>
-                    <Popconfirm
-                        title="Retirer des modules ?"
-                        description={`Les utilisateurs perdront l'accès aux modules retirés : ${modulesRetires.map((m) => MODULE_LABEL[m] || m).join(', ')}.`}
-                        disabled={modulesRetires.length === 0}
-                        onConfirm={handleEnregistrerModules}
-                        okText="Confirmer"
-                        cancelText="Non"
-                    >
-                        <Button
-                            type="primary"
-                            disabled={!modulesModifies}
-                            loading={savingModules}
-                            onClick={modulesRetires.length === 0 ? handleEnregistrerModules : undefined}
-                        >
-                            Enregistrer les modules
+                    {ajoutAPayer ? (
+                        <Button type="primary" icon={<CreditCardOutlined />} onClick={() => openPaiementModal('MODULES')}>
+                            Payer et activer les modules — {formatMontant(montantAjout)}
                         </Button>
-                    </Popconfirm>
+                    ) : (
+                        <Popconfirm
+                            title="Retirer des modules ?"
+                            description={`Les utilisateurs perdront l'accès aux modules retirés : ${libellesModules(modulesRetires)}.`}
+                            disabled={modulesRetires.length === 0}
+                            onConfirm={handleEnregistrerModules}
+                            okText="Confirmer"
+                            cancelText="Non"
+                        >
+                            <Button
+                                type="primary"
+                                disabled={!modulesModifies || ajoutEnRetard}
+                                loading={savingModules}
+                                onClick={modulesRetires.length === 0 ? handleEnregistrerModules : undefined}
+                            >
+                                Enregistrer les modules
+                            </Button>
+                        </Popconfirm>
+                    )}
                     {modulesModifies && (
                         <Button onClick={() => setModulesSelectionnes(societe.modules || [])}>
                             Annuler les modifications
@@ -495,14 +615,14 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                         onClick={() => openPaiementModal('MENSUEL')}
                         disabled={societe.abonnementResilie || modulesModifies}
                     >
-                        Payer ce mois — {formatMontant(montantMensuel)}
+                        {actif ? 'Payer ce mois' : 'Activer au mois'} — {formatMontant(montantMensuel)}
                     </Button>
                     <Button
                         icon={<CreditCardOutlined />}
                         onClick={() => openPaiementModal('ANNUEL')}
                         disabled={societe.abonnementResilie || modulesModifies}
                     >
-                        Payer l'année — {formatMontant(montantAnnuel)} (1 mois offert)
+                        {actif ? "Payer l'année" : "Activer à l'année"} — {formatMontant(montantAnnuel)} (1 mois offert)
                     </Button>
                     {societe.abonnementResilie && (
                         <Button icon={<ReloadOutlined />} onClick={handleReactiver}>
@@ -524,6 +644,25 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                     )}
                 </Space>
 
+                {!actif && (
+                    <div style={{ marginTop: 8, color: '#8c8c8c' }}>
+                        Le premier paiement comprend les frais d'activation ({formatMontant(fraisActivation)}) :
+                        l'abonnement démarre à sa date, et les mois sont ensuite comptés à partir de celle-ci.
+                    </div>
+                )}
+
+                <Divider>Suivi mois par mois</Divider>
+
+                <MosaicTable
+                    rowKey={(record: any) => `${record.id ?? 'a-payer'}-${record.debut}`}
+                    dataSource={societe.abonnementMois ?? []}
+                    columns={moisColumns}
+                    pagination={{ pageSize: 12, hideOnSinglePage: true }}
+                    bordered
+                    size="small"
+                    locale={{ emptyText: "Aucun mois d'abonnement : l'abonnement n'est pas activé" }}
+                />
+
                 <Divider>Historique des paiements</Divider>
 
                 <MosaicTable
@@ -544,6 +683,12 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                 }}>
                     <div style={{ background: '#fff', borderRadius: 8, padding: 24, width: 540, boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }}>
                         <h3 style={{ marginTop: 0 }}>{labelPaiement}</h3>
+                        {paiementType === 'MODULES' && (
+                            <p>
+                                Modules ajoutés : {libellesModules(modulesAjoutes)}, pour {moisPayesRestants.length} mois payé(s).
+                                {modulesRetires.length > 0 && ` Les utilisateurs perdront l'accès aux modules retirés : ${libellesModules(modulesRetires)}.`}
+                            </p>
+                        )}
 
                         <div style={{ marginBottom: 16 }}>
                             <label style={{ display: 'block', marginBottom: 6, fontWeight: 500 }}>

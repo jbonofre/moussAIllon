@@ -65,7 +65,7 @@ public class ClientPortalResource {
     @Transactional
     public Response login(LoginRequest request) {
         if (SocieteResource.accesBloque()) {
-            throw new WebApplicationException("Accès bloqué : l'abonnement a été résilié ou est impayé.", Response.Status.FORBIDDEN);
+            throw new WebApplicationException("Accès bloqué : l'abonnement n'est pas actif, a été résilié ou est impayé.", Response.Status.FORBIDDEN);
         }
         if (request == null || request.email == null || request.email.isBlank()) {
             throw new WebApplicationException("L'email est requis", Response.Status.BAD_REQUEST);

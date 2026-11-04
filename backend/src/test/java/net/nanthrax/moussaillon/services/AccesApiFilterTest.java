@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -14,11 +15,11 @@ public class AccesApiFilterTest {
     private static final Set<String> COMPTABLE = Set.of("chantier", "COMPTABILITE");
 
     private static String refus(Set<String> groupes, String methode, String chemin) {
-        return AccesApiFilter.motifRefus(groupes, "marie", methode, chemin, () -> false);
+        return AccesApiFilter.motifRefus(groupes, "marie", methode, chemin, () -> null);
     }
 
     private static String refusImpaye(Set<String> groupes, String methode, String chemin) {
-        return AccesApiFilter.motifRefus(groupes, "marie", methode, chemin, () -> true);
+        return AccesApiFilter.motifRefus(groupes, "marie", methode, chemin, () -> "l'abonnement est impayé depuis 2 mois ou plus");
     }
 
     @Test
@@ -88,5 +89,13 @@ public class AccesApiFilterTest {
         assertNull(refusImpaye(VENDEUR, "GET", "/societe"));
         assertNotNull(refusImpaye(VENDEUR, "POST", "/societe/paiement"));
         assertNotNull(refusImpaye(VENDEUR, "GET", "/clients"));
+    }
+
+    @Test
+    void testAbonnementNonActiveLimiteALaFacturation() {
+        String limitation = "l'abonnement n'est pas activé";
+        assertNull(AccesApiFilter.motifRefus(ADMIN, "marie", "POST", "/societe/paiement", () -> limitation));
+        assertEquals("Accès limité à la facturation : l'abonnement n'est pas activé.",
+            AccesApiFilter.motifRefus(ADMIN, "marie", "GET", "/ventes", () -> limitation));
     }
 }

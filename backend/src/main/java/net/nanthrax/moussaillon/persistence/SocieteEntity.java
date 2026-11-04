@@ -66,18 +66,20 @@ public class SocieteEntity extends PanacheEntity {
     public Integer relance2Jours;
     public Integer relance3Jours;
 
-    // Date de création du compte (sert de date d'activation de l'abonnement).
+    // Date de création du compte.
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateCreation;
 
     // Abonnement (informations en lecture seule, gérées par le serveur).
-    // Paiement « one-shot » d'activation du compte.
+    // Activation : date du premier paiement (frais d'activation et premier mois ou première année) ;
+    // vide tant que l'abonnement n'est pas activé.
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp abonnementActivationDate;
 
     public Double abonnementActivationMontant;
 
-    // Prochaine échéance (date prévue et valeur à payer).
+    // Prochaine échéance : début du premier mois non payé (les mois sont comptés depuis l'activation),
+    // et prix mensuel en vigueur.
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp abonnementProchainPaiementDate;
 
@@ -129,6 +131,28 @@ public class SocieteEntity extends PanacheEntity {
     // Version « Free » (propriété abonnement.free) : les accès ne sont jamais bloqués.
     @Transient
     public boolean versionFree;
+
+    // Champs calculés (non persistés) du suivi de l'abonnement mois par mois.
+    // Abonnement activé (frais d'activation payés).
+    @Transient
+    public boolean abonnementActif;
+
+    // Mois en cours payé.
+    @Transient
+    public boolean abonnementAJour;
+
+    // Mois payés non terminés (mois en cours compris) : un module ajouté y est payé tout de suite.
+    @Transient
+    public int abonnementMoisPayesRestants;
+
+    // Abonnement non activé, ou échéance impayée depuis 2 mois ou plus (hors version Free) :
+    // l'accès est limité à la facturation, pour les utilisateurs du module Paramétrage.
+    @Transient
+    public boolean accesLimiteFacturation;
+
+    // Mois d'abonnement, du plus récent au plus ancien : mois payés (y compris à venir) et mois à payer.
+    @Transient
+    public List<SocieteAbonnementMoisEntity> abonnementMois = new ArrayList<>();
 
     @OneToMany(mappedBy = "societe", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @OrderBy("date DESC")

@@ -30,6 +30,67 @@ public class AbonnementBlocageTest {
         return Timestamp.valueOf(LocalDateTime.now().minusMonths(mois).minusDays(jours));
     }
 
+    /** Date d'activation et prochaine échéance de l'abonnement. */
+    static Timestamp[] activation() {
+        return QuarkusTransaction.requiringNew().call(() -> {
+            SocieteEntity societe = SocieteEntity.findById(1L);
+            return new Timestamp[] { societe.abonnementActivationDate, societe.abonnementProchainPaiementDate };
+        });
+    }
+
+    static void activation(Timestamp[] dates) {
+        QuarkusTransaction.requiringNew().run(() -> {
+            SocieteEntity societe = SocieteEntity.findById(1L);
+            societe.abonnementActivationDate = dates[0];
+            societe.abonnementProchainPaiementDate = dates[1];
+        });
+    }
+
+    @Test
+    void testAbonnementNonActiveLimiteAccesAFacturation() {
+        Timestamp[] origine = activation();
+        try {
+            activation(new Timestamp[] { null, null });
+
+            given()
+                .when().get("/societe")
+                .then()
+                .statusCode(200)
+                .body("abonnementActif", is(false))
+                .body("abonnementAJour", is(false))
+                .body("accesLimiteFacturation", is(true))
+                .body("abonnementActivationDate", nullValue())
+                .body("abonnementBlocageImpayeDate", nullValue());
+
+            // Les utilisateurs du module Paramétrage se connectent, pour activer l'abonnement
+            given()
+                .contentType("application/json")
+                .body(ADMIN)
+                .when().post("/users/authenticate")
+                .then()
+                .statusCode(200)
+                .body("accesLimiteFacturation", is(true))
+                .body("abonnementActif", is(false));
+
+            given()
+                .contentType("application/json")
+                .body("{\"name\":\"technicien1\",\"password\":\"tech123\"}")
+                .when().post("/users/authenticate")
+                .then()
+                .statusCode(403)
+                .body(containsString("pas activé"));
+
+            given()
+                .contentType("application/json")
+                .body(CLIENT)
+                .when().post("/portal/login")
+                .then()
+                .statusCode(403);
+        } finally {
+            activation(origine);
+        }
+    }
+
     @Test
     void testImpayeDepuisDeuxMoisLimiteAccesAFacturation() {
         given().when().get("/societe").then().statusCode(200);
@@ -57,7 +118,7 @@ public class AbonnementBlocageTest {
                 .when().post("/users/authenticate")
                 .then()
                 .statusCode(200)
-                .body("abonnementImpaye", is(true));
+                .body("accesLimiteFacturation", is(true));
 
             given()
                 .contentType("application/json")
@@ -89,7 +150,7 @@ public class AbonnementBlocageTest {
                 .when().post("/users/authenticate")
                 .then()
                 .statusCode(200)
-                .body("abonnementImpaye", is(false));
+                .body("accesLimiteFacturation", is(false));
         } finally {
             echeance(origine);
             given().when().delete("/users/comptable").then().statusCode(204);
@@ -116,7 +177,7 @@ public class AbonnementBlocageTest {
                 .when().post("/users/authenticate")
                 .then()
                 .statusCode(200)
-                .body("abonnementImpaye", is(false));
+                .body("accesLimiteFacturation", is(false));
         } finally {
             echeance(origine);
         }
@@ -129,6 +190,9 @@ public class AbonnementBlocageTest {
             .then()
             .statusCode(200)
             .body("versionFree", is(false))
+            .body("abonnementActif", is(true))
+            .body("abonnementAJour", is(true))
+            .body("accesLimiteFacturation", is(false))
             .body("accesBloqueImpaye", is(false))
             .body("abonnementBlocageImpayeDate", nullValue());
     }

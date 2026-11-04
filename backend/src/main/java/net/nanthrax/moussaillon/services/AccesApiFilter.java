@@ -9,7 +9,7 @@ import jakarta.ws.rs.ext.Provider;
 import net.nanthrax.moussaillon.persistence.ModuleApplication;
 
 import java.util.Set;
-import java.util.function.BooleanSupplier;
+import java.util.function.Supplier;
 
 /**
  * Contrôle d'accès à l'API selon le jeton de l'appelant :
@@ -18,7 +18,7 @@ import java.util.function.BooleanSupplier;
  *   <li>dans le chantier, les fonctions sensibles sont réservées à leur module (utilisateurs, paramètres
  *   et abonnement, comptabilité, marketing). Les données métier que les pages croisent (ventes, clients,
  *   catalogue, parc, techniciens...) restent accessibles à tout utilisateur du chantier ;</li>
- *   <li>un abonnement impayé depuis 2 mois ou plus limite l'accès à la facturation.</li>
+ *   <li>un abonnement non activé, ou impayé depuis 2 mois ou plus, limite l'accès à la facturation.</li>
  * </ul>
  * Les requêtes anonymes relèvent des permissions HTTP (points publics, connexion).
  */
@@ -45,14 +45,18 @@ public class AccesApiFilter implements ContainerRequestFilter {
             chemin = "/" + chemin;
         }
         String refus = motifRefus(identity.getRoles(), identity.getPrincipal().getName(), requete.getMethod(), chemin,
-            SocieteResource::accesBloqueParImpaye);
+            SocieteResource::motifLimitationFacturation);
         if (refus != null) {
             requete.abortWith(Response.status(Response.Status.FORBIDDEN).entity(refus).build());
         }
     }
 
-    /** Raison du refus de la requête, ou null si elle est autorisée. */
-    static String motifRefus(Set<String> groupes, String utilisateur, String methode, String chemin, BooleanSupplier impaye) {
+    /**
+     * Raison du refus de la requête, ou null si elle est autorisée. La limitation de l'accès à la facturation
+     * donne son motif (abonnement non activé ou impayé), ou null s'il n'y en a pas.
+     */
+    static String motifRefus(Set<String> groupes, String utilisateur, String methode, String chemin,
+                             Supplier<String> limitationFacturation) {
         if (sous(chemin, "/users/authenticate")) {
             return null;
         }
@@ -72,10 +76,11 @@ public class AccesApiFilter implements ContainerRequestFilter {
         boolean parametrage = groupes.contains(PARAMETRAGE);
         String compte = "/users/" + utilisateur;
 
-        if (impaye.getAsBoolean()) {
+        String limitation = limitationFacturation.get();
+        if (limitation != null) {
             boolean facturation = (lecture && (chemin.equals("/societe") || chemin.equals(compte)))
                 || (parametrage && sous(chemin, "/societe"));
-            return facturation ? null : "Accès limité à la facturation : l'abonnement est impayé depuis 2 mois ou plus.";
+            return facturation ? null : "Accès limité à la facturation : " + limitation + ".";
         }
 
         // Chacun consulte son compte, change son mot de passe et son thème ; le reste relève du Paramétrage.

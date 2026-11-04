@@ -8,7 +8,9 @@ import jakarta.transaction.Transactional;
 import net.nanthrax.moussaillon.persistence.ModuleApplication;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ReferenceValeurEntity;
+import net.nanthrax.moussaillon.persistence.SocieteAbonnementMoisEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
+import net.nanthrax.moussaillon.persistence.SocietePaiementEntity;
 import net.nanthrax.moussaillon.persistence.UserEntity;
 import org.hibernate.Session;
 import org.jboss.logging.Logger;
@@ -17,7 +19,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
 import java.sql.ResultSet;
 import java.sql.Statement;
+import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -119,9 +123,19 @@ public class DataInitializer {
             LOG.warn("Impossible d'élargir la colonne contenu de RappelHistoriqueEntity", e);
         }
         try {
-            convertirTypeModelesEmail();
+            convertirEnumEnVarchar("EmailTemplateEntity", "type");
         } catch (Exception e) {
             LOG.warn("Impossible de convertir la colonne type de EmailTemplateEntity", e);
+        }
+        try {
+            convertirEnumEnVarchar("SocietePaiementEntity", "type");
+        } catch (Exception e) {
+            LOG.warn("Impossible de convertir la colonne type de SocietePaiementEntity", e);
+        }
+        try {
+            migrerSuiviAbonnement();
+        } catch (Exception e) {
+            LOG.warn("Impossible de reconstituer le suivi mensuel de l'abonnement", e);
         }
         try {
             migrerRolesVersModules();
@@ -194,25 +208,99 @@ public class DataInitializer {
 
     /**
      * H2 crée la colonne d'un enum en ENUM natif, figé sur les valeurs connues à sa création :
-     * le type PRET_A_RECUPERER, ajouté depuis, y est refusé. L'initialisation des modèles d'email
-     * échouait alors en bloc, laissant la base sans aucun modèle (dont celui des relances).
+     * les valeurs ajoutées depuis y sont refusées. Pour les modèles d'email, le type PRET_A_RECUPERER
+     * faisait échouer leur initialisation en bloc, laissant la base sans aucun modèle (dont celui des
+     * relances) ; pour les paiements de l'abonnement, le type MODULES (ajout de modules).
      */
-    private void convertirTypeModelesEmail() {
+    private void convertirEnumEnVarchar(String table, String colonne) {
         EntityManager em = SocieteEntity.getEntityManager();
         em.unwrap(Session.class).doWork(connection -> {
             try (Statement query = connection.createStatement();
                  ResultSet rs = query.executeQuery(
                      "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS "
-                         + "WHERE TABLE_NAME = 'EMAILTEMPLATEENTITY' AND COLUMN_NAME = 'TYPE'")) {
+                         + "WHERE TABLE_NAME = '" + table.toUpperCase(Locale.ROOT) + "' "
+                         + "AND COLUMN_NAME = '" + colonne.toUpperCase(Locale.ROOT) + "'")) {
                 if (!rs.next() || !"ENUM".equals(rs.getString(1))) {
                     return;
                 }
             }
             try (Statement alter = connection.createStatement()) {
-                alter.executeUpdate("ALTER TABLE EmailTemplateEntity ALTER COLUMN type SET DATA TYPE VARCHAR(64)");
-                LOG.info("Colonne EmailTemplateEntity.type convertie en VARCHAR");
+                alter.executeUpdate("ALTER TABLE " + table + " ALTER COLUMN " + colonne + " SET DATA TYPE VARCHAR(64)");
+                LOG.infof("Colonne %s.%s convertie en VARCHAR", table, colonne);
             }
         });
+    }
+
+    /**
+     * L'abonnement est désormais suivi mois par mois et n'est activé qu'au premier paiement : la date
+     * d'activation, autrefois celle de la création du compte, est effacée pour un compte qui n'a jamais
+     * payé. Pour un compte qui a payé, les mois payés avant ce suivi sont reconstitués à partir des
+     * paiements.
+     */
+    private void migrerSuiviAbonnement() {
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        if (societe == null) {
+            return;
+        }
+        if (societe.paiements.isEmpty()) {
+            if (societe.abonnementActivationDate != null) {
+                societe.abonnementActivationDate = null;
+                societe.abonnementProchainPaiementDate = null;
+                LOG.info("Abonnement jamais payé : il sera activé au premier paiement");
+            }
+            return;
+        }
+        if (societe.abonnementProchainPaiementDate == null || SocieteAbonnementMoisEntity.count("societe", societe) > 0) {
+            return;
+        }
+        List<SocieteAbonnementMoisEntity> mois = moisDepuisPaiements(societe.paiements, societe.abonnementProchainPaiementDate);
+        for (SocieteAbonnementMoisEntity m : mois) {
+            m.societe = societe;
+            m.persist();
+        }
+        LOG.infof("Suivi mensuel de l'abonnement reconstitué : %d mois payés", mois.size());
+    }
+
+    /**
+     * Mois payés par les paiements mensuels et annuels, chaque paiement ayant couvert les mois précédant
+     * l'échéance qui a suivi : on remonte depuis la prochaine échéance, du paiement le plus récent au plus
+     * ancien. La période couverte est renseignée sur les paiements qui ne l'ont pas.
+     */
+    static List<SocieteAbonnementMoisEntity> moisDepuisPaiements(List<SocietePaiementEntity> paiements, Timestamp prochaineEcheance) {
+        List<SocietePaiementEntity> recents = new ArrayList<>(paiements);
+        recents.sort(Comparator.comparing((SocietePaiementEntity p) -> p.date, Comparator.nullsFirst(Comparator.naturalOrder()))
+            .thenComparing(p -> p.id, Comparator.nullsFirst(Comparator.naturalOrder()))
+            .reversed());
+        List<SocieteAbonnementMoisEntity> mois = new ArrayList<>();
+        Timestamp fin = prochaineEcheance;
+        for (SocietePaiementEntity paiement : recents) {
+            if (paiement.type != SocietePaiementEntity.Type.MENSUEL && paiement.type != SocietePaiementEntity.Type.ANNUEL) {
+                continue;
+            }
+            int nombreMois = paiement.type == SocietePaiementEntity.Type.ANNUEL ? 12 : 1;
+            if (paiement.periodeDebut == null) {
+                paiement.periodeDebut = SocieteResource.plusMois(fin, -nombreMois);
+                paiement.periodeFin = fin;
+            }
+            double part = SocieteResource.arrondi(paiement.montant / nombreMois);
+            // Avant les modules, l'abonnement les comprenait tous.
+            Set<ModuleApplication> modules = paiement.modules.isEmpty() ? EnumSet.allOf(ModuleApplication.class) : paiement.modules;
+            for (int i = 0; i < nombreMois; i++) {
+                SocieteAbonnementMoisEntity m = new SocieteAbonnementMoisEntity();
+                m.fin = SocieteResource.plusMois(fin, -i);
+                m.debut = SocieteResource.plusMois(fin, -i - 1);
+                m.montant = i < nombreMois - 1 ? part : SocieteResource.arrondi(paiement.montant - part * (nombreMois - 1));
+                m.nombreUtilisateurs = paiement.nombreUtilisateurs;
+                m.nombreTechniciens = paiement.nombreTechniciens;
+                m.nombreClients = paiement.nombreClients;
+                m.modules.addAll(modules);
+                m.payeLe = paiement.date;
+                m.typePaiement = paiement.type;
+                mois.add(m);
+            }
+            fin = SocieteResource.plusMois(fin, -nombreMois);
+        }
+        return mois;
     }
 
     /**
