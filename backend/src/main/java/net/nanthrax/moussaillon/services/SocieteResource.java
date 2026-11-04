@@ -20,6 +20,7 @@ import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -323,7 +324,7 @@ public class SocieteResource {
         int nombreMois = annuel ? 12 : 1;
         double montant = annuel ? entity.abonnementMontantAnnuel : entity.abonnementProchainPaiementMontant;
         double activation = fraisActivationDus(entity);
-        Timestamp maintenant = Timestamp.from(Instant.now());
+        Timestamp maintenant = horodatage();
         if (!entity.abonnementActif) {
             entity.abonnementActivationDate = maintenant;
             entity.abonnementProchainPaiementDate = maintenant;
@@ -360,7 +361,7 @@ public class SocieteResource {
     private void payerModules(SocieteEntity entity, Set<ModuleApplication> modules, SocietePaiementEntity.Mode mode) {
         Set<ModuleApplication> ajouts = ajoutsAPayer(entity, modules);
         List<SocieteAbonnementMoisEntity> moisPayes = moisPayesRestants(entity);
-        SocietePaiementEntity paiement = nouveauPaiement(entity, SocietePaiementEntity.Type.MODULES, mode, Timestamp.from(Instant.now()));
+        SocietePaiementEntity paiement = nouveauPaiement(entity, SocietePaiementEntity.Type.MODULES, mode, horodatage());
         double montant = 0;
         for (SocieteAbonnementMoisEntity mois : moisPayes) {
             double supplement = supplementModules(mois, ajouts);
@@ -470,6 +471,14 @@ public class SocieteResource {
         return mois;
     }
 
+    /**
+     * Date enregistrée, à la milliseconde : l'horloge peut donner des nanosecondes (Linux), que la base ne garde
+     * pas. Sans cela, la date renvoyée juste après l'enregistrement différerait de celle relue ensuite.
+     */
+    static Timestamp horodatage() {
+        return Timestamp.from(Instant.now().truncatedTo(ChronoUnit.MILLIS));
+    }
+
     static Timestamp plusMois(Timestamp date, int mois) {
         return Timestamp.valueOf(date.toLocalDateTime().plusMonths(mois));
     }
@@ -487,7 +496,7 @@ public class SocieteResource {
         }
 
         entity.abonnementResilie = true;
-        entity.abonnementResiliationDate = Timestamp.from(Instant.now());
+        entity.abonnementResiliationDate = horodatage();
         initAbonnement(entity);
 
         return entity;
@@ -562,7 +571,7 @@ public class SocieteResource {
      */
     private void initAbonnement(SocieteEntity entity) {
         if (entity.dateCreation == null) {
-            entity.dateCreation = Timestamp.from(Instant.now());
+            entity.dateCreation = horodatage();
         }
         if (entity.abonnementActivationMontant == null) {
             entity.abonnementActivationMontant = MONTANT_ACTIVATION;
