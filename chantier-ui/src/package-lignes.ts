@@ -1,3 +1,5 @@
+import { quantiteLigne } from './quantite.ts';
+
 // Packages du catalogue : regroupements d'articles (produits, bateaux, moteurs, hélices, remorques) et de forfaits
 // dont les lignes sont recopiées dans une vente comptoir ou une transaction.
 
@@ -55,7 +57,7 @@ export const articlesDuPackage = (pack?: PackageEntity | null): ArticleDePackage
         const type = TYPES_ARTICLE_PACKAGE.find((t) => ligne?.[t]?.id);
         if (!type) return [];
         const article = type === 'forfait' ? forfaitVersArticle(ligne.forfait!) : ligne[type] as ArticlePackage;
-        return [{ type, article, quantite: Math.max(1, Math.floor(ligne.quantite || 1)) }];
+        return [{ type, article, quantite: quantiteLigne(ligne.quantite) }];
     });
 
 export const totalPackageTTC = (pack?: PackageEntity | null): number =>

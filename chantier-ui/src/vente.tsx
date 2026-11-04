@@ -89,6 +89,8 @@ import {
     nouvelleLigneLibre,
 } from './ligne-libre.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
+import InputQuantite from './InputQuantite.tsx';
+import { quantiteLigne } from './quantite.ts';
 
 interface ClientEntity {
     id: number;
@@ -2169,7 +2171,7 @@ export default function Vente() {
                 const produit = line.libre ? articleALaVolee(line.libre) : produits.find((p) => p.id === line.itemId);
                 return produit ? [{
                     produit,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -2178,7 +2180,7 @@ export default function Vente() {
                 const bateau = catalogueBateaux.find((b) => b.id === line.itemId);
                 return bateau ? [{
                     bateau,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -2187,7 +2189,7 @@ export default function Vente() {
                 const moteur = catalogueMoteurs.find((m) => m.id === line.itemId);
                 return moteur ? [{
                     moteur,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -2196,7 +2198,7 @@ export default function Vente() {
                 const helice = catalogueHelices.find((h) => h.id === line.itemId);
                 return helice ? [{
                     helice,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -2205,7 +2207,7 @@ export default function Vente() {
                 const remorque = catalogueRemorques.find((r) => r.id === line.itemId);
                 return remorque ? [{
                     remorque,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -2966,7 +2968,7 @@ export default function Vente() {
         let totalOccasionTTC = 0;
         allLignes.forEach((line) => {
             if (!line.libre && (!line.type || !line.itemId)) return;
-            const quantite = Math.max(1, Math.floor(line.quantite || 1));
+            const quantite = quantiteLigne(line.quantite);
             let brut = 0;
             let article: { prixVenteHT?: number; tva?: number; prixVenteTTC?: number; occasion?: boolean } | undefined;
             if (line.libre) {
@@ -3043,7 +3045,7 @@ export default function Vente() {
             const line = currentLines[index];
             if (!line || (!line.libre && (!line.type || !line.itemId))) return;
             const pu = prixUnitaireLigne(line, exonere) || 0;
-            const quantite = Math.max(1, Math.floor(line.quantite || 1));
+            const quantite = quantiteLigne(line.quantite);
             const brut = Math.round(pu * quantite * 100) / 100;
             if (changed.remisePourcentage !== undefined) {
                 const remise = Math.round(((brut * (changed.remisePourcentage || 0)) / 100 + Number.EPSILON) * 100) / 100;
@@ -3789,7 +3791,7 @@ export default function Vente() {
                                                             label={premiereLigne ? "Quantité" : undefined}
                                                             style={{ width: 70, flex: 'none', marginBottom: 8 }}
                                                         >
-                                                            <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
+                                                            <InputQuantite style={{ width: '100%' }} placeholder="Qte" />
                                                         </Form.Item>
                                                         <Form.Item
                                                             name={[field.name, 'remisePourcentage']}

@@ -12,7 +12,7 @@ public class VenteRemorqueCatalogueEntity extends PanacheEntity {
     public RemorqueCatalogueEntity remorque;
 
     @Column(columnDefinition = "integer default 0")
-    public int quantite;
+    public double quantite;
 
     @Column(columnDefinition = "double default 0")
     public double remise;

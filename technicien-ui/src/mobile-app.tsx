@@ -48,6 +48,7 @@ import Parc from './parc.tsx';
 import { BoutonCorrigerHoraires, peutCorrigerHoraires } from './horaires.tsx';
 import { BoutonRouvrir, messageErreur, peutEtreRouverte } from './reouverture.tsx';
 import { PLACEHOLDER_RECHERCHE, libelleBateau, tacheCorrespond } from './recherche-tache.ts';
+import InputQuantite from './InputQuantite.tsx';
 
 interface Technicien {
     id: number;
@@ -514,7 +515,7 @@ export default function MobileApp({ user, onLogout, onChangePassword }: MobileAp
                             />
                         </Form.Item>
                         <Form.Item label="Quantite">
-                            <InputNumber min={1} value={addQuantite} onChange={(v) => setAddQuantite(v ?? 1)} style={{ width: '100%' }} />
+                            <InputQuantite value={addQuantite} onChange={(v) => setAddQuantite(v ?? 1)} style={{ width: '100%' }} />
                         </Form.Item>
                     </Form>
                 </Spin>

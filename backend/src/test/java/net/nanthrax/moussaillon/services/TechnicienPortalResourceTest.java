@@ -459,7 +459,7 @@ public class TechnicienPortalResourceTest {
             .then().statusCode(201).extract().response();
     }
 
-    private static int stockProduit(int produitId) {
+    private static float stockProduit(int produitId) {
         return given().when().get("/catalogue/produits/" + produitId).then().statusCode(200).extract().path("stock");
     }
 
@@ -729,19 +729,19 @@ public class TechnicienPortalResourceTest {
             .then().statusCode(200)
             .extract().path("produitsExtra.find { it.designation == 'Anode oubliee' }.id");
 
-        org.junit.jupiter.api.Assertions.assertEquals(8, stockProduit(produitId));
+        org.junit.jupiter.api.Assertions.assertEquals(8.0f, stockProduit(produitId));
         given().when().get("/catalogue/produits/" + produitId + "/mouvements").then().statusCode(200)
             .body("size()", is(1))
             .body("[0].type", is("VENTE"))
-            .body("[0].quantite", is(2))
+            .body("[0].quantite", is(2.0f))
             .body("[0].venteId", is(venteId));
 
         // Retirée, la pièce retourne en stock
         given().when().delete("/technicien-portal/forfaits/" + forfaitId + "/produits/" + ligneId)
             .then().statusCode(200);
-        org.junit.jupiter.api.Assertions.assertEquals(10, stockProduit(produitId));
+        org.junit.jupiter.api.Assertions.assertEquals(10.0f, stockProduit(produitId));
         given().when().get("/catalogue/produits/" + produitId + "/mouvements").then().statusCode(200)
-            .body("quantite", hasItems(2, -2));
+            .body("quantite", hasItems(2.0f, -2.0f));
     }
 
     @Test
@@ -751,17 +751,17 @@ public class TechnicienPortalResourceTest {
 
         given().contentType("application/json").body("{\"produitId\":" + produitId + ",\"quantite\":3}")
             .when().post("/technicien-portal/forfaits/" + forfaitId + "/produits").then().statusCode(200);
-        org.junit.jupiter.api.Assertions.assertEquals(10, stockProduit(produitId));
+        org.junit.jupiter.api.Assertions.assertEquals(10.0f, stockProduit(produitId));
 
         // Le démarrage sort la pièce avec le reste de la vente, une seule fois, avec son mouvement
         given().contentType("application/json").body("{\"status\":\"EN_COURS\",\"dureeReelle\":0}")
             .when().put("/technicien-portal/forfaits/" + forfaitId).then().statusCode(200);
         given().contentType("application/json").body("{\"status\":\"EN_COURS\",\"dureeReelle\":0.5}")
             .when().put("/technicien-portal/forfaits/" + forfaitId).then().statusCode(200);
-        org.junit.jupiter.api.Assertions.assertEquals(7, stockProduit(produitId));
+        org.junit.jupiter.api.Assertions.assertEquals(7.0f, stockProduit(produitId));
         given().when().get("/catalogue/produits/" + produitId + "/mouvements").then().statusCode(200)
             .body("size()", is(1))
-            .body("[0].quantite", is(3));
+            .body("[0].quantite", is(3.0f));
     }
 
     @Test

@@ -34,6 +34,7 @@ import {
 } from '@ant-design/icons';
 import api from './api.ts';
 import { useNavigation } from './navigation-context.tsx';
+import InputQuantite from './InputQuantite.tsx';
 
 const { Text } = Typography;
 
@@ -463,9 +464,7 @@ export default function CommandeFournisseurFromVenteModal({
             width: 170,
             render: (_: unknown, record: EditableArticleLine) => (
                 <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                    <InputNumber
-                        min={1}
-                        step={1}
+                    <InputQuantite
                         value={record.quantite}
                         disabled={!record.checked}
                         onChange={(val) => updateLine(record.articleKey, { quantite: Number(val) || 1 })}

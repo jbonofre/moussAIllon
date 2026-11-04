@@ -17,7 +17,9 @@ import org.jboss.logging.Logger;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Modifier;
+import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -142,7 +144,57 @@ public class DataInitializer {
         } catch (Exception e) {
             LOG.warn("Impossible de convertir les rôles des utilisateurs en modules", e);
         }
+        try {
+            SocieteEntity.getEntityManager().unwrap(Session.class).doWork(DataInitializer::convertirQuantitesEnDecimal);
+        } catch (Exception e) {
+            LOG.warn("Impossible de convertir les quantités en nombres à virgule", e);
+        }
         EmailTemplateResource.migrerModeleRelance();
+    }
+
+    /** Colonnes des quantités (et du stock des produits) passées d'entiers à nombres à virgule. */
+    static final String[][] COLONNES_QUANTITE = {
+        { "VenteForfaitEntity", "quantite" },
+        { "VenteServiceEntity", "quantite" },
+        { "VenteProduitEntity", "quantite" },
+        { "VenteBateauCatalogueEntity", "quantite" },
+        { "VenteMoteurCatalogueEntity", "quantite" },
+        { "VenteHeliceCatalogueEntity", "quantite" },
+        { "VenteRemorqueCatalogueEntity", "quantite" },
+        { "ForfaitProduitEntity", "quantite" },
+        { "ServiceProduitEntity", "quantite" },
+        { "PackageLigneEntity", "quantite" },
+        { "AvoirLigneEntity", "quantite" },
+        { "CommandeFournisseurLigneEntity", "quantite" },
+        { "ProduitMouvementEntity", "quantite" },
+        { "ProduitMouvementEntity", "stockApres" },
+        { "ProduitCatalogueEntity", "stock" },
+        { "ProduitCatalogueEntity", "stockMini" },
+    };
+
+    /**
+     * Les quantités sont des nombres à virgule (5,5 L d'huile, issue #761). La stratégie de schéma "update"
+     * ne change pas le type des colonnes existantes : restées en INTEGER, elles arrondiraient 5,5 à 6.
+     * Les valeurs et les contraintes (NOT NULL) des colonnes sont conservées.
+     */
+    static void convertirQuantitesEnDecimal(Connection connection) throws SQLException {
+        for (String[] colonne : COLONNES_QUANTITE) {
+            String table = colonne[0];
+            String nom = colonne[1];
+            try (Statement query = connection.createStatement();
+                 ResultSet rs = query.executeQuery(
+                     "SELECT DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS "
+                         + "WHERE TABLE_NAME = '" + table.toUpperCase(Locale.ROOT) + "' "
+                         + "AND COLUMN_NAME = '" + nom.toUpperCase(Locale.ROOT) + "'")) {
+                if (!rs.next() || !"INTEGER".equals(rs.getString(1))) {
+                    continue;
+                }
+            }
+            try (Statement alter = connection.createStatement()) {
+                alter.executeUpdate("ALTER TABLE " + table + " ALTER COLUMN " + nom + " SET DATA TYPE DOUBLE PRECISION");
+                LOG.infof("Colonne %s.%s convertie en nombre à virgule", table, nom);
+            }
+        }
     }
 
     /**

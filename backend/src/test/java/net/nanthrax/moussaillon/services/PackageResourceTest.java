@@ -43,7 +43,7 @@ public class PackageResourceTest {
             .body("lignes[1].moteur.designation", is("Mercury 115 EFI"))
             .body("lignes[2].helice.designation", is("Mercury Vengeance 14x19"))
             .body("lignes[4].produit.designation", is("Motul Huile moteur 4T"))
-            .body("lignes[4].quantite", is(4));
+            .body("lignes[4].quantite", is(4.0f));
     }
 
     @Test
@@ -139,7 +139,16 @@ public class PackageResourceTest {
             .when().post("/catalogue/packages")
             .then()
             .statusCode(201)
-            .body("lignes[0].quantite", is(1));
+            .body("lignes[0].quantite", is(1.0f));
+
+        // Une quantité à virgule inférieure à 1 (0,5 L d'huile) est conservée
+        given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Pack demi-litre\",\"lignes\":[{\"produit\":{\"id\":100},\"quantite\":0.5}]}")
+            .when().post("/catalogue/packages")
+            .then()
+            .statusCode(201)
+            .body("lignes[0].quantite", is(0.5f));
     }
 
     @Test
@@ -156,7 +165,7 @@ public class PackageResourceTest {
             .body("ref", is("PKG-MAJ"))
             .body("lignes.size()", is(1))
             .body("lignes[0].produit.id", is(101))
-            .body("lignes[0].quantite", is(3));
+            .body("lignes[0].quantite", is(3.0f));
 
         given()
             .when().get("/catalogue/packages/" + id)

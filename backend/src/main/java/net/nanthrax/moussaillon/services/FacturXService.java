@@ -140,7 +140,7 @@ public class FacturXService {
                     y = drawText(cs, fontNormal, 9, designation, colDes, y);
                     float rowY = y + 9;
                     double totalTTC = Math.max(0, ligne.prixTTC * ligne.quantite - ligne.remise);
-                    drawTextAt(cs, fontNormal, 9, String.valueOf(ligne.quantite),                           colQte,  rowY);
+                    drawTextAt(cs, fontNormal, 9, Quantite.format(ligne.quantite),                        colQte,  rowY);
                     drawTextAt(cs, fontNormal, 9, String.format("%.2f €", ligne.prixHT),               colPuHT, rowY);
                     drawTextAt(cs, fontNormal, 9, String.format("%.2f €", totalTTC),                   colTtc, rowY);
                     y -= 3;
@@ -293,7 +293,7 @@ public class FacturXService {
     }
 
     // Ligne de la facture ; un client exonéré de TVA est facturé au prix HT de l'article, sans TVA
-    private static LignePdf lignePdf(VenteEntity vente, String reference, String designation, int quantite,
+    private static LignePdf lignePdf(VenteEntity vente, String reference, String designation, double quantite,
                                      double prixHT, double prixTTC, double tva, double prixHTArticle, double remise) {
         if (vente.exonereTva()) {
             double prix = vente.prixLigne(prixTTC, prixHTArticle, tva);
@@ -438,13 +438,13 @@ public class FacturXService {
     private static class LignePdf {
         final String reference;
         final String designation;
-        final int    quantite;
+        final double quantite;
         final double prixHT;
         final double prixTTC;
         final double tva;
         final double remise;
 
-        LignePdf(String reference, String designation, int quantite, double prixHT, double prixTTC, double tva, double remise) {
+        LignePdf(String reference, String designation, double quantite, double prixHT, double prixTTC, double tva, double remise) {
             this.reference   = reference;
             this.designation = designation;
             this.quantite    = quantite;

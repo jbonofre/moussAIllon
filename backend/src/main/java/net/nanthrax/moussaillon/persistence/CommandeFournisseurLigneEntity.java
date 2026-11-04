@@ -22,7 +22,7 @@ public class CommandeFournisseurLigneEntity extends PanacheEntity {
     @ManyToOne
     public RemorqueCatalogueEntity remorque;
 
-    public int quantite;
+    public double quantite;
 
     public double prixUnitaireHT;
 

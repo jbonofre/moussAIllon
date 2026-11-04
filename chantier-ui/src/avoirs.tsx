@@ -35,6 +35,8 @@ import { fetchWithAuth } from './api.ts';
 import { paginationConfig } from './pagination.ts';
 import { clientExonereTva, prixArticleVente, prixPrestationVente } from './tva-vente.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
+import InputQuantite from './InputQuantite.tsx';
+import { quantiteLigne } from './quantite.ts';
 
 const { TextArea } = Input;
 
@@ -310,7 +312,7 @@ export default function Avoirs() {
 
             (venteData.venteForfaits || []).forEach((vf: any) => {
                 if (!vf.forfait) return;
-                const quantite = Math.max(1, vf.quantite || 1);
+                const quantite = quantiteLigne(vf.quantite);
                 const prixUnitaireHT = vf.forfait.prixHT || 0;
                 const tva = exonere ? 0 : vf.forfait.tva > 0 ? vf.forfait.tva : tvaTaux;
                 const brutTTC = prixPrestationVente(vf.forfait, exonere) * quantite;
@@ -330,7 +332,7 @@ export default function Avoirs() {
 
             (venteData.venteServices || []).forEach((vs: any) => {
                 if (!vs.service) return;
-                const quantite = Math.max(1, vs.quantite || 1);
+                const quantite = quantiteLigne(vs.quantite);
                 const prixUnitaireHT = vs.service.prixHT || 0;
                 const tva = exonere ? 0 : vs.service.tva > 0 ? vs.service.tva : tvaTaux;
                 const brutTTC = prixPrestationVente(vs.service, exonere) * quantite;
@@ -350,7 +352,7 @@ export default function Avoirs() {
 
             (venteData.venteProduits || []).forEach((vp: any) => {
                 if (!vp.produit) return;
-                const quantite = Math.max(1, vp.quantite || 1);
+                const quantite = quantiteLigne(vp.quantite);
                 const prixUnitaireHT = vp.produit.prixVenteHT || 0;
                 const tva = exonere ? 0 : vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
                 const brutTTC = prixArticleVente(vp.produit, exonere) * quantite;
@@ -782,8 +784,7 @@ export default function Avoirs() {
             key: 'quantite',
             width: 80,
             render: (_: unknown, _r: AvoirLigne, index: number) => (
-                <InputNumber
-                    min={1}
+                <InputQuantite
                     value={formLignes[index].quantite}
                     onChange={(v) => updateLigne(index, 'quantite', v ?? 1)}
                     style={{ width: '100%' }}

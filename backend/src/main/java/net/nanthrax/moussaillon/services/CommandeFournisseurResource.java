@@ -207,19 +207,19 @@ public class CommandeFournisseurResource {
                 if (ligne.bateau != null) {
                     BateauCatalogueEntity b = BateauCatalogueEntity.findById(ligne.bateau.id);
                     if (b != null) {
-                        b.stock = b.stock + ligne.quantite;
+                        b.stock = b.stock + (long) Math.ceil(ligne.quantite);
                     }
                 }
                 if (ligne.moteur != null) {
                     MoteurCatalogueEntity m = MoteurCatalogueEntity.findById(ligne.moteur.id);
                     if (m != null) {
-                        m.stock = m.stock + ligne.quantite;
+                        m.stock = m.stock + (long) Math.ceil(ligne.quantite);
                     }
                 }
                 if (ligne.remorque != null) {
                     RemorqueCatalogueEntity r = RemorqueCatalogueEntity.findById(ligne.remorque.id);
                     if (r != null) {
-                        r.stock = r.stock + ligne.quantite;
+                        r.stock = r.stock + (long) Math.ceil(ligne.quantite);
                     }
                 }
             }
@@ -342,9 +342,9 @@ public class CommandeFournisseurResource {
                         art.id = b.id;
                         art.designation = b.designation;
                         art.quantiteVente = vb.quantite;
-                        art.stockActuel = (int) b.stock;
-                        art.stockMini = (int) b.stockAlerte;
-                        art.besoinStock = Math.max(0, art.quantiteVente - (int) b.stock);
+                        art.stockActuel = b.stock;
+                        art.stockMini = b.stockAlerte;
+                        art.besoinStock = Math.max(0, art.quantiteVente - b.stock);
                         if (art.besoinStock == 0) art.besoinStock = art.quantiteVente;
 
                         List<FournisseurBateauEntity> fbs = FournisseurBateauEntity.list("bateau.id", b.id);
@@ -384,9 +384,9 @@ public class CommandeFournisseurResource {
                         art.id = m.id;
                         art.designation = m.designation;
                         art.quantiteVente = vm.quantite;
-                        art.stockActuel = (int) m.stock;
-                        art.stockMini = (int) m.stockAlerte;
-                        art.besoinStock = Math.max(0, art.quantiteVente - (int) m.stock);
+                        art.stockActuel = m.stock;
+                        art.stockMini = m.stockAlerte;
+                        art.besoinStock = Math.max(0, art.quantiteVente - m.stock);
                         if (art.besoinStock == 0) art.besoinStock = art.quantiteVente;
 
                         List<FournisseurMoteurEntity> fms = FournisseurMoteurEntity.list("moteur.id", m.id);
@@ -467,9 +467,9 @@ public class CommandeFournisseurResource {
                         art.id = r.id;
                         art.designation = r.designation;
                         art.quantiteVente = vr.quantite;
-                        art.stockActuel = (int) r.stock;
-                        art.stockMini = (int) r.stockAlerte;
-                        art.besoinStock = Math.max(0, art.quantiteVente - (int) r.stock);
+                        art.stockActuel = r.stock;
+                        art.stockMini = r.stockAlerte;
+                        art.besoinStock = Math.max(0, art.quantiteVente - r.stock);
                         if (art.besoinStock == 0) art.besoinStock = art.quantiteVente;
 
                         List<FournisseurRemorqueEntity> frs = FournisseurRemorqueEntity.list("remorque.id", r.id);
@@ -601,10 +601,10 @@ public class CommandeFournisseurResource {
         public Long id;
         public String designation;
         public String reference;
-        public int quantiteVente;
-        public int stockActuel;
-        public int stockMini;
-        public int besoinStock;
+        public double quantiteVente;
+        public double stockActuel;
+        public double stockMini;
+        public double besoinStock;
         public List<FournisseurItemDTO> fournisseurs = new ArrayList<>();
     }
 
@@ -638,7 +638,7 @@ public class CommandeFournisseurResource {
     public static class CreateCommandeLigneRequest {
         public String type;
         public Long id;
-        public int quantite;
+        public double quantite;
         public double prixUnitaireHT;
         public double tva;
     }

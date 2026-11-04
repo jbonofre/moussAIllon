@@ -104,7 +104,7 @@ public class TechnicienPortalResource {
 
     public static class AddProduitRequest {
         public Long produitId;
-        public int quantite;
+        public double quantite;
     }
 
     public static class ChecklistItem {
@@ -123,7 +123,7 @@ public class TechnicienPortalResource {
         public String ref;
         public String emplacement;
         public String emplacementMagasin;
-        public int quantite;
+        public double quantite;
         public List<String> referencesFournisseurs;
     }
 
@@ -156,7 +156,7 @@ public class TechnicienPortalResource {
         public boolean bonPourAccord;
         public String bateauNom;
         public String bateauImmatriculation;
-        public int quantite;
+        public double quantite;
         public List<ChecklistItem> taches;
         public List<ProduitItem> produits;
         public List<ProduitItem> produitsExtra;
@@ -1117,7 +1117,7 @@ public class TechnicienPortalResource {
         if (produit == null) {
             throw new WebApplicationException("Produit non trouve", Response.Status.NOT_FOUND);
         }
-        int quantite = request.quantite > 0 ? request.quantite : 1;
+        double quantite = Quantite.ouUn(request.quantite);
         VenteProduitEntity ligne = new VenteProduitEntity();
         ligne.produit = produit;
         ligne.quantite = quantite;
@@ -1151,7 +1151,7 @@ public class TechnicienPortalResource {
         appliquerDeltaMontant(vente, delta);
         // La pièce était déjà sortie du stock : elle y retourne
         if (vente.stockDecremented && ligne.produit != null) {
-            VenteResource.mouvementStock(ligne.produit, -Math.max(1, ligne.quantite), vente);
+            VenteResource.mouvementStock(ligne.produit, -Quantite.ouUn(ligne.quantite), vente);
         }
     }
 
@@ -1184,8 +1184,8 @@ public class TechnicienPortalResource {
                     .mapToDouble(l -> netLigneTTC(l.remorque.prixVenteTTC, l.quantite, l.remise)).sum();
     }
 
-    private static double netLigneTTC(double prixTTC, int quantite, double remise) {
-        return Math.max(0.0, prixTTC * Math.max(1, quantite) - remise);
+    private static double netLigneTTC(double prixTTC, double quantite, double remise) {
+        return Math.max(0.0, prixTTC * Quantite.ouUn(quantite) - remise);
     }
 
     private static double arrondi(double valeur) {

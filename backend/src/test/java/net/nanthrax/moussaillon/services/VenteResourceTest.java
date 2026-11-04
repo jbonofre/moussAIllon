@@ -569,7 +569,7 @@ public class VenteResourceTest {
 
     @Test
     void testDecrementStock() {
-        int stockAvant = given()
+        float stockAvant = given()
             .when().get("/catalogue/produits/100")
             .then().statusCode(200).extract().path("stock");
 
@@ -585,11 +585,49 @@ public class VenteResourceTest {
             .when().put("/ventes/" + id)
             .then().statusCode(200);
 
-        int stockApres = given()
+        float stockApres = given()
             .when().get("/catalogue/produits/100")
             .then().statusCode(200).extract().path("stock");
 
         org.junit.jupiter.api.Assertions.assertEquals(stockAvant - 1, stockApres);
+    }
+
+    @Test
+    void testQuantiteDecimale() {
+        // 5,5 L d'huile moteur sortent du stock (issue #761)
+        int produitId = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Huile moteur " + System.nanoTime() + "\",\"categorie\":\"Divers\",\"stock\":10,\"prixVenteTTC\":12.0}")
+            .when().post("/catalogue/produits")
+            .then().statusCode(200).extract().path("id");
+        String lignes = "\"venteProduits\":[{\"quantite\":5.5,\"produit\":{\"id\":" + produitId + "}}]";
+
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"comptoir\":true,\"prixVenteTTC\":66.0," + lignes + "}")
+            .when().post("/ventes")
+            .then()
+            .statusCode(201)
+            .body("venteProduits[0].quantite", is(5.5f))
+            .extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"comptoir\":true,\"prixVenteTTC\":66.0," + lignes + "}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200);
+
+        given()
+            .when().get("/catalogue/produits/" + produitId)
+            .then()
+            .statusCode(200)
+            .body("stock", is(4.5f));
+        given()
+            .when().get("/catalogue/produits/" + produitId + "/mouvements")
+            .then()
+            .statusCode(200)
+            .body("[0].quantite", is(5.5f))
+            .body("[0].stockApres", is(4.5f));
     }
 
     private static String venteAvecLignesLibres(String... articles) {
@@ -612,7 +650,7 @@ public class VenteResourceTest {
             .when().post("/ventes")
             .then()
             .statusCode(201)
-            .body("venteProduits[0].quantite", is(2))
+            .body("venteProduits[0].quantite", is(2.0f))
             .body("venteProduits[0].remise", is(1.0f))
             .body("venteProduits[0].produit.designation", is(designation))
             .extract().path("venteProduits[0].produit.id");
@@ -628,7 +666,7 @@ public class VenteResourceTest {
             .body("tva", is(20.0f))
             .body("montantTVA", is(2.0f))
             .body("prixVenteHT", is(10.0f))
-            .body("stock", is(0));
+            .body("stock", is(0.0f));
     }
 
     @Test

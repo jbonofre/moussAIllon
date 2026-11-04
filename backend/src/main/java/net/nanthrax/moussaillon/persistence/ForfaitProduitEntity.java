@@ -10,5 +10,5 @@ public class ForfaitProduitEntity extends PanacheEntity {
     @ManyToOne
     public ProduitCatalogueEntity produit;
 
-    public int quantite;
+    public double quantite;
 }

@@ -156,7 +156,7 @@ public class VenteResource {
             for (VenteForfaitEntity vf : entity.venteForfaits) {
                 String nom = vf.forfait != null ? vf.forfait.nom : "Forfait";
                 String ref = (vf.forfait != null && vf.forfait.reference != null && !vf.forfait.reference.isBlank()) ? " [Réf: " + vf.forfait.reference + "]" : "";
-                lignes.append("- Forfait : ").append(nom).append(ref).append(" x").append(vf.quantite);
+                lignes.append("- Forfait : ").append(nom).append(ref).append(" x").append(Quantite.format(vf.quantite));
                 if (showPrices) {
                     double base = vf.forfait != null ? entity.prixLigne(vf.forfait.prixTTC, vf.forfait.prixHT, vf.forfait.tva) * vf.quantite : 0;
                     double total = Math.max(0, base - vf.remise);
@@ -173,7 +173,7 @@ public class VenteResource {
                 if (vp.produit == null) continue;
                 String nom = vp.produit.designation;
                 String ref = (vp.produit.ref != null && !vp.produit.ref.isBlank()) ? " [Réf: " + vp.produit.ref + "]" : "";
-                lignes.append("- Produit : ").append(nom).append(ref).append(" x").append(vp.quantite);
+                lignes.append("- Produit : ").append(nom).append(ref).append(" x").append(Quantite.format(vp.quantite));
                 if (showPrices) {
                     double base = entity.prixLigne(vp.produit.prixVenteTTC, vp.produit.prixVenteHT, vp.produit.tva) * vp.quantite;
                     double total = Math.max(0, base - vp.remise);
@@ -188,7 +188,7 @@ public class VenteResource {
         if (entity.venteServices != null) {
             for (VenteServiceEntity vs : entity.venteServices) {
                 String nom = vs.service != null ? vs.service.nom : "Service";
-                lignes.append("- Service : ").append(nom).append(" x").append(vs.quantite);
+                lignes.append("- Service : ").append(nom).append(" x").append(Quantite.format(vs.quantite));
                 if (showPrices) {
                     double base = vs.service != null ? entity.prixLigne(vs.service.prixTTC, vs.service.prixHT, vs.service.tva) * vs.quantite : 0;
                     double total = Math.max(0, base - vs.remise);
@@ -204,7 +204,7 @@ public class VenteResource {
             for (VenteBateauCatalogueEntity vb : entity.venteBateauxCatalogue) {
                 if (vb.bateau == null) continue;
                 String nom = vb.bateau.designation;
-                lignes.append("- Bateau : ").append(nom).append(" x").append(vb.quantite);
+                lignes.append("- Bateau : ").append(nom).append(" x").append(Quantite.format(vb.quantite));
                 if (showPrices) {
                     double base = entity.prixLigne(vb.bateau.prixVenteTTC, vb.bateau.prixVenteHT, vb.bateau.tva) * vb.quantite;
                     double total = Math.max(0, base - vb.remise);
@@ -220,7 +220,7 @@ public class VenteResource {
             for (VenteMoteurCatalogueEntity vm : entity.venteMoteursCatalogue) {
                 if (vm.moteur == null) continue;
                 String nom = vm.moteur.designation;
-                lignes.append("- Moteur : ").append(nom).append(" x").append(vm.quantite);
+                lignes.append("- Moteur : ").append(nom).append(" x").append(Quantite.format(vm.quantite));
                 if (showPrices) {
                     double base = entity.prixLigne(vm.moteur.prixVenteTTC, vm.moteur.prixVenteHT, vm.moteur.tva) * vm.quantite;
                     double total = Math.max(0, base - vm.remise);
@@ -236,7 +236,7 @@ public class VenteResource {
             for (VenteHeliceCatalogueEntity vh : entity.venteHelicesCatalogue) {
                 if (vh.helice == null) continue;
                 String nom = vh.helice.designation;
-                lignes.append("- Hélice : ").append(nom).append(" x").append(vh.quantite);
+                lignes.append("- Hélice : ").append(nom).append(" x").append(Quantite.format(vh.quantite));
                 if (showPrices) {
                     double base = entity.prixLigne(vh.helice.prixVenteTTC, vh.helice.prixVenteHT, vh.helice.tva) * vh.quantite;
                     double total = Math.max(0, base - vh.remise);
@@ -252,7 +252,7 @@ public class VenteResource {
             for (VenteRemorqueCatalogueEntity vr : entity.venteRemorquesCatalogue) {
                 if (vr.remorque == null) continue;
                 String nom = vr.remorque.designation;
-                lignes.append("- Remorque : ").append(nom).append(" x").append(vr.quantite);
+                lignes.append("- Remorque : ").append(nom).append(" x").append(Quantite.format(vr.quantite));
                 if (showPrices) {
                     double base = entity.prixLigne(vr.remorque.prixVenteTTC, vr.remorque.prixVenteHT, vr.remorque.tva) * vr.quantite;
                     double total = Math.max(0, base - vr.remise);
@@ -1262,7 +1262,7 @@ public class VenteResource {
             for (VenteBateauCatalogueEntity vb : vente.venteBateauxCatalogue) {
                 if (vb.bateau == null || vb.bateau.id == null) continue;
                 BateauCatalogueEntity b = BateauCatalogueEntity.findById(vb.bateau.id);
-                for (int i = 0; b != null && i < Math.max(1, vb.quantite); i++) bateaux.add(b);
+                for (int i = 0; b != null && i < Quantite.unites(vb.quantite); i++) bateaux.add(b);
             }
         }
         List<MoteurCatalogueEntity> moteurs = new java.util.ArrayList<>();
@@ -1270,7 +1270,7 @@ public class VenteResource {
             for (VenteMoteurCatalogueEntity vm : vente.venteMoteursCatalogue) {
                 if (vm.moteur == null || vm.moteur.id == null) continue;
                 MoteurCatalogueEntity m = MoteurCatalogueEntity.findById(vm.moteur.id);
-                for (int i = 0; m != null && i < Math.max(1, vm.quantite); i++) moteurs.add(m);
+                for (int i = 0; m != null && i < Quantite.unites(vm.quantite); i++) moteurs.add(m);
             }
         }
 
@@ -1279,7 +1279,7 @@ public class VenteResource {
             for (VenteHeliceCatalogueEntity vh : vente.venteHelicesCatalogue) {
                 if (vh.helice == null || vh.helice.id == null) continue;
                 HeliceCatalogueEntity h = HeliceCatalogueEntity.findById(vh.helice.id);
-                for (int i = 0; h != null && i < Math.max(1, vh.quantite); i++) helices.add(h);
+                for (int i = 0; h != null && i < Quantite.unites(vh.quantite); i++) helices.add(h);
             }
         }
 
@@ -1317,7 +1317,7 @@ public class VenteResource {
             for (VenteRemorqueCatalogueEntity vr : vente.venteRemorquesCatalogue) {
                 if (vr.remorque == null || vr.remorque.id == null) continue;
                 RemorqueCatalogueEntity modele = RemorqueCatalogueEntity.findById(vr.remorque.id);
-                for (int i = 0; modele != null && i < Math.max(1, vr.quantite); i++) {
+                for (int i = 0; modele != null && i < Quantite.unites(vr.quantite); i++) {
                     RemorqueClientEntity rc = new RemorqueClientEntity();
                     rc.modele = modele;
                     rc.proprietaire = vente.client;
@@ -1346,7 +1346,7 @@ public class VenteResource {
      * Sort du stock une quantité d'article pour la vente et l'inscrit à l'historique.
      * Une quantité négative remet l'article en stock (pièce retirée de la vente).
      */
-    static void mouvementStock(ProduitCatalogueEntity produit, int quantite, VenteEntity vente) {
+    static void mouvementStock(ProduitCatalogueEntity produit, double quantite, VenteEntity vente) {
         ProduitCatalogueEntity p = produit != null && produit.id != null ? ProduitCatalogueEntity.findById(produit.id) : null;
         if (p == null) {
             return;
@@ -1363,11 +1363,11 @@ public class VenteResource {
     }
 
     static void decrementStock(VenteEntity vente) {
-        Map<Long, Integer> produitQuantites = new HashMap<>();
+        Map<Long, Double> produitQuantites = new HashMap<>();
         if (vente.venteProduits != null) {
             for (VenteProduitEntity vp : vente.venteProduits) {
                 if (vp.produit == null || vp.produit.id == null) continue;
-                produitQuantites.merge(vp.produit.id, Math.max(1, vp.quantite), Integer::sum);
+                produitQuantites.merge(vp.produit.id, Quantite.ouUn(vp.quantite), Double::sum);
             }
         }
         for (VenteForfaitEntity vf : vente.venteForfaits) {
@@ -1376,13 +1376,13 @@ public class VenteResource {
                 if (f != null && f.produits != null) {
                     for (ForfaitProduitEntity fp : f.produits) {
                         if (fp.produit != null) {
-                            produitQuantites.merge(fp.produit.id, fp.quantite * vf.quantite, Integer::sum);
+                            produitQuantites.merge(fp.produit.id, fp.quantite * vf.quantite, Double::sum);
                         }
                     }
                 }
             }
         }
-        for (Map.Entry<Long, Integer> entry : produitQuantites.entrySet()) {
+        for (Map.Entry<Long, Double> entry : produitQuantites.entrySet()) {
             ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(entry.getKey());
             if (p != null) {
                 mouvementStock(p, entry.getValue(), vente);
@@ -1393,7 +1393,7 @@ public class VenteResource {
                 if (vb.bateau == null || vb.bateau.id == null) continue;
                 BateauCatalogueEntity b = BateauCatalogueEntity.findById(vb.bateau.id);
                 if (b != null) {
-                    b.stock = Math.max(0, b.stock - Math.max(1, vb.quantite));
+                    b.stock = Math.max(0, b.stock - Quantite.unites(vb.quantite));
                 }
             }
         }
@@ -1402,7 +1402,7 @@ public class VenteResource {
                 if (vm.moteur == null || vm.moteur.id == null) continue;
                 MoteurCatalogueEntity m = MoteurCatalogueEntity.findById(vm.moteur.id);
                 if (m != null) {
-                    m.stock = Math.max(0, m.stock - Math.max(1, vm.quantite));
+                    m.stock = Math.max(0, m.stock - Quantite.unites(vm.quantite));
                 }
             }
         }
@@ -1411,7 +1411,7 @@ public class VenteResource {
                 if (vr.remorque == null || vr.remorque.id == null) continue;
                 RemorqueCatalogueEntity r = RemorqueCatalogueEntity.findById(vr.remorque.id);
                 if (r != null) {
-                    r.stock = Math.max(0, r.stock - Math.max(1, vr.quantite));
+                    r.stock = Math.max(0, r.stock - Quantite.unites(vr.quantite));
                 }
             }
         }
