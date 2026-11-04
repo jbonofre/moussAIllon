@@ -405,6 +405,42 @@ public class TechnicienPortalResourceTest {
             .body("montantTVA", is(tvaAttendue));
     }
 
+    @Test
+    void testAjouterProduitProfessionnelDeLaMerAuPrixHT() {
+        int clientId = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Armement Technicien\",\"type\":\"PROFESSIONNEL_MER\"}")
+            .when().post("/clients")
+            .then().statusCode(200).extract().path("id");
+        int produitId = given()
+            .contentType("application/json")
+            .body("{\"designation\":\"Test Pro Mer Technicien\",\"categorie\":\"Divers\",\"prixVenteHT\":50.0,\"tva\":20.0,\"prixVenteTTC\":60.0}")
+            .when().post("/catalogue/produits")
+            .then().statusCode(200).extract().path("id");
+
+        io.restassured.response.Response vente = venteAvecForfait("FACTURE_EN_ATTENTE", "EN_COURS", "\"client\":{\"id\":" + clientId + "},");
+        int venteId = vente.path("id");
+        int forfaitId = vente.path("venteForfaits[0].id");
+        float montantTTCAvant = vente.path("montantTTC");
+
+        given()
+            .contentType("application/json")
+            .body("{\"produitId\":" + produitId + ",\"quantite\":2}")
+            .when().post("/technicien-portal/forfaits/" + forfaitId + "/produits")
+            .then()
+            .statusCode(200);
+
+        // Le professionnel de la mer est exonéré de TVA : la pièce est ajoutée à son prix HT, sans TVA
+        given()
+            .when().get("/ventes/" + venteId)
+            .then()
+            .statusCode(200)
+            .body("montantTTC", is(montantTTCAvant + 100.0f))
+            .body("montantHT", is(montantTTCAvant + 100.0f))
+            .body("montantTVA", is(0.0f))
+            .body("tva", is(0.0f));
+    }
+
     // Vente de 300 € TTC (TVA 20 %) avec un forfait au statut donné ; un forfait terminé a toutes ses tâches cochées
     private static io.restassured.response.Response venteAvecForfait(String statutVente, String statutForfait) {
         return venteAvecForfait(statutVente, statutForfait, "");

@@ -2,6 +2,7 @@
 // pour éviter que le format EBP ne diverge entre les deux écrans.
 
 import { Reception, lignesReception, receptionRenseignee } from '../reception.ts';
+import { MENTION_EXONERATION_TVA } from '../tva-vente.ts';
 
 export interface InvoicePrintSociete {
     nom?: string;
@@ -248,7 +249,23 @@ export const buildBancaireHtml = (societe: InvoicePrintSociete | undefined) => {
 export const montantOccasion = (lines: InvoicePrintLine[]) =>
     lines.filter((line) => line.occasion).reduce((sum, line) => sum + line.totalPrixTTC, 0);
 
-export const buildTvaBreakdownHtml = (params: { tva?: number; montantHT?: number; montantTVA?: number; montantOccasion?: number }) => {
+// Récapitulatif TVA : une ligne [taux, base HT, montant TVA] par taux
+const tvaBoxHtml = (rows: Array<[string, number, number]>) => `
+    <table class="tva-box">
+        <thead><tr><th>Taux</th><th class="num">Base HT</th><th class="num">Montant TVA</th></tr></thead>
+        <tbody>${rows.map(([taux, base, montant]) => `<tr>
+            <td>${escapeHtml(taux)}</td>
+            <td class="num">${escapeHtml(formatEuro(base))}</td>
+            <td class="num">${escapeHtml(formatEuro(montant))}</td>
+        </tr>`).join('')}</tbody>
+    </table>`;
+
+export const buildTvaBreakdownHtml = (params: { tva?: number; montantHT?: number; montantTVA?: number; montantOccasion?: number; exonere?: boolean }) => {
+    // Client exonéré de TVA : toute la vente est à 0 %, avec la mention légale de l'exonération
+    if (params.exonere) {
+        return `${tvaBoxHtml([['0.00 (exonéré)', params.montantHT || 0, 0]])}
+    <div class="tva-mention">${escapeHtml(MENTION_EXONERATION_TVA)}</div>`;
+    }
     const occasion = params.montantOccasion || 0;
     const baseTaxable = (params.montantHT || 0) - occasion;
     // [taux, base HT, montant TVA] ; la ligne du taux de la vente est omise si tout est d'occasion
@@ -259,15 +276,7 @@ export const buildTvaBreakdownHtml = (params: { tva?: number; montantHT?: number
     if (occasion > 0) {
         rows.push(['0.00 (occasion)', occasion, 0]);
     }
-    return `
-    <table class="tva-box">
-        <thead><tr><th>Taux</th><th class="num">Base HT</th><th class="num">Montant TVA</th></tr></thead>
-        <tbody>${rows.map(([taux, base, montant]) => `<tr>
-            <td>${escapeHtml(taux)}</td>
-            <td class="num">${escapeHtml(formatEuro(base))}</td>
-            <td class="num">${escapeHtml(formatEuro(montant))}</td>
-        </tr>`).join('')}</tbody>
-    </table>`;
+    return tvaBoxHtml(rows);
 };
 
 export const buildTotalsHtml = (params: {
@@ -337,6 +346,7 @@ export const INVOICE_PRINT_STYLES = `
     .tva-box { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
     .tva-box th, .tva-box td { border: 1px solid #d9d9d9; padding: 5px 8px; }
     .tva-box th { background: #f0f0f0; text-align: left; }
+    .tva-mention { font-style: italic; margin: -6px 0 12px; }
     .bancaire-box { font-size: 12px; }
     .bancaire-title { font-weight: bold; text-decoration: underline; margin-bottom: 4px; }
     .totals-box { border-collapse: collapse; min-width: 260px; }

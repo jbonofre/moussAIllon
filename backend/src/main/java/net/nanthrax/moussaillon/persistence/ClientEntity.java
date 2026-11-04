@@ -14,6 +14,9 @@ import java.util.List;
 @EntityListeners(FormatNomListener.class)
 public class ClientEntity extends PanacheEntity {
 
+    // Un professionnel de la mer est exonéré de TVA (article 262 II du CGI)
+    public static final String TYPE_PROFESSIONNEL_MER = "PROFESSIONNEL_MER";
+
     @Column(nullable = false)
     @FormatNom
     public String nom;
@@ -71,5 +74,9 @@ public class ClientEntity extends PanacheEntity {
     // et sa date de paiement (dateFacturePayee), sur les factures payées de ce client.
     @jakarta.persistence.Transient
     public Double delaiPaiementMoyenJours;
+
+    public boolean exonereTva() {
+        return TYPE_PROFESSIONNEL_MER.equals(type);
+    }
 
 }

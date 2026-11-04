@@ -33,6 +33,7 @@ import {
 } from '@ant-design/icons';
 import { fetchWithAuth } from './api.ts';
 import { paginationConfig } from './pagination.ts';
+import { clientExonereTva, prixArticleVente, prixPrestationVente } from './tva-vente.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
 
 const { TextArea } = Input;
@@ -303,14 +304,16 @@ export default function Avoirs() {
             if (!res.ok) throw new Error();
             const venteData = await res.json();
             const newLignes: AvoirLigne[] = [];
-            const tvaTaux = venteData.tva > 0 ? venteData.tva : 20;
+            // Un client exonéré de TVA (professionnel de la mer) a été facturé au prix HT, sans TVA : son avoir aussi
+            const exonere = clientExonereTva(venteData.client);
+            const tvaTaux = exonere ? 0 : venteData.tva > 0 ? venteData.tva : 20;
 
             (venteData.venteForfaits || []).forEach((vf: any) => {
                 if (!vf.forfait) return;
                 const quantite = Math.max(1, vf.quantite || 1);
                 const prixUnitaireHT = vf.forfait.prixHT || 0;
-                const tva = vf.forfait.tva > 0 ? vf.forfait.tva : tvaTaux;
-                const brutTTC = (vf.forfait.prixTTC || 0) * quantite;
+                const tva = exonere ? 0 : vf.forfait.tva > 0 ? vf.forfait.tva : tvaTaux;
+                const brutTTC = prixPrestationVente(vf.forfait, exonere) * quantite;
                 const netTTC = Math.max(0, brutTTC - (vf.remise || 0));
                 const ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
                 const montantTVA = Math.round(prixUnitaireHT * quantite * (tva / 100) * ratio * 100) / 100;
@@ -329,8 +332,8 @@ export default function Avoirs() {
                 if (!vs.service) return;
                 const quantite = Math.max(1, vs.quantite || 1);
                 const prixUnitaireHT = vs.service.prixHT || 0;
-                const tva = vs.service.tva > 0 ? vs.service.tva : tvaTaux;
-                const brutTTC = (vs.service.prixTTC || 0) * quantite;
+                const tva = exonere ? 0 : vs.service.tva > 0 ? vs.service.tva : tvaTaux;
+                const brutTTC = prixPrestationVente(vs.service, exonere) * quantite;
                 const netTTC = Math.max(0, brutTTC - (vs.remise || 0));
                 const ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
                 const montantTVA = Math.round(prixUnitaireHT * quantite * (tva / 100) * ratio * 100) / 100;
@@ -349,8 +352,8 @@ export default function Avoirs() {
                 if (!vp.produit) return;
                 const quantite = Math.max(1, vp.quantite || 1);
                 const prixUnitaireHT = vp.produit.prixVenteHT || 0;
-                const tva = vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
-                const brutTTC = (vp.produit.prixVenteTTC || 0) * quantite;
+                const tva = exonere ? 0 : vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
+                const brutTTC = prixArticleVente(vp.produit, exonere) * quantite;
                 const netTTC = Math.max(0, brutTTC - (vp.remise || 0));
                 const ratio = brutTTC > 0 ? netTTC / brutTTC : 1.0;
                 const montantTVA = Math.round(prixUnitaireHT * quantite * (tva / 100) * ratio * 100) / 100;

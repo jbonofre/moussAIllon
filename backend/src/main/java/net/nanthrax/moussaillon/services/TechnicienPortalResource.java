@@ -1125,7 +1125,7 @@ public class TechnicienPortalResource {
         // Enregistrée tout de suite pour renvoyer son identifiant : l'application peut alors la retirer
         ligne.persist();
         vente.venteProduits.add(ligne);
-        appliquerDeltaMontant(vente, produit.prixVenteTTC * quantite);
+        appliquerDeltaMontant(vente, vente.prixLigne(produit.prixVenteTTC, produit.prixVenteHT, produit.tva) * quantite);
         // Le stock de la vente est déjà sorti : la pièce sort tout de suite (sinon elle partira avec le reste)
         if (vente.stockDecremented) {
             VenteResource.mouvementStock(produit, quantite, vente);
@@ -1144,7 +1144,9 @@ public class TechnicienPortalResource {
         if (ligne == null) {
             return;
         }
-        double delta = ligne.produit != null ? -(ligne.produit.prixVenteTTC * ligne.quantite) : 0.0;
+        double delta = ligne.produit != null
+                ? -(vente.prixLigne(ligne.produit.prixVenteTTC, ligne.produit.prixVenteHT, ligne.produit.tva) * ligne.quantite)
+                : 0.0;
         vente.venteProduits.remove(ligne);
         appliquerDeltaMontant(vente, delta);
         // La pièce était déjà sortie du stock : elle y retourne
@@ -1156,6 +1158,10 @@ public class TechnicienPortalResource {
     // Applique un delta TTC et recalcule les montants derives de la vente.
     private static void appliquerDeltaMontant(VenteEntity vente, double deltaTTC) {
         vente.montantTTC = arrondi(vente.montantTTC + deltaTTC);
+        // Un client exonéré ne paie aucune TVA
+        if (vente.exonereTva()) {
+            vente.tva = 0;
+        }
         double tva = vente.tva;
         // Les articles d'occasion sont vendus sans TVA : le taux de la vente ne s'applique qu'au reste
         double baseTaxableTTC = Math.max(0.0, vente.montantTTC - montantOccasionTTC(vente));

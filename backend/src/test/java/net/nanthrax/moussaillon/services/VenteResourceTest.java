@@ -1,9 +1,13 @@
 package net.nanthrax.moussaillon.services;
 
+import java.io.ByteArrayInputStream;
+import java.nio.charset.StandardCharsets;
+
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import org.junit.jupiter.api.Test;
+import org.mustangproject.ZUGFeRD.ZUGFeRDImporter;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
@@ -11,6 +15,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 public class VenteResourceTest {
@@ -511,6 +516,33 @@ public class VenteResourceTest {
             .statusCode(200)
             .contentType("application/pdf")
             .header("Content-Disposition", containsString("attachment"));
+    }
+
+    @Test
+    void testFacturXProfessionnelDeLaMerExonereDeTva() throws Exception {
+        int clientId = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Armement Facturx\",\"type\":\"PROFESSIONNEL_MER\"}")
+            .when().post("/clients")
+            .then().statusCode(200).extract().path("id");
+        // Article à 60 € TTC (50 € HT, TVA 20 %) vendu au prix HT
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"client\":{\"id\":" + clientId + "},"
+                + "\"tva\":0.0,\"montantHT\":50.0,\"montantTVA\":0.0,\"montantTTC\":50.0,\"prixVenteTTC\":50.0,"
+                + "\"venteProduits\":[{\"quantite\":1,\"produit\":{\"designation\":\"Anode pro " + System.nanoTime() + "\",\"prixVenteTTC\":60.0,\"tva\":20.0}}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        byte[] pdf = given()
+            .when().get("/ventes/" + id + "/facturx")
+            .then().statusCode(200).extract().asByteArray();
+
+        String xml = new String(new ZUGFeRDImporter(new ByteArrayInputStream(pdf)).getRawXML(), StandardCharsets.UTF_8);
+        assertTrue(xml.contains("<ram:CategoryCode>E</ram:CategoryCode>"), xml);
+        assertTrue(xml.contains("article 262 II du Code général des impôts"), xml);
+        assertTrue(xml.contains("<ram:TaxTotalAmount currencyID=\"EUR\">0.00</ram:TaxTotalAmount>"), xml);
+        assertTrue(xml.contains("<ram:GrandTotalAmount>50.00</ram:GrandTotalAmount>"), xml);
     }
 
     @Test

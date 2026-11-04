@@ -158,7 +158,7 @@ public class VenteResource {
                 String ref = (vf.forfait != null && vf.forfait.reference != null && !vf.forfait.reference.isBlank()) ? " [Réf: " + vf.forfait.reference + "]" : "";
                 lignes.append("- Forfait : ").append(nom).append(ref).append(" x").append(vf.quantite);
                 if (showPrices) {
-                    double base = vf.forfait != null ? vf.forfait.prixTTC * vf.quantite : 0;
+                    double base = vf.forfait != null ? entity.prixLigne(vf.forfait.prixTTC, vf.forfait.prixHT, vf.forfait.tva) * vf.quantite : 0;
                     double total = Math.max(0, base - vf.remise);
                     lignes.append(" = ").append(String.format("%.2f EUR", total));
                     if (vf.remise > 0) {
@@ -175,7 +175,7 @@ public class VenteResource {
                 String ref = (vp.produit.ref != null && !vp.produit.ref.isBlank()) ? " [Réf: " + vp.produit.ref + "]" : "";
                 lignes.append("- Produit : ").append(nom).append(ref).append(" x").append(vp.quantite);
                 if (showPrices) {
-                    double base = vp.produit.prixVenteTTC * vp.quantite;
+                    double base = entity.prixLigne(vp.produit.prixVenteTTC, vp.produit.prixVenteHT, vp.produit.tva) * vp.quantite;
                     double total = Math.max(0, base - vp.remise);
                     lignes.append(" = ").append(String.format("%.2f EUR", total));
                     if (vp.remise > 0) {
@@ -190,7 +190,7 @@ public class VenteResource {
                 String nom = vs.service != null ? vs.service.nom : "Service";
                 lignes.append("- Service : ").append(nom).append(" x").append(vs.quantite);
                 if (showPrices) {
-                    double base = vs.service != null ? vs.service.prixTTC * vs.quantite : 0;
+                    double base = vs.service != null ? entity.prixLigne(vs.service.prixTTC, vs.service.prixHT, vs.service.tva) * vs.quantite : 0;
                     double total = Math.max(0, base - vs.remise);
                     lignes.append(" = ").append(String.format("%.2f EUR", total));
                     if (vs.remise > 0) {
@@ -206,7 +206,7 @@ public class VenteResource {
                 String nom = vb.bateau.designation;
                 lignes.append("- Bateau : ").append(nom).append(" x").append(vb.quantite);
                 if (showPrices) {
-                    double base = vb.bateau.prixVenteTTC * vb.quantite;
+                    double base = entity.prixLigne(vb.bateau.prixVenteTTC, vb.bateau.prixVenteHT, vb.bateau.tva) * vb.quantite;
                     double total = Math.max(0, base - vb.remise);
                     lignes.append(" = ").append(String.format("%.2f EUR", total));
                     if (vb.remise > 0) {
@@ -222,7 +222,7 @@ public class VenteResource {
                 String nom = vm.moteur.designation;
                 lignes.append("- Moteur : ").append(nom).append(" x").append(vm.quantite);
                 if (showPrices) {
-                    double base = vm.moteur.prixVenteTTC * vm.quantite;
+                    double base = entity.prixLigne(vm.moteur.prixVenteTTC, vm.moteur.prixVenteHT, vm.moteur.tva) * vm.quantite;
                     double total = Math.max(0, base - vm.remise);
                     lignes.append(" = ").append(String.format("%.2f EUR", total));
                     if (vm.remise > 0) {
@@ -238,7 +238,7 @@ public class VenteResource {
                 String nom = vh.helice.designation;
                 lignes.append("- Hélice : ").append(nom).append(" x").append(vh.quantite);
                 if (showPrices) {
-                    double base = vh.helice.prixVenteTTC * vh.quantite;
+                    double base = entity.prixLigne(vh.helice.prixVenteTTC, vh.helice.prixVenteHT, vh.helice.tva) * vh.quantite;
                     double total = Math.max(0, base - vh.remise);
                     lignes.append(" = ").append(String.format("%.2f EUR", total));
                     if (vh.remise > 0) {
@@ -254,7 +254,7 @@ public class VenteResource {
                 String nom = vr.remorque.designation;
                 lignes.append("- Remorque : ").append(nom).append(" x").append(vr.quantite);
                 if (showPrices) {
-                    double base = vr.remorque.prixVenteTTC * vr.quantite;
+                    double base = entity.prixLigne(vr.remorque.prixVenteTTC, vr.remorque.prixVenteHT, vr.remorque.tva) * vr.quantite;
                     double total = Math.max(0, base - vr.remise);
                     lignes.append(" = ").append(String.format("%.2f EUR", total));
                     if (vr.remise > 0) {

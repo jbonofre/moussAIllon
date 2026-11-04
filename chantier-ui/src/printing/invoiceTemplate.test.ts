@@ -103,6 +103,17 @@ describe('invoiceTemplate', () => {
         expect(rows(html).map((row) => row.cells)).toEqual([['0.00 (occasion)', '6000.00 EUR', '0.00 EUR']]);
     });
 
+    it('imprime une base unique à 0 % et la mention légale pour un client exonéré de TVA', () => {
+        const html = buildTvaBreakdownHtml({ tva: 0, montantHT: 6100, montantTVA: 0, montantOccasion: 6000, exonere: true });
+
+        expect(rows(html).map((row) => row.cells)).toEqual([['0.00 (exonéré)', '6100.00 EUR', '0.00 EUR']]);
+        expect(html).toContain('Exonération de TVA, article 262 II du Code général des impôts');
+    });
+
+    it('n\'imprime pas la mention d\'exonération pour un client soumis à la TVA', () => {
+        expect(buildTvaBreakdownHtml({ tva: 20, montantHT: 100, montantTVA: 20 })).not.toContain('Exonération');
+    });
+
     it('garde une seule ligne au taux de la vente sans article d\'occasion', () => {
         const html = buildTvaBreakdownHtml({ tva: 20, montantHT: 100, montantTVA: 20 });
 

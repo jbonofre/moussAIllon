@@ -1,4 +1,12 @@
-import { calculerTvaVente, calculerTvaVenteDepuisHT, tauxTvaVente } from './tva-vente.ts';
+import {
+    calculerTvaVente,
+    calculerTvaVenteDepuisHT,
+    clientExonereTva,
+    prixArticleVente,
+    prixPrestationVente,
+    prixUnitaireVente,
+    tauxTvaVente,
+} from './tva-vente.ts';
 
 describe('calculerTvaVente', () => {
     it('applique le taux de la vente à tout le montant sans article d\'occasion', () => {
@@ -48,5 +56,38 @@ describe('tauxTvaVente', () => {
     it('ne déduit aucun taux sans base taxable', () => {
         expect(tauxTvaVente(0, 0, 5)).toBeUndefined();
         expect(tauxTvaVente(5000, 5000, 5)).toBeUndefined();
+    });
+});
+
+describe('clientExonereTva', () => {
+    it('exonère le professionnel de la mer uniquement', () => {
+        expect(clientExonereTva({ type: 'PROFESSIONNEL_MER' })).toBe(true);
+        expect(clientExonereTva({ type: 'PROFESSIONNEL' })).toBe(false);
+        expect(clientExonereTva({ type: 'PARTICULIER' })).toBe(false);
+        expect(clientExonereTva(undefined)).toBe(false);
+    });
+});
+
+describe('prixUnitaireVente', () => {
+    it('vend au prix TTC un client non exonéré', () => {
+        expect(prixUnitaireVente(120, 100, 20, false)).toBe(120);
+    });
+
+    it('vend au prix HT un client exonéré de TVA', () => {
+        expect(prixUnitaireVente(120, 100, 20, true)).toBe(100);
+    });
+
+    it('déduit le prix HT du TTC et du taux de l\'article s\'il n\'est pas renseigné', () => {
+        expect(prixUnitaireVente(110, undefined, 10, true)).toBe(100);
+        expect(prixUnitaireVente(12, 0, 20, true)).toBe(10);
+    });
+
+    it('lit le prix des articles du catalogue et des prestations', () => {
+        expect(prixArticleVente({ prixVenteTTC: 60, prixVenteHT: 50, tva: 20 }, true)).toBe(50);
+        expect(prixArticleVente({ prixVenteTTC: 60, prixVenteHT: 50, tva: 20 }, false)).toBe(60);
+        // Ligne libre : seuls le prix TTC et le taux sont saisis
+        expect(prixArticleVente({ prixVenteTTC: 24, tva: 20 }, true)).toBe(20);
+        expect(prixPrestationVente({ prixTTC: 300, prixHT: 250, tva: 20 }, true)).toBe(250);
+        expect(prixPrestationVente(undefined, true)).toBe(0);
     });
 });

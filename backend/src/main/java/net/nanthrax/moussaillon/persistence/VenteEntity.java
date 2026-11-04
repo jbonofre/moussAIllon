@@ -18,6 +18,9 @@ import jakarta.persistence.FetchType;
 @Entity
 public class VenteEntity extends PanacheEntity {
 
+    // Mention légale portée sur les factures d'un client exonéré de TVA
+    public static final String MENTION_EXONERATION_TVA = "Exonération de TVA, article 262 II du Code général des impôts";
+
     public enum Status {
         DEVIS,
         FACTURE_EN_ATTENTE,
@@ -180,5 +183,19 @@ public class VenteEntity extends PanacheEntity {
 
     @jakarta.persistence.Embedded
     public Reception reception;
+
+    // Vente à un client exonéré de TVA (professionnel de la mer) : au taux de 0 %, au prix HT des articles
+    public boolean exonereTva() {
+        return client != null && client.exonereTva();
+    }
+
+    // Prix unitaire d'un article sur la vente : son prix TTC, ou son prix HT pour un client exonéré de TVA
+    // (déduit du TTC et du taux de l'article s'il n'est pas renseigné)
+    public double prixLigne(double prixTTC, double prixHT, double tva) {
+        if (!exonereTva()) {
+            return prixTTC;
+        }
+        return prixHT > 0 ? prixHT : Math.round(prixTTC / (1 + tva / 100.0) * 100.0) / 100.0;
+    }
 
 }
