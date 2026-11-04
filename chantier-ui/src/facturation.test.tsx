@@ -87,6 +87,29 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
         expect(screen.queryByText(/Échéance/)).not.toBeInTheDocument();
     });
 
+    it("ouvre le paiement en ligne au montant de l'échéance", async () => {
+        mockedFetch.mockImplementation((url: string) => {
+            if (url === './societe/tarifs') return reponse({ ...tarifs, paiementEnLigne: { STRIPE: true, PAYPLUG: false } });
+            if (url === './societe/paiement/en-ligne') return reponse({ url: 'https://checkout.stripe.com/session' });
+            return reponse(societe);
+        });
+        const fenetre: any = { location: { href: '' } };
+        const ouvrir = jest.spyOn(window, 'open').mockReturnValue(fenetre);
+        try {
+            render(<Facturation />);
+            fireEvent.click(await screen.findByRole('button', { name: /Payer ce mois/ }));
+
+            fireEvent.mouseDown(screen.getByRole('combobox'));
+            fireEvent.click(await screen.findByText('Stripe', { selector: '.ant-select-item-option-content' }));
+            fireEvent.click(screen.getByRole('button', { name: /Payer via Stripe — 85,00/ }));
+
+            await waitFor(() => expect(fenetre.location.href).toBe('https://checkout.stripe.com/session'));
+            expect(JSON.parse(appel('./societe/paiement/en-ligne', 'POST')[1].body)).toEqual({ type: 'MENSUEL', mode: 'STRIPE' });
+        } finally {
+            ouvrir.mockRestore();
+        }
+    });
+
     it("demande confirmation avant de retirer un module aux utilisateurs", async () => {
         render(<Facturation />);
 

@@ -19,6 +19,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 @Path("/societe")
@@ -44,11 +45,30 @@ public class SocieteResource {
     @ConfigProperty(name = "abonnement.prix-utilisateur", defaultValue = "10")
     double prixUtilisateur;
 
+    // Paiement en ligne de l'abonnement, au montant calculé : comptes Stripe / PayPlug de l'éditeur,
+    // distincts de ceux du chantier qui encaissent les ventes (payment.*).
+    @ConfigProperty(name = "abonnement.stripe.api-key")
+    Optional<String> abonnementStripeApiKey;
+
+    @ConfigProperty(name = "abonnement.payplug.api-key")
+    Optional<String> abonnementPayplugApiKey;
+
+    // Page de retour après le paiement en ligne (la facturation du chantier).
+    @ConfigProperty(name = "abonnement.paiement.retour-url", defaultValue = "http://localhost:3000/chantier/")
+    String abonnementPaiementRetourUrl;
+
     public static class Tarifs {
         public double prixUtilisateur;
         // Prix mensuel de chaque module, dans l'ordre des modules.
         public Map<String, Double> prixModules = new LinkedHashMap<>();
         public int moisFacturesAnnuel;
+        // Modes de paiement en ligne au montant calculé (clé API de l'éditeur configurée).
+        public Map<String, Boolean> paiementEnLigne = new LinkedHashMap<>();
+    }
+
+    public static class PaiementEnLigneRequest {
+        public String type; // MENSUEL | ANNUEL
+        public String mode; // STRIPE | PAYPLUG
     }
 
     public static class PaiementRequest {
@@ -77,7 +97,59 @@ public class SocieteResource {
             tarifs.prixModules.put(module.name(), prixModule(module));
         }
         tarifs.moisFacturesAnnuel = MOIS_FACTURES_ANNUEL;
+        tarifs.paiementEnLigne.put("STRIPE", abonnementStripeApiKey.isPresent());
+        tarifs.paiementEnLigne.put("PAYPLUG", abonnementPayplugApiKey.isPresent());
         return tarifs;
+    }
+
+    /**
+     * Crée un paiement en ligne (Stripe ou PayPlug) au montant de l'échéance et renvoie l'URL de sa page de
+     * paiement. Sans clé API de l'éditeur, le lien de paiement fixe de la société est renvoyé s'il existe :
+     * son montant ne suit alors pas le prix calculé.
+     */
+    @POST
+    @Path("/paiement/en-ligne")
+    @Transactional
+    public Map<String, String> paiementEnLigne(PaiementEnLigneRequest request) {
+        if (request == null || request.type == null || (!request.type.equals("MENSUEL") && !request.type.equals("ANNUEL"))) {
+            throw new WebApplicationException("Type de paiement invalide (MENSUEL ou ANNUEL attendu)", 400);
+        }
+        boolean annuel = request.type.equals("ANNUEL");
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null) {
+            throw new WebApplicationException("La société n'est pas trouvée", 404);
+        }
+        if (entity.abonnementResilie) {
+            throw new WebApplicationException("L'abonnement est résilié", 400);
+        }
+        initAbonnement(entity);
+        long montantCentimes = Math.round((annuel ? entity.abonnementMontantAnnuel : entity.abonnementProchainPaiementMontant) * 100);
+        String designation = "Abonnement moussAIllon " + (annuel ? "annuel" : "mensuel") + " - " + entity.nom;
+
+        String url;
+        try {
+            if ("STRIPE".equals(request.mode)) {
+                url = abonnementStripeApiKey.isPresent()
+                    ? PaymentResource.creerSessionStripe(abonnementStripeApiKey.get(), montantCentimes, designation,
+                        abonnementPaiementRetourUrl, abonnementPaiementRetourUrl)
+                    : (annuel ? entity.stripePaymentLinkAnnuel : entity.stripePaymentLinkMensuel);
+            } else if ("PAYPLUG".equals(request.mode)) {
+                url = abonnementPayplugApiKey.isPresent()
+                    ? PaymentResource.creerPaiementPayplug(abonnementPayplugApiKey.get(), montantCentimes, entity.email, entity.nom,
+                        abonnementPaiementRetourUrl, abonnementPaiementRetourUrl)
+                    : (annuel ? entity.payplugPaymentLinkAnnuel : entity.payplugPaymentLinkMensuel);
+            } else {
+                throw new WebApplicationException("Mode de paiement en ligne invalide (STRIPE ou PAYPLUG attendu)", 400);
+            }
+        } catch (WebApplicationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new WebApplicationException("Erreur lors de la création du paiement en ligne : " + e.getMessage(), 500);
+        }
+        if (url == null || url.isBlank()) {
+            throw new WebApplicationException("Le paiement " + request.mode + " n'est pas configuré", 400);
+        }
+        return Map.of("url", url);
     }
 
     /**

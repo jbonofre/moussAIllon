@@ -155,6 +155,48 @@ public class SocieteResourceTest {
     }
 
     @Test
+    void testPaiementEnLigne() {
+        // Sans clé API de l'éditeur ni lien fixe, le paiement en ligne n'est pas disponible
+        given()
+            .when().get("/societe/tarifs")
+            .then()
+            .statusCode(200)
+            .body("paiementEnLigne.STRIPE", is(false))
+            .body("paiementEnLigne.PAYPLUG", is(false));
+        given()
+            .contentType("application/json")
+            .body("{\"type\":\"MENSUEL\",\"mode\":\"STRIPE\"}")
+            .when().post("/societe/paiement/en-ligne")
+            .then()
+            .statusCode(400);
+
+        // Sans clé API, le lien fixe de la société est utilisé
+        try {
+            given()
+                .contentType("application/json")
+                .body("{\"nom\":\"MS Plaisance\",\"siren\":\"123456789\",\"adresse\":\"10 quai du Port\","
+                    + "\"payplugPaymentLinkAnnuel\":\"https://payplug.example.com/annuel\"}")
+                .when().put("/societe")
+                .then()
+                .statusCode(200);
+            given()
+                .contentType("application/json")
+                .body("{\"type\":\"ANNUEL\",\"mode\":\"PAYPLUG\"}")
+                .when().post("/societe/paiement/en-ligne")
+                .then()
+                .statusCode(200)
+                .body("url", is("https://payplug.example.com/annuel"));
+        } finally {
+            given()
+                .contentType("application/json")
+                .body("{\"nom\":\"MS Plaisance\",\"siren\":\"123456789\",\"adresse\":\"10 quai du Port\"}")
+                .when().put("/societe")
+                .then()
+                .statusCode(200);
+        }
+    }
+
+    @Test
     void testPrixSelonModulesSouscrits() {
         try {
             // Paramétrage reste toujours souscrit ; 2 × 10 € + Vente 35 € + Parc 20 €.

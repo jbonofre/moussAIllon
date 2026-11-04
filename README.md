@@ -78,6 +78,9 @@ cd technicien-ui && npm install && npm start
 | `MAILER_PORT` | Port SMTP | `1025` |
 | `MAILER_MOCK` | Mode mock (pas d'envoi reel) | `true` |
 | `ABONNEMENT_FREE` | Version Free : les acces ne sont jamais bloques (abonnement impaye depuis 2 mois ou plus, ou resilie) | `false` |
+| `ABONNEMENT_STRIPE_API_KEY` | Cle API Stripe de l'editeur pour payer l'abonnement en ligne au montant calcule (distincte de `STRIPE_API_KEY`, qui encaisse les ventes du chantier) ; sans cle, le lien de paiement fixe de la societe est utilise | _(vide)_ |
+| `ABONNEMENT_PAYPLUG_API_KEY` | Cle API PayPlug de l'editeur pour payer l'abonnement en ligne au montant calcule | _(vide)_ |
+| `ABONNEMENT_PAIEMENT_RETOUR_URL` | Page de retour apres le paiement en ligne de l'abonnement | `http://localhost:3000/chantier/` |
 | `ABONNEMENT_PRIX_UTILISATEUR` | Prix mensuel de l'abonnement par utilisateur (EUR) | `10` |
 | `ABONNEMENT_PRIX_MODULE_<MODULE>` | Prix mensuel d'un module souscrit (EUR) : `VENTE`, `PARC`, `CATALOGUE`, `ATELIER`, `MARKETING`, `COMPTABILITE` (`PARAMETRAGE` est inclus) | `35`, `20`, `25`, `20`, `20`, `20` |
 

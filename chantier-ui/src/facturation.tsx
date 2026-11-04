@@ -114,6 +114,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
     const [tarifs, setTarifs] = useState<any>(null);
     const [modulesSelectionnes, setModulesSelectionnes] = useState<string[]>([]);
     const [savingModules, setSavingModules] = useState(false);
+    const [ouvertureEnLigne, setOuvertureEnLigne] = useState(false);
     const [paiementType, setPaiementType] = useState<PaiementType | null>(null);
     const [paiementMode, setPaiementMode] = useState<PaiementMode>('VIREMENT');
     const [signatureModalOpen, setSignatureModalOpen] = useState(false);
@@ -197,6 +198,34 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
         if (mode === 'STRIPE') return type === 'ANNUEL' ? societe.stripePaymentLinkAnnuel : societe.stripePaymentLinkMensuel;
         if (mode === 'PAYPLUG') return type === 'ANNUEL' ? societe.payplugPaymentLinkAnnuel : societe.payplugPaymentLinkMensuel;
         return undefined;
+    };
+
+    // Paiement en ligne au montant de l'échéance (clé API de l'éditeur), ou à défaut par le lien fixe de la société
+    const paiementEnLigneDisponible = (type: PaiementType, mode: PaiementMode): boolean =>
+        !!tarifs?.paiementEnLigne?.[mode] || !!getPaymentLink(type, mode);
+
+    const ouvrirPaiementEnLigne = () => {
+        // Fenêtre ouverte tout de suite : ouverte après la réponse du serveur, elle serait bloquée par le navigateur
+        const fenetre = window.open('', '_blank');
+        if (fenetre) fenetre.opener = null;
+        setOuvertureEnLigne(true);
+        fetchWithAuth('./societe/paiement/en-ligne', {
+            method: 'POST',
+            body: JSON.stringify({ type: paiementType, mode: paiementMode }),
+        })
+            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(({ url }) => {
+                if (fenetre) {
+                    fenetre.location.href = url;
+                } else {
+                    window.open(url, '_blank', 'noopener,noreferrer');
+                }
+            })
+            .catch((e) => {
+                fenetre?.close();
+                message.error('Erreur : ' + e.message);
+            })
+            .finally(() => setOuvertureEnLigne(false));
     };
 
     const openPaiementModal = (type: PaiementType) => {
@@ -283,12 +312,12 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
         {
             value: 'STRIPE',
             label: 'Stripe',
-            disabled: !getPaymentLink(type, 'STRIPE'),
+            disabled: !paiementEnLigneDisponible(type, 'STRIPE'),
         },
         {
             value: 'PAYPLUG',
             label: 'PayPlug',
-            disabled: !getPaymentLink(type, 'PAYPLUG'),
+            disabled: !paiementEnLigneDisponible(type, 'PAYPLUG'),
         },
     ];
 
@@ -310,7 +339,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
     const modulesModifies = !!societe && trierModules(societe.modules).join() !== trierModules(modulesSelectionnes).join();
     const modulesRetires = trierModules((societe?.modules || []).filter((m: string) => !modulesSelectionnes.includes(m)));
 
-    const externalLink = paiementType ? getPaymentLink(paiementType, paiementMode) : undefined;
+    const paiementEnLigne = !!paiementType && paiementEnLigneDisponible(paiementType, paiementMode);
 
     const historiqueColumns = [
         {
@@ -520,19 +549,18 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                                     Cliquez sur le bouton ci-dessous pour accéder à la page de paiement {MODE_LABEL[paiementMode]}.
                                     Une fois le paiement effectué, revenez ici et cliquez sur <strong>Confirmer</strong>.
                                 </p>
-                                {externalLink ? (
+                                {paiementEnLigne ? (
                                     <Button
                                         type="default"
                                         icon={<LinkOutlined />}
-                                        href={externalLink}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
+                                        loading={ouvertureEnLigne}
+                                        onClick={ouvrirPaiementEnLigne}
                                     >
                                         Payer via {MODE_LABEL[paiementMode]} — {formatMontant(montantPaiement)}
                                     </Button>
                                 ) : (
                                     <span style={{ color: '#ff4d4f' }}>
-                                        Lien de paiement {MODE_LABEL[paiementMode]} non configuré.
+                                        Paiement {MODE_LABEL[paiementMode]} non configuré.
                                     </span>
                                 )}
                             </div>
@@ -561,7 +589,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                                 type="primary"
                                 loading={submitting}
                                 onClick={handlePaiementConfirm}
-                                disabled={isExternalMode(paiementMode) && !externalLink}
+                                disabled={isExternalMode(paiementMode) && !paiementEnLigne}
                             >
                                 Confirmer — {formatMontant(montantPaiement)}
                             </Button>

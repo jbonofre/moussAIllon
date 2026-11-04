@@ -1,5 +1,6 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -25,6 +26,9 @@ public class UserResource {
 
     @Inject
     TokenService tokenService;
+
+    @Inject
+    SecurityIdentity identity;
 
     public static class LoginRequest {
         public String name;
@@ -72,7 +76,8 @@ public class UserResource {
                 .entity("Accès bloqué : l'abonnement est impayé depuis 2 mois ou plus. Contactez un administrateur.").build();
         }
         AuthResponse auth = new AuthResponse();
-        Set<String> groupes = entity.modules.stream().map(Enum::name).collect(Collectors.toSet());
+        Set<String> groupes = entity.modules.stream().map(Enum::name).collect(Collectors.toCollection(HashSet::new));
+        groupes.add(AccesApiFilter.GROUPE_CHANTIER);
         auth.token = tokenService.generateToken(entity.name, groupes, entity.email, null);
         auth.name = entity.name;
         auth.modules = entity.modules;
@@ -167,15 +172,20 @@ public class UserResource {
             throw new WebApplicationException("L'utilisateur " + name + " n'est pas trouvé", 404);
         }
 
-        validerModules(name, user);
-        verifierAccesParametrageConserve(entity, user.modules);
+        // Sans le module Paramétrage, un utilisateur ne modifie que son thème (préférences) : ni ses modules,
+        // ni son email, ni son mot de passe (qui a son propre point d'API, avec le mot de passe actuel).
+        // Une requête anonyme n'atteint ce point qu'en test, où l'authentification est désactivée.
+        if (identity.isAnonymous() || identity.hasRole(ModuleApplication.PARAMETRAGE.name())) {
+            validerModules(name, user);
+            verifierAccesParametrageConserve(entity, user.modules);
 
-        entity.name = user.name;
-        entity.email = user.email;
-        entity.modules.clear();
-        entity.modules.addAll(user.modules);
-        if (user.password != null && !user.password.isBlank()) {
-            entity.password = PasswordUtil.hash(user.password);
+            entity.name = user.name;
+            entity.email = user.email;
+            entity.modules.clear();
+            entity.modules.addAll(user.modules);
+            if (user.password != null && !user.password.isBlank()) {
+                entity.password = PasswordUtil.hash(user.password);
+            }
         }
         entity.theme = user.theme;
 
