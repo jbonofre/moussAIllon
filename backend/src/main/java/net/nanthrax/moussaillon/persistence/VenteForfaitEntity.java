@@ -21,7 +21,7 @@ public class VenteForfaitEntity extends PanacheEntity {
     @ManyToOne
     public ForfaitEntity forfait;
 
-    public int quantite;
+    public double quantite;
 
     @jakarta.persistence.Column(columnDefinition = "double default 0")
     public double remise;

@@ -30,6 +30,6 @@ public class PackageLigneEntity extends PanacheEntity {
     public ForfaitEntity forfait;
 
     @Column(columnDefinition = "integer default 1")
-    public int quantite;
+    public double quantite;
 
 }

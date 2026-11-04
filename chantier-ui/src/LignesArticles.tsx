@@ -5,6 +5,7 @@ import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import ChecklistMainOeuvre from './ChecklistMainOeuvre.tsx';
 import { LigneTriable, ListeTriable, PoigneeLigne } from './LignesTriables.tsx';
+import InputQuantite from './InputQuantite.tsx';
 
 interface ProduitLigne {
     id: number;
@@ -129,7 +130,7 @@ export default function LignesArticles({
                                             label={premiereLigne ? 'Quantité' : undefined}
                                             style={{ width: 70, flex: 'none', marginBottom: 8 }}
                                         >
-                                            <InputNumber min={estProduit ? 1 : 0.25} step={estProduit ? 1 : 0.25} style={{ width: '100%' }} placeholder="Qte" />
+                                            <InputQuantite min={estProduit ? 0.01 : 0.25} style={{ width: '100%' }} placeholder="Qte" />
                                         </Form.Item>
                                         <Form.Item label={premiereLigne ? 'Total €' : undefined} style={{ width: 75, flex: 'none', marginBottom: 8 }}>
                                             <InputNumber value={total} disabled style={{ width: '100%' }} />

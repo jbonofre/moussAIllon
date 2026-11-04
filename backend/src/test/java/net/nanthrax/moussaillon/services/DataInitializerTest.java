@@ -5,12 +5,18 @@ import net.nanthrax.moussaillon.persistence.SocieteAbonnementMoisEntity;
 import net.nanthrax.moussaillon.persistence.SocietePaiementEntity;
 import org.junit.jupiter.api.Test;
 
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class DataInitializerTest {
@@ -67,6 +73,34 @@ public class DataInitializerTest {
         assertEquals(Timestamp.valueOf("2026-01-15 00:00:00"), mois.get(12).debut);
         assertEquals(EnumSet.allOf(ModuleApplication.class), mois.get(12).modules);
         assertEquals(150.0, mois.get(12).montant, 0.001);
+    }
+
+    @Test
+    void testQuantitesConverties() throws SQLException {
+        try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:quantites");
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE TABLE VenteProduitEntity (id BIGINT PRIMARY KEY, quantite INTEGER NOT NULL)");
+            statement.executeUpdate("INSERT INTO VenteProduitEntity VALUES (1, 3)");
+
+            DataInitializer.convertirQuantitesEnDecimal(connection);
+            // Sans effet sur une colonne déjà convertie
+            DataInitializer.convertirQuantitesEnDecimal(connection);
+
+            try (ResultSet rs = statement.executeQuery("SELECT DATA_TYPE, IS_NULLABLE FROM INFORMATION_SCHEMA.COLUMNS "
+                    + "WHERE TABLE_NAME = 'VENTEPRODUITENTITY' AND COLUMN_NAME = 'QUANTITE'")) {
+                assertTrue(rs.next());
+                assertEquals("DOUBLE PRECISION", rs.getString(1));
+                assertEquals("NO", rs.getString(2));
+            }
+            statement.executeUpdate("INSERT INTO VenteProduitEntity VALUES (2, 5.5)");
+            try (ResultSet rs = statement.executeQuery("SELECT quantite FROM VenteProduitEntity ORDER BY id")) {
+                assertTrue(rs.next());
+                assertEquals(3.0, rs.getDouble(1), 0.0);
+                assertTrue(rs.next());
+                assertEquals(5.5, rs.getDouble(1), 0.0);
+            }
+            assertThrows(SQLException.class, () -> statement.executeUpdate("INSERT INTO VenteProduitEntity VALUES (3, NULL)"));
+        }
     }
 
 }

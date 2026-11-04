@@ -1,3 +1,5 @@
+import { quantiteLigne } from './quantite.ts';
+
 const arrondir = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 export interface LigneMarge {
@@ -57,7 +59,7 @@ export const calculerMarge = (
     let marge = 0;
     lignes.forEach((ligne) => {
         if (!ligne.type || !ligne.itemId) return;
-        const quantite = Math.max(1, Math.floor(ligne.quantite || 1));
+        const quantite = quantiteLigne(ligne.quantite);
         if (ligne.type === 'produit') {
             const produit = produits.find((p) => p.id === ligne.itemId);
             if (!produit) return;

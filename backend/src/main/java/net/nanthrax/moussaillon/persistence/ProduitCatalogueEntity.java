@@ -40,9 +40,9 @@ public class ProduitCatalogueEntity extends PanacheEntity {
 
     public double evaluation;
 
-    public int stock;
+    public double stock;
 
-    public int stockMini;
+    public double stockMini;
 
     public String emplacement;
 

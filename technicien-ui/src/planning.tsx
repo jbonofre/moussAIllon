@@ -27,6 +27,7 @@ import { paginationConfig } from './pagination.ts';
 import { BoutonCorrigerHoraires, peutCorrigerHoraires } from './horaires.tsx';
 import { BoutonRouvrir, dureeReelleALaFin, messageErreur, peutEtreRouverte } from './reouverture.tsx';
 import { PLACEHOLDER_RECHERCHE, tacheCorrespond } from './recherche-tache.ts';
+import InputQuantite from './InputQuantite.tsx';
 
 type TaskStatus = 'EN_ATTENTE' | 'PLANIFIEE' | 'EN_COURS' | 'TERMINEE' | 'INCIDENT' | 'ANNULEE';
 
@@ -801,7 +802,7 @@ export default function Planning({ technicienId }: PlanningProps) {
                         />
                     </Form.Item>
                     <Form.Item label="Quantite">
-                        <InputNumber min={1} value={addQuantite} onChange={(v) => setAddQuantite(v ?? 1)} style={{ width: '100%' }} />
+                        <InputQuantite value={addQuantite} onChange={(v) => setAddQuantite(v ?? 1)} style={{ width: '100%' }} />
                     </Form.Item>
                 </Form>
             </Modal>

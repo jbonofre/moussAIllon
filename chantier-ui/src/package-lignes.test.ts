@@ -20,7 +20,7 @@ describe('package-lignes', () => {
         ]);
     });
 
-    it('ignore les lignes sans article et ramène la quantité à 1 au minimum', () => {
+    it('ignore les lignes sans article et ramène une quantité absente ou nulle à 1', () => {
         const incomplet: PackageEntity = {
             designation: 'Incomplet',
             lignes: [{ quantite: 3 }, { helice: { id: 5, designation: 'Alu 13x19' }, quantite: 0 }, { remorque: { id: 2, designation: 'Satellite 750' } }],
@@ -43,6 +43,18 @@ describe('package-lignes', () => {
             { type: 'produit', article: { id: 1, designation: 'Anode zinc', prixVenteTTC: 12.1 }, quantite: 2 },
         ]);
         expect(totalPackageTTC(entretien)).toBe(324.2);
+    });
+
+    it('conserve les quantités à virgule (0,5 L d\'huile d\'embase)', () => {
+        const vidange: PackageEntity = {
+            designation: 'Pack vidange',
+            lignes: [
+                { produit: { id: 1, designation: 'Huile embase', prixVenteTTC: 20 }, quantite: 0.5 },
+                { produit: { id: 2, designation: 'Huile moteur', prixVenteTTC: 10 }, quantite: 5.5 },
+            ],
+        };
+        expect(articlesDuPackage(vidange).map(({ quantite }) => quantite)).toEqual([0.5, 5.5]);
+        expect(totalPackageTTC(vidange)).toBe(65);
     });
 
     it('calcule le total TTC au prix catalogue', () => {

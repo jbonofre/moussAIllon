@@ -33,6 +33,7 @@ import dayjs from "dayjs";
 import { useNavigation } from "./navigation-context.tsx";
 import { paginationConfig } from "./pagination.ts";
 import SearchAutoComplete from "./SearchAutoComplete.tsx";
+import InputQuantite from "./InputQuantite.tsx";
 
 const { Option } = Select;
 const { TextArea } = Input;
@@ -803,7 +804,7 @@ const CommandesFournisseur = ({ fournisseurId }: { fournisseurId?: number }) => 
                   />
                 </Form.Item>
                 <Form.Item label={premiereLigne ? "Quantité" : undefined} style={{ width: 70, flex: "none", marginBottom: 8 }}>
-                  <InputNumber
+                  <InputQuantite
                     min={0}
                     placeholder="Qte"
                     value={ligne.quantite || undefined}

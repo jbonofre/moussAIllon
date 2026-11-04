@@ -73,6 +73,8 @@ import {
     nouvelleLigneLibre,
 } from './ligne-libre.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
+import InputQuantite from './InputQuantite.tsx';
+import { quantiteLigne } from './quantite.ts';
 
 interface ClientEntity {
     id: number;
@@ -1188,7 +1190,7 @@ export default function Comptoir() {
                 if (line.libre) {
                     return [{
                         produit: articleALaVolee(line.libre),
-                        quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                        quantite: quantiteLigne(line.quantite),
                         remise: line.remise || 0,
                         remisePourcentage: line.remisePourcentage || 0,
                     }];
@@ -1197,7 +1199,7 @@ export default function Comptoir() {
                 const produit = produits.find((p) => p.id === id);
                 return produit ? [{
                     produit,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -1209,7 +1211,7 @@ export default function Comptoir() {
                 const bateau = catalogueBateaux.find((b) => b.id === id);
                 return bateau ? [{
                     bateau,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -1221,7 +1223,7 @@ export default function Comptoir() {
                 const moteur = catalogueMoteurs.find((m) => m.id === id);
                 return moteur ? [{
                     moteur,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -1233,7 +1235,7 @@ export default function Comptoir() {
                 const helice = catalogueHelices.find((h) => h.id === id);
                 return helice ? [{
                     helice,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -1245,7 +1247,7 @@ export default function Comptoir() {
                 const remorque = catalogueRemorques.find((r) => r.id === id);
                 return remorque ? [{
                     remorque,
-                    quantite: Math.max(1, Math.floor(line.quantite || 1)),
+                    quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
                 }] : [];
@@ -1604,7 +1606,7 @@ export default function Comptoir() {
     ]);
 
     const sumLine = (prixUnitaire: number, quantite: number, remiseLigne: number) => {
-        const brut = prixUnitaire * Math.max(1, Math.floor(quantite || 1));
+        const brut = prixUnitaire * quantiteLigne(quantite);
         return Math.max(0, brut - (remiseLigne || 0));
     };
 
@@ -1674,7 +1676,7 @@ export default function Comptoir() {
             const line = currentLines[index];
             if (!line) return;
             const prixUnitaire = getLignePrice(line, undefined, exonere);
-            const quantite = Math.max(1, Math.floor(line.quantite || 1));
+            const quantite = quantiteLigne(line.quantite);
             const brut = Math.round(prixUnitaire * quantite * 100) / 100;
             if (changed.remisePourcentage !== undefined) {
                 const remise = Math.round(((brut * (changed.remisePourcentage || 0)) / 100 + Number.EPSILON) * 100) / 100;
@@ -2284,7 +2286,7 @@ export default function Comptoir() {
                                                         label={premiereLigne ? "Quantité" : undefined}
                                                         style={{ width: 70, flex: 'none', marginBottom: 8 }}
                                                     >
-                                                        <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
+                                                        <InputQuantite style={{ width: '100%' }} placeholder="Qte" />
                                                     </Form.Item>
                                                     <Form.Item
                                                         name={[field.name, 'remisePourcentage']}

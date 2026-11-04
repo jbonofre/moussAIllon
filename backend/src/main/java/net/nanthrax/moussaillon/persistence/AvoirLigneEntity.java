@@ -12,7 +12,7 @@ public class AvoirLigneEntity extends PanacheEntity {
     @Column(nullable = false)
     public String designation;
 
-    public int quantite = 1;
+    public double quantite = 1;
 
     public double prixUnitaireHT;
 

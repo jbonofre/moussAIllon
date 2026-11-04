@@ -173,7 +173,7 @@ public class ProduitCatalogueResource {
         double montantTVA;
         // null quand le fichier ne permet pas de le calculer (prix HT à zéro)
         Double tva;
-        Long stock;
+        Double stock;
         String codeBarre;
     }
 
@@ -298,7 +298,7 @@ public class ProduitCatalogueResource {
                 }
                 String stockReel = CsvUtils.get(cols, headers, "Stock réel");
                 if (stockReel != null) {
-                    ligne.stock = Math.round(CsvUtils.parseFrenchDecimal(stockReel));
+                    ligne.stock = CsvUtils.parseFrenchDecimal(stockReel);
                 }
                 ligne.codeBarre = CsvUtils.get(cols, headers, "Code barre");
 
@@ -372,7 +372,7 @@ public class ProduitCatalogueResource {
             entity.tva = 20;
         }
         if (ligne.stock != null) {
-            entity.stock = ligne.stock.intValue();
+            entity.stock = ligne.stock;
         }
         if (ligne.codeBarre != null) {
             if (entity.refs == null) {
@@ -416,7 +416,7 @@ public class ProduitCatalogueResource {
             entity.tva = 20;
         }
         if (ligne.stock != null) {
-            entity.stock = ligne.stock;
+            entity.stock = Math.round(ligne.stock);
         }
         if (isNew) {
             entity.persist();
@@ -442,7 +442,7 @@ public class ProduitCatalogueResource {
             entity.tva = 20;
         }
         if (ligne.stock != null) {
-            entity.stock = ligne.stock;
+            entity.stock = Math.round(ligne.stock);
         }
         if (isNew) {
             entity.persist();
@@ -490,7 +490,7 @@ public class ProduitCatalogueResource {
             entity.tva = 20;
         }
         if (ligne.stock != null) {
-            entity.stock = ligne.stock;
+            entity.stock = Math.round(ligne.stock);
         }
         if (isNew) {
             entity.persist();
@@ -542,9 +542,9 @@ public class ProduitCatalogueResource {
     }
 
     public static class StatistiquesProduit {
-        public int quantiteVendue30j;
-        public int quantiteVendue90j;
-        public int quantiteVendueTotal;
+        public double quantiteVendue30j;
+        public double quantiteVendue90j;
+        public double quantiteVendueTotal;
         public double chiffreAffaires30j;
         public double chiffreAffaires90j;
         public double chiffreAffairesTotal;

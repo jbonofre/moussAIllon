@@ -12,6 +12,11 @@ describe('calculerMarge', () => {
         expect(calculerMarge([{ type: 'produit', itemId: 1, quantite: 2 }], produits, achats, [], [])).toBe(10);
     });
 
+    it('produit vendu en quantité à virgule (5,5 L, 0,5 L)', () => {
+        expect(calculerMarge([{ type: 'produit', itemId: 1, quantite: 5.5 }], produits, achats, [], [])).toBe(27.5);
+        expect(calculerMarge([{ type: 'produit', itemId: 1, quantite: 0.5 }], produits, achats, [], [])).toBe(2.5);
+    });
+
     it('déduit la remise de ligne (TTC converti en HT)', () => {
         expect(calculerMarge([{ type: 'produit', itemId: 1, quantite: 2, remise: 12 }], produits, achats, [], [])).toBe(0);
     });

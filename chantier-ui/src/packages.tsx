@@ -14,6 +14,8 @@ import {
 } from './package-lignes.ts';
 import { paginationConfig } from './pagination.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
+import InputQuantite from './InputQuantite.tsx';
+import { quantiteLigne } from './quantite.ts';
 
 interface TypeArticleConfig {
     label: string;
@@ -135,7 +137,7 @@ export default function Packages() {
 
     const getTotalFormulaire = (): number =>
         (form.getFieldValue('lignes') || []).reduce((total: number, ligne: PackageLigneForm) => (
-            total + (getArticle(ligne?.articleRef)?.prixVenteTTC || 0) * Math.max(1, Math.floor(ligne?.quantite || 1))
+            total + (getArticle(ligne?.articleRef)?.prixVenteTTC || 0) * quantiteLigne(ligne?.quantite)
         ), 0);
 
     const openModal = (pack?: PackageEntity) => {
@@ -190,7 +192,7 @@ export default function Packages() {
         description: values.description,
         lignes: (values.lignes || []).flatMap((ligne) => {
             const parsed = parseArticleRef(ligne?.articleRef);
-            return parsed ? [{ [parsed.type]: { id: parsed.id }, quantite: Math.max(1, Math.floor(ligne.quantite || 1)) }] : [];
+            return parsed ? [{ [parsed.type]: { id: parsed.id }, quantite: quantiteLigne(ligne.quantite) }] : [];
         }),
     });
 
@@ -357,7 +359,7 @@ export default function Packages() {
                                                 const premiereLigne = field.name === 0;
                                                 const prixUnitaire = getArticle(ligne.articleRef)?.prixVenteTTC;
                                                 const total = prixUnitaire !== undefined
-                                                    ? Math.round((prixUnitaire * Math.max(1, Math.floor(ligne.quantite || 1)) + Number.EPSILON) * 100) / 100
+                                                    ? Math.round((prixUnitaire * quantiteLigne(ligne.quantite) + Number.EPSILON) * 100) / 100
                                                     : undefined;
                                                 return (
                                                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
@@ -385,7 +387,7 @@ export default function Packages() {
                                                             <InputNumber value={prixUnitaire} disabled style={{ width: '100%' }} placeholder="P.U." />
                                                         </Form.Item>
                                                         <Form.Item name={[field.name, 'quantite']} label={premiereLigne ? 'Quantité' : undefined} style={{ width: 70, flex: 'none', marginBottom: 8 }}>
-                                                            <InputNumber min={1} step={1} style={{ width: '100%' }} placeholder="Qte" />
+                                                            <InputQuantite style={{ width: '100%' }} placeholder="Qte" />
                                                         </Form.Item>
                                                         <Form.Item label={premiereLigne ? 'Total €' : undefined} style={{ width: 100, flex: 'none', marginBottom: 8 }}>
                                                             <InputNumber value={total} disabled style={{ width: '100%' }} placeholder="Total" />

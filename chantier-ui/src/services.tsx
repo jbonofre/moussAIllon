@@ -12,6 +12,7 @@ import ChecklistMainOeuvre from './ChecklistMainOeuvre.tsx';
 import SectionLignes from './SectionLignes.tsx';
 import { LigneTriable, ListeTriable, PoigneeLigne } from './LignesTriables.tsx';
 import MontantsService from './MontantsService.tsx';
+import InputQuantite from './InputQuantite.tsx';
 
 interface MainOeuvreEntity {
     id: number;
@@ -718,7 +719,7 @@ export default function Services() {
                                                 name={[field.name, 'quantite']}
                                                 label={index === 0 ? 'Quantité' : undefined}
                                             >
-                                                <InputNumber min={1} style={{ width: '100%' }} />
+                                                <InputQuantite style={{ width: '100%' }} />
                                             </Form.Item>
                                         </Col>
                                         <Col span={3}>

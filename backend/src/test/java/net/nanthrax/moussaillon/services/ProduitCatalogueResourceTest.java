@@ -194,8 +194,8 @@ public class ProduitCatalogueResourceTest {
             .statusCode(200)
             .body("size()", is(1))
             .body("[0].type", is("AJUSTEMENT_MANUEL"))
-            .body("[0].quantite", is(-3))
-            .body("[0].stockApres", is(7));
+            .body("[0].quantite", is(-3.0f))
+            .body("[0].stockApres", is(7.0f));
     }
 
     @Test
@@ -224,7 +224,7 @@ public class ProduitCatalogueResourceTest {
             .when().get("/catalogue/produits/" + id)
             .then()
             .statusCode(200)
-            .body("stock", is(9));
+            .body("stock", is(9.0f));
 
         given()
             .when().get("/catalogue/produits/" + id + "/mouvements")
@@ -236,7 +236,7 @@ public class ProduitCatalogueResourceTest {
             .when().get("/catalogue/produits/" + id + "/statistiques")
             .then()
             .statusCode(200)
-            .body("quantiteVendueTotal", is(1))
+            .body("quantiteVendueTotal", is(1.0f))
             .body("chiffreAffairesTotal", is(20.0f));
     }
 
@@ -286,7 +286,7 @@ public class ProduitCatalogueResourceTest {
             .body("[0].prixVenteHT", is(100.0f))
             .body("[0].prixVenteTTC", is(120.0f))
             .body("[0].tva", is(20.0f))
-            .body("[0].stock", is(5))
+            .body("[0].stock", is(5.0f))
             .body("[0].refs", hasItem("1234567890123"));
 
         given()
@@ -313,7 +313,7 @@ public class ProduitCatalogueResourceTest {
             .then()
             .statusCode(200)
             .body("size()", is(1))
-            .body("[0].stock", is(3));
+            .body("[0].stock", is(3.0f));
     }
 
     @Test
@@ -594,7 +594,7 @@ public class ProduitCatalogueResourceTest {
             .then()
             .statusCode(200)
             .body("size()", is(1))
-            .body("[0].stock", is(2));
+            .body("[0].stock", is(2.0f));
     }
 
     @Test

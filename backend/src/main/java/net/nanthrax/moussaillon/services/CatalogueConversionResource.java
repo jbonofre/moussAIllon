@@ -177,8 +177,8 @@ public class CatalogueConversionResource {
                 e.evaluation = c.evaluation;
                 e.images = c.images;
                 e.documents = c.documents;
-                e.stock = (int) c.stock;
-                e.stockMini = (int) c.stockAlerte;
+                e.stock = c.stock;
+                e.stockMini = c.stockAlerte;
                 e.emplacement = c.emplacement;
                 e.prixVenteHT = c.prixVenteHT;
                 e.tva = c.tva;
@@ -311,7 +311,7 @@ public class CatalogueConversionResource {
                 c.designation = e.designation; c.ref = e.ref; c.description = e.description;
                 c.anneeDebut = e.anneeDebut; c.anneeFin = e.anneeFin; c.evaluation = e.evaluation;
                 c.images = copie(e.images); c.documents = copie(e.documents);
-                c.stock = e.stock; c.stockAlerte = e.stockMini; c.emplacement = e.emplacement;
+                c.stock = Math.round(e.stock); c.stockAlerte = Math.round(e.stockMini); c.emplacement = e.emplacement;
                 c.prixVenteHT = e.prixVenteHT; c.tva = e.tva; c.montantTVA = e.montantTVA; c.prixVenteTTC = e.prixVenteTTC;
                 c.occasion = e.occasion;
             } else if (source instanceof BateauCatalogueEntity e) {

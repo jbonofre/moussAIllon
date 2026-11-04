@@ -31,9 +31,9 @@ public class ProduitMouvementEntity extends PanacheEntity {
     @Enumerated(EnumType.STRING)
     public Type type;
 
-    public int quantite;
+    public double quantite;
 
-    public int stockApres;
+    public double stockApres;
 
     @ManyToOne
     @JsonbTransient

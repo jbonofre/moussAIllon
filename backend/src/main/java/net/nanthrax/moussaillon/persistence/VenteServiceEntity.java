@@ -21,7 +21,7 @@ public class VenteServiceEntity extends PanacheEntity {
     @ManyToOne
     public ServiceEntity service;
 
-    public int quantite;
+    public double quantite;
 
     @jakarta.persistence.Column(columnDefinition = "double default 0")
     public double remise;

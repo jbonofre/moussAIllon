@@ -149,7 +149,7 @@ public class PackageResource {
             if (articles != 1) {
                 throw new WebApplicationException("Chaque ligne du package doit désigner un article du catalogue ou un forfait, et un seul", 400);
             }
-            resolue.quantite = Math.max(1, ligne.quantite);
+            resolue.quantite = Quantite.ouUn(ligne.quantite);
             result.add(resolue);
         }
         return result;

@@ -178,7 +178,7 @@ public class AvoirResource {
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
                 ligne.reference = vf.forfait.reference;
                 ligne.designation = vf.forfait.nom != null ? vf.forfait.nom : "Forfait";
-                ligne.quantite = Math.max(1, vf.quantite);
+                ligne.quantite = Quantite.ouUn(vf.quantite);
                 ligne.prixUnitaireHT = vf.forfait.prixHT;
                 ligne.tva = exonere ? 0 : vf.forfait.tva > 0 ? vf.forfait.tva : tvaTaux;
                 double brutTTC = vente.prixLigne(vf.forfait.prixTTC, vf.forfait.prixHT, vf.forfait.tva) * ligne.quantite;
@@ -196,7 +196,7 @@ public class AvoirResource {
                 if (vs.service == null || !request.retient(request.serviceIds, vs.id)) continue;
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
                 ligne.designation = vs.service.nom != null ? vs.service.nom : "Service";
-                ligne.quantite = Math.max(1, vs.quantite);
+                ligne.quantite = Quantite.ouUn(vs.quantite);
                 ligne.prixUnitaireHT = vs.service.prixHT;
                 ligne.tva = exonere ? 0 : vs.service.tva > 0 ? vs.service.tva : tvaTaux;
                 double brutTTC = vente.prixLigne(vs.service.prixTTC, vs.service.prixHT, vs.service.tva) * ligne.quantite;
@@ -215,7 +215,7 @@ public class AvoirResource {
                 AvoirLigneEntity ligne = new AvoirLigneEntity();
                 ligne.reference = vp.produit.ref;
                 ligne.designation = vp.produit.designation != null ? vp.produit.designation : "Produit";
-                ligne.quantite = Math.max(1, vp.quantite);
+                ligne.quantite = Quantite.ouUn(vp.quantite);
                 ligne.prixUnitaireHT = vp.produit.prixVenteHT;
                 // Un article d'occasion est vendu sans TVA : son avoir non plus
                 ligne.tva = exonere || vp.produit.occasion ? 0 : vp.produit.tva > 0 ? vp.produit.tva : tvaTaux;
@@ -417,7 +417,7 @@ public class AvoirResource {
             for (AvoirLigneEntity ligne : entity.lignes) {
                 String refPart = (ligne.reference != null && !ligne.reference.isBlank()) ? "[" + ligne.reference + "] " : "";
                 lignes.append("- ").append(refPart).append(ligne.designation)
-                        .append(" x").append(ligne.quantite)
+                        .append(" x").append(Quantite.format(ligne.quantite))
                         .append(" = ").append(String.format("%.2f EUR", ligne.totalTTC))
                         .append("\n");
             }
