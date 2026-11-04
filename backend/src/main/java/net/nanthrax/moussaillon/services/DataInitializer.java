@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+import net.nanthrax.moussaillon.persistence.ModuleApplication;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ReferenceValeurEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
@@ -17,9 +18,12 @@ import java.lang.reflect.Modifier;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 
 @ApplicationScoped
@@ -33,11 +37,17 @@ public class DataInitializer {
 
         if (UserEntity.count() == 0) {
             UserEntity admin = new UserEntity();
-            admin.name = "admin";
-            admin.roles = "admin";
+            admin.name = UserResource.ADMIN;
+            admin.modules.addAll(EnumSet.allOf(ModuleApplication.class));
             admin.password = PasswordUtil.hash("admin");
             admin.email = "contact@msplaisance.com";
             admin.persist();
+        } else {
+            // L'utilisateur admin a toujours accès au module Paramétrage.
+            UserEntity admin = UserEntity.findById(UserResource.ADMIN);
+            if (admin != null) {
+                admin.modules.add(ModuleApplication.PARAMETRAGE);
+            }
         }
         if (SocieteEntity.count() == 0) {
             SocieteEntity societe = new SocieteEntity();
@@ -113,7 +123,73 @@ public class DataInitializer {
         } catch (Exception e) {
             LOG.warn("Impossible de convertir la colonne type de EmailTemplateEntity", e);
         }
+        try {
+            migrerRolesVersModules();
+        } catch (Exception e) {
+            LOG.warn("Impossible de convertir les rôles des utilisateurs en modules", e);
+        }
         EmailTemplateResource.migrerModeleRelance();
+    }
+
+    /**
+     * Les rôles des utilisateurs sont remplacés par l'accès à des modules : chaque utilisateur
+     * reçoit les modules correspondant à ses rôles, puis la colonne roles est supprimée
+     * (NOT NULL, elle ferait échouer la création des utilisateurs).
+     */
+    private void migrerRolesVersModules() {
+        EntityManager em = UserEntity.getEntityManager();
+        Map<String, String> rolesParUtilisateur = new HashMap<>();
+        boolean colonnePresente = em.unwrap(Session.class).doReturningWork(connection -> {
+            try (Statement query = connection.createStatement();
+                 ResultSet rs = query.executeQuery(
+                     "SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS "
+                         + "WHERE TABLE_NAME = 'USERENTITY' AND COLUMN_NAME = 'ROLES'")) {
+                if (!rs.next() || rs.getLong(1) == 0) {
+                    return false;
+                }
+            }
+            try (Statement query = connection.createStatement();
+                 ResultSet rs = query.executeQuery("SELECT name, roles FROM UserEntity")) {
+                while (rs.next()) {
+                    rolesParUtilisateur.put(rs.getString(1), rs.getString(2));
+                }
+            }
+            return true;
+        });
+        if (!colonnePresente) {
+            return;
+        }
+        rolesParUtilisateur.forEach((name, roles) -> {
+            UserEntity user = UserEntity.findById(name);
+            if (user != null) {
+                user.modules.addAll(modulesDepuisRoles(roles));
+            }
+        });
+        em.flush();
+        em.unwrap(Session.class).doWork(connection -> {
+            try (Statement alter = connection.createStatement()) {
+                alter.executeUpdate("ALTER TABLE UserEntity DROP COLUMN IF EXISTS roles");
+            }
+        });
+        LOG.infof("Rôles de %d utilisateur(s) convertis en modules", rolesParUtilisateur.size());
+    }
+
+    /** Modules correspondant aux anciens rôles (liste séparée par des virgules). */
+    static Set<ModuleApplication> modulesDepuisRoles(String roles) {
+        Set<ModuleApplication> modules = EnumSet.noneOf(ModuleApplication.class);
+        if (roles == null) {
+            return modules;
+        }
+        for (String role : roles.split(",")) {
+            switch (role.trim().toLowerCase(Locale.ROOT)) {
+                case "admin" -> modules.addAll(EnumSet.allOf(ModuleApplication.class));
+                case "vendeur" -> modules.add(ModuleApplication.VENTE);
+                case "manager" -> modules.add(ModuleApplication.PARC);
+                case "magasinier" -> modules.add(ModuleApplication.CATALOGUE);
+                default -> { }
+            }
+        }
+        return modules;
     }
 
     /**

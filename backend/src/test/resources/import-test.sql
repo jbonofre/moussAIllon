@@ -1,8 +1,9 @@
 -- Test data for integration tests
 
 -- Users
-INSERT INTO UserEntity (name, password, email, roles, theme) VALUES ('admin', 'admin123', 'admin@test.com', 'ADMIN', 0);
-INSERT INTO UserEntity (name, password, email, roles, theme) VALUES ('technicien1', 'tech123', 'tech@test.com', 'TECHNICIEN', 0);
+INSERT INTO UserEntity (name, password, email, theme) VALUES ('admin', 'admin123', 'admin@test.com', 0);
+INSERT INTO UserEntity (name, password, email, theme) VALUES ('technicien1', 'tech123', 'tech@test.com', 0);
+INSERT INTO UserEntity_modules (UserEntity_name, modules) VALUES ('admin', 'VENTE'), ('admin', 'PARC'), ('admin', 'CATALOGUE'), ('admin', 'ATELIER'), ('admin', 'MARKETING'), ('admin', 'COMPTABILITE'), ('admin', 'PARAMETRAGE');
 
 -- Societe (ID=1 required by SocieteResource)
 INSERT INTO SocieteEntity (id, nom, siren, adresse, siret, email, telephone, capital, abonnementResilie) VALUES (1, 'MS Plaisance', '123456789', '10 quai du Port', '12345678900010', 'contact@msplaisance.com', '0400000000', 10000, false);

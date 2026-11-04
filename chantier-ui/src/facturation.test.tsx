@@ -1,0 +1,99 @@
+import React from 'react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import '@testing-library/jest-dom';
+import Facturation from './facturation.tsx';
+import { fetchWithAuth } from './api.ts';
+
+jest.mock('./api.ts', () => ({
+    __esModule: true,
+    default: {},
+    fetchWithAuth: jest.fn(),
+}));
+
+// jsPDF (factures) ne se charge pas sous jsdom
+jest.mock('jspdf', () => ({ jsPDF: jest.fn() }));
+
+const mockedFetch = fetchWithAuth as jest.Mock;
+
+const reponse = (data: any, ok = true) =>
+    Promise.resolve({ ok, status: ok ? 200 : 400, json: () => Promise.resolve(data) });
+
+// 3 utilisateurs × 10 € + Vente 35 € + Parc 20 € = 85 € par mois
+const societe = {
+    id: 1, nom: 'MS Plaisance', modules: ['VENTE', 'PARC', 'PARAMETRAGE'], abonnementNombreUtilisateurs: 3,
+    abonnementProchainPaiementMontant: 85, abonnementMontantAnnuel: 935, abonnementResilie: false, paiements: [],
+};
+const tarifs = {
+    prixUtilisateur: 10, moisFacturesAnnuel: 11,
+    prixModules: { VENTE: 35, PARC: 20, CATALOGUE: 25, ATELIER: 20, MARKETING: 20, COMPTABILITE: 20, PARAMETRAGE: 0 },
+};
+
+const appel = (url: string, method: string) =>
+    mockedFetch.mock.calls.find(([u, options]) => u === url && options?.method === method);
+
+beforeEach(() => {
+    mockedFetch.mockReset();
+    mockedFetch.mockImplementation((url: string, options?: RequestInit) => {
+        if (url === './societe') return reponse(societe);
+        if (url === './societe/tarifs') return reponse(tarifs);
+        if (url === './societe/modules') {
+            const modules = JSON.parse(options!.body as string);
+            return reponse({ ...societe, modules: [ ...modules, 'PARAMETRAGE' ], abonnementProchainPaiementMontant: 110, abonnementMontantAnnuel: 1210 });
+        }
+        return reponse(null, false);
+    });
+});
+
+describe('Facturation - prix selon les utilisateurs et les modules', () => {
+    it('propose de payer le montant calculé par le serveur', async () => {
+        render(<Facturation />);
+
+        expect(await screen.findByRole('button', { name: /Payer ce mois — 85,00/ })).toBeEnabled();
+        expect(screen.getByRole('button', { name: /Payer l'année — 935,00/ })).toBeEnabled();
+        expect(screen.getByLabelText(/Paramétrage — inclus/)).toBeDisabled();
+    });
+
+    it('recalcule le prix en cochant un module puis enregistre les modules souscrits', async () => {
+        render(<Facturation />);
+
+        fireEvent.click(await screen.findByLabelText(/Catalogue/));
+
+        expect(screen.getByText(/110,00/, { selector: 'strong' })).toBeInTheDocument();
+        // Le paiement attend l'enregistrement des modules
+        expect(screen.getByRole('button', { name: /Payer ce mois/ })).toBeDisabled();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Enregistrer les modules' }));
+
+        await waitFor(() => expect(appel('./societe/modules', 'PUT')).toBeDefined());
+        expect(JSON.parse(appel('./societe/modules', 'PUT')[1].body)).toEqual(expect.arrayContaining(['VENTE', 'PARC', 'CATALOGUE']));
+        expect(await screen.findByRole('button', { name: /Payer ce mois — 110,00/ })).toBeEnabled();
+    });
+
+    it("affiche l'échéance impayée et la version Free, et en informe l'espace de travail", async () => {
+        const impaye = {
+            ...societe, abonnementBlocageImpayeDate: '2026-10-01T00:00:00', accesBloqueImpaye: true, versionFree: false,
+        };
+        mockedFetch.mockImplementation((url: string) => reponse(url === './societe/tarifs' ? tarifs : impaye));
+        const onSocieteChange = jest.fn();
+        const { unmount } = render(<Facturation onSocieteChange={onSocieteChange} />);
+
+        expect(await screen.findByText(/Échéance impayée : accès limité à la facturation depuis le 01\/10\/2026/)).toBeInTheDocument();
+        expect(onSocieteChange).toHaveBeenCalledWith(expect.objectContaining({ accesBloqueImpaye: true }));
+        unmount();
+
+        mockedFetch.mockImplementation((url: string) => reponse(url === './societe/tarifs' ? tarifs : { ...societe, versionFree: true }));
+        render(<Facturation />);
+        expect(await screen.findByText('Version Free : accès jamais bloqué')).toBeInTheDocument();
+        expect(screen.queryByText(/Échéance/)).not.toBeInTheDocument();
+    });
+
+    it("demande confirmation avant de retirer un module aux utilisateurs", async () => {
+        render(<Facturation />);
+
+        fireEvent.click(await screen.findByLabelText(/Parc/));
+        fireEvent.click(screen.getByRole('button', { name: 'Enregistrer les modules' }));
+
+        expect(await screen.findByText(/perdront l'accès aux modules retirés : Parc/)).toBeInTheDocument();
+        expect(appel('./societe/modules', 'PUT')).toBeUndefined();
+    });
+});

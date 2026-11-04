@@ -5,7 +5,9 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.hasItem;
 
 @QuarkusTest
 public class UserResourceTest {
@@ -27,7 +29,7 @@ public class UserResourceTest {
             .statusCode(200)
             .body("name", is("admin"))
             .body("email", is("admin@test.com"))
-            .body("roles", is("ADMIN"))
+            .body("modules", containsInAnyOrder("VENTE", "PARC", "CATALOGUE", "ATELIER", "MARKETING", "COMPTABILITE", "PARAMETRAGE"))
             .body("password", nullValue());
     }
 
@@ -48,6 +50,7 @@ public class UserResourceTest {
             .then()
             .statusCode(200)
             .body("name", is("admin"))
+            .body("modules", hasItem("PARAMETRAGE"))
             .body("token", notNullValue());
     }
 
@@ -76,12 +79,22 @@ public class UserResourceTest {
         // Creer
         given()
             .contentType("application/json")
-            .body("{\"name\":\"testuser\",\"password\":\"pass123\",\"email\":\"test@test.com\",\"roles\":\"USER\"}")
+            .body("{\"name\":\"testuser\",\"password\":\"pass123\",\"email\":\"test@test.com\",\"modules\":[\"VENTE\",\"PARC\"]}")
             .when().post("/users")
             .then()
             .statusCode(201)
             .body("name", is("testuser"))
+            .body("modules", containsInAnyOrder("VENTE", "PARC"))
             .body("password", nullValue());
+
+        // Modifier les modules
+        given()
+            .contentType("application/json")
+            .body("{\"name\":\"testuser\",\"email\":\"test@test.com\",\"modules\":[\"CATALOGUE\"]}")
+            .when().put("/users/testuser")
+            .then()
+            .statusCode(200)
+            .body("modules", containsInAnyOrder("CATALOGUE"));
 
         // Supprimer
         given()
@@ -117,5 +130,42 @@ public class UserResourceTest {
             .when().post("/users/admin/change-password")
             .then()
             .statusCode(401);
+    }
+
+    @Test
+    void testAdminConserveToujoursParametrage() {
+        try {
+            given()
+                .contentType("application/json")
+                .body("{\"name\":\"admin\",\"email\":\"admin@test.com\",\"modules\":[\"VENTE\"]}")
+                .when().put("/users/admin")
+                .then()
+                .statusCode(200)
+                .body("modules", containsInAnyOrder("VENTE", "PARAMETRAGE"));
+        } finally {
+            given()
+                .contentType("application/json")
+                .body("{\"name\":\"admin\",\"email\":\"admin@test.com\",\"modules\":"
+                    + "[\"VENTE\",\"PARC\",\"CATALOGUE\",\"ATELIER\",\"MARKETING\",\"COMPTABILITE\",\"PARAMETRAGE\"]}")
+                .when().put("/users/admin")
+                .then()
+                .statusCode(200);
+        }
+    }
+
+    @Test
+    void testDernierAccesParametrageConserve() {
+        // admin est le seul utilisateur ayant accès au module Paramétrage
+        given()
+            .when().delete("/users/admin")
+            .then()
+            .statusCode(400)
+            .body(containsString("Paramétrage"));
+
+        given()
+            .when().get("/users/admin")
+            .then()
+            .statusCode(200)
+            .body("modules", hasItem("PARAMETRAGE"));
     }
 }

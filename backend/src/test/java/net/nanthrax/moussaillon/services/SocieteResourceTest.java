@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 
 @QuarkusTest
 public class SocieteResourceTest {
@@ -119,6 +120,12 @@ public class SocieteResourceTest {
             .body("relance1Jours", nullValue());
     }
 
+    // Tous modules souscrits par défaut, 2 utilisateurs : 2 × 10 € + 140 € de modules.
+    private static final float MONTANT_MENSUEL_PAR_DEFAUT = 160.0f;
+
+    private static final String TOUS_LES_MODULES =
+        "[\"VENTE\",\"PARC\",\"CATALOGUE\",\"ATELIER\",\"MARKETING\",\"COMPTABILITE\",\"PARAMETRAGE\"]";
+
     @Test
     void testAbonnementInfosParDefaut() {
         // Les informations d'abonnement sont renseignées automatiquement (lecture seule).
@@ -129,7 +136,86 @@ public class SocieteResourceTest {
             .body("abonnementActivationDate", notNullValue())
             .body("abonnementActivationMontant", is(350.0f))
             .body("abonnementProchainPaiementDate", notNullValue())
-            .body("abonnementProchainPaiementMontant", is(150.0f));
+            .body("modules", containsInAnyOrder("VENTE", "PARC", "CATALOGUE", "ATELIER", "MARKETING", "COMPTABILITE", "PARAMETRAGE"))
+            .body("abonnementNombreUtilisateurs", is(2))
+            .body("abonnementProchainPaiementMontant", is(MONTANT_MENSUEL_PAR_DEFAUT))
+            .body("abonnementMontantAnnuel", is(MONTANT_MENSUEL_PAR_DEFAUT * 11));
+    }
+
+    @Test
+    void testTarifs() {
+        given()
+            .when().get("/societe/tarifs")
+            .then()
+            .statusCode(200)
+            .body("prixUtilisateur", is(10.0f))
+            .body("prixModules.VENTE", is(35.0f))
+            .body("prixModules.PARAMETRAGE", is(0.0f))
+            .body("moisFacturesAnnuel", is(11));
+    }
+
+    @Test
+    void testPrixSelonModulesSouscrits() {
+        try {
+            // Paramétrage reste toujours souscrit ; 2 × 10 € + Vente 35 € + Parc 20 €.
+            given()
+                .contentType("application/json")
+                .body("[\"VENTE\",\"PARC\"]")
+                .when().put("/societe/modules")
+                .then()
+                .statusCode(200)
+                .body("modules", containsInAnyOrder("VENTE", "PARC", "PARAMETRAGE"))
+                .body("abonnementProchainPaiementMontant", is(75.0f))
+                .body("abonnementMontantAnnuel", is(825.0f));
+
+            // Les utilisateurs perdent l'accès aux modules qui ne sont plus souscrits.
+            given()
+                .when().get("/users/admin")
+                .then()
+                .statusCode(200)
+                .body("modules", containsInAnyOrder("VENTE", "PARC", "PARAMETRAGE"));
+
+            // Un module non souscrit ne peut pas être attribué.
+            given()
+                .contentType("application/json")
+                .body("{\"name\":\"marketeur\",\"password\":\"pass123\",\"email\":\"m@test.com\",\"modules\":[\"MARKETING\"]}")
+                .when().post("/users")
+                .then()
+                .statusCode(400);
+        } finally {
+            given()
+                .contentType("application/json")
+                .body(TOUS_LES_MODULES)
+                .when().put("/societe/modules")
+                .then()
+                .statusCode(200);
+            given()
+                .contentType("application/json")
+                .body("{\"name\":\"admin\",\"email\":\"admin@test.com\",\"modules\":" + TOUS_LES_MODULES + "}")
+                .when().put("/users/admin")
+                .then()
+                .statusCode(200);
+        }
+
+        given()
+            .when().get("/societe")
+            .then()
+            .statusCode(200)
+            .body("abonnementProchainPaiementMontant", is(MONTANT_MENSUEL_PAR_DEFAUT));
+    }
+
+    @Test
+    void testPaiementSelonUtilisateursEtModules() {
+        given()
+            .contentType("application/json")
+            .body("{\"type\":\"ANNUEL\",\"mode\":\"VIREMENT\",\"signature\":\"signature\"}")
+            .when().post("/societe/paiement")
+            .then()
+            .statusCode(200)
+            .body("paiements[0].type", is("ANNUEL"))
+            .body("paiements[0].montant", is(MONTANT_MENSUEL_PAR_DEFAUT * 11))
+            .body("paiements[0].nombreUtilisateurs", is(2))
+            .body("paiements[0].modules.size()", is(7));
     }
 
     @Test
@@ -143,6 +229,6 @@ public class SocieteResourceTest {
             .then()
             .statusCode(200)
             .body("abonnementActivationMontant", is(350.0f))
-            .body("abonnementProchainPaiementMontant", is(150.0f));
+            .body("abonnementProchainPaiementMontant", is(MONTANT_MENSUEL_PAR_DEFAUT));
     }
 }

@@ -1,10 +1,11 @@
 import { fetchWithAuth } from './api.ts';
 import MosaicTable from "./MosaicTable.tsx";
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, Card, Descriptions, Divider, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
+import { Button, Card, Checkbox, Descriptions, Divider, Popconfirm, Select, Space, Spin, Table, Tag, Tooltip, message } from 'antd';
 import { CreditCardOutlined, DownloadOutlined, LinkOutlined, ReloadOutlined, StopOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { jsPDF } from 'jspdf';
+import { MODULES, MODULE_LABEL, MODULE_PARAMETRAGE, trierModules } from './modules.ts';
 
 const formatDate = (value: any) => (value ? dayjs(value).format('DD/MM/YYYY') : '—');
 
@@ -78,6 +79,12 @@ function downloadFacturePdf(paiement: any, societe: any) {
     y += 2;
     row('Période couverte', dateDebut + ' au ' + dateFin);
     y += 2;
+    if (paiement.nombreUtilisateurs != null) {
+        row('Utilisateurs', String(paiement.nombreUtilisateurs));
+        y += 2;
+        row('Modules', trierModules(paiement.modules).map((m) => MODULE_LABEL[m] || m).join(', '));
+        y += 2;
+    }
     row('Mode de paiement', MODE_LABEL[paiement.mode] ?? paiement.mode);
     y += 2;
     row('Date de paiement', formatDate(paiement.date));
@@ -101,9 +108,12 @@ function downloadFacturePdf(paiement: any, societe: any) {
     doc.save(`facture-abonnement-${paiement.id}.pdf`);
 }
 
-export default function Facturation() {
+export default function Facturation(props: { onSocieteChange?: (societe: any) => void }) {
 
     const [societe, setSociete] = useState<any>(null);
+    const [tarifs, setTarifs] = useState<any>(null);
+    const [modulesSelectionnes, setModulesSelectionnes] = useState<string[]>([]);
+    const [savingModules, setSavingModules] = useState(false);
     const [paiementType, setPaiementType] = useState<PaiementType | null>(null);
     const [paiementMode, setPaiementMode] = useState<PaiementMode>('VIREMENT');
     const [signatureModalOpen, setSignatureModalOpen] = useState(false);
@@ -115,11 +125,27 @@ export default function Facturation() {
     const fetchSociete = useCallback(() => {
         fetchWithAuth('./societe')
             .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
-            .then(setSociete)
+            .then((data) => {
+                setSociete(data);
+                setModulesSelectionnes(data.modules || []);
+            })
             .catch((e) => message.error('Erreur : ' + e.message));
     }, []);
 
     useEffect(() => { fetchSociete(); }, [fetchSociete]);
+
+    // Informe l'espace de travail d'un blocage pour impayé levé (ou survenu), par exemple après un paiement
+    const { onSocieteChange } = props;
+    useEffect(() => {
+        if (societe) onSocieteChange?.(societe);
+    }, [societe, onSocieteChange]);
+
+    useEffect(() => {
+        fetchWithAuth('./societe/tarifs')
+            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then(setTarifs)
+            .catch((e) => message.error('Erreur : ' + e.message));
+    }, []);
 
     const initSignatureCanvas = useCallback(() => {
         setTimeout(() => {
@@ -215,6 +241,22 @@ export default function Facturation() {
             .finally(() => setSubmitting(false));
     };
 
+    const handleEnregistrerModules = () => {
+        setSavingModules(true);
+        fetchWithAuth('./societe/modules', {
+            method: 'PUT',
+            body: JSON.stringify(modulesSelectionnes),
+        })
+            .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
+            .then((data) => {
+                setSociete(data);
+                setModulesSelectionnes(data.modules || []);
+                message.success('Modules souscrits enregistrés');
+            })
+            .catch((e) => message.error('Erreur : ' + e.message))
+            .finally(() => setSavingModules(false));
+    };
+
     const handleResilier = () => {
         fetchWithAuth('./societe/resilier', { method: 'POST' })
             .then((r) => { if (!r.ok) throw new Error('Erreur ' + r.status); return r.json(); })
@@ -250,10 +292,23 @@ export default function Facturation() {
         },
     ];
 
-    const montantPaiement = paiementType === 'ANNUEL' ? 1650 : 150;
+    const montantMensuel = societe?.abonnementProchainPaiementMontant;
+    const montantAnnuel = societe?.abonnementMontantAnnuel;
+    const montantPaiement = paiementType === 'ANNUEL' ? montantAnnuel : montantMensuel;
     const labelPaiement = paiementType === 'ANNUEL'
-        ? 'Paiement annuel — 1 650 EUR (1 mois offert)'
-        : 'Paiement mensuel — 150 EUR';
+        ? `Paiement annuel — ${formatMontant(montantAnnuel)} (1 mois offert)`
+        : `Paiement mensuel — ${formatMontant(montantMensuel)}`;
+
+    // Simulation du prix mensuel selon les modules cochés : prix par utilisateur × nombre d'utilisateurs + prix des modules.
+    const prixModule = (module: string): number => tarifs?.prixModules?.[module] ?? 0;
+    const prixUtilisateur = tarifs?.prixUtilisateur ?? 0;
+    const nombreUtilisateurs = societe?.abonnementNombreUtilisateurs ?? 0;
+    const montantUtilisateurs = nombreUtilisateurs * prixUtilisateur;
+    const montantModules = modulesSelectionnes.reduce((total, module) => total + prixModule(module), 0);
+    const montantMensuelSimule = montantUtilisateurs + montantModules;
+    const moisFacturesAnnuel = tarifs?.moisFacturesAnnuel ?? 11;
+    const modulesModifies = !!societe && trierModules(societe.modules).join() !== trierModules(modulesSelectionnes).join();
+    const modulesRetires = trierModules((societe?.modules || []).filter((m: string) => !modulesSelectionnes.includes(m)));
 
     const externalLink = paiementType ? getPaymentLink(paiementType, paiementMode) : undefined;
 
@@ -316,35 +371,95 @@ export default function Facturation() {
                     <Descriptions.Item label="Montant à payer">
                         {formatMontant(societe.abonnementProchainPaiementMontant)}
                     </Descriptions.Item>
+                    <Descriptions.Item label="Utilisateurs">
+                        {nombreUtilisateurs}
+                    </Descriptions.Item>
                     <Descriptions.Item label="Statut">
-                        {societe.abonnementResilie
-                            ? (
-                                <Space direction="vertical" size={4}>
-                                    <Tag color="red">Résilié le {formatDate(societe.abonnementResiliationDate)}</Tag>
-                                    {societe.accesBloque
-                                        ? <Tag color="volcano">Accès bloqué depuis le {formatDate(societe.abonnementBlocageDate)}</Tag>
-                                        : <Tag color="orange">Accès bloqué à partir du {formatDate(societe.abonnementBlocageDate)} (fin de la période de rétractation de 14 jours)</Tag>}
-                                </Space>
-                            )
-                            : <Tag color="green">Actif</Tag>}
+                        <Space direction="vertical" size={4}>
+                            {societe.abonnementResilie
+                                ? <Tag color="red">Résilié le {formatDate(societe.abonnementResiliationDate)}</Tag>
+                                : <Tag color="green">Actif</Tag>}
+                            {societe.abonnementResilie && societe.abonnementBlocageDate && (societe.accesBloque
+                                ? <Tag color="volcano">Accès bloqué depuis le {formatDate(societe.abonnementBlocageDate)}</Tag>
+                                : <Tag color="orange">Accès bloqué à partir du {formatDate(societe.abonnementBlocageDate)} (fin de la période de rétractation de 14 jours)</Tag>)}
+                            {societe.abonnementBlocageImpayeDate && (societe.accesBloqueImpaye
+                                ? <Tag color="volcano">Échéance impayée : accès limité à la facturation depuis le {formatDate(societe.abonnementBlocageImpayeDate)}</Tag>
+                                : <Tag color="orange">Échéance dépassée : accès limité à la facturation à partir du {formatDate(societe.abonnementBlocageImpayeDate)}</Tag>)}
+                            {societe.versionFree && <Tag color="blue">Version Free : accès jamais bloqué</Tag>}
+                        </Space>
                     </Descriptions.Item>
                 </Descriptions>
 
-                <Space style={{ marginTop: 24 }}>
+                <Divider>Modules souscrits</Divider>
+
+                <Checkbox.Group
+                    value={modulesSelectionnes}
+                    onChange={(values) => setModulesSelectionnes(values as string[])}
+                    disabled={societe.abonnementResilie}
+                    style={{ display: 'flex', flexDirection: 'column', gap: 8 }}
+                >
+                    {MODULES.map((m) => (
+                        <Checkbox key={m.value} value={m.value} disabled={m.value === MODULE_PARAMETRAGE}>
+                            {m.label} — {m.value === MODULE_PARAMETRAGE ? 'inclus' : `${formatMontant(prixModule(m.value))} / mois`}
+                        </Checkbox>
+                    ))}
+                </Checkbox.Group>
+
+                <Descriptions column={1} bordered size="small" style={{ marginTop: 16 }}>
+                    <Descriptions.Item label={`Utilisateurs (${nombreUtilisateurs} × ${formatMontant(prixUtilisateur)})`}>
+                        {formatMontant(montantUtilisateurs)}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Modules">
+                        {formatMontant(montantModules)}
+                    </Descriptions.Item>
+                    <Descriptions.Item label="Total mensuel">
+                        <strong>{formatMontant(montantMensuelSimule)}</strong>
+                        {' '}— soit {formatMontant(montantMensuelSimule * moisFacturesAnnuel)} à l'année (1 mois offert)
+                    </Descriptions.Item>
+                </Descriptions>
+
+                <Space style={{ marginTop: 16 }}>
+                    <Popconfirm
+                        title="Retirer des modules ?"
+                        description={`Les utilisateurs perdront l'accès aux modules retirés : ${modulesRetires.map((m) => MODULE_LABEL[m] || m).join(', ')}.`}
+                        disabled={modulesRetires.length === 0}
+                        onConfirm={handleEnregistrerModules}
+                        okText="Confirmer"
+                        cancelText="Non"
+                    >
+                        <Button
+                            type="primary"
+                            disabled={!modulesModifies}
+                            loading={savingModules}
+                            onClick={modulesRetires.length === 0 ? handleEnregistrerModules : undefined}
+                        >
+                            Enregistrer les modules
+                        </Button>
+                    </Popconfirm>
+                    {modulesModifies && (
+                        <Button onClick={() => setModulesSelectionnes(societe.modules || [])}>
+                            Annuler les modifications
+                        </Button>
+                    )}
+                </Space>
+
+                <Divider>Paiement</Divider>
+
+                <Space>
                     <Button
                         type="primary"
                         icon={<CreditCardOutlined />}
                         onClick={() => openPaiementModal('MENSUEL')}
-                        disabled={societe.abonnementResilie}
+                        disabled={societe.abonnementResilie || modulesModifies}
                     >
-                        Payer ce mois — 150 EUR
+                        Payer ce mois — {formatMontant(montantMensuel)}
                     </Button>
                     <Button
                         icon={<CreditCardOutlined />}
                         onClick={() => openPaiementModal('ANNUEL')}
-                        disabled={societe.abonnementResilie}
+                        disabled={societe.abonnementResilie || modulesModifies}
                     >
-                        Payer l'année — 1 650 EUR (1 mois offert)
+                        Payer l'année — {formatMontant(montantAnnuel)} (1 mois offert)
                     </Button>
                     {societe.abonnementResilie && (
                         <Button icon={<ReloadOutlined />} onClick={handleReactiver}>

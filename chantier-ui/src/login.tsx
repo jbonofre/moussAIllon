@@ -18,15 +18,17 @@ export default function Login(props) {
                 'Content-Type': 'application/json'
             }
         })
-        .then((response) => {
+        .then(async (response) => {
             if (!response.ok) {
-                throw new Error('Erreur (code ' + response.status + ')');
+                // Accès bloqué (abonnement résilié ou impayé) : le serveur en donne la raison
+                const raison = response.status === 403 ? await response.text() : '';
+                throw new Error(raison || 'Erreur (code ' + response.status + ')');
             }
             return response.json();
         })
         .then((data) => {
             localStorage.setItem('moussaillon-token', data.token);
-            const user = { name: data.name, roles: data.roles || '', theme: data.theme };
+            const user = { name: data.name, modules: data.modules || [], theme: data.theme, abonnementImpaye: !!data.abonnementImpaye };
             localStorage.setItem('moussaillon-user', JSON.stringify(user));
             props.setUser(user);
         })

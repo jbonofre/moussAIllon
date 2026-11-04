@@ -16,6 +16,7 @@ MoussAIllon centralise l'ensemble des metiers d'un chantier naval dans une seule
 - **Espace technicien** - planning mobile des interventions
 - **IA integree** - chat assisté (OpenAI / Anthropic), serveur MCP pour l'exploration de l'API
 - **Notifications email** - alertes incidents, mots de passe, planning
+- **Modules & abonnement** - acces des utilisateurs par module (Vente, Parc, Catalogue, Atelier, Marketing, Comptabilite, Parametrage) ; abonnement calcule selon le nombre d'utilisateurs et les modules souscrits
 
 ## Architecture
 
@@ -76,6 +77,9 @@ cd technicien-ui && npm install && npm start
 | `MAILER_HOST` | Serveur SMTP | `localhost` |
 | `MAILER_PORT` | Port SMTP | `1025` |
 | `MAILER_MOCK` | Mode mock (pas d'envoi reel) | `true` |
+| `ABONNEMENT_FREE` | Version Free : les acces ne sont jamais bloques (abonnement impaye depuis 2 mois ou plus, ou resilie) | `false` |
+| `ABONNEMENT_PRIX_UTILISATEUR` | Prix mensuel de l'abonnement par utilisateur (EUR) | `10` |
+| `ABONNEMENT_PRIX_MODULE_<MODULE>` | Prix mensuel d'un module souscrit (EUR) : `VENTE`, `PARC`, `CATALOGUE`, `ATELIER`, `MARKETING`, `COMPTABILITE` (`PARAMETRAGE` est inclus) | `35`, `20`, `25`, `20`, `20`, `20` |
 
 ### Upload d'images
 

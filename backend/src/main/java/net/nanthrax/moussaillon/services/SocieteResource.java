@@ -1,14 +1,25 @@
 package net.nanthrax.moussaillon.services;
 
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import net.nanthrax.moussaillon.persistence.ModuleApplication;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.SocietePaiementEntity;
+import net.nanthrax.moussaillon.persistence.UserEntity;
+import org.eclipse.microprofile.config.Config;
+import org.eclipse.microprofile.config.ConfigProvider;
+import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
 
 @Path("/societe")
 @ApplicationScoped
@@ -17,11 +28,28 @@ import java.time.Instant;
 public class SocieteResource {
 
     static final double MONTANT_ACTIVATION = 350.0;
-    static final double MONTANT_ABONNEMENT_MENSUEL = 150.0;
-    static final double MONTANT_ABONNEMENT_ANNUEL = 1650.0; // 11 mois × 150 € (1 mois offert)
+    // Le paiement annuel correspond à 11 mensualités (1 mois offert).
+    static final int MOIS_FACTURES_ANNUEL = 11;
 
     // Délai de rétractation après résiliation avant blocage effectif des accès.
     static final int DUREE_RETRACTATION_JOURS = 14;
+
+    // Délai après une échéance impayée au-delà duquel l'accès est limité à la facturation.
+    static final int DELAI_BLOCAGE_IMPAYE_MOIS = 2;
+
+    @Inject
+    Config config;
+
+    // Prix mensuel par utilisateur ; s'y ajoute le prix de chaque module souscrit.
+    @ConfigProperty(name = "abonnement.prix-utilisateur", defaultValue = "10")
+    double prixUtilisateur;
+
+    public static class Tarifs {
+        public double prixUtilisateur;
+        // Prix mensuel de chaque module, dans l'ordre des modules.
+        public Map<String, Double> prixModules = new LinkedHashMap<>();
+        public int moisFacturesAnnuel;
+    }
 
     public static class PaiementRequest {
         public String type; // MENSUEL | ANNUEL
@@ -35,6 +63,43 @@ public class SocieteResource {
         SocieteEntity entity = SocieteEntity.findById(1);
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
+        }
+        initAbonnement(entity);
+        return entity;
+    }
+
+    @GET
+    @Path("/tarifs")
+    public Tarifs tarifs() {
+        Tarifs tarifs = new Tarifs();
+        tarifs.prixUtilisateur = prixUtilisateur;
+        for (ModuleApplication module : ModuleApplication.values()) {
+            tarifs.prixModules.put(module.name(), prixModule(module));
+        }
+        tarifs.moisFacturesAnnuel = MOIS_FACTURES_ANNUEL;
+        return tarifs;
+    }
+
+    /**
+     * Modifie les modules souscrits (le module Paramétrage l'est toujours). Les utilisateurs
+     * perdent l'accès aux modules qui ne sont plus souscrits.
+     */
+    @PUT
+    @Path("/modules")
+    @Transactional
+    public SocieteEntity modifierModules(Set<ModuleApplication> modules) {
+        if (modules == null) {
+            throw new WebApplicationException("Les modules souscrits sont requis", 400);
+        }
+        SocieteEntity entity = SocieteEntity.findById(1);
+        if (entity == null) {
+            throw new WebApplicationException("La société n'est pas trouvée", 404);
+        }
+        entity.modules.clear();
+        entity.modules.addAll(modules);
+        entity.modules.add(ModuleApplication.PARAMETRAGE);
+        for (UserEntity user : UserEntity.<UserEntity>listAll()) {
+            user.modules.retainAll(entity.modules);
         }
         initAbonnement(entity);
         return entity;
@@ -106,7 +171,9 @@ public class SocieteResource {
         initAbonnement(entity);
 
         int mois = request.type.equals("ANNUEL") ? 12 : 1;
-        double montant = request.type.equals("ANNUEL") ? MONTANT_ABONNEMENT_ANNUEL : MONTANT_ABONNEMENT_MENSUEL;
+        double montant = request.type.equals("ANNUEL")
+            ? entity.abonnementMontantAnnuel
+            : entity.abonnementProchainPaiementMontant;
 
         entity.abonnementProchainPaiementDate = Timestamp.valueOf(
             entity.abonnementProchainPaiementDate.toLocalDateTime().plusMonths(mois));
@@ -116,9 +183,13 @@ public class SocieteResource {
         paiement.montant = montant;
         paiement.mode = mode;
         paiement.date = Timestamp.from(Instant.now());
+        paiement.nombreUtilisateurs = (int) entity.abonnementNombreUtilisateurs;
+        paiement.modules.addAll(entity.modules);
         paiement.societe = entity;
         paiement.persist();
         entity.paiements.add(0, paiement);
+        // La nouvelle échéance peut lever le blocage pour impayé.
+        initAbonnement(entity);
 
         return entity;
     }
@@ -182,9 +253,33 @@ public class SocieteResource {
     }
 
     /**
+     * Modules souscrits par la société, Paramétrage compris. Un compte créé avant l'introduction
+     * des modules (aucun module enregistré) les souscrit tous, comme son abonnement d'alors.
+     */
+    static Set<ModuleApplication> modulesSouscrits(SocieteEntity entity) {
+        if (entity.modules.isEmpty()) {
+            entity.modules.addAll(EnumSet.allOf(ModuleApplication.class));
+        }
+        entity.modules.add(ModuleApplication.PARAMETRAGE);
+        return entity.modules;
+    }
+
+    /** Modules souscrits par la société ; tous si la société n'existe pas encore. */
+    static Set<ModuleApplication> modulesSouscrits() {
+        SocieteEntity entity = SocieteEntity.findById(1);
+        return entity == null ? EnumSet.allOf(ModuleApplication.class) : modulesSouscrits(entity);
+    }
+
+    double prixModule(ModuleApplication module) {
+        return config.getOptionalValue("abonnement.prix-module." + module.name().toLowerCase(Locale.ROOT), Double.class)
+            .orElse(module.prixMensuelParDefaut);
+    }
+
+    /**
      * Renseigne, si nécessaire, les informations d'abonnement du compte :
      * date d'activation = date de création du compte, montant d'activation de 350 €,
-     * prochaine échéance un mois plus tard pour un montant de 150 €.
+     * prochaine échéance un mois plus tard. Le montant mensuel est recalculé à chaque fois :
+     * prix par utilisateur × nombre d'utilisateurs + prix des modules souscrits.
      */
     private void initAbonnement(SocieteEntity entity) {
         if (entity.dateCreation == null) {
@@ -200,33 +295,73 @@ public class SocieteResource {
             entity.abonnementProchainPaiementDate = Timestamp.valueOf(
                 entity.abonnementActivationDate.toLocalDateTime().plusMonths(1));
         }
-        if (entity.abonnementProchainPaiementMontant == null) {
-            entity.abonnementProchainPaiementMontant = MONTANT_ABONNEMENT_MENSUEL;
-        }
 
-        if (entity.abonnementResilie && entity.abonnementResiliationDate != null) {
-            entity.abonnementBlocageDate = Timestamp.valueOf(
-                entity.abonnementResiliationDate.toLocalDateTime().plusDays(DUREE_RETRACTATION_JOURS));
-            entity.accesBloque = Timestamp.from(Instant.now()).after(entity.abonnementBlocageDate);
-        } else {
-            entity.abonnementBlocageDate = null;
-            entity.accesBloque = false;
+        long nombreUtilisateurs = UserEntity.count();
+        double montantMensuel = nombreUtilisateurs * prixUtilisateur;
+        for (ModuleApplication module : modulesSouscrits(entity)) {
+            montantMensuel += prixModule(module);
         }
+        entity.abonnementNombreUtilisateurs = nombreUtilisateurs;
+        entity.abonnementProchainPaiementMontant = montantMensuel;
+        entity.abonnementMontantAnnuel = montantMensuel * MOIS_FACTURES_ANNUEL;
+
+        entity.versionFree = versionFree();
+        entity.abonnementBlocageDate = dateBlocageResiliation(entity);
+        entity.accesBloque = depasse(entity.abonnementBlocageDate);
+        Timestamp blocageImpaye = dateBlocageImpaye(entity);
+        entity.abonnementBlocageImpayeDate = depasse(entity.abonnementProchainPaiementDate) ? blocageImpaye : null;
+        entity.accesBloqueImpaye = depasse(blocageImpaye);
+    }
+
+    /** Version « Free » (propriété abonnement.free) : les accès ne sont jamais bloqués, ni pour impayé ni après résiliation. */
+    static boolean versionFree() {
+        return ConfigProvider.getConfig().getOptionalValue("abonnement.free", Boolean.class).orElse(false);
+    }
+
+    /** Fin de la période de rétractation après résiliation ; null si l'abonnement n'est pas résilié ou en version Free. */
+    static Timestamp dateBlocageResiliation(SocieteEntity entity) {
+        if (versionFree() || !entity.abonnementResilie || entity.abonnementResiliationDate == null) {
+            return null;
+        }
+        return Timestamp.valueOf(entity.abonnementResiliationDate.toLocalDateTime().plusDays(DUREE_RETRACTATION_JOURS));
+    }
+
+    /** Échéance non réglée depuis {@link #DELAI_BLOCAGE_IMPAYE_MOIS} mois ; null sans échéance ou en version Free. */
+    static Timestamp dateBlocageImpaye(SocieteEntity entity) {
+        if (versionFree() || entity.abonnementProchainPaiementDate == null) {
+            return null;
+        }
+        return Timestamp.valueOf(entity.abonnementProchainPaiementDate.toLocalDateTime().plusMonths(DELAI_BLOCAGE_IMPAYE_MOIS));
+    }
+
+    private static boolean depasse(Timestamp date) {
+        return date != null && Timestamp.from(Instant.now()).after(date);
     }
 
     /**
-     * Indique si les accès (login) doivent être bloqués : abonnement résilié depuis plus
-     * longtemps que le délai de rétractation ({@link #DUREE_RETRACTATION_JOURS} jours).
-     * Utilisé par les points d'authentification (chantier, technicien, client).
+     * Abonnement résilié depuis plus longtemps que le délai de rétractation
+     * ({@link #DUREE_RETRACTATION_JOURS} jours) : plus aucune connexion n'est possible.
+     */
+    public static boolean accesBloqueParResiliation() {
+        SocieteEntity entity = SocieteEntity.findById(1);
+        return entity != null && depasse(dateBlocageResiliation(entity));
+    }
+
+    /**
+     * Échéance impayée depuis {@link #DELAI_BLOCAGE_IMPAYE_MOIS} mois ou plus : seuls les utilisateurs
+     * du module Paramétrage peuvent encore se connecter, pour régler les échéances en retard.
+     */
+    public static boolean accesBloqueParImpaye() {
+        SocieteEntity entity = SocieteEntity.findById(1);
+        return entity != null && depasse(dateBlocageImpaye(entity));
+    }
+
+    /**
+     * Indique si les accès (login) doivent être bloqués, après résiliation ou pour impayé.
+     * Utilisé par les points d'authentification des portails technicien et client.
      */
     public static boolean accesBloque() {
-        SocieteEntity entity = SocieteEntity.findById(1);
-        if (entity == null || !entity.abonnementResilie || entity.abonnementResiliationDate == null) {
-            return false;
-        }
-        Timestamp dateBlocage = Timestamp.valueOf(
-            entity.abonnementResiliationDate.toLocalDateTime().plusDays(DUREE_RETRACTATION_JOURS));
-        return Timestamp.from(Instant.now()).after(dateBlocage);
+        return accesBloqueParResiliation() || accesBloqueParImpaye();
     }
 
 }

@@ -6,7 +6,9 @@ import jakarta.persistence.*;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
@@ -81,6 +83,18 @@ public class SocieteEntity extends PanacheEntity {
 
     public Double abonnementProchainPaiementMontant;
 
+    // Modules souscrits par la société : le prix de l'abonnement en dépend, ainsi que du nombre d'utilisateurs.
+    @ElementCollection(fetch = FetchType.EAGER)
+    @Enumerated(EnumType.STRING)
+    public Set<ModuleApplication> modules = new HashSet<>();
+
+    // Champs calculés (non persistés) détaillant le prix de l'abonnement.
+    @Transient
+    public long abonnementNombreUtilisateurs;
+
+    @Transient
+    public Double abonnementMontantAnnuel;
+
     // Résiliation de l'abonnement par l'administrateur.
     public boolean abonnementResilie = false;
 
@@ -95,6 +109,19 @@ public class SocieteEntity extends PanacheEntity {
 
     @Transient
     public boolean accesBloque;
+
+    // Échéance impayée : date (échéance + 2 mois) à partir de laquelle l'accès est limité à la
+    // facturation, renseignée dès que l'échéance est dépassée.
+    @Transient
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp abonnementBlocageImpayeDate;
+
+    @Transient
+    public boolean accesBloqueImpaye;
+
+    // Version « Free » (propriété abonnement.free) : les accès ne sont jamais bloqués.
+    @Transient
+    public boolean versionFree;
 
     @OneToMany(mappedBy = "societe", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     @OrderBy("date DESC")
