@@ -82,6 +82,12 @@ function downloadFacturePdf(paiement: any, societe: any) {
     if (paiement.nombreUtilisateurs != null) {
         row('Utilisateurs', String(paiement.nombreUtilisateurs));
         y += 2;
+        if (paiement.nombreTechniciens != null) {
+            row('Techniciens', String(paiement.nombreTechniciens));
+            y += 2;
+            row('Clients (accès au portail)', String(paiement.nombreClients ?? 0));
+            y += 2;
+        }
         row('Modules', trierModules(paiement.modules).map((m) => MODULE_LABEL[m] || m).join(', '));
         y += 2;
     }
@@ -328,13 +334,17 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
         ? `Paiement annuel — ${formatMontant(montantAnnuel)} (1 mois offert)`
         : `Paiement mensuel — ${formatMontant(montantMensuel)}`;
 
-    // Simulation du prix mensuel selon les modules cochés : prix par utilisateur × nombre d'utilisateurs + prix des modules.
+    // Simulation du prix mensuel selon les modules cochés : utilisateurs, techniciens et clients ayant accès
+    // au portail, chacun à son prix, plus le prix des modules.
     const prixModule = (module: string): number => tarifs?.prixModules?.[module] ?? 0;
-    const prixUtilisateur = tarifs?.prixUtilisateur ?? 0;
-    const nombreUtilisateurs = societe?.abonnementNombreUtilisateurs ?? 0;
-    const montantUtilisateurs = nombreUtilisateurs * prixUtilisateur;
+    const effectifs = [
+        { label: 'Utilisateurs', nombre: societe?.abonnementNombreUtilisateurs ?? 0, prix: tarifs?.prixUtilisateur ?? 0 },
+        { label: 'Techniciens', nombre: societe?.abonnementNombreTechniciens ?? 0, prix: tarifs?.prixTechnicien ?? 0 },
+        { label: 'Clients (accès au portail)', nombre: societe?.abonnementNombreClients ?? 0, prix: tarifs?.prixClient ?? 0 },
+    ];
+    const montantEffectifs = effectifs.reduce((total, e) => total + e.nombre * e.prix, 0);
     const montantModules = modulesSelectionnes.reduce((total, module) => total + prixModule(module), 0);
-    const montantMensuelSimule = montantUtilisateurs + montantModules;
+    const montantMensuelSimule = Math.round((montantEffectifs + montantModules) * 100) / 100;
     const moisFacturesAnnuel = tarifs?.moisFacturesAnnuel ?? 11;
     const modulesModifies = !!societe && trierModules(societe.modules).join() !== trierModules(modulesSelectionnes).join();
     const modulesRetires = trierModules((societe?.modules || []).filter((m: string) => !modulesSelectionnes.includes(m)));
@@ -400,9 +410,11 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                     <Descriptions.Item label="Montant à payer">
                         {formatMontant(societe.abonnementProchainPaiementMontant)}
                     </Descriptions.Item>
-                    <Descriptions.Item label="Utilisateurs">
-                        {nombreUtilisateurs}
-                    </Descriptions.Item>
+                    {effectifs.map((e) => (
+                        <Descriptions.Item key={e.label} label={e.label}>
+                            {e.nombre}
+                        </Descriptions.Item>
+                    ))}
                     <Descriptions.Item label="Statut">
                         <Space direction="vertical" size={4}>
                             {societe.abonnementResilie
@@ -435,9 +447,11 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                 </Checkbox.Group>
 
                 <Descriptions column={1} bordered size="small" style={{ marginTop: 16 }}>
-                    <Descriptions.Item label={`Utilisateurs (${nombreUtilisateurs} × ${formatMontant(prixUtilisateur)})`}>
-                        {formatMontant(montantUtilisateurs)}
-                    </Descriptions.Item>
+                    {effectifs.map((e) => (
+                        <Descriptions.Item key={e.label} label={`${e.label} (${e.nombre} × ${formatMontant(e.prix)})`}>
+                            {formatMontant(e.nombre * e.prix)}
+                        </Descriptions.Item>
+                    ))}
                     <Descriptions.Item label="Modules">
                         {formatMontant(montantModules)}
                     </Descriptions.Item>

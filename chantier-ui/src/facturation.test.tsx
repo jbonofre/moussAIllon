@@ -18,13 +18,14 @@ const mockedFetch = fetchWithAuth as jest.Mock;
 const reponse = (data: any, ok = true) =>
     Promise.resolve({ ok, status: ok ? 200 : 400, json: () => Promise.resolve(data) });
 
-// 3 utilisateurs × 10 € + Vente 35 € + Parc 20 € = 85 € par mois
+// 3 utilisateurs × 10 € + 2 techniciens × 10 € + 15 clients du portail × 0,10 € + Vente 35 € + Parc 20 € = 106,50 € par mois
 const societe = {
     id: 1, nom: 'MS Plaisance', modules: ['VENTE', 'PARC', 'PARAMETRAGE'], abonnementNombreUtilisateurs: 3,
-    abonnementProchainPaiementMontant: 85, abonnementMontantAnnuel: 935, abonnementResilie: false, paiements: [],
+    abonnementNombreTechniciens: 2, abonnementNombreClients: 15,
+    abonnementProchainPaiementMontant: 106.5, abonnementMontantAnnuel: 1171.5, abonnementResilie: false, paiements: [],
 };
 const tarifs = {
-    prixUtilisateur: 10, moisFacturesAnnuel: 11,
+    prixUtilisateur: 10, prixTechnicien: 10, prixClient: 0.1, moisFacturesAnnuel: 11,
     prixModules: { VENTE: 35, PARC: 20, CATALOGUE: 25, ATELIER: 20, MARKETING: 20, COMPTABILITE: 20, PARAMETRAGE: 0 },
 };
 
@@ -38,7 +39,7 @@ beforeEach(() => {
         if (url === './societe/tarifs') return reponse(tarifs);
         if (url === './societe/modules') {
             const modules = JSON.parse(options!.body as string);
-            return reponse({ ...societe, modules: [ ...modules, 'PARAMETRAGE' ], abonnementProchainPaiementMontant: 110, abonnementMontantAnnuel: 1210 });
+            return reponse({ ...societe, modules: [ ...modules, 'PARAMETRAGE' ], abonnementProchainPaiementMontant: 131.5, abonnementMontantAnnuel: 1446.5 });
         }
         return reponse(null, false);
     });
@@ -48,8 +49,11 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
     it('propose de payer le montant calculé par le serveur', async () => {
         render(<Facturation />);
 
-        expect(await screen.findByRole('button', { name: /Payer ce mois — 85,00/ })).toBeEnabled();
-        expect(screen.getByRole('button', { name: /Payer l'année — 935,00/ })).toBeEnabled();
+        expect(await screen.findByRole('button', { name: /Payer ce mois — 106,50/ })).toBeEnabled();
+        expect(screen.getByRole('button', { name: /Payer l'année — 1\s171,50/ })).toBeEnabled();
+        // Détail du prix : techniciens et clients ayant accès au portail comptent aussi
+        expect(screen.getByText(/Techniciens \(2 × 10,00/)).toBeInTheDocument();
+        expect(screen.getByText(/Clients \(accès au portail\) \(15 × 0,10/)).toBeInTheDocument();
         expect(screen.getByLabelText(/Paramétrage — inclus/)).toBeDisabled();
     });
 
@@ -58,7 +62,7 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
 
         fireEvent.click(await screen.findByLabelText(/Catalogue/));
 
-        expect(screen.getByText(/110,00/, { selector: 'strong' })).toBeInTheDocument();
+        expect(screen.getByText(/131,50/, { selector: 'strong' })).toBeInTheDocument();
         // Le paiement attend l'enregistrement des modules
         expect(screen.getByRole('button', { name: /Payer ce mois/ })).toBeDisabled();
 
@@ -66,7 +70,7 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
 
         await waitFor(() => expect(appel('./societe/modules', 'PUT')).toBeDefined());
         expect(JSON.parse(appel('./societe/modules', 'PUT')[1].body)).toEqual(expect.arrayContaining(['VENTE', 'PARC', 'CATALOGUE']));
-        expect(await screen.findByRole('button', { name: /Payer ce mois — 110,00/ })).toBeEnabled();
+        expect(await screen.findByRole('button', { name: /Payer ce mois — 131,50/ })).toBeEnabled();
     });
 
     it("affiche l'échéance impayée et la version Free, et en informe l'espace de travail", async () => {
@@ -101,7 +105,7 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
 
             fireEvent.mouseDown(screen.getByRole('combobox'));
             fireEvent.click(await screen.findByText('Stripe', { selector: '.ant-select-item-option-content' }));
-            fireEvent.click(screen.getByRole('button', { name: /Payer via Stripe — 85,00/ }));
+            fireEvent.click(screen.getByRole('button', { name: /Payer via Stripe — 106,50/ }));
 
             await waitFor(() => expect(fenetre.location.href).toBe('https://checkout.stripe.com/session'));
             expect(JSON.parse(appel('./societe/paiement/en-ligne', 'POST')[1].body)).toEqual({ type: 'MENSUEL', mode: 'STRIPE' });

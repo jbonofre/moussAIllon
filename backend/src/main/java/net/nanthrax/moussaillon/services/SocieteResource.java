@@ -5,9 +5,11 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
+import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.ModuleApplication;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.SocietePaiementEntity;
+import net.nanthrax.moussaillon.persistence.TechnicienEntity;
 import net.nanthrax.moussaillon.persistence.UserEntity;
 import org.eclipse.microprofile.config.Config;
 import org.eclipse.microprofile.config.ConfigProvider;
@@ -41,9 +43,16 @@ public class SocieteResource {
     @Inject
     Config config;
 
-    // Prix mensuel par utilisateur ; s'y ajoute le prix de chaque module souscrit.
+    // Prix mensuel par utilisateur du chantier, par technicien et par client ayant accès au portail ;
+    // s'y ajoute le prix de chaque module souscrit.
     @ConfigProperty(name = "abonnement.prix-utilisateur", defaultValue = "10")
     double prixUtilisateur;
+
+    @ConfigProperty(name = "abonnement.prix-technicien", defaultValue = "10")
+    double prixTechnicien;
+
+    @ConfigProperty(name = "abonnement.prix-client", defaultValue = "0.10")
+    double prixClient;
 
     // Paiement en ligne de l'abonnement, au montant calculé : comptes Stripe / PayPlug de l'éditeur,
     // distincts de ceux du chantier qui encaissent les ventes (payment.*).
@@ -59,6 +68,8 @@ public class SocieteResource {
 
     public static class Tarifs {
         public double prixUtilisateur;
+        public double prixTechnicien;
+        public double prixClient;
         // Prix mensuel de chaque module, dans l'ordre des modules.
         public Map<String, Double> prixModules = new LinkedHashMap<>();
         public int moisFacturesAnnuel;
@@ -93,6 +104,8 @@ public class SocieteResource {
     public Tarifs tarifs() {
         Tarifs tarifs = new Tarifs();
         tarifs.prixUtilisateur = prixUtilisateur;
+        tarifs.prixTechnicien = prixTechnicien;
+        tarifs.prixClient = prixClient;
         for (ModuleApplication module : ModuleApplication.values()) {
             tarifs.prixModules.put(module.name(), prixModule(module));
         }
@@ -256,6 +269,8 @@ public class SocieteResource {
         paiement.mode = mode;
         paiement.date = Timestamp.from(Instant.now());
         paiement.nombreUtilisateurs = (int) entity.abonnementNombreUtilisateurs;
+        paiement.nombreTechniciens = (int) entity.abonnementNombreTechniciens;
+        paiement.nombreClients = (int) entity.abonnementNombreClients;
         paiement.modules.addAll(entity.modules);
         paiement.societe = entity;
         paiement.persist();
@@ -350,8 +365,8 @@ public class SocieteResource {
     /**
      * Renseigne, si nécessaire, les informations d'abonnement du compte :
      * date d'activation = date de création du compte, montant d'activation de 350 €,
-     * prochaine échéance un mois plus tard. Le montant mensuel est recalculé à chaque fois :
-     * prix par utilisateur × nombre d'utilisateurs + prix des modules souscrits.
+     * prochaine échéance un mois plus tard. Le montant mensuel est recalculé à chaque fois : utilisateurs,
+     * techniciens et clients ayant accès au portail, chacun à son prix, plus le prix des modules souscrits.
      */
     private void initAbonnement(SocieteEntity entity) {
         if (entity.dateCreation == null) {
@@ -368,14 +383,17 @@ public class SocieteResource {
                 entity.abonnementActivationDate.toLocalDateTime().plusMonths(1));
         }
 
-        long nombreUtilisateurs = UserEntity.count();
-        double montantMensuel = nombreUtilisateurs * prixUtilisateur;
+        entity.abonnementNombreUtilisateurs = UserEntity.count();
+        entity.abonnementNombreTechniciens = TechnicienEntity.count();
+        entity.abonnementNombreClients = ClientEntity.count("motDePasse is not null and motDePasse <> ''");
+        double montantMensuel = entity.abonnementNombreUtilisateurs * prixUtilisateur
+            + entity.abonnementNombreTechniciens * prixTechnicien
+            + entity.abonnementNombreClients * prixClient;
         for (ModuleApplication module : modulesSouscrits(entity)) {
             montantMensuel += prixModule(module);
         }
-        entity.abonnementNombreUtilisateurs = nombreUtilisateurs;
-        entity.abonnementProchainPaiementMontant = montantMensuel;
-        entity.abonnementMontantAnnuel = montantMensuel * MOIS_FACTURES_ANNUEL;
+        entity.abonnementProchainPaiementMontant = arrondi(montantMensuel);
+        entity.abonnementMontantAnnuel = arrondi(montantMensuel * MOIS_FACTURES_ANNUEL);
 
         entity.versionFree = versionFree();
         entity.abonnementBlocageDate = dateBlocageResiliation(entity);
@@ -404,6 +422,10 @@ public class SocieteResource {
             return null;
         }
         return Timestamp.valueOf(entity.abonnementProchainPaiementDate.toLocalDateTime().plusMonths(DELAI_BLOCAGE_IMPAYE_MOIS));
+    }
+
+    private static double arrondi(double montant) {
+        return Math.round(montant * 100.0) / 100.0;
     }
 
     private static boolean depasse(Timestamp date) {

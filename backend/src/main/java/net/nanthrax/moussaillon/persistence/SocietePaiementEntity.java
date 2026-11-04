@@ -30,6 +30,10 @@ public class SocietePaiementEntity extends PanacheEntity {
     // Base de calcul du montant au moment du paiement (reprise sur la facture d'abonnement).
     public Integer nombreUtilisateurs;
 
+    public Integer nombreTechniciens;
+
+    public Integer nombreClients;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @Enumerated(EnumType.STRING)
     public Set<ModuleApplication> modules = new HashSet<>();

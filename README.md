@@ -16,7 +16,7 @@ MoussAIllon centralise l'ensemble des metiers d'un chantier naval dans une seule
 - **Espace technicien** - planning mobile des interventions
 - **IA integree** - chat assisté (OpenAI / Anthropic), serveur MCP pour l'exploration de l'API
 - **Notifications email** - alertes incidents, mots de passe, planning
-- **Modules & abonnement** - acces des utilisateurs par module (Vente, Parc, Catalogue, Atelier, Marketing, Comptabilite, Parametrage) ; abonnement calcule selon le nombre d'utilisateurs et les modules souscrits
+- **Modules & abonnement** - acces des utilisateurs par module (Vente, Parc, Catalogue, Atelier, Marketing, Comptabilite, Parametrage) ; abonnement calcule selon le nombre d'utilisateurs, de techniciens et de clients ayant acces au portail, et les modules souscrits
 
 ## Architecture
 
@@ -81,7 +81,9 @@ cd technicien-ui && npm install && npm start
 | `ABONNEMENT_STRIPE_API_KEY` | Cle API Stripe de l'editeur pour payer l'abonnement en ligne au montant calcule (distincte de `STRIPE_API_KEY`, qui encaisse les ventes du chantier) ; sans cle, le lien de paiement fixe de la societe est utilise | _(vide)_ |
 | `ABONNEMENT_PAYPLUG_API_KEY` | Cle API PayPlug de l'editeur pour payer l'abonnement en ligne au montant calcule | _(vide)_ |
 | `ABONNEMENT_PAIEMENT_RETOUR_URL` | Page de retour apres le paiement en ligne de l'abonnement | `http://localhost:3000/chantier/` |
-| `ABONNEMENT_PRIX_UTILISATEUR` | Prix mensuel de l'abonnement par utilisateur (EUR) | `10` |
+| `ABONNEMENT_PRIX_UTILISATEUR` | Prix mensuel de l'abonnement par utilisateur du chantier (EUR) | `10` |
+| `ABONNEMENT_PRIX_TECHNICIEN` | Prix mensuel de l'abonnement par technicien (EUR) | `10` |
+| `ABONNEMENT_PRIX_CLIENT` | Prix mensuel de l'abonnement par client ayant acces au portail client (EUR) | `0.10` |
 | `ABONNEMENT_PRIX_MODULE_<MODULE>` | Prix mensuel d'un module souscrit (EUR) : `VENTE`, `PARC`, `CATALOGUE`, `ATELIER`, `MARKETING`, `COMPTABILITE` (`PARAMETRAGE` est inclus) | `35`, `20`, `25`, `20`, `20`, `20` |
 
 ### Upload d'images

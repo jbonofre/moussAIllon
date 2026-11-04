@@ -93,6 +93,13 @@ public class SocieteEntity extends PanacheEntity {
     public long abonnementNombreUtilisateurs;
 
     @Transient
+    public long abonnementNombreTechniciens;
+
+    // Clients ayant accès au portail client (mot de passe renseigné).
+    @Transient
+    public long abonnementNombreClients;
+
+    @Transient
     public Double abonnementMontantAnnuel;
 
     // Résiliation de l'abonnement par l'administrateur.
