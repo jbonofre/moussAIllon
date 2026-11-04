@@ -486,7 +486,21 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
 
     return (
         <>
-            <Card title={<Space><CreditCardOutlined /> Facturation</Space>}>
+            <Card title={
+                <Space>
+                    <CreditCardOutlined /> Facturation
+                    {societe.versionFree && <Tag color="blue">Version Free</Tag>}
+                </Space>
+            }>
+                {societe.versionFree && (
+                    <Alert
+                        type="info"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="Version Free : les accès ne sont jamais bloqués"
+                        description="Ni un abonnement non activé, ni une échéance impayée, ni une résiliation ne bloquent l'accès à l'application, et les modules s'ajoutent sans paiement. Les paiements restent possibles."
+                    />
+                )}
                 <Descriptions title="Abonnement" column={1} bordered size="small">
                     <Descriptions.Item label="Date d'activation">
                         {actif ? formatDate(societe.abonnementActivationDate) : 'Au premier paiement'}
@@ -512,7 +526,9 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                                 ? <Tag color="red">Résilié le {formatDate(societe.abonnementResiliationDate)}</Tag>
                                 : actif
                                     ? <Tag color="green">Actif</Tag>
-                                    : <Tag color="orange">Non activé : accès limité à la facturation jusqu'au premier paiement</Tag>}
+                                    : societe.versionFree
+                                        ? <Tag color="orange">Non activé</Tag>
+                                        : <Tag color="orange">Non activé : accès limité à la facturation jusqu'au premier paiement</Tag>}
                             {actif && societe.abonnementAJour && (
                                 <Tag color="green">Payé jusqu'au {formatDate(societe.abonnementProchainPaiementDate)}</Tag>
                             )}
@@ -522,7 +538,6 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                             {societe.abonnementBlocageImpayeDate && (societe.accesBloqueImpaye
                                 ? <Tag color="volcano">Échéance impayée : accès limité à la facturation depuis le {formatDate(societe.abonnementBlocageImpayeDate)}</Tag>
                                 : <Tag color="orange">Échéance dépassée : accès limité à la facturation à partir du {formatDate(societe.abonnementBlocageImpayeDate)}</Tag>)}
-                            {societe.versionFree && <Tag color="blue">Version Free : accès jamais bloqué</Tag>}
                         </Space>
                     </Descriptions.Item>
                 </Descriptions>

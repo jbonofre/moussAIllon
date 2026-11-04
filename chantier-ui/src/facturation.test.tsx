@@ -162,8 +162,28 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
 
         mockedFetch.mockImplementation((url: string) => reponse(url === './societe/tarifs' ? tarifs : { ...societe, versionFree: true }));
         render(<Facturation />);
-        expect(await screen.findByText('Version Free : accès jamais bloqué')).toBeInTheDocument();
+        expect(await screen.findByText('Version Free : les accès ne sont jamais bloqués')).toBeInTheDocument();
         expect(screen.queryByText(/Échéance/)).not.toBeInTheDocument();
+    });
+
+    it('affiche clairement la version Free, même sans abonnement activé', async () => {
+        mockedFetch.mockImplementation((url: string) => reponse(url === './societe/tarifs' ? tarifs : { ...nonActive, versionFree: true }));
+        render(<Facturation />);
+
+        // Dans le titre et en bandeau
+        expect(await screen.findByText('Version Free')).toBeInTheDocument();
+        expect(screen.getByText('Version Free : les accès ne sont jamais bloqués')).toBeInTheDocument();
+        expect(screen.getByText(/les modules s'ajoutent sans paiement/)).toBeInTheDocument();
+        // L'abonnement non activé ne limite pas l'accès
+        expect(screen.getByText('Non activé')).toBeInTheDocument();
+        expect(screen.queryByText(/accès limité à la facturation/)).not.toBeInTheDocument();
+    });
+
+    it("n'affiche pas la version Free quand elle n'est pas configurée", async () => {
+        render(<Facturation />);
+
+        expect(await screen.findByText('Actif')).toBeInTheDocument();
+        expect(screen.queryByText(/Version Free/)).not.toBeInTheDocument();
     });
 
     it("ouvre le paiement en ligne au montant de l'échéance", async () => {
