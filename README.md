@@ -16,6 +16,7 @@ MoussAIllon centralise l'ensemble des metiers d'un chantier naval dans une seule
 - **Espace technicien** - planning mobile des interventions
 - **IA integree** - chat assisté (OpenAI / Anthropic), serveur MCP pour l'exploration de l'API
 - **Notifications email** - alertes incidents, mots de passe, planning
+- **Modules & abonnement** - acces des utilisateurs par module (Vente, Parc, Catalogue, Atelier, Marketing, Comptabilite, Parametrage) ; abonnement calcule selon le nombre d'utilisateurs, de techniciens et de clients ayant acces au portail, et les modules souscrits ; active au premier paiement (frais d'activation et premier mois ou premiere annee), suivi mois par mois, modules ajoutes payes tout de suite ; sans abonnement active, l'acces est limite a la facturation
 
 ## Architecture
 
@@ -76,6 +77,14 @@ cd technicien-ui && npm install && npm start
 | `MAILER_HOST` | Serveur SMTP | `localhost` |
 | `MAILER_PORT` | Port SMTP | `1025` |
 | `MAILER_MOCK` | Mode mock (pas d'envoi reel) | `true` |
+| `ABONNEMENT_FREE` | Version Free : les acces ne sont jamais bloques (abonnement non active, impaye depuis 2 mois ou plus, ou resilie) et les modules s'ajoutent sans paiement | `false` |
+| `ABONNEMENT_STRIPE_API_KEY` | Cle API Stripe de l'editeur pour payer l'abonnement en ligne au montant calcule (distincte de `STRIPE_API_KEY`, qui encaisse les ventes du chantier) ; sans cle, le lien de paiement fixe de la societe est utilise | _(vide)_ |
+| `ABONNEMENT_PAYPLUG_API_KEY` | Cle API PayPlug de l'editeur pour payer l'abonnement en ligne au montant calcule | _(vide)_ |
+| `ABONNEMENT_PAIEMENT_RETOUR_URL` | Page de retour apres le paiement en ligne de l'abonnement | `http://localhost:3000/chantier/` |
+| `ABONNEMENT_PRIX_UTILISATEUR` | Prix mensuel de l'abonnement par utilisateur du chantier (EUR) | `10` |
+| `ABONNEMENT_PRIX_TECHNICIEN` | Prix mensuel de l'abonnement par technicien (EUR) | `10` |
+| `ABONNEMENT_PRIX_CLIENT` | Prix mensuel de l'abonnement par client ayant acces au portail client (EUR) | `0.10` |
+| `ABONNEMENT_PRIX_MODULE_<MODULE>` | Prix mensuel d'un module souscrit (EUR) : `VENTE`, `PARC`, `CATALOGUE`, `ATELIER`, `MARKETING`, `COMPTABILITE` (`PARAMETRAGE` est inclus) | `35`, `20`, `25`, `20`, `20`, `20` |
 
 ### Upload d'images
 

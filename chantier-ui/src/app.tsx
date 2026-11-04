@@ -9,7 +9,9 @@ export default function App() {
 
     const [ user, setUser ] = useState(() => {
         const stored = localStorage.getItem('moussaillon-user');
-        return stored ? JSON.parse(stored) : null;
+        const parsed = stored ? JSON.parse(stored) : null;
+        // Session ouverte avant l'introduction des modules (rôles) : reconnexion nécessaire
+        return parsed && Array.isArray(parsed.modules) ? parsed : null;
     });
 
     const handleSetUser = (u) => {
@@ -24,7 +26,7 @@ export default function App() {
 
     if (user) {
         return(
-            <Workspace user={user.name} roles={user.roles} setUser={handleSetUser} />
+            <Workspace user={user.name} modules={user.modules} accesLimiteFacturation={user.accesLimiteFacturation} abonnementActif={user.abonnementActif} setUser={handleSetUser} />
         );
     } else {
         return(

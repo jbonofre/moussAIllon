@@ -1,14 +1,19 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.ModuleApplication;
 import net.nanthrax.moussaillon.persistence.UserEntity;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Path("/users")
 @ApplicationScoped
@@ -16,8 +21,14 @@ import java.util.List;
 @Consumes(MediaType.APPLICATION_JSON)
 public class UserResource {
 
+    // Utilisateur créé à l'installation : il garde toujours l'accès au module Paramétrage.
+    static final String ADMIN = "admin";
+
     @Inject
     TokenService tokenService;
+
+    @Inject
+    SecurityIdentity identity;
 
     public static class LoginRequest {
         public String name;
@@ -27,9 +38,12 @@ public class UserResource {
     public static class AuthResponse {
         public String token;
         public String name;
-        public String roles;
+        public Set<ModuleApplication> modules;
         public String email;
         public UserEntity.Theme theme;
+        // Abonnement non activé, ou échéance impayée depuis 2 mois ou plus : l'accès est limité à la facturation.
+        public boolean accesLimiteFacturation;
+        public boolean abonnementActif;
     }
 
     public static class ChangePasswordRequest {
@@ -41,7 +55,7 @@ public class UserResource {
     @Path("/authenticate")
     @Transactional
     public Response authenticate(LoginRequest request) {
-        if (SocieteResource.accesBloque()) {
+        if (SocieteResource.accesBloqueParResiliation()) {
             return Response.status(Response.Status.FORBIDDEN)
                 .entity("Accès bloqué : l'abonnement a été résilié.").build();
         }
@@ -56,12 +70,23 @@ public class UserResource {
         if (PasswordUtil.needsRehash(entity.password)) {
             entity.password = PasswordUtil.hash(request.password);
         }
+        // Abonnement non activé ou impayé : seuls les utilisateurs du module Paramétrage se connectent,
+        // pour activer l'abonnement ou régler les échéances en retard.
+        String limitation = SocieteResource.motifLimitationFacturation();
+        if (limitation != null && !entity.modules.contains(ModuleApplication.PARAMETRAGE)) {
+            return Response.status(Response.Status.FORBIDDEN)
+                .entity("Accès bloqué : " + limitation + ". Contactez un administrateur.").build();
+        }
         AuthResponse auth = new AuthResponse();
-        auth.token = tokenService.generateToken(entity.name, entity.roles, entity.email, null);
+        Set<String> groupes = entity.modules.stream().map(Enum::name).collect(Collectors.toCollection(HashSet::new));
+        groupes.add(AccesApiFilter.GROUPE_CHANTIER);
+        auth.token = tokenService.generateToken(entity.name, groupes, entity.email, null);
         auth.name = entity.name;
-        auth.roles = entity.roles;
+        auth.modules = entity.modules;
         auth.email = entity.email;
         auth.theme = entity.theme;
+        auth.accesLimiteFacturation = limitation != null;
+        auth.abonnementActif = SocieteResource.abonnementActif();
         return Response.ok(auth).build();
     }
 
@@ -106,6 +131,7 @@ public class UserResource {
     @POST
     @Transactional
     public Response create(UserEntity user) {
+        validerModules(user.name, user);
         if (user.password != null && !user.password.isBlank()) {
             user.password = PasswordUtil.hash(user.password);
         }
@@ -135,6 +161,7 @@ public class UserResource {
         if (entity == null) {
             throw new WebApplicationException("L'utilisateur " + name + " n'est pas trouvé", 404);
         }
+        verifierAccesParametrageConserve(entity, Set.of());
         entity.delete();
         return Response.status(204).build();
     }
@@ -148,11 +175,20 @@ public class UserResource {
             throw new WebApplicationException("L'utilisateur " + name + " n'est pas trouvé", 404);
         }
 
-        entity.name = user.name;
-        entity.email = user.email;
-        entity.roles = user.roles;
-        if (user.password != null && !user.password.isBlank()) {
-            entity.password = PasswordUtil.hash(user.password);
+        // Sans le module Paramétrage, un utilisateur ne modifie que son thème (préférences) : ni ses modules,
+        // ni son email, ni son mot de passe (qui a son propre point d'API, avec le mot de passe actuel).
+        // Une requête anonyme n'atteint ce point qu'en test, où l'authentification est désactivée.
+        if (identity.isAnonymous() || identity.hasRole(ModuleApplication.PARAMETRAGE.name())) {
+            validerModules(name, user);
+            verifierAccesParametrageConserve(entity, user.modules);
+
+            entity.name = user.name;
+            entity.email = user.email;
+            entity.modules.clear();
+            entity.modules.addAll(user.modules);
+            if (user.password != null && !user.password.isBlank()) {
+                entity.password = PasswordUtil.hash(user.password);
+            }
         }
         entity.theme = user.theme;
 
@@ -160,6 +196,42 @@ public class UserResource {
         UserEntity.getEntityManager().detach(entity);
         entity.password = null;
         return entity;
+    }
+
+    /**
+     * Un utilisateur ne peut accéder qu'aux modules souscrits par la société ; l'utilisateur admin
+     * a toujours accès au module Paramétrage (toujours souscrit).
+     */
+    private void validerModules(String name, UserEntity user) {
+        if (user.modules == null) {
+            user.modules = new HashSet<>();
+        }
+        if (ADMIN.equals(name)) {
+            user.modules.add(ModuleApplication.PARAMETRAGE);
+        }
+        Set<ModuleApplication> souscrits = SocieteResource.modulesSouscrits();
+        for (ModuleApplication module : user.modules) {
+            if (!souscrits.contains(module)) {
+                throw requeteInvalide("Le module " + module + " n'est pas souscrit par la société.");
+            }
+        }
+    }
+
+    /**
+     * Au moins un utilisateur doit garder l'accès au module Paramétrage, sans quoi plus personne
+     * ne pourrait gérer les utilisateurs ni l'abonnement.
+     */
+    private void verifierAccesParametrageConserve(UserEntity entity, Set<ModuleApplication> nouveauxModules) {
+        if (!entity.modules.contains(ModuleApplication.PARAMETRAGE) || nouveauxModules.contains(ModuleApplication.PARAMETRAGE)) {
+            return;
+        }
+        if (UserEntity.count("?1 member of modules and name <> ?2", ModuleApplication.PARAMETRAGE, entity.name) == 0) {
+            throw requeteInvalide("Au moins un utilisateur doit conserver l'accès au module Paramétrage.");
+        }
+    }
+
+    private static WebApplicationException requeteInvalide(String message) {
+        return new WebApplicationException(Response.status(Response.Status.BAD_REQUEST).entity(message).build());
     }
 
     private List<UserEntity> sanitizeList(List<UserEntity> users) {

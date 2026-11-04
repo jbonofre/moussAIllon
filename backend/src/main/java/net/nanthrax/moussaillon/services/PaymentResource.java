@@ -1,5 +1,6 @@
 package net.nanthrax.moussaillon.services;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -8,8 +9,9 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 
-import com.stripe.Stripe;
+import com.stripe.exception.StripeException;
 import com.stripe.model.checkout.Session;
+import com.stripe.net.RequestOptions;
 import com.stripe.param.checkout.SessionCreateParams;
 
 import jakarta.enterprise.context.ApplicationScoped;
@@ -68,34 +70,14 @@ public class PaymentResource {
         }
 
         try {
-            Stripe.apiKey = stripeApiKey;
-
             long amountCents = Math.round(vente.prixVenteTTC * 100);
             String description = "Vente #" + vente.id;
             if (vente.client != null) {
                 description += " - " + vente.client.nom;
             }
 
-            SessionCreateParams params = SessionCreateParams.builder()
-                    .setMode(SessionCreateParams.Mode.PAYMENT)
-                    .setSuccessUrl(stripeSuccessUrl)
-                    .setCancelUrl(stripeCancelUrl)
-                    .addLineItem(SessionCreateParams.LineItem.builder()
-                            .setQuantity(1L)
-                            .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
-                                    .setCurrency("eur")
-                                    .setUnitAmount(amountCents)
-                                    .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
-                                            .setName(description)
-                                            .build())
-                                    .build())
-                            .build())
-                    .build();
-
-            Session session = Session.create(params);
-
             Map<String, String> result = new HashMap<>();
-            result.put("url", session.getUrl());
+            result.put("url", creerSessionStripe(stripeApiKey, amountCents, description, stripeSuccessUrl, stripeCancelUrl));
             return result;
         } catch (WebApplicationException e) {
             throw e;
@@ -120,7 +102,7 @@ public class PaymentResource {
         }
 
         try {
-            int amountCents = (int) Math.round(vente.prixVenteTTC * 100);
+            long amountCents = Math.round(vente.prixVenteTTC * 100);
 
             String customerEmail = null;
             String customerName = null;
@@ -129,54 +111,82 @@ public class PaymentResource {
                 customerName = vente.client.nom;
             }
 
-            jakarta.json.JsonObjectBuilder paymentBuilder = Json.createObjectBuilder()
-                    .add("amount", amountCents)
-                    .add("currency", "EUR")
-                    .add("hosted_payment", Json.createObjectBuilder()
-                            .add("return_url", payplugReturnUrl)
-                            .add("cancel_url", payplugCancelUrl));
-
-            if (customerEmail != null && !customerEmail.isBlank()) {
-                jakarta.json.JsonObjectBuilder billingBuilder = Json.createObjectBuilder()
-                        .add("email", customerEmail);
-                if (customerName != null) {
-                    billingBuilder.add("last_name", customerName);
-                }
-                paymentBuilder.add("billing", billingBuilder);
-            }
-
-            JsonObject requestBody = paymentBuilder.build();
-
-            URL url = new URL("https://api.payplug.com/v1/payments");
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod("POST");
-            conn.setRequestProperty("Authorization", "Bearer " + payplugApiKey);
-            conn.setRequestProperty("Content-Type", "application/json");
-            conn.setDoOutput(true);
-
-            try (OutputStream os = conn.getOutputStream()) {
-                os.write(requestBody.toString().getBytes(StandardCharsets.UTF_8));
-            }
-
-            int status = conn.getResponseCode();
-            if (status < 200 || status >= 300) {
-                throw new WebApplicationException("Erreur PayPlug (HTTP " + status + ")", 500);
-            }
-
-            JsonObject response;
-            try (JsonReader reader = Json.createReader(conn.getInputStream())) {
-                response = reader.readObject();
-            }
-
-            String paymentUrl = response.getJsonObject("hosted_payment").getString("payment_url");
-
             Map<String, String> result = new HashMap<>();
-            result.put("url", paymentUrl);
+            result.put("url", creerPaiementPayplug(payplugApiKey, amountCents, customerEmail, customerName, payplugReturnUrl, payplugCancelUrl));
             return result;
         } catch (WebApplicationException e) {
             throw e;
         } catch (Exception e) {
             throw new WebApplicationException("Erreur lors de la creation du lien PayPlug: " + e.getMessage(), 500);
         }
+    }
+
+    /**
+     * Crée une session de paiement Stripe Checkout et renvoie son URL. La clé API est passée à la requête
+     * (et non via Stripe.apiKey, global) : ventes et abonnement utilisent des comptes différents.
+     */
+    static String creerSessionStripe(String apiKey, long amountCents, String description, String successUrl, String cancelUrl)
+            throws StripeException {
+        SessionCreateParams params = SessionCreateParams.builder()
+                .setMode(SessionCreateParams.Mode.PAYMENT)
+                .setSuccessUrl(successUrl)
+                .setCancelUrl(cancelUrl)
+                .addLineItem(SessionCreateParams.LineItem.builder()
+                        .setQuantity(1L)
+                        .setPriceData(SessionCreateParams.LineItem.PriceData.builder()
+                                .setCurrency("eur")
+                                .setUnitAmount(amountCents)
+                                .setProductData(SessionCreateParams.LineItem.PriceData.ProductData.builder()
+                                        .setName(description)
+                                        .build())
+                                .build())
+                        .build())
+                .build();
+        return Session.create(params, RequestOptions.builder().setApiKey(apiKey).build()).getUrl();
+    }
+
+    /** Crée un paiement PayPlug et renvoie l'URL de sa page de paiement hébergée. */
+    static String creerPaiementPayplug(String apiKey, long amountCents, String customerEmail, String customerName,
+                                       String returnUrl, String cancelUrl) throws IOException {
+        jakarta.json.JsonObjectBuilder paymentBuilder = Json.createObjectBuilder()
+                .add("amount", amountCents)
+                .add("currency", "EUR")
+                .add("hosted_payment", Json.createObjectBuilder()
+                        .add("return_url", returnUrl)
+                        .add("cancel_url", cancelUrl));
+
+        if (customerEmail != null && !customerEmail.isBlank()) {
+            jakarta.json.JsonObjectBuilder billingBuilder = Json.createObjectBuilder()
+                    .add("email", customerEmail);
+            if (customerName != null) {
+                billingBuilder.add("last_name", customerName);
+            }
+            paymentBuilder.add("billing", billingBuilder);
+        }
+
+        JsonObject requestBody = paymentBuilder.build();
+
+        URL url = new URL("https://api.payplug.com/v1/payments");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Authorization", "Bearer " + apiKey);
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(requestBody.toString().getBytes(StandardCharsets.UTF_8));
+        }
+
+        int status = conn.getResponseCode();
+        if (status < 200 || status >= 300) {
+            throw new WebApplicationException("Erreur PayPlug (HTTP " + status + ")", 500);
+        }
+
+        JsonObject response;
+        try (JsonReader reader = Json.createReader(conn.getInputStream())) {
+            response = reader.readObject();
+        }
+
+        return response.getJsonObject("hosted_payment").getString("payment_url");
     }
 }

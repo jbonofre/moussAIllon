@@ -1,6 +1,6 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
+import { Alert, Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
 import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
@@ -39,6 +39,7 @@ import Emails from './emails.tsx';
 import SequenceEmails from './sequence-emails.tsx';
 import ReferenceValeurs from './reference-valeurs.tsx';
 import ChatbotWidget from './home.tsx';
+import { hasModule } from './modules.ts';
 
 export function demo() {
     message.warning("Vous êtes sur une version de démonstration de moussAIllon. Il n'est pas possible d'ajouter ou supprimer des éléments.")
@@ -46,11 +47,55 @@ export function demo() {
 
 type UserTheme = 'LIGHT' | 'DARK';
 
-function hasRole(roles: string, role: string): boolean {
-    if (!roles) return false;
-    const roleList = Array.isArray(roles) ? roles : roles.split(',').map(r => r.trim());
-    return roleList.includes('admin') || roleList.includes(role);
-}
+// Chaque groupe du menu correspond à un module : seuls ceux auxquels l'utilisateur a accès sont affichés.
+const MENU_ITEMS = [
+  { key: '/dashboard', label: 'Accueil', icon: <HomeOutlined/> },
+  { key: 'Vente', label: 'Vente', icon: <DollarOutlined/>, module: 'VENTE', children: [
+    { key: '/comptoir', label: 'Comptoir', icon: <ShopOutlined/> },
+    { key: '/prestations', label: 'Transactions/Prestations', icon: <SolutionOutlined/> },
+    { key: '/avoirs', label: 'Avoirs', icon: <RollbackOutlined/> },
+    { key: '/clients', label: 'Clients', icon: <TeamOutlined /> },
+  ]},
+  { key: 'parc', label: 'Parc', icon: <Icon component={ ParcOutlined } />, module: 'PARC', children: [
+    { key: '/clients/bateaux', label: 'Bateaux', icon: <Icon component={ BoatOutlined } />},
+    { key: '/clients/moteurs', label: 'Moteurs', icon: <Icon component={ EngineOutlined } /> },
+    { key: '/clients/remorques', label: 'Remorques', icon: <Icon component={ TailerOutlined } /> }
+  ] },
+  { key: 'catalogue', label: 'Catalogue', icon: <ReadOutlined/>, module: 'CATALOGUE', children: [
+    { key: '/catalogue/produits', label: 'Produits', icon: <AppstoreOutlined /> },
+    { key: '/catalogue/packages', label: 'Packages', icon: <GiftOutlined /> },
+    { key: '/main-oeuvres', label: "Main d'Oeuvres", icon: <HourglassOutlined/> },
+    { key: '/forfaits', label: 'Forfaits', icon: <FileDoneOutlined/> },
+    { key: '/catalogue/fournisseurs', label: 'Fournisseurs', icon: <TruckOutlined/> },
+    { key: '/commandes-fournisseur', label: 'Commandes Fournisseur', icon: <ShoppingCartOutlined/> },
+  ]},
+  { key: 'atelier', label: 'Atelier', icon: <ToolOutlined/>, module: 'ATELIER', children: [
+    { key: '/techniciens', label: 'Equipe', icon: <TeamOutlined/> },
+    { key: '/planning', label: 'Planning', icon: <CalendarOutlined/> },
+  ] },
+  { key: 'market', label: 'Marketing', icon: <RocketOutlined/>, module: 'MARKETING', children: [
+    { key: '/annonces', label: 'Petites annonces', icon: <NotificationOutlined/> },
+    { key: '/campagnes', label: 'Campagnes', icon: <SendOutlined/> },
+    { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> }
+  ] },
+  { key: 'comptabilite', label: 'Comptabilité', icon: <AuditOutlined/>, module: 'COMPTABILITE', children: [
+    { key: '/reglements', label: 'Règlements', icon: <WalletOutlined/> },
+    { key: '/rapprochement-bancaire', label: 'Rapprochement bancaire', icon: <ReconciliationOutlined/> },
+  ] },
+  { key: 'parametrage', label: 'Paramétrage', icon: <SettingOutlined/>, module: 'PARAMETRAGE', children: [
+    { key: '/societe', label: 'Société', icon: <BankOutlined/> },
+    { key: '/facturation', label: 'Facturation', icon: <DollarOutlined/> },
+    { key: '/utilisateurs', label: 'Utilisateurs', icon: <UserOutlined/> },
+    { key: '/emails', label: 'Emails', icon: <MailOutlined/> },
+    { key: '/connecteurs', label: 'Connecteurs', icon: <ApiOutlined/> },
+    { key: '/reference-valeurs', label: 'Valeurs de Référence', icon: <DatabaseOutlined/> }
+  ] }
+];
+
+// Module requis par chaque page, déduit du groupe du menu qui la contient.
+const PAGE_MODULE: Record<string, string> = Object.fromEntries(
+    MENU_ITEMS.flatMap(item => (item.children || []).map(child => [ child.key, item.module ]))
+);
 
 function SideMenu(props) {
 
@@ -88,53 +133,13 @@ function SideMenu(props) {
         localStorage.setItem('siderWidth', String(siderWidth));
     }, [siderWidth]);
 
-    const roles = props.roles || '';
-
-    const allMenuItems = [
-      { key: '/dashboard', label: 'Accueil', icon: <HomeOutlined/> },
-      { key: 'Vente', label: 'Vente', icon: <DollarOutlined/>, requiredRole: 'vendeur', children: [
-        { key: '/comptoir', label: 'Comptoir', icon: <ShopOutlined/> },
-        { key: '/prestations', label: 'Transactions/Prestations', icon: <SolutionOutlined/> },
-        { key: '/avoirs', label: 'Avoirs', icon: <RollbackOutlined/> },
-        { key: '/clients', label: 'Clients', icon: <TeamOutlined /> },
-      ]},
-      { key: 'parc', label: 'Parc', icon: <Icon component={ ParcOutlined } />, requiredRole: 'manager', children: [
-        { key: '/clients/bateaux', label: 'Bateaux', icon: <Icon component={ BoatOutlined } />},
-        { key: '/clients/moteurs', label: 'Moteurs', icon: <Icon component={ EngineOutlined } /> },
-        { key: '/clients/remorques', label: 'Remorques', icon: <Icon component={ TailerOutlined } /> }
-      ] },
-      { key: 'catalogue', label: 'Catalogue', icon: <ReadOutlined/>, requiredRole: 'magasinier', children: [
-        { key: '/catalogue/produits', label: 'Produits', icon: <AppstoreOutlined /> },
-        { key: '/catalogue/packages', label: 'Packages', icon: <GiftOutlined /> },
-        { key: '/main-oeuvres', label: "Main d'Oeuvres", icon: <HourglassOutlined/> },
-        { key: '/forfaits', label: 'Forfaits', icon: <FileDoneOutlined/> },
-        { key: '/catalogue/fournisseurs', label: 'Fournisseurs', icon: <TruckOutlined/> },
-        { key: '/commandes-fournisseur', label: 'Commandes Fournisseur', icon: <ShoppingCartOutlined/> },
-      ]},
-      { key: 'atelier', label: 'Atelier', icon: <ToolOutlined/>, requiredRole: 'admin', children: [
-        { key: '/techniciens', label: 'Equipe', icon: <TeamOutlined/> },
-        { key: '/planning', label: 'Planning', icon: <CalendarOutlined/> },
-      ] },
-      { key: 'market', label: 'Marketing', icon: <RocketOutlined/>, requiredRole: 'admin', children: [
-        { key: '/annonces', label: 'Petites annonces', icon: <NotificationOutlined/> },
-        { key: '/campagnes', label: 'Campagnes', icon: <SendOutlined/> },
-        { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> }
-      ] },
-      { key: 'comptabilite', label: 'Comptabilité', icon: <AuditOutlined/>, requiredRole: 'admin', children: [
-        { key: '/reglements', label: 'Règlements', icon: <WalletOutlined/> },
-        { key: '/rapprochement-bancaire', label: 'Rapprochement bancaire', icon: <ReconciliationOutlined/> },
-      ] },
-      { key: 'parametrage', label: 'Paramétrage', icon: <SettingOutlined/>, requiredRole: 'admin', children: [
-        { key: '/societe', label: 'Société', icon: <BankOutlined/> },
-        { key: '/facturation', label: 'Facturation', icon: <DollarOutlined/> },
-        { key: '/utilisateurs', label: 'Utilisateurs', icon: <UserOutlined/> },
-        { key: '/emails', label: 'Emails', icon: <MailOutlined/> },
-        { key: '/connecteurs', label: 'Connecteurs', icon: <ApiOutlined/> },
-        { key: '/reference-valeurs', label: 'Valeurs de Référence', icon: <DatabaseOutlined/> }
-      ] }
-    ];
-
-    const menuItems = allMenuItems.filter(item => !item.requiredRole || hasRole(roles, item.requiredRole));
+    // Abonnement non activé ou impayé : seule la facturation reste accessible
+    const items = props.accesLimite
+        ? [ { key: '/facturation', label: 'Facturation', icon: <DollarOutlined/>, module: 'PARAMETRAGE' } ]
+        : MENU_ITEMS;
+    const menuItems = items
+        .filter(item => !item.module || hasModule(props.modules, item.module))
+        .map(({ module, ...item }) => item);
 
     return(
         <div style={{ display: 'flex', position: 'relative' }}>
@@ -203,12 +208,8 @@ function Header(props) {
         }
     };
 
-    const roleLabels = { admin: 'Admin', manager: 'Manager', magasinier: 'Magasinier', vendeur: 'Vendeur' };
-    const userRoles = props.roles ? (Array.isArray(props.roles) ? props.roles : props.roles.split(',').map(r => r.trim())) : [];
-    const roleDisplay = userRoles.map(r => roleLabels[r] || r).join(', ');
-
     const menuUser = [
-              { key: 'user', label: <span>{props.user} <span style={{ fontSize: '0.8em', opacity: 0.7 }}>({roleDisplay})</span></span>, icon: <UserOutlined />, children: [
+              { key: 'user', label: props.user, icon: <UserOutlined />, children: [
                 { key: 'preferences', label: 'Préférences', icon: <SettingOutlined/> },
                 { key: 'deconnexion', label: 'Déconnexion', icon: <DisconnectOutlined/> }
               ]}
@@ -425,22 +426,45 @@ function Header(props) {
 
 }
 
-function ProtectedRoute({ roles, requiredRole, children }) {
-    if (requiredRole && !hasRole(roles, requiredRole)) {
-        return <Result status="403" title="Accès refusé" subTitle="Vous n'avez pas les droits nécessaires pour accéder à cette page." />;
-    }
-    return children;
-}
-
 export default function Workspace(props) {
     const [ theme, setTheme ] = useState<UserTheme>('LIGHT');
+    // Modules reçus à la connexion, rafraîchis depuis le serveur (ils ont pu changer depuis)
+    const [ modules, setModules ] = useState<string[]>(props.modules || []);
     const [ currentPage, setCurrentPage ] = useState('/dashboard');
     const [ pageState, setPageState ] = useState<any>(null);
+    // Abonnement non activé, ou échéance impayée depuis 2 mois ou plus : l'accès est limité à la facturation
+    const [ accesLimite, setAccesLimite ] = useState<boolean>(!!props.accesLimiteFacturation);
+    const [ abonnementActif, setAbonnementActif ] = useState<boolean>(props.abonnementActif !== false);
 
     const navigate = useCallback((page: string, state?: any) => {
         setPageState(state || null);
         setCurrentPage(page);
     }, []);
+
+    const majAbonnement = useCallback((societe: any) => {
+        setAccesLimite(!!societe.accesLimiteFacturation);
+        setAbonnementActif(!!societe.abonnementActif);
+    }, []);
+
+    // L'abonnement a pu être activé, l'impayé survenir ou être réglé depuis la connexion
+    useEffect(() => {
+        fetchWithAuth('/societe')
+            .then((response) => (response.ok ? response.json() : null))
+            .then((societe) => {
+                if (societe) {
+                    majAbonnement(societe);
+                }
+            })
+            .catch(() => {
+                // Keep the state received at login.
+            });
+    }, [ majAbonnement ]);
+
+    useEffect(() => {
+        if (accesLimite) {
+            navigate('/facturation');
+        }
+    }, [ accesLimite, navigate ]);
 
     // Retour du consentement bancaire Powens : on revient sur la page Connecteurs avec l'identifiant de connexion
     useEffect(() => {
@@ -462,14 +486,18 @@ export default function Workspace(props) {
                 return response.json();
             })
             .then((userData) => {
-                if (!userData || !userData.theme) {
+                if (!userData) {
                     return;
                 }
-                const nextTheme = userData.theme === 'DARK' ? 'DARK' : 'LIGHT';
-                setTheme(nextTheme);
+                if (Array.isArray(userData.modules)) {
+                    setModules(userData.modules);
+                }
+                if (userData.theme) {
+                    setTheme(userData.theme === 'DARK' ? 'DARK' : 'LIGHT');
+                }
             })
             .catch(() => {
-                // Keep default LIGHT theme when user preferences cannot be loaded.
+                // Keep default LIGHT theme and login modules when user preferences cannot be loaded.
             });
     }, [ props.user ]);
 
@@ -477,61 +505,85 @@ export default function Workspace(props) {
 
     const renderPage = () => {
         const accueil = <Dashboard user={props.user} />;
+        if (accesLimite) {
+            if (!hasModule(modules, 'PARAMETRAGE')) {
+                const raison = abonnementActif ? "L'abonnement est impayé depuis 2 mois ou plus." : "L'abonnement n'est pas activé.";
+                return <Result status="403" title="Accès bloqué" subTitle={`${raison} Contactez un administrateur.`} />;
+            }
+            return (
+                <>
+                    <Alert
+                        type="error"
+                        showIcon
+                        style={{ marginBottom: 16 }}
+                        message="Accès limité à la facturation"
+                        description={abonnementActif
+                            ? "Une échéance de l'abonnement est impayée depuis 2 mois ou plus. Réglez les échéances en retard pour rétablir l'accès à l'application."
+                            : "L'abonnement n'est pas activé. Activez-le en payant les frais d'activation avec le premier mois ou la première année pour accéder à l'application."}
+                    />
+                    <Facturation onSocieteChange={majAbonnement} />
+                </>
+            );
+        }
+        const module = PAGE_MODULE[currentPage];
+        if (module && !hasModule(modules, module)) {
+            return <Result status="403" title="Accès refusé" subTitle="Vous n'avez pas accès au module de cette page." />;
+        }
         switch (currentPage) {
             case '/dashboard':
                 return accueil;
             case '/clients':
-                return <ProtectedRoute roles={props.roles} requiredRole="manager"><Clients /></ProtectedRoute>;
+                return <Clients />;
             case '/clients/bateaux':
-                return <ProtectedRoute roles={props.roles} requiredRole="manager"><BateauxClients /></ProtectedRoute>;
+                return <BateauxClients />;
             case '/clients/moteurs':
-                return <ProtectedRoute roles={props.roles} requiredRole="manager"><ClientsMoteurs /></ProtectedRoute>;
+                return <ClientsMoteurs />;
             case '/clients/remorques':
-                return <ProtectedRoute roles={props.roles} requiredRole="manager"><RemorquesClients /></ProtectedRoute>;
+                return <RemorquesClients />;
             case '/catalogue/produits':
-                return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><Produits /></ProtectedRoute>;
+                return <Produits />;
             case '/catalogue/packages':
-                return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><Packages /></ProtectedRoute>;
+                return <Packages />;
             case '/catalogue/fournisseurs':
-                return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><Fournisseurs /></ProtectedRoute>;
+                return <Fournisseurs />;
             case '/commandes-fournisseur':
-                return <ProtectedRoute roles={props.roles} requiredRole="magasinier"><CommandesFournisseur /></ProtectedRoute>;
+                return <CommandesFournisseur />;
             case '/societe':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Societe /></ProtectedRoute>;
+                return <Societe />;
             case '/facturation':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Facturation /></ProtectedRoute>;
+                return <Facturation onSocieteChange={majAbonnement} />;
             case '/reglements':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Reglements /></ProtectedRoute>;
+                return <Reglements />;
             case '/connecteurs':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Connecteurs /></ProtectedRoute>;
+                return <Connecteurs />;
             case '/rapprochement-bancaire':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><RapprochementBancaire /></ProtectedRoute>;
+                return <RapprochementBancaire />;
             case '/utilisateurs':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Utilisateurs /></ProtectedRoute>;
+                return <Utilisateurs />;
             case '/emails':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Emails /></ProtectedRoute>;
+                return <Emails />;
             case '/sequence-emails':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><SequenceEmails /></ProtectedRoute>;
+                return <SequenceEmails />;
             case '/prestations':
-                return <ProtectedRoute roles={props.roles} requiredRole="vendeur"><Vente /></ProtectedRoute>;
+                return <Vente />;
             case '/comptoir':
-                return <ProtectedRoute roles={props.roles} requiredRole="vendeur"><Comptoir /></ProtectedRoute>;
+                return <Comptoir />;
             case '/avoirs':
-                return <ProtectedRoute roles={props.roles} requiredRole="vendeur"><Avoirs /></ProtectedRoute>;
+                return <Avoirs />;
             case '/forfaits':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Forfaits /></ProtectedRoute>;
+                return <Forfaits />;
             case '/techniciens':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Techniciens /></ProtectedRoute>;
+                return <Techniciens />;
             case '/main-oeuvres':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><MainOeuvres /></ProtectedRoute>;
+                return <MainOeuvres />;
             case '/planning':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Planning /></ProtectedRoute>;
+                return <Planning />;
             case '/annonces':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Annonces /></ProtectedRoute>;
+                return <Annonces />;
             case '/campagnes':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><Campagnes /></ProtectedRoute>;
+                return <Campagnes />;
             case '/reference-valeurs':
-                return <ProtectedRoute roles={props.roles} requiredRole="admin"><ReferenceValeurs /></ProtectedRoute>;
+                return <ReferenceValeurs />;
             default:
                 return accueil;
         }
@@ -548,9 +600,9 @@ export default function Workspace(props) {
         }}>
             <NavigationContext.Provider value={{ navigate, pageState }}>
             <Layout style={{ minHeight: "100vh", background: isDarkTheme ? '#101010' : '#f0f2f5' }}>
-              <Header user={props.user} roles={props.roles} setUser={props.setUser} theme={theme} setTheme={setTheme} />
+              <Header user={props.user} setUser={props.setUser} theme={theme} setTheme={setTheme} />
               <Layout hasSider={true}>
-                <SideMenu user={props.user} roles={props.roles} theme={theme} currentPage={currentPage} onNavigate={navigate} />
+                <SideMenu user={props.user} modules={modules} accesLimite={accesLimite} theme={theme} currentPage={currentPage} onNavigate={navigate} />
                 <Layout.Content style={{
                     margin: "20px",
                     color: isDarkTheme ? '#f5f5f5' : undefined,
@@ -570,7 +622,7 @@ export default function Workspace(props) {
                   {VERSION_LABEL}
               </Layout.Footer>
             </Layout>
-            <ChatbotWidget currentPage={currentPage} />
+            {!accesLimite && <ChatbotWidget currentPage={currentPage} />}
             </NavigationContext.Provider>
         </ConfigProvider>
     );
