@@ -46,6 +46,24 @@ public class RappelSchedulerTest {
         return vente;
     }
 
+    private static void parametrerRelancesDevis(Integer j1, Integer j2, Integer j3) {
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        societe.relanceDevis1Jours = j1;
+        societe.relanceDevis2Jours = j2;
+        societe.relanceDevis3Jours = j3;
+    }
+
+    private static VenteEntity devis(ClientEntity client, int joursDepuisDevis) {
+        VenteEntity vente = new VenteEntity();
+        vente.status = VenteEntity.Status.DEVIS;
+        vente.client = client;
+        vente.numeroFacture = "DE-TEST";
+        vente.date = ilYA(joursDepuisDevis);
+        vente.dateDevis = ilYA(joursDepuisDevis);
+        vente.prixVenteTTC = 900.0;
+        return vente;
+    }
+
     private static List<RappelHistoriqueEntity> historique(VenteEntity vente) {
         return RappelHistoriqueEntity.list("vente.id", vente.id);
     }
@@ -258,6 +276,80 @@ public class RappelSchedulerTest {
         rappelScheduler.envoyerRelances();
 
         assertEquals(0, vente.niveauRelance);
+    }
+
+    @Test
+    @TestTransaction
+    void testRelanceDevisEnAttente() {
+        parametrerRelancesDevis(7, 15, 30);
+        VenteEntity vente = devis(ClientEntity.findById(100L), 20);
+        vente.ordreDeReparation = true;
+        vente.persist();
+
+        rappelScheduler.envoyerRelancesDevis();
+
+        assertEquals(2, vente.niveauRelanceDevis, "J+20 après le devis : relance 2 (J+15) envoyée");
+        assertEquals(0, vente.niveauRelance, "Les relances de paiement ne sont pas concernées");
+        List<RappelHistoriqueEntity> envois = historique(vente);
+        assertEquals(1, envois.size());
+        assertEquals(2, envois.get(0).numeroRappel);
+        assertTrue(envois.get(0).sujet.contains("ordre de réparation DE-TEST"), envois.get(0).sujet);
+
+        rappelScheduler.envoyerRelancesDevis();
+        assertEquals(1, historique(vente).size(), "La relance déjà envoyée ne l'est pas une seconde fois");
+    }
+
+    @Test
+    @TestTransaction
+    void testPasDeRelanceDevisSigneRefuseOuComptoir() {
+        parametrerRelancesDevis(7, 15, 30);
+        ClientEntity client = ClientEntity.findById(100L);
+        VenteEntity signe = devis(client, 20);
+        signe.bonPourAccord = true;
+        signe.persist();
+        VenteEntity refuse = devis(client, 20);
+        refuse.dateRefus = ilYA(2);
+        refuse.persist();
+        VenteEntity comptoir = devis(client, 20);
+        comptoir.comptoir = true;
+        comptoir.persist();
+        // Prestation rouverte après son démarrage (forfait ajouté) : le client est déjà en contact avec l'atelier
+        VenteEntity rouverte = devis(client, 20);
+        rouverte.dateFactureEnAttente = ilYA(10);
+        rouverte.persist();
+        VenteEntity recent = devis(client, 3);
+        recent.persist();
+
+        rappelScheduler.envoyerRelancesDevis();
+
+        for (VenteEntity vente : List.of(signe, refuse, comptoir, rouverte, recent)) {
+            assertEquals(0, vente.niveauRelanceDevis);
+            assertTrue(historique(vente).isEmpty());
+        }
+    }
+
+    @Test
+    @TestTransaction
+    void testPasDeRelanceDevisSansParametrageNiConsentement() {
+        parametrerRelancesDevis(null, null, null);
+        VenteEntity vente = devis(ClientEntity.findById(100L), 40);
+        vente.persist();
+
+        rappelScheduler.envoyerRelancesDevis();
+        assertEquals(0, vente.niveauRelanceDevis);
+
+        parametrerRelancesDevis(7, null, null);
+        ClientEntity sansConsentement = new ClientEntity();
+        sansConsentement.nom = "SansConsentement";
+        sansConsentement.type = "Particulier";
+        sansConsentement.email = "sans.consentement@test.com";
+        sansConsentement.persist();
+        VenteEntity autre = devis(sansConsentement, 40);
+        autre.persist();
+
+        rappelScheduler.envoyerRelancesDevis();
+        assertEquals(1, vente.niveauRelanceDevis);
+        assertEquals(0, autre.niveauRelanceDevis);
     }
 
     @Test

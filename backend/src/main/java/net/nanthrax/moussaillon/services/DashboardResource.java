@@ -116,7 +116,8 @@ public class DashboardResource {
         // Bateaux dans le chantier
         LocalDate startOfWeek = now.with(java.time.DayOfWeek.MONDAY);
         Timestamp weekStart = Timestamp.valueOf(startOfWeek.atStartOfDay());
-        List<VenteEntity> ventesActives = VenteEntity.list("status in (?1, ?2, ?3)",
+        // Le bateau d'un devis refusé n'est pas au chantier
+        List<VenteEntity> ventesActives = VenteEntity.list("status in (?1, ?2, ?3) and dateRefus is null",
                 VenteEntity.Status.DEVIS, VenteEntity.Status.FACTURE_EN_ATTENTE, VenteEntity.Status.FACTURE_PRETE);
         java.util.Set<Long> bateauxIds = new java.util.HashSet<>();
         java.util.Set<Long> bateauxSemaine = new java.util.HashSet<>();

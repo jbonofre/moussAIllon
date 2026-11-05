@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined, FundOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined, FundOutlined, LineChartOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -20,6 +20,7 @@ import Reglements from './reglements.tsx';
 import Connecteurs from './connecteurs.tsx';
 import RapprochementBancaire from './rapprochement-bancaire.tsx';
 import KpisFinanciers from './kpis-financiers.tsx';
+import KpisCommerciaux from './kpis-commerciaux.tsx';
 import Utilisateurs from './utilisateurs.tsx';
 import Forfaits from './forfaits.tsx';
 import Packages from './packages.tsx';
@@ -77,7 +78,8 @@ const MENU_ITEMS = [
   { key: 'market', label: 'Marketing', icon: <RocketOutlined/>, module: 'MARKETING', children: [
     { key: '/annonces', label: 'Petites annonces', icon: <NotificationOutlined/> },
     { key: '/campagnes', label: 'Campagnes', icon: <SendOutlined/> },
-    { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> }
+    { key: '/sequence-emails', label: 'Séquence emails', icon: <NodeIndexOutlined/> },
+    { key: '/kpis-commerciaux', label: 'KPIs commerciaux', icon: <LineChartOutlined/> }
   ] },
   { key: 'comptabilite', label: 'Comptabilité', icon: <AuditOutlined/>, module: 'COMPTABILITE', children: [
     { key: '/reglements', label: 'Règlements', icon: <WalletOutlined/> },
@@ -562,6 +564,8 @@ export default function Workspace(props) {
                 return <RapprochementBancaire />;
             case '/kpis-financiers':
                 return <KpisFinanciers />;
+            case '/kpis-commerciaux':
+                return <KpisCommerciaux />;
             case '/utilisateurs':
                 return <Utilisateurs />;
             case '/emails':

@@ -103,3 +103,7 @@ ALTER TABLE CommandeFournisseurEntity ALTER COLUMN id RESTART WITH 200;
 ALTER TABLE CommandeFournisseurLigneEntity ALTER COLUMN id RESTART WITH 200;
 ALTER TABLE RappelHistoriqueEntity ALTER COLUMN id RESTART WITH 200;
 ALTER TABLE BateauOptionEntity ALTER COLUMN id RESTART WITH 200;
+
+-- Les identifiants des ventes viennent d'une séquence Hibernate (non concernée par RESTART ci-dessus) :
+-- elle part au-delà de la vente pré-insérée (id 100), que les ventes créées par les tests finiraient par atteindre.
+ALTER SEQUENCE VenteEntity_SEQ RESTART WITH 1000;

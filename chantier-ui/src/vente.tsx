@@ -57,7 +57,7 @@ import {
     message
 } from 'antd';
 import type { FormInstance, MenuProps } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, ReloadOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, ReloadOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, StopOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
@@ -484,6 +484,9 @@ interface VenteEntity {
     dateFactureEnAttente?: string;
     dateFacturePrete?: string;
     dateFacturePayee?: string;
+    // Devis/OR refusé par le client : hors pipeline commercial et sans relance
+    dateRefus?: string;
+    motifRefus?: string;
     numeroFacture?: string;
     dateEcheance?: string;
     conditionsPaiement?: string;
@@ -501,6 +504,8 @@ interface VenteEntity {
     documents?: string[];
     // Dernière relance de paiement automatique envoyée (0 = aucune)
     niveauRelance?: number;
+    // Dernière relance automatique du devis/OR en attente de signature (0 = aucune)
+    niveauRelanceDevis?: number;
     note?: string;
     reception?: Reception | null;
 }
@@ -566,6 +571,9 @@ interface VenteFormValues {
     reception?: Reception;
 }
 
+
+// Motifs de refus proposés pour un devis/OR (saisie libre possible), regroupés dans les KPIs commerciaux
+const MOTIFS_REFUS = ['Prix', 'Délai', 'Concurrent', 'Projet abandonné', 'Sans réponse du client'];
 
 // Couleur du tag de la dernière relance de paiement envoyée (1 à 3)
 const RELANCE_COULEURS: Record<number, string> = { 1: 'gold', 2: 'orange', 3: 'red' };
@@ -744,6 +752,8 @@ export default function Vente() {
     const [isEdit, setIsEdit] = useState(false);
     const [currentVente, setCurrentVente] = useState<VenteEntity | null>(null);
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
+    const [refusVisible, setRefusVisible] = useState(false);
+    const [motifRefus, setMotifRefus] = useState('');
     // Conditions de paiement du paramétrage global (société), recopiées sur la vente jusqu'à l'émission de la facture
     const [conditionsSociete, setConditionsSociete] = useState<SocieteData | null>(null);
     const [form] = Form.useForm<VenteFormValues>();
@@ -751,6 +761,8 @@ export default function Vente() {
     const watchedStatus = Form.useWatch('status', form) as VenteStatus | undefined;
     const watchedBonPourAccord = Form.useWatch('bonPourAccord', form) as boolean | undefined;
     const isReadOnly = watchedStatus === 'FACTURE_PAYEE';
+    // Devis/OR enregistré en attente de signature, ni accepté ni refusé : il peut être relancé ou refusé
+    const devisEnAttente = isEdit && !!currentVente?.id && currentVente.status === 'DEVIS' && !currentVente.bonPourAccord && !currentVente.dateRefus;
     const exonereTva = clientExonereTva(clients.find((client) => client.id === watchedClientId));
     const [newProduitModalVisible, setNewProduitModalVisible] = useState(false);
     const [newProduitTargetLine, setNewProduitTargetLine] = useState<number | null>(null);
@@ -1168,6 +1180,14 @@ export default function Vente() {
     }, []);
 
     useEffect(() => {
+        if (pageState?.venteId) {
+            const venteId = pageState.venteId;
+            navigate('/prestations');
+            api.get<VenteEntity>(`/ventes/${venteId}`)
+                .then((res) => openModal(res.data))
+                .catch(() => message.error('Erreur lors du chargement de la vente.'));
+            return;
+        }
         if (pageState?.clientId) {
             const clientId = pageState.clientId;
             const bateauId = pageState.bateauId;
@@ -2348,6 +2368,32 @@ export default function Vente() {
         }
     };
 
+    const handleRefus = async () => {
+        if (!currentVente?.id) return;
+        try {
+            await api.post(`/ventes/${currentVente.id}/refus`, { motif: motifRefus });
+            message.success('Devis marqué comme refusé');
+            setRefusVisible(false);
+            setMotifRefus('');
+            await refreshCurrentVente(currentVente.id);
+            fetchVentes();
+        } catch (err: any) {
+            message.error(err?.response?.data || 'Erreur lors du refus du devis');
+        }
+    };
+
+    const handleReprendre = async () => {
+        if (!currentVente?.id) return;
+        try {
+            await api.delete(`/ventes/${currentVente.id}/refus`);
+            message.success('Devis repris : il est de nouveau en attente de signature');
+            await refreshCurrentVente(currentVente.id);
+            fetchVentes();
+        } catch (err: any) {
+            message.error(err?.response?.data || 'Erreur lors de la reprise du devis');
+        }
+    };
+
     const refreshCurrentVente = async (id: number) => {
         try {
             const res = await api.get<VenteEntity>(`/ventes/${id}`);
@@ -3245,13 +3291,18 @@ export default function Vente() {
             sorter: (a: VenteEntity, b: VenteEntity) => (a.status || '').localeCompare(b.status || ''),
             filters: [
                 ...statusOptions.map(opt => ({ text: opt.label, value: opt.value })),
-                { text: 'Bon pour accord', value: 'BPA' }
+                { text: 'Bon pour accord', value: 'BPA' },
+                { text: 'Refusé', value: 'REFUSE' }
             ],
             onFilter: (value: unknown, record: VenteEntity) => {
                 if (value === 'BPA') return record.status === 'DEVIS' && !!record.bonPourAccord;
+                if (value === 'REFUSE') return record.status === 'DEVIS' && !!record.dateRefus;
                 return record.status === value;
             },
             render: (value: VenteStatus, record: VenteEntity) => {
+                if (value === 'DEVIS' && record.dateRefus) {
+                    return <Tooltip title={record.motifRefus ? `Motif : ${record.motifRefus}` : undefined}><Tag color="red">Refusé</Tag></Tooltip>;
+                }
                 const label = value === 'DEVIS' && record.bonPourAccord
                     ? 'Bon pour accord'
                     : statusOptions.find((item) => item.value === value)?.label || value;
@@ -3299,7 +3350,11 @@ export default function Vente() {
             onFilter: (value: unknown, record: VenteEntity) => (record.niveauRelance || 0) === value,
             render: (_: unknown, record: VenteEntity) => {
                 const niveau = record.niveauRelance || 0;
-                return niveau > 0 ? <Tag color={RELANCE_COULEURS[niveau]}>Relance {niveau} envoyée</Tag> : null;
+                if (niveau > 0) {
+                    return <Tag color={RELANCE_COULEURS[niveau]}>Relance {niveau} envoyée</Tag>;
+                }
+                const niveauDevis = record.status === 'DEVIS' ? record.niveauRelanceDevis || 0 : 0;
+                return niveauDevis > 0 ? <Tag color={RELANCE_COULEURS[niveauDevis]}>Devis relancé ({niveauDevis})</Tag> : null;
             }
         },
         {
@@ -3404,6 +3459,34 @@ export default function Vente() {
             </Row>
 
             <Modal
+                title="Devis refusé par le client"
+                open={refusVisible}
+                onOk={handleRefus}
+                okText="Marquer comme refusé"
+                okButtonProps={{ danger: true }}
+                cancelText="Annuler"
+                onCancel={() => setRefusVisible(false)}
+                destroyOnHidden
+            >
+                <p>
+                    Le devis sort du pipeline commercial et n'est plus relancé. Il reste consultable et peut être repris
+                    si le client change d'avis.
+                </p>
+                <Form layout="vertical">
+                    <Form.Item label="Motif du refus" htmlFor="motif-refus">
+                        <AutoComplete
+                            id="motif-refus"
+                            value={motifRefus}
+                            onChange={setMotifRefus}
+                            options={MOTIFS_REFUS.map((motif) => ({ value: motif }))}
+                            placeholder="Prix, délai, concurrent… (facultatif)"
+                            allowClear
+                        />
+                    </Form.Item>
+                </Form>
+            </Modal>
+
+            <Modal
                 title="Transaction/Prestation"
                 open={modalVisible}
                 onCancel={handleModalCancel}
@@ -3442,6 +3525,11 @@ export default function Vente() {
                     >
                         Envoyer par email
                     </Button>,
+                    ...(devisEnAttente ? [
+                        <Button key="refus" danger icon={<StopOutlined />} onClick={() => setRefusVisible(true)}>
+                            Refusé par le client
+                        </Button>
+                    ] : []),
                     ...(watchedStatus === 'FACTURE_PRETE' || watchedStatus === 'FACTURE_PAYEE' ? [
                         <Dropdown
                             key="payment"
@@ -3531,6 +3619,17 @@ export default function Vente() {
                         <div style={{ marginBottom: 16 }}>
                             <ProgressionVente vente={currentVente} />
                         </div>
+                    )}
+                    {currentVente?.dateRefus && currentVente.status === 'DEVIS' && (
+                        <Alert
+                            type="error"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                            message={`Refusé par le client le ${dayjs(currentVente.dateRefus).format('DD/MM/YYYY')}`
+                                + (currentVente.motifRefus ? ` — motif : ${currentVente.motifRefus}` : '')}
+                            description="Ce devis ne fait plus partie du pipeline commercial et n'est plus relancé. La signature du bon pour accord le reprend."
+                            action={<Button size="small" onClick={handleReprendre}>Reprendre le devis</Button>}
+                        />
                     )}
                     <Row gutter={16}>
                         <Col span={8}>
@@ -4210,9 +4309,10 @@ export default function Vente() {
                                         <Row justify="space-between" align="middle" gutter={16} style={{ marginBottom: 16 }}>
                                             <Col flex="auto">
                                                 <div style={{ color: '#666' }}>
-                                                    Les relances de paiement des factures émises non soldées sont envoyées automatiquement
-                                                    selon les délais définis dans Paramétrage &gt; Société, à partir de la date d'échéance
-                                                    (ou de la date de facture à défaut).
+                                                    Les devis/OR en attente de signature sont relancés automatiquement selon les délais
+                                                    définis dans Paramétrage &gt; Société, à partir de la date du devis. Les relances de paiement
+                                                    des factures émises non soldées le sont à partir de la date d'échéance (ou de la date de
+                                                    facture à défaut).
                                                 </div>
                                                 {isEdit && currentVente?.status === 'FACTURE_PRETE' && (
                                                     <div style={{ marginTop: 8 }}>
@@ -4221,8 +4321,15 @@ export default function Vente() {
                                                             : 'aucune'}
                                                     </div>
                                                 )}
+                                                {devisEnAttente && (
+                                                    <div style={{ marginTop: 8 }}>
+                                                        Dernière relance automatique du devis : {currentVente?.niveauRelanceDevis
+                                                            ? <Tag color={RELANCE_COULEURS[currentVente.niveauRelanceDevis]}>Relance {currentVente.niveauRelanceDevis}</Tag>
+                                                            : 'aucune'}
+                                                    </div>
+                                                )}
                                             </Col>
-                                            {isEdit && currentVente?.id && currentVente.status === 'FACTURE_PRETE' && (
+                                            {isEdit && currentVente?.id && (currentVente.status === 'FACTURE_PRETE' || devisEnAttente) && (
                                                 <Col>
                                                     <Button
                                                         icon={<SendOutlined />}
@@ -4236,7 +4343,7 @@ export default function Vente() {
                                                             }
                                                         }}
                                                     >
-                                                        Envoyer une relance maintenant
+                                                        {devisEnAttente ? 'Relancer le devis maintenant' : 'Envoyer une relance maintenant'}
                                                     </Button>
                                                 </Col>
                                             )}

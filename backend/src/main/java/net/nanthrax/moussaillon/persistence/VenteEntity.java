@@ -121,6 +121,13 @@ public class VenteEntity extends PanacheEntity {
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateFacturePayee;
 
+    // Devis/OR refusé par le client : il reste au statut devis, hors pipeline commercial et sans relance.
+    // Effacé quand le devis est repris ou accepté.
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateRefus;
+
+    public String motifRefus;
+
     // Renseignée quand toutes les prestations sont terminées : le client peut venir récupérer son matériel.
     // Remise à null par l'utilisateur lorsque le client est venu le récupérer.
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
@@ -177,6 +184,10 @@ public class VenteEntity extends PanacheEntity {
     // Les délais de relance sont paramétrés globalement sur la société.
     @jakarta.persistence.Column(columnDefinition = "integer default 0")
     public int niveauRelance;
+
+    // Dernière relance automatique du devis/OR en attente de signature (0 = aucune, 1 à 3).
+    @jakarta.persistence.Column(columnDefinition = "integer default 0")
+    public int niveauRelanceDevis;
 
     @jakarta.persistence.Column(columnDefinition = "TEXT")
     public String note;

@@ -8,6 +8,7 @@ import { useNavigation } from './navigation-context.tsx';
 import { VERSION_LABEL } from './version.ts';
 import { paginationConfig } from './pagination.ts';
 import { calculerMargeVente } from './marge-vente.ts';
+import { libelleCanalAcquisition } from './canal-acquisition.ts';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -166,16 +167,6 @@ const warningColumns = [
     },
 ];
 
-const canalAcquisitionLabels: Record<string, string> = {
-    BOUCHE_A_OREILLE: 'Bouche à oreille',
-    FACEBOOK: 'Facebook',
-    INSTAGRAM: 'Instagram',
-    LINKEDIN: 'LinkedIn',
-    PASSAGE: 'Passage',
-    SITE_INTERNET: 'Site Internet',
-    PAGES_JAUNES: 'Pages Jaunes',
-};
-
 const interventionColumns = [
     {
         title: 'Client',
@@ -301,7 +292,7 @@ export default function Dashboard({ user }: { user?: string }) {
                 }
                 setCanalData(
                     Object.entries(counts).map(([key, count]) => ({
-                        canal: canalAcquisitionLabels[key] || 'Non renseigné',
+                        canal: libelleCanalAcquisition(key),
                         count,
                     }))
                 );

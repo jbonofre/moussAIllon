@@ -61,6 +61,12 @@ public class VenteResource {
 
     static final String MESSAGE_BON_POUR_ACCORD_DEMARRAGE = "Le bon pour accord doit être signé avant de démarrer une tâche";
 
+    /**
+     * Devis/OR en attente de la décision du client : ni signé, ni refusé. Une vente comptoir, immédiate, n'en est pas un.
+     * Fragment de requête dont le paramètre ?1 est le statut DEVIS.
+     */
+    static final String DEVIS_EN_ATTENTE = "status = ?1 and bonPourAccord = false and dateRefus is null and comptoir = false";
+
     /** Statuts qui supposent que la tâche a démarré : interdits tant que le bon pour accord n'est pas signé. */
     public static boolean demarrageInterdit(String status) {
         return "EN_COURS".equals(status) || "TERMINEE".equals(status) || "INCIDENT".equals(status);
@@ -319,17 +325,65 @@ public class VenteResource {
         if (entity == null) {
             throw new WebApplicationException("La vente (" + id + ") n'est pas trouvee", 404);
         }
-        if (entity.status != VenteEntity.Status.FACTURE_PRETE) {
+        boolean devis = entity.status == VenteEntity.Status.DEVIS;
+        if (devis && (entity.bonPourAccord || entity.dateRefus != null)) {
+            throw new WebApplicationException("Seul un devis en attente de signature peut être relancé", 400);
+        }
+        if (!devis && entity.status != VenteEntity.Status.FACTURE_PRETE) {
             throw new WebApplicationException("Seule une facture émise non réglée peut être relancée", 400);
         }
-        if (soldeDu(entity) <= 0.005) {
+        if (!devis && soldeDu(entity) <= 0.005) {
             throw new WebApplicationException("La facture est déjà soldée", 400);
         }
         if (entity.client == null || entity.client.email == null || entity.client.email.isBlank()) {
             throw new WebApplicationException("Le client n'a pas d'adresse email", 400);
         }
-        rappelScheduler.envoyerRelance(entity, 0);
+        if (devis) {
+            rappelScheduler.envoyerRelanceDevis(entity, 0);
+        } else {
+            rappelScheduler.envoyerRelance(entity, 0);
+        }
         return Response.ok().build();
+    }
+
+    public static class RefusRequest {
+        public String motif;
+    }
+
+    /** Le client refuse le devis/OR : il sort du pipeline commercial et n'est plus relancé. */
+    @POST
+    @Path("{id}/refus")
+    @Transactional
+    public Response refuser(@PathParam("id") long id, RefusRequest request) {
+        VenteEntity entity = VenteEntity.findById(id);
+        if (entity == null) {
+            throw new WebApplicationException("La vente (" + id + ") n'est pas trouvee", 404);
+        }
+        if (entity.status != VenteEntity.Status.DEVIS || entity.bonPourAccord) {
+            throw new WebApplicationException("Seul un devis en attente de signature peut être refusé", 400);
+        }
+        entity.dateRefus = new Timestamp(System.currentTimeMillis());
+        String motif = request != null && request.motif != null ? request.motif.trim() : "";
+        entity.motifRefus = motif.isEmpty() ? null : motif;
+        return Response.noContent().build();
+    }
+
+    /** Le devis/OR refusé est repris : il revient en attente de signature. */
+    @DELETE
+    @Path("{id}/refus")
+    @Transactional
+    public Response reprendre(@PathParam("id") long id) {
+        VenteEntity entity = VenteEntity.findById(id);
+        if (entity == null) {
+            throw new WebApplicationException("La vente (" + id + ") n'est pas trouvee", 404);
+        }
+        effacerRefus(entity);
+        return Response.noContent().build();
+    }
+
+    static void effacerRefus(VenteEntity vente) {
+        vente.dateRefus = null;
+        vente.motifRefus = null;
     }
 
     @GET
@@ -543,6 +597,10 @@ public class VenteResource {
             if (vente.status == VenteEntity.Status.FACTURE_PAYEE && entity.status != VenteEntity.Status.FACTURE_PAYEE && entity.dateFacturePayee == null) {
                 entity.dateFacturePayee = now;
             }
+        }
+        // Un devis accepté (signé ou lancé) n'est plus refusé
+        if (vente.bonPourAccord || vente.status != VenteEntity.Status.DEVIS) {
+            effacerRefus(entity);
         }
         entity.status = vente.status;
         entity.bonPourAccord = vente.bonPourAccord;

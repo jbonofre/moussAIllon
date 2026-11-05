@@ -16,11 +16,67 @@ const RELANCES = [
     { name: 'relance3Jours', label: 'Relance 3', placeholder: 'Ex : 45', precedents: ['relance1Jours', 'relance2Jours'] },
 ];
 
+// Délais des relances des devis/OR en attente de signature, comptés à partir de la date du devis.
+const RELANCES_DEVIS = [
+    { name: 'relanceDevis1Jours', label: 'Relance 1', placeholder: 'Ex : 7', precedents: [] as string[] },
+    { name: 'relanceDevis2Jours', label: 'Relance 2', placeholder: 'Ex : 15', precedents: ['relanceDevis1Jours'] },
+    { name: 'relanceDevis3Jours', label: 'Relance 3', placeholder: 'Ex : 30', precedents: ['relanceDevis1Jours', 'relanceDevis2Jours'] },
+];
+
+// Délais croissants d'une série de relances (J+N), vides pour désactiver une relance
+const champsDelais = (relances) => relances.map(({ name, label, placeholder, precedents }) => (
+    <Form.Item
+        key={name}
+        name={name}
+        label={label}
+        dependencies={precedents}
+        rules={[({ getFieldValue }) => ({
+            validator(_, value) {
+                const precedent = precedents.map(p => getFieldValue(p)).filter(v => v != null).pop();
+                if (value == null || precedent == null || value > precedent) {
+                    return Promise.resolve();
+                }
+                return Promise.reject(new Error('Le délai doit être supérieur à celui de la relance précédente'));
+            },
+        })]}
+    >
+        <InputNumber min={0} step={1} precision={0} prefix="J+" addonAfter="jours" placeholder={placeholder} style={{ width: 200 }} />
+    </Form.Item>
+));
+
+// Sujet et message d'un modèle d'email de relance, modifiables avec le reste du paramétrage
+const champsModele = (modele, prefixe, relance, objet) => modele ? (
+    <>
+        <Form.Item name={prefixe + 'Sujet'} label={"Sujet de l'email de " + relance}
+            rules={[{ required: true, message: 'Le sujet est requis' }]}>
+            <Input />
+        </Form.Item>
+        <Form.Item name={prefixe + 'Contenu'} label={'Message de ' + relance}
+            rules={[{ required: true, message: 'Le message est requis' }]}>
+            <ReactQuill theme="snow" style={{ height: 260, marginBottom: 42 }} />
+        </Form.Item>
+        <Form.Item label={null}>
+            <Typography.Text type="secondary">
+                {modele.description}. Les variables entre accolades sont remplacées
+                à l'envoi par les valeurs {objet}.
+            </Typography.Text>
+        </Form.Item>
+    </>
+) : (
+    <Form.Item label={null}>
+        <Typography.Text type="warning">
+            Le modèle d'email de {relance} n'a pas pu être chargé : rechargez la page pour le modifier.
+        </Typography.Text>
+    </Form.Item>
+);
+
 export default function Societe(props) {
 
     const [ societe, setSociete ] = useState();
-    // Modèle d'email des relances de paiement (type RAPPEL), modifiable avec le reste du paramétrage
+    // Modèles d'email des relances de paiement (type RAPPEL) et des devis (type RELANCE_DEVIS),
+    // modifiables avec le reste du paramétrage
     const [ modeleRelance, setModeleRelance ] = useState(null);
+    const [ modeleRelanceDevis, setModeleRelanceDevis ] = useState(null);
     const [ modeleCharge, setModeleCharge ] = useState(false);
 
     const [ societeForm ] = Form.useForm();
@@ -51,6 +107,7 @@ export default function Societe(props) {
        })
        .then((modeles) => {
            setModeleRelance(modeles.find((m) => m.type === 'RAPPEL') || null);
+           setModeleRelanceDevis(modeles.find((m) => m.type === 'RELANCE_DEVIS') || null);
        })
        .catch((error) => {
             message.error('Le modèle d\'email de relance n\'a pas pu être chargé : ' + error.message);
@@ -62,8 +119,26 @@ export default function Societe(props) {
         return(<Spin/>);
     }
 
+    // Enregistre le sujet et le message d'un modèle d'email s'ils ont changé ; renvoie le modèle à jour
+    const enregistrerModele = async (modele, sujet, contenu) => {
+        if (!modele || (sujet === modele.sujet && contenu === modele.contenu)) {
+            return modele;
+        }
+        const reponseModele = await fetchWithAuth('./email-templates/' + modele.id, {
+            method: 'PUT',
+            body: JSON.stringify({ ...modele, sujet, contenu }),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        if (!reponseModele.ok) {
+            throw new Error('Erreur (code ' + reponseModele.status + ') sur le modèle d\'email de relance');
+        }
+        return reponseModele.json();
+    };
+
     const updateSocieteFunction = async (values) => {
-        const { relanceSujet, relanceContenu, ...newSociete } = values;
+        const { relanceSujet, relanceContenu, relanceDevisSujet, relanceDevisContenu, ...newSociete } = values;
         try {
             const response = await fetchWithAuth('./societe', {
                 method: 'PUT',
@@ -76,19 +151,8 @@ export default function Societe(props) {
                 throw new Error('Erreur (code ' + response.status + ')');
             }
             setSociete(await response.json());
-            if (modeleRelance && (relanceSujet !== modeleRelance.sujet || relanceContenu !== modeleRelance.contenu)) {
-                const reponseModele = await fetchWithAuth('./email-templates/' + modeleRelance.id, {
-                    method: 'PUT',
-                    body: JSON.stringify({ ...modeleRelance, sujet: relanceSujet, contenu: relanceContenu }),
-                    headers: {
-                        'Content-Type': 'application/json'
-                    }
-                });
-                if (!reponseModele.ok) {
-                    throw new Error('Erreur (code ' + reponseModele.status + ') sur le modèle d\'email de relance');
-                }
-                setModeleRelance(await reponseModele.json());
-            }
+            setModeleRelance(await enregistrerModele(modeleRelance, relanceSujet, relanceContenu));
+            setModeleRelanceDevis(await enregistrerModele(modeleRelanceDevis, relanceDevisSujet, relanceDevisContenu));
             message.info('La société a été mise à jour.');
         } catch (error) {
             message.error('Une erreur est survenue: ' + error.message);
@@ -104,7 +168,8 @@ export default function Societe(props) {
                     onFinish={updateSocieteFunction}
                     wrapperCol={{ span: 16 }}
                     style={{ width: '80%' }}
-                    initialValues={{ ...societe, relanceSujet: modeleRelance?.sujet, relanceContenu: modeleRelance?.contenu }}>
+                    initialValues={{ ...societe, relanceSujet: modeleRelance?.sujet, relanceContenu: modeleRelance?.contenu,
+                        relanceDevisSujet: modeleRelanceDevis?.sujet, relanceDevisContenu: modeleRelanceDevis?.contenu }}>
                     <Form.Item name="nom" label="Nom" rules={[{required: true, message: 'Le nom est requis'}]}>
                         <Input allowClear={true} />
                     </Form.Item>
@@ -178,49 +243,18 @@ export default function Societe(props) {
                             si aucune échéance n'est renseignée. Laisser vide pour désactiver une relance.
                         </Typography.Text>
                     </Form.Item>
-                    {RELANCES.map(({ name, label, placeholder, precedents }) => (
-                        <Form.Item
-                            key={name}
-                            name={name}
-                            label={label}
-                            dependencies={precedents}
-                            rules={[({ getFieldValue }) => ({
-                                validator(_, value) {
-                                    const precedent = precedents.map(p => getFieldValue(p)).filter(v => v != null).pop();
-                                    if (value == null || precedent == null || value > precedent) {
-                                        return Promise.resolve();
-                                    }
-                                    return Promise.reject(new Error('Le délai doit être supérieur à celui de la relance précédente'));
-                                },
-                            })]}
-                        >
-                            <InputNumber min={0} step={1} precision={0} prefix="J+" addonAfter="jours" placeholder={placeholder} style={{ width: 200 }} />
-                        </Form.Item>
-                    ))}
-                    {modeleRelance ? (
-                        <>
-                            <Form.Item name="relanceSujet" label="Sujet de l'email de relance"
-                                rules={[{ required: true, message: 'Le sujet est requis' }]}>
-                                <Input />
-                            </Form.Item>
-                            <Form.Item name="relanceContenu" label="Message de relance"
-                                rules={[{ required: true, message: 'Le message est requis' }]}>
-                                <ReactQuill theme="snow" style={{ height: 260, marginBottom: 42 }} />
-                            </Form.Item>
-                            <Form.Item label={null}>
-                                <Typography.Text type="secondary">
-                                    {modeleRelance.description}. Les variables entre accolades sont remplacées
-                                    à l'envoi par les valeurs de la facture relancée.
-                                </Typography.Text>
-                            </Form.Item>
-                        </>
-                    ) : (
-                        <Form.Item label={null}>
-                            <Typography.Text type="warning">
-                                Le modèle d'email de relance n'a pas pu être chargé : rechargez la page pour le modifier.
-                            </Typography.Text>
-                        </Form.Item>
-                    )}
+                    {champsDelais(RELANCES)}
+                    {champsModele(modeleRelance, 'relance', 'relance', 'de la facture relancée')}
+                    <Divider titlePlacement="start">Relances des devis</Divider>
+                    <Form.Item label={null}>
+                        <Typography.Text type="secondary">
+                            Relances envoyées automatiquement par email pour les devis/OR en attente de signature, ni acceptés
+                            ni refusés, aux clients qui ont donné leur consentement. Les délais sont comptés à partir de la
+                            date du devis. Laisser vide pour désactiver une relance.
+                        </Typography.Text>
+                    </Form.Item>
+                    {champsDelais(RELANCES_DEVIS)}
+                    {champsModele(modeleRelanceDevis, 'relanceDevis', 'relance de devis', 'du devis relancé')}
                     <Form.Item label={null}>
                         <Space>
                             <Button onClick={() => societeForm.submit()} type="primary" icon={<SaveOutlined/>}>Enregistrer</Button>

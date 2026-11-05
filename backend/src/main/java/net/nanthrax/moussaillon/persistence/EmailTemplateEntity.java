@@ -14,7 +14,8 @@ public class EmailTemplateEntity extends PanacheEntity {
         INCIDENT,
         FACTURE,
         AVOIR,
-        PRET_A_RECUPERER
+        PRET_A_RECUPERER,
+        RELANCE_DEVIS
     }
 
     @Enumerated(EnumType.STRING)

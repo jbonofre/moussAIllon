@@ -27,6 +27,18 @@ public class EmailTemplateResource {
     static final String RELANCE_DESCRIPTION = "Variables disponibles : {client}, {numeroFacture}, {dateFacture}, {dateEcheance}, {montantTTC}, "
             + "{montantRegle}, {soldeDu}, {numeroRelance}, {conditionsPaiement}, {penalitesRetard}, {indemniteForfaitaire}, {societe}";
 
+    // Modèle de type RELANCE_DEVIS : relance d'un devis/OR en attente de signature.
+    static final String RELANCE_DEVIS_SUJET = "Votre {typeDevis} {numeroDevis} - {societe}";
+    static final String RELANCE_DEVIS_CONTENU = "<p>Bonjour {client},</p>"
+            + "<p>Nous vous avons adressé le {dateDevis} notre {typeDevis} {numeroDevis}, pour lequel nous n'avons pas encore "
+            + "reçu votre accord.</p>"
+            + "<p>Nous restons à votre disposition pour toute question ou modification, "
+            + "et pour planifier l'intervention dès réception de votre bon pour accord.</p>"
+            + "<p>Si vous avez déjà donné suite, merci de ne pas tenir compte de ce message.</p>"
+            + "<p>Cordialement,<br/>{societe}</p>";
+    static final String RELANCE_DEVIS_DESCRIPTION = "Variables disponibles : {client}, {typeDevis}, {numeroDevis}, {dateDevis}, "
+            + "{montantTTC}, {numeroRelance}, {societe}";
+
     // Ancien modèle par défaut (rappel avant la date de la prestation), remplacé s'il n'a pas été personnalisé.
     private static final String ANCIEN_RAPPEL_SUJET = "Rappel {numeroRappel} - Votre {typeVente} - {societe}";
     private static final String ANCIEN_RAPPEL_CONTENU = "<p>Bonjour {client},</p>"
@@ -110,10 +122,14 @@ public class EmailTemplateResource {
             if (EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RAPPEL) == null) {
                 creerTemplateRelance().persist();
             }
+            if (EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RELANCE_DEVIS) == null) {
+                creerTemplateRelanceDevis().persist();
+            }
             return Response.ok().build();
         }
 
         creerTemplateRelance().persist();
+        creerTemplateRelanceDevis().persist();
 
         EmailTemplateEntity incident = new EmailTemplateEntity();
         incident.type = EmailTemplateEntity.Type.INCIDENT;
@@ -168,6 +184,15 @@ public class EmailTemplateResource {
         relance.sujet = RELANCE_SUJET;
         relance.contenu = RELANCE_CONTENU;
         relance.description = RELANCE_DESCRIPTION;
+        return relance;
+    }
+
+    private static EmailTemplateEntity creerTemplateRelanceDevis() {
+        EmailTemplateEntity relance = new EmailTemplateEntity();
+        relance.type = EmailTemplateEntity.Type.RELANCE_DEVIS;
+        relance.sujet = RELANCE_DEVIS_SUJET;
+        relance.contenu = RELANCE_DEVIS_CONTENU;
+        relance.description = RELANCE_DEVIS_DESCRIPTION;
         return relance;
     }
 
