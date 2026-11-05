@@ -1,5 +1,6 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.mailer.MockMailbox;
 import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
@@ -23,6 +24,9 @@ public class RappelSchedulerTest {
 
     @Inject
     RappelScheduler rappelScheduler;
+
+    @Inject
+    MockMailbox mailbox;
 
     // Paramètre les délais, avec l'envoi automatique chaque matin (sinon les relances attendent le journal)
     private static void parametrerRelances(Integer j1, Integer j2, Integer j3) {
@@ -69,6 +73,20 @@ public class RappelSchedulerTest {
 
     private static List<RappelHistoriqueEntity> historique(VenteEntity vente) {
         return RappelHistoriqueEntity.list("vente.id", vente.id);
+    }
+
+    // Modèle d'email personnalisé, créé s'il n'existe pas encore (annulé avec le test)
+    private static void personnaliserModele(EmailTemplateEntity.Type type, String sujet, String contenu) {
+        EmailTemplateEntity modele = EmailTemplateEntity.findByType(type);
+        if (modele == null) {
+            modele = new EmailTemplateEntity();
+            modele.type = type;
+            modele.sujet = sujet;
+            modele.contenu = contenu;
+            modele.persist();
+        }
+        modele.sujet = sujet;
+        modele.contenu = contenu;
     }
 
     @Test
@@ -217,17 +235,8 @@ public class RappelSchedulerTest {
     @TestTransaction
     void testMessageReprendLesConditionsDeLaFacture() {
         parametrerRelances(15, 30, 45);
-        EmailTemplateEntity modele = EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RAPPEL);
-        boolean nouveau = modele == null;
-        if (nouveau) {
-            modele = new EmailTemplateEntity();
-            modele.type = EmailTemplateEntity.Type.RAPPEL;
-        }
-        modele.sujet = "Relance {numeroFacture}";
-        modele.contenu = "Conditions : {conditionsPaiement} / Pénalités : {penalitesRetard} / Indemnité : {indemniteForfaitaire}";
-        if (nouveau) {
-            modele.persist();
-        }
+        personnaliserModele(EmailTemplateEntity.Type.RAPPEL, "Relance {numeroFacture}",
+            "Conditions : {conditionsPaiement} / Pénalités : {penalitesRetard} / Indemnité : {indemniteForfaitaire}");
         VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
         vente.dateEcheance = ilYA(20);
         vente.conditionsPaiement = "30 jours nets";
@@ -470,6 +479,122 @@ public class RappelSchedulerTest {
         assertEquals(0, facture.niveauRelance);
         assertEquals(0, devis.niveauRelanceDevis);
         assertNull(relanceDueOuNull(RappelScheduler.relancesDues(SocieteEntity.findById(1L), LocalDate.now()), facture));
+    }
+
+    @Test
+    @TestTransaction
+    void testUnModeleParNiveauDeRelance() {
+        parametrerRelances(15, 30, 45);
+        personnaliserModele(EmailTemplateEntity.Type.RAPPEL, "Premier rappel {numeroFacture}", "Relance 1");
+        personnaliserModele(EmailTemplateEntity.Type.RELANCE_2, "Deuxième rappel {numeroFacture}", "Relance {numeroRelance}");
+        ClientEntity client = ClientEntity.findById(100L);
+        VenteEntity relance2 = facture(client, 500.0);
+        relance2.dateEcheance = ilYA(31);
+        relance2.persist();
+        VenteEntity relance3 = facture(client, 500.0);
+        relance3.dateEcheance = ilYA(50);
+        relance3.persist();
+
+        rappelScheduler.envoyerRelances();
+
+        RappelHistoriqueEntity envoi2 = historique(relance2).get(0);
+        assertEquals("Deuxième rappel FA-TEST", envoi2.sujet);
+        assertEquals("Relance 2", envoi2.contenu);
+        RappelHistoriqueEntity envoi3 = historique(relance3).get(0);
+        assertFalse(envoi3.courrier, "Sans courrier, la relance 3 part par email");
+        assertTrue(envoi3.sujet.startsWith("Mise en demeure de payer - Facture FA-TEST"),
+            "Modèle par défaut de la relance 3 : " + envoi3.sujet);
+    }
+
+    @Test
+    @TestTransaction
+    void testRelanceManuelleAvecLeModeleDeLaRelanceSuivante() {
+        personnaliserModele(EmailTemplateEntity.Type.RELANCE_2, "Deuxième rappel {numeroFacture}", "Relance 2");
+        ClientEntity client = ClientEntity.findById(100L);
+        VenteEntity facture = facture(client, 500.0);
+        facture.niveauRelance = 1;
+        facture.persist();
+        VenteEntity devis = devis(client, 40);
+        devis.niveauRelanceDevis = 3;
+        devis.persist();
+
+        rappelScheduler.envoyerRelance(facture, 0);
+        rappelScheduler.envoyerRelanceDevis(devis, 0);
+
+        RappelHistoriqueEntity envoiFacture = historique(facture).get(0);
+        assertEquals(0, envoiFacture.numeroRappel, "Relance manuelle");
+        assertEquals("Deuxième rappel FA-TEST", envoiFacture.sujet, "La relance 1 a été envoyée : modèle de la relance 2");
+        assertEquals(1, facture.niveauRelance, "Une relance manuelle ne change pas les relances prévues");
+        assertTrue(historique(devis).get(0).sujet.startsWith("Dernière relance"),
+            "Après la relance 3, le modèle de la relance 3 : " + historique(devis).get(0).sujet);
+    }
+
+    @Test
+    void testNiveauModele() {
+        assertEquals(2, RappelScheduler.niveauModele(2, 0));
+        assertEquals(1, RappelScheduler.niveauModele(0, 0));
+        assertEquals(3, RappelScheduler.niveauModele(0, 2));
+        assertEquals(3, RappelScheduler.niveauModele(0, 3));
+    }
+
+    @Test
+    @TestTransaction
+    void testRelance3ParCourrier() {
+        parametrerRelances(15, 30, 45);
+        parametrerRelancesDevis(7, 15, 30);
+        SocieteEntity.<SocieteEntity>findById(1L).relance3Courrier = true;
+        // Client propre au test : les ventes d'autres classes de test ne lui envoient pas d'email
+        ClientEntity client = new ClientEntity();
+        client.nom = "Jean Courrier";
+        client.type = "Particulier";
+        client.email = "jean.courrier@test.com";
+        client.adresse = "1 rue du Port";
+        client.consentement = true;
+        client.persist();
+        VenteEntity facture = facture(client, 500.0);
+        facture.dateEcheance = ilYA(50);
+        facture.persist();
+        VenteEntity devis = devis(client, 40);
+        devis.persist();
+        mailbox.clear();
+
+        rappelScheduler.envoyerRelances();
+        rappelScheduler.envoyerRelancesDevis();
+
+        assertEquals(3, facture.niveauRelance);
+        RappelHistoriqueEntity courrier = historique(facture).get(0);
+        assertTrue(courrier.courrier);
+        assertNull(courrier.dateImpression, "Le courrier reste à imprimer");
+        assertEquals(3, courrier.numeroRappel);
+        assertEquals("Jean Courrier, 1 rue du Port", courrier.destinataire);
+        assertTrue(courrier.sujet.startsWith("Mise en demeure de payer - Facture FA-TEST"), courrier.sujet);
+        assertTrue(courrier.contenu.contains(String.format("%.2f", 500.0)), "Le courrier reprend le solde dû");
+        assertFalse(historique(devis).get(0).courrier, "Les relances de devis partent toujours par email");
+        assertEquals(1, mailbox.getMailsSentTo("jean.courrier@test.com").size(), "Seule la relance du devis part par email");
+    }
+
+    @Test
+    @TestTransaction
+    void testCourrierPourUnClientSansEmail() {
+        parametrerRelances(15, 30, 45);
+        SocieteEntity.<SocieteEntity>findById(1L).relance3Courrier = true;
+        ClientEntity sansEmail = new ClientEntity();
+        sansEmail.nom = "Sans Email";
+        sansEmail.type = "Particulier";
+        sansEmail.adresse = "3 quai Est\n29900 Concarneau";
+        sansEmail.persist();
+        VenteEntity relance1 = facture(sansEmail, 500.0);
+        relance1.dateEcheance = ilYA(20);
+        relance1.persist();
+        VenteEntity relance3 = facture(sansEmail, 500.0);
+        relance3.dateEcheance = ilYA(50);
+        relance3.persist();
+
+        rappelScheduler.envoyerRelances();
+
+        assertEquals(0, relance1.niveauRelance, "La relance 1 part par email : rien pour un client sans email");
+        assertEquals(3, relance3.niveauRelance);
+        assertEquals("Sans Email, 3 quai Est, 29900 Concarneau", historique(relance3).get(0).destinataire);
     }
 
     private static RappelScheduler.RelanceDue relanceDue(List<RappelScheduler.RelanceDue> dues, VenteEntity vente) {

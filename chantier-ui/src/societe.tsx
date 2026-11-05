@@ -4,8 +4,7 @@ import { Card, Row, Col, Space, Button, Divider, Form, Input, InputNumber, Radio
 import { PauseCircleOutlined, DeploymentUnitOutlined, SaveOutlined } from '@ant-design/icons';
 import { demo } from './workspace.tsx';
 import ImageUpload from './ImageUpload.tsx';
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
+import { useNavigation } from './navigation-context.tsx';
 
 const { TextArea } = Input;
 
@@ -44,40 +43,10 @@ const champsDelais = (relances) => relances.map(({ name, label, placeholder, pre
     </Form.Item>
 ));
 
-// Sujet et message d'un modèle d'email de relance, modifiables avec le reste du paramétrage
-const champsModele = (modele, prefixe, relance, objet) => modele ? (
-    <>
-        <Form.Item name={prefixe + 'Sujet'} label={"Sujet de l'email de " + relance}
-            rules={[{ required: true, message: 'Le sujet est requis' }]}>
-            <Input />
-        </Form.Item>
-        <Form.Item name={prefixe + 'Contenu'} label={'Message de ' + relance}
-            rules={[{ required: true, message: 'Le message est requis' }]}>
-            <ReactQuill theme="snow" style={{ height: 260, marginBottom: 42 }} />
-        </Form.Item>
-        <Form.Item label={null}>
-            <Typography.Text type="secondary">
-                {modele.description}. Les variables entre accolades sont remplacées
-                à l'envoi par les valeurs {objet}.
-            </Typography.Text>
-        </Form.Item>
-    </>
-) : (
-    <Form.Item label={null}>
-        <Typography.Text type="warning">
-            Le modèle d'email de {relance} n'a pas pu être chargé : rechargez la page pour le modifier.
-        </Typography.Text>
-    </Form.Item>
-);
-
 export default function Societe(props) {
 
     const [ societe, setSociete ] = useState();
-    // Modèles d'email des relances de paiement (type RAPPEL) et des devis (type RELANCE_DEVIS),
-    // modifiables avec le reste du paramétrage
-    const [ modeleRelance, setModeleRelance ] = useState(null);
-    const [ modeleRelanceDevis, setModeleRelanceDevis ] = useState(null);
-    const [ modeleCharge, setModeleCharge ] = useState(false);
+    const { navigate } = useNavigation();
 
     const [ societeForm ] = Form.useForm();
 
@@ -96,53 +65,20 @@ export default function Societe(props) {
             message.error('Une erreur est survenue: ' + error.message);
             console.error(error)
        });
-       // L'initialisation crée les modèles d'email manquants
-       fetchWithAuth('./email-templates/init', { method: 'POST' })
-       .then(() => fetchWithAuth('./email-templates'))
-       .then((response) => {
-            if (!response.ok) {
-                throw new Error('Erreur (code ' + response.status + ')');
-            }
-            return response.json();
-       })
-       .then((modeles) => {
-           setModeleRelance(modeles.find((m) => m.type === 'RAPPEL') || null);
-           setModeleRelanceDevis(modeles.find((m) => m.type === 'RELANCE_DEVIS') || null);
-       })
-       .catch((error) => {
-            message.error('Le modèle d\'email de relance n\'a pas pu être chargé : ' + error.message);
-       })
-       .finally(() => setModeleCharge(true));
     }, []);
 
-    if (!societe || !modeleCharge) {
+    if (!societe) {
         return(<Spin/>);
     }
 
-    // Enregistre le sujet et le message d'un modèle d'email s'ils ont changé ; renvoie le modèle à jour
-    const enregistrerModele = async (modele, sujet, contenu) => {
-        if (!modele || (sujet === modele.sujet && contenu === modele.contenu)) {
-            return modele;
-        }
-        const reponseModele = await fetchWithAuth('./email-templates/' + modele.id, {
-            method: 'PUT',
-            body: JSON.stringify({ ...modele, sujet, contenu }),
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        if (!reponseModele.ok) {
-            throw new Error('Erreur (code ' + reponseModele.status + ') sur le modèle d\'email de relance');
-        }
-        return reponseModele.json();
-    };
+    // Les textes des relances (un modèle d'email par relance) se modifient dans Paramétrage > Emails
+    const lienModeles = <Typography.Link onClick={() => navigate('/emails')}>Paramétrage &gt; Emails</Typography.Link>;
 
     const updateSocieteFunction = async (values) => {
-        const { relanceSujet, relanceContenu, relanceDevisSujet, relanceDevisContenu, ...newSociete } = values;
         try {
             const response = await fetchWithAuth('./societe', {
                 method: 'PUT',
-                body: JSON.stringify(newSociete),
+                body: JSON.stringify(values),
                 headers: {
                     'Content-Type': 'application/json'
                 }
@@ -151,8 +87,6 @@ export default function Societe(props) {
                 throw new Error('Erreur (code ' + response.status + ')');
             }
             setSociete(await response.json());
-            setModeleRelance(await enregistrerModele(modeleRelance, relanceSujet, relanceContenu));
-            setModeleRelanceDevis(await enregistrerModele(modeleRelanceDevis, relanceDevisSujet, relanceDevisContenu));
             message.info('La société a été mise à jour.');
         } catch (error) {
             message.error('Une erreur est survenue: ' + error.message);
@@ -168,8 +102,7 @@ export default function Societe(props) {
                     onFinish={updateSocieteFunction}
                     wrapperCol={{ span: 16 }}
                     style={{ width: '80%' }}
-                    initialValues={{ ...societe, relanceSujet: modeleRelance?.sujet, relanceContenu: modeleRelance?.contenu,
-                        relanceDevisSujet: modeleRelanceDevis?.sujet, relanceDevisContenu: modeleRelanceDevis?.contenu }}>
+                    initialValues={societe}>
                     <Form.Item name="nom" label="Nom" rules={[{required: true, message: 'Le nom est requis'}]}>
                         <Input allowClear={true} />
                     </Form.Item>
@@ -247,23 +180,34 @@ export default function Societe(props) {
                     <Divider titlePlacement="start">Relances de paiement</Divider>
                     <Form.Item label={null}>
                         <Typography.Text type="secondary">
-                            Relances par email des factures émises non soldées.
+                            Relances par email des factures émises non soldées, aux clients qui ont donné leur consentement.
                             Les délais sont comptés à partir de la date d'échéance de la facture, ou de sa date d'émission
                             si aucune échéance n'est renseignée. Laisser vide pour désactiver une relance.
+                            Le texte de chaque relance se modifie dans {lienModeles}.
                         </Typography.Text>
                     </Form.Item>
                     {champsDelais(RELANCES)}
-                    {champsModele(modeleRelance, 'relance', 'relance', 'de la facture relancée')}
+                    <Form.Item name="relance3Courrier" label="Envoi de la relance 3">
+                        <Radio.Group>
+                            <Space orientation="vertical">
+                                <Radio value={false}>Par email</Radio>
+                                <Radio value={true}>
+                                    Par courrier : mise en demeure à imprimer depuis le journal des relances,
+                                    y compris pour les clients sans email
+                                </Radio>
+                            </Space>
+                        </Radio.Group>
+                    </Form.Item>
                     <Divider titlePlacement="start">Relances des devis</Divider>
                     <Form.Item label={null}>
                         <Typography.Text type="secondary">
                             Relances par email des devis/OR en attente de signature, ni acceptés
                             ni refusés, aux clients qui ont donné leur consentement. Les délais sont comptés à partir de la
                             date du devis. Laisser vide pour désactiver une relance.
+                            Le texte de chaque relance se modifie dans {lienModeles}.
                         </Typography.Text>
                     </Form.Item>
                     {champsDelais(RELANCES_DEVIS)}
-                    {champsModele(modeleRelanceDevis, 'relanceDevis', 'relance de devis', 'du devis relancé')}
                     <Form.Item label={null}>
                         <Space>
                             <Button onClick={() => societeForm.submit()} type="primary" icon={<SaveOutlined/>}>Enregistrer</Button>

@@ -425,7 +425,7 @@ public class FacturXService {
         return (value != null && !value.isBlank()) ? value : fallback;
     }
 
-    private String buildInfosLegales(SocieteEntity s) {
+    static String buildInfosLegales(SocieteEntity s) {
         List<String> parts = new ArrayList<>();
         if (s.forme    != null) parts.add(s.forme);
         if (s.capital  > 0)    parts.add("Capital " + s.capital + " €");

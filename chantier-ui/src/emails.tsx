@@ -1,22 +1,40 @@
 import { useState, useEffect } from 'react';
 import { fetchWithAuth } from './api.ts';
-import { Card, Space, Button, Form, Input, Table, Modal, Tag, Spin, message } from 'antd';
+import { Alert, Card, Space, Button, Form, Input, Table, Modal, Tag, Spin, message } from 'antd';
 import { MailOutlined, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
-// Les modèles RAPPEL (relance de paiement) et RELANCE_DEVIS se modifient dans Paramétrage > Société, avec leurs délais.
+// Libellés des modèles, dans leur ordre d'affichage : un modèle par relance (1 à 3), de paiement puis de devis/OR.
+// RAPPEL est le nom historique du modèle de la relance de paiement 1.
 const TYPE_LABELS = {
-    INCIDENT: 'Incident',
+    RAPPEL: 'Relance de paiement 1',
+    RELANCE_2: 'Relance de paiement 2',
+    RELANCE_3: 'Relance de paiement 3',
+    RELANCE_DEVIS: 'Relance de devis 1',
+    RELANCE_DEVIS_2: 'Relance de devis 2',
+    RELANCE_DEVIS_3: 'Relance de devis 3',
     FACTURE: 'Facture',
+    AVOIR: 'Avoir',
+    INCIDENT: 'Incident',
     PRET_A_RECUPERER: 'Prêt à récupérer'
 };
 
 const TYPE_COLORS = {
+    RAPPEL: 'gold',
+    RELANCE_2: 'orange',
+    RELANCE_3: 'red',
+    RELANCE_DEVIS: 'cyan',
+    RELANCE_DEVIS_2: 'blue',
+    RELANCE_DEVIS_3: 'geekblue',
     INCIDENT: 'red',
     FACTURE: 'green',
+    AVOIR: 'purple',
     PRET_A_RECUPERER: 'orange'
 };
+
+const ORDRE_TYPES = Object.keys(TYPE_LABELS);
+const rangType = (type) => (ORDRE_TYPES.includes(type) ? ORDRE_TYPES.indexOf(type) : ORDRE_TYPES.length);
 
 export default function Emails() {
 
@@ -37,7 +55,7 @@ export default function Emails() {
                 return response.json();
             })
             .then((data) => {
-                setTemplates(data.filter((template) => template.type !== 'RAPPEL' && template.type !== 'RELANCE_DEVIS'));
+                setTemplates([...data].sort((a, b) => rangType(a.type) - rangType(b.type)));
             })
             .catch((error) => {
                 message.error('Une erreur est survenue: ' + error.message);
@@ -91,8 +109,8 @@ export default function Emails() {
             title: 'Type',
             dataIndex: 'type',
             key: 'type',
-            width: 120,
-            sorter: (a, b) => (a.type || '').localeCompare(b.type || ''),
+            width: 190,
+            sorter: (a, b) => rangType(a.type) - rangType(b.type),
             render: (type) => <Tag color={TYPE_COLORS[type]}>{TYPE_LABELS[type] || type}</Tag>
         },
         {
@@ -129,7 +147,7 @@ export default function Emails() {
                         <InfoCircleOutlined />
                         <span style={{ opacity: 0.7 }}>
                             Personnalisez le contenu des emails envoyés automatiquement. Utilisez les variables entre accolades (ex: {'{client}'}, {'{societe}'}) qui seront remplacées par les valeurs réelles lors de l'envoi.
-                            L'email de relance de paiement se modifie dans Paramétrage &gt; Société, avec les conditions de paiement.
+                            Chaque relance a son propre modèle ; leurs délais se règlent dans Paramétrage &gt; Société.
                         </span>
                     </Space>
                     <Table
@@ -166,6 +184,15 @@ export default function Emails() {
                         <Tag icon={<InfoCircleOutlined />} color="processing">
                             {editingTemplate.description}
                         </Tag>
+                        {editingTemplate.type === 'RELANCE_3' && (
+                            <Alert
+                                type="info"
+                                showIcon
+                                title="Ce modèle sert aussi au courrier de mise en demeure"
+                                description={'Quand la relance 3 est envoyée par courrier (Paramétrage > Société), '
+                                    + 'le sujet devient l\'objet de la lettre et le contenu son texte.'}
+                            />
+                        )}
                     </Space>
                 )}
                 <Form

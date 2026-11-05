@@ -66,6 +66,10 @@ public class SocieteEntity extends PanacheEntity {
     public Integer relance2Jours;
     public Integer relance3Jours;
 
+    // Relance de paiement 3 envoyée par courrier (mise en demeure à imprimer) plutôt que par email.
+    @Column(columnDefinition = "boolean default false")
+    public boolean relance3Courrier;
+
     // Relances automatiques des devis/OR en attente de signature : nombre de jours écoulés depuis le devis.
     // Vide = relance désactivée.
     public Integer relanceDevis1Jours;
