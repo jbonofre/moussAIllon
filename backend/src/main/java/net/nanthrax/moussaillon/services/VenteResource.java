@@ -482,6 +482,8 @@ public class VenteResource {
         for (CommandeFournisseurEntity cf : commandes) {
             cf.vente = null;
         }
+        // Les sorties de stock de la vente restent à l'historique des articles
+        ProduitMouvementEntity.update("vente = null where vente.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }
@@ -1352,14 +1354,20 @@ public class VenteResource {
             return;
         }
         p.stock = Math.max(0, p.stock - quantite);
-        ProduitMouvementEntity mouvement = new ProduitMouvementEntity();
+        // Le coût d'achat de l'article à sa sortie est figé pour la marge de la vente
+        ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                ProduitMouvementEntity.Type.VENTE, quantite, p.stock, new CoutAchat().produit(p), null);
         mouvement.produit = p;
-        mouvement.type = ProduitMouvementEntity.Type.VENTE;
-        mouvement.quantite = quantite;
-        mouvement.stockApres = p.stock;
         mouvement.vente = vente;
-        mouvement.date = new Timestamp(System.currentTimeMillis());
         mouvement.persist();
+    }
+
+    // Sortie de stock d'un bateau, moteur ou remorque vendu, inscrite à son historique avec son coût d'achat
+    private static ProduitMouvementEntity mouvementVente(long unites, long stockApres, double coutUnitaire, VenteEntity vente) {
+        ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                ProduitMouvementEntity.Type.VENTE, unites, stockApres, coutUnitaire, null);
+        mouvement.vente = vente;
+        return mouvement;
     }
 
     static void decrementStock(VenteEntity vente) {
@@ -1388,12 +1396,16 @@ public class VenteResource {
                 mouvementStock(p, entry.getValue(), vente);
             }
         }
+        CoutAchat couts = new CoutAchat();
         if (vente.venteBateauxCatalogue != null) {
             for (VenteBateauCatalogueEntity vb : vente.venteBateauxCatalogue) {
                 if (vb.bateau == null || vb.bateau.id == null) continue;
                 BateauCatalogueEntity b = BateauCatalogueEntity.findById(vb.bateau.id);
                 if (b != null) {
                     b.stock = Math.max(0, b.stock - Quantite.unites(vb.quantite));
+                    ProduitMouvementEntity mouvement = mouvementVente(Quantite.unites(vb.quantite), b.stock, couts.bateau(b), vente);
+                    mouvement.bateau = b;
+                    mouvement.persist();
                 }
             }
         }
@@ -1403,6 +1415,9 @@ public class VenteResource {
                 MoteurCatalogueEntity m = MoteurCatalogueEntity.findById(vm.moteur.id);
                 if (m != null) {
                     m.stock = Math.max(0, m.stock - Quantite.unites(vm.quantite));
+                    ProduitMouvementEntity mouvement = mouvementVente(Quantite.unites(vm.quantite), m.stock, couts.moteur(m), vente);
+                    mouvement.moteur = m;
+                    mouvement.persist();
                 }
             }
         }
@@ -1412,6 +1427,9 @@ public class VenteResource {
                 RemorqueCatalogueEntity r = RemorqueCatalogueEntity.findById(vr.remorque.id);
                 if (r != null) {
                     r.stock = Math.max(0, r.stock - Quantite.unites(vr.quantite));
+                    ProduitMouvementEntity mouvement = mouvementVente(Quantite.unites(vr.quantite), r.stock, couts.remorque(r), vente);
+                    mouvement.remorque = r;
+                    mouvement.persist();
                 }
             }
         }

@@ -135,6 +135,12 @@ public class DataInitializer {
             LOG.warn("Impossible de convertir la colonne type de SocietePaiementEntity", e);
         }
         try {
+            // Nouveau type de mouvement RECEPTION (réception des commandes fournisseur)
+            convertirEnumEnVarchar("ProduitMouvementEntity", "type");
+        } catch (Exception e) {
+            LOG.warn("Impossible de convertir la colonne type de ProduitMouvementEntity", e);
+        }
+        try {
             migrerSuiviAbonnement();
         } catch (Exception e) {
             LOG.warn("Impossible de reconstituer le suivi mensuel de l'abonnement", e);

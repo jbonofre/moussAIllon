@@ -32,6 +32,7 @@ import net.nanthrax.moussaillon.persistence.FournisseurRemorqueEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.VenteBateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
@@ -138,6 +139,8 @@ public class CommandeFournisseurResource {
         if (entity == null) {
             throw new WebApplicationException("La commande fournisseur (" + id + ") n'est pas trouvee", 404);
         }
+        // Les réceptions de la commande restent à l'historique des articles (elles datent leur stock)
+        ProduitMouvementEntity.update("commandeFournisseur = null where commandeFournisseur.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }
@@ -195,35 +198,98 @@ public class CommandeFournisseurResource {
         return entity;
     }
 
+    /**
+     * Entre en stock les articles reçus. Chaque réception est inscrite à l'historique de l'article (elle date son stock)
+     * et recalcule son prix d'achat moyen pondéré au coût de la ligne, frais de port compris.
+     */
     private void incrementStock(CommandeFournisseurEntity commande) {
         if (commande.lignes != null) {
+            Timestamp date = commande.dateReception != null ? commande.dateReception : new Timestamp(System.currentTimeMillis());
+            double totalHT = commande.lignes.stream().mapToDouble(CommandeFournisseurResource::montantHT).sum();
+            CoutAchat couts = new CoutAchat();
             for (CommandeFournisseurLigneEntity ligne : commande.lignes) {
+                if (ligne.quantite <= 0) {
+                    continue;
+                }
+                double cout = coutUnitaire(ligne, commande.portTotal, totalHT);
+                Double prixUnitaireHT = cout > 0 ? cout : null;
                 if (ligne.produit != null) {
                     ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(ligne.produit.id);
                     if (p != null) {
+                        if (cout > 0) {
+                            p.prixAchatMoyenHT = CoutAchat.pmp(p.stock, couts.produit(p), ligne.quantite, cout);
+                        }
                         p.stock = p.stock + ligne.quantite;
+                        ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                                ProduitMouvementEntity.Type.RECEPTION, ligne.quantite, p.stock, prixUnitaireHT, date);
+                        mouvement.produit = p;
+                        mouvement.commandeFournisseur = commande;
+                        mouvement.persist();
                     }
                 }
+                long unites = (long) Math.ceil(ligne.quantite);
                 if (ligne.bateau != null) {
                     BateauCatalogueEntity b = BateauCatalogueEntity.findById(ligne.bateau.id);
                     if (b != null) {
-                        b.stock = b.stock + (long) Math.ceil(ligne.quantite);
+                        if (cout > 0) {
+                            b.prixAchatMoyenHT = CoutAchat.pmp(b.stock, couts.bateau(b), unites, cout);
+                        }
+                        b.stock = b.stock + unites;
+                        ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                                ProduitMouvementEntity.Type.RECEPTION, unites, b.stock, prixUnitaireHT, date);
+                        mouvement.bateau = b;
+                        mouvement.commandeFournisseur = commande;
+                        mouvement.persist();
                     }
                 }
                 if (ligne.moteur != null) {
                     MoteurCatalogueEntity m = MoteurCatalogueEntity.findById(ligne.moteur.id);
                     if (m != null) {
-                        m.stock = m.stock + (long) Math.ceil(ligne.quantite);
+                        if (cout > 0) {
+                            m.prixAchatMoyenHT = CoutAchat.pmp(m.stock, couts.moteur(m), unites, cout);
+                        }
+                        m.stock = m.stock + unites;
+                        ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                                ProduitMouvementEntity.Type.RECEPTION, unites, m.stock, prixUnitaireHT, date);
+                        mouvement.moteur = m;
+                        mouvement.commandeFournisseur = commande;
+                        mouvement.persist();
                     }
                 }
                 if (ligne.remorque != null) {
                     RemorqueCatalogueEntity r = RemorqueCatalogueEntity.findById(ligne.remorque.id);
                     if (r != null) {
-                        r.stock = r.stock + (long) Math.ceil(ligne.quantite);
+                        if (cout > 0) {
+                            r.prixAchatMoyenHT = CoutAchat.pmp(r.stock, couts.remorque(r), unites, cout);
+                        }
+                        r.stock = r.stock + unites;
+                        ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                                ProduitMouvementEntity.Type.RECEPTION, unites, r.stock, prixUnitaireHT, date);
+                        mouvement.remorque = r;
+                        mouvement.commandeFournisseur = commande;
+                        mouvement.persist();
                     }
                 }
             }
         }
+    }
+
+    // Montant HT d'une ligne de commande
+    private static double montantHT(CommandeFournisseurLigneEntity ligne) {
+        return ligne.prixTotalHT > 0 ? ligne.prixTotalHT : ligne.prixUnitaireHT * ligne.quantite;
+    }
+
+    /**
+     * Coût unitaire HT d'un article reçu : son prix d'achat, augmenté de sa part des frais de port de la commande
+     * (répartis au prorata du montant des lignes). 0 quand son prix n'est pas renseigné.
+     */
+    static double coutUnitaire(CommandeFournisseurLigneEntity ligne, double portTotal, double totalHT) {
+        double montant = montantHT(ligne);
+        if (montant <= 0 || ligne.quantite <= 0) {
+            return 0;
+        }
+        double port = portTotal > 0 && totalHT > 0 ? portTotal * montant / totalHT : 0;
+        return Math.round((montant + port) / ligne.quantite * 10000.0) / 10000.0;
     }
 
     @GET

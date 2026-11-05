@@ -20,6 +20,7 @@ import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
+import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 
 /**
@@ -28,7 +29,8 @@ import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
  * Chaque type possède son propre référentiel : la conversion crée l'article dans le référentiel cible
  * (champs communs conservés, champs propres à l'ancien type perdus) puis supprime l'ancien. Elle est
  * refusée si l'article est référencé ailleurs (ventes, commandes fournisseur, forfaits, packages, fournisseurs,
- * mouvements de stock...), pour ne jamais modifier l'historique de facturation.
+ * mouvements de stock de ventes ou de réceptions...), pour ne jamais modifier l'historique de facturation.
+ * Les ajustements de stock suivent l'article converti (ils sont supprimés s'il devient une hélice, sans stock).
  */
 @Path("/catalogue/convertir")
 @ApplicationScoped
@@ -82,10 +84,21 @@ public class CatalogueConversionResource {
         } else if (source instanceof MoteurCatalogueEntity moteur) {
             moteur.helicesCompatibles.clear();
         }
+        // Historique des ajustements de stock (seuls mouvements possibles d'un article non référencé), repris par la cible
+        List<ProduitMouvementEntity> ajustements = request.source.equals("helice") ? List.of()
+                : ProduitMouvementEntity.list(request.source + ".id = ?1", request.id);
+        ajustements.forEach(m -> rattacher(m, null));
         source.delete();
         em.flush();
 
         PanacheEntity cible = creer(request.cible, commun, request.categorie);
+        for (ProduitMouvementEntity ajustement : ajustements) {
+            if (cible instanceof HeliceCatalogueEntity) {
+                ajustement.delete();
+            } else {
+                rattacher(ajustement, cible);
+            }
+        }
         return Response.ok(Map.of("type", request.cible, "id", cible.id)).build();
     }
 
@@ -116,7 +129,7 @@ public class CatalogueConversionResource {
                 compter(result, "services", "select count(l) from ServiceProduitEntity l where l.produit.id = ?1", id);
                 compter(result, "packages", "select count(l) from PackageLigneEntity l where l.produit.id = ?1", id);
                 compter(result, "fournisseurs", "select count(l) from FournisseurProduitEntity l where l.produit.id = ?1", id);
-                compter(result, "mouvements de stock", "select count(m) from ProduitMouvementEntity m where m.produit.id = ?1", id);
+                compter(result, "mouvements de stock", MOUVEMENTS_HORS_AJUSTEMENTS + "m.produit.id = ?1", id);
             }
             case "bateau" -> {
                 compter(result, "ventes", "select count(l) from VenteBateauCatalogueEntity l where l.bateau.id = ?1", id);
@@ -126,6 +139,7 @@ public class CatalogueConversionResource {
                 compter(result, "packages", "select count(l) from PackageLigneEntity l where l.bateau.id = ?1", id);
                 compter(result, "fournisseurs", "select count(l) from FournisseurBateauEntity l where l.bateau.id = ?1", id);
                 compter(result, "bateaux clients", "select count(b) from BateauClientEntity b where b.modele.id = ?1", id);
+                compter(result, "mouvements de stock", MOUVEMENTS_HORS_AJUSTEMENTS + "m.bateau.id = ?1", id);
             }
             case "moteur" -> {
                 compter(result, "ventes", "select count(l) from VenteMoteurCatalogueEntity l where l.moteur.id = ?1", id);
@@ -136,6 +150,7 @@ public class CatalogueConversionResource {
                 compter(result, "fournisseurs", "select count(l) from FournisseurMoteurEntity l where l.moteur.id = ?1", id);
                 compter(result, "moteurs clients", "select count(m) from MoteurClientEntity m where m.modele.id = ?1", id);
                 compter(result, "bateaux clients", "select count(b) from BateauClientEntity b join b.moteurs m where m.id = ?1", id);
+                compter(result, "mouvements de stock", MOUVEMENTS_HORS_AJUSTEMENTS + "m.moteur.id = ?1", id);
             }
             case "helice" -> {
                 compter(result, "ventes", "select count(l) from VenteHeliceCatalogueEntity l where l.helice.id = ?1", id);
@@ -152,9 +167,22 @@ public class CatalogueConversionResource {
                 compter(result, "packages", "select count(l) from PackageLigneEntity l where l.remorque.id = ?1", id);
                 compter(result, "fournisseurs", "select count(l) from FournisseurRemorqueEntity l where l.remorque.id = ?1", id);
                 compter(result, "remorques clients", "select count(r) from RemorqueClientEntity r where r.modele.id = ?1", id);
+                compter(result, "mouvements de stock", MOUVEMENTS_HORS_AJUSTEMENTS + "m.remorque.id = ?1", id);
             }
         }
         return result;
+    }
+
+    // Mouvements de vente ou de réception de l'article : ils le rattachent à l'historique de facturation et d'achat
+    private static final String MOUVEMENTS_HORS_AJUSTEMENTS = "select count(m) from ProduitMouvementEntity m where m.type <> "
+            + "net.nanthrax.moussaillon.persistence.ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL and ";
+
+    // Rattache un mouvement de stock à un article (produit, bateau, moteur ou remorque), ou le détache avec null
+    private static void rattacher(ProduitMouvementEntity mouvement, PanacheEntity article) {
+        mouvement.produit = article instanceof ProduitCatalogueEntity p ? p : null;
+        mouvement.bateau = article instanceof BateauCatalogueEntity b ? b : null;
+        mouvement.moteur = article instanceof MoteurCatalogueEntity m ? m : null;
+        mouvement.remorque = article instanceof RemorqueCatalogueEntity r ? r : null;
     }
 
     private void compter(List<String> result, String libelle, String jpql, long id) {

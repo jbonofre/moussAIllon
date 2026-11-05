@@ -6,6 +6,7 @@ import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.BateauOptionEntity;
 import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
+import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 import jakarta.transaction.Transactional;
 import java.util.List;
 
@@ -52,6 +53,13 @@ public class BateauCatalogueResource {
     public Response create(BateauCatalogueEntity bateauCatalogue) {
         bateauCatalogue.id = null;
         BateauCatalogueEntity.persist(bateauCatalogue);
+        // Le stock initial date l'entrée en stock de l'article
+        if (bateauCatalogue.stock > 0) {
+            ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                    ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL, bateauCatalogue.stock, bateauCatalogue.stock, null, null);
+            mouvement.bateau = bateauCatalogue;
+            mouvement.persist();
+        }
         if (ReferenceInterne.absente(bateauCatalogue.ref)) {
             bateauCatalogue.ref = ReferenceInterne.generer("BAT", bateauCatalogue.id);
         }
@@ -90,6 +98,12 @@ public class BateauCatalogueResource {
         entity.reservoirCarburant = updatedBateauCatalogue.reservoirCarburant;
         entity.nombrePassagersMax = updatedBateauCatalogue.nombrePassagersMax;
         entity.categorieCe = updatedBateauCatalogue.categorieCe;
+        if (updatedBateauCatalogue.stock != entity.stock) {
+            ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL,
+                    updatedBateauCatalogue.stock - entity.stock, updatedBateauCatalogue.stock, null, null);
+            mouvement.bateau = entity;
+            mouvement.persist();
+        }
         entity.stock = updatedBateauCatalogue.stock;
         entity.stockAlerte = updatedBateauCatalogue.stockAlerte;
         entity.emplacement = updatedBateauCatalogue.emplacement;
@@ -131,6 +145,8 @@ public class BateauCatalogueResource {
         }
         // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
         PackageLigneEntity.delete("bateau.id = ?1", id);
+        // Son historique de stock disparaît avec lui (un article vendu ou commandé reste protégé par ses lignes)
+        ProduitMouvementEntity.delete("bateau.id = ?1", id);
         entity.delete();
         return Response.noContent().build();
     }

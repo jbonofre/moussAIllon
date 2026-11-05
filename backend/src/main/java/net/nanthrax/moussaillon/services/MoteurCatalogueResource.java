@@ -8,6 +8,7 @@ import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
+import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +56,13 @@ public class MoteurCatalogueResource {
     public MoteurCatalogueEntity create(MoteurCatalogueEntity moteur) {
         moteur.helicesCompatibles = resolveHelices(moteur.helicesCompatibles);
         moteur.persist();
+        // Le stock initial date l'entrée en stock de l'article
+        if (moteur.stock > 0) {
+            ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                    ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL, moteur.stock, moteur.stock, null, null);
+            mouvement.moteur = moteur;
+            mouvement.persist();
+        }
         if (ReferenceInterne.absente(moteur.ref)) {
             moteur.ref = ReferenceInterne.generer("MOT", moteur.id);
         }
@@ -90,6 +98,12 @@ public class MoteurCatalogueResource {
         entity.cylindree = moteur.cylindree;
         entity.regime = moteur.regime;
         entity.huileRecommandee = moteur.huileRecommandee;
+        if (moteur.stock != entity.stock) {
+            ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL,
+                    moteur.stock - entity.stock, moteur.stock, null, null);
+            mouvement.moteur = entity;
+            mouvement.persist();
+        }
         entity.stock = moteur.stock;
         entity.stockAlerte = moteur.stockAlerte;
         entity.emplacement = moteur.emplacement;
@@ -134,6 +148,8 @@ public class MoteurCatalogueResource {
         }
         // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
         PackageLigneEntity.delete("moteur.id = ?1", id);
+        // Son historique de stock disparaît avec lui (un article vendu ou commandé reste protégé par ses lignes)
+        ProduitMouvementEntity.delete("moteur.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }

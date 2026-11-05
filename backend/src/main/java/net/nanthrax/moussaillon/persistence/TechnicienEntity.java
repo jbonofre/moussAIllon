@@ -27,4 +27,7 @@ public class TechnicienEntity extends PanacheEntity {
 
     public Double cibleHeures;
 
+    // Coût horaire chargé (salaire et charges), en € HT : coût de la main d'oeuvre pour la marge brute des prestations
+    public Double coutHoraire;
+
 }

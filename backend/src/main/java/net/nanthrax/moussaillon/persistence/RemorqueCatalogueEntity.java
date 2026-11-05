@@ -61,6 +61,10 @@ public class RemorqueCatalogueEntity extends PanacheEntity {
 
     public long stockAlerte;
 
+    // Prix d'achat moyen pondéré (PMP) HT, recalculé à chaque réception de commande fournisseur (0 : inconnu)
+    @jakarta.persistence.Column(columnDefinition = "double default 0")
+    public double prixAchatMoyenHT;
+
     public String emplacement;
 
     public double prixVenteHT;

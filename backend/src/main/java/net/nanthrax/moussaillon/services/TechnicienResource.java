@@ -96,6 +96,7 @@ public class TechnicienResource {
         entity.couleur = technicien.couleur;
         entity.cibleInterventions = technicien.cibleInterventions;
         entity.cibleHeures = technicien.cibleHeures;
+        entity.coutHoraire = technicien.coutHoraire;
 
         entity.flush();
         TechnicienEntity.getEntityManager().detach(entity);
