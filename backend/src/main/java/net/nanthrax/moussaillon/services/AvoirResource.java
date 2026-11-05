@@ -125,13 +125,16 @@ public class AvoirResource {
         public String motif;
         public String notes;
         // Identifiants des lignes de la facture à reprendre dans l'avoir.
-        // Si aucune des trois listes n'est fournie, toutes les lignes sont reprises.
+        // Si aucune des trois listes n'est fournie, ni aucune ligne libre, toutes les lignes sont reprises.
         public List<Long> forfaitIds;
         public List<Long> serviceIds;
         public List<Long> produitIds;
+        // Lignes saisies sur l'avoir (désignation, quantité, prix unitaire HT, TVA) : par exemple une heure
+        // de main d'œuvre, sans faire l'avoir sur la totalité d'un forfait (issue #756)
+        public List<AvoirLigneEntity> lignesLibres;
 
         boolean hasSelection() {
-            return forfaitIds != null || serviceIds != null || produitIds != null;
+            return forfaitIds != null || serviceIds != null || produitIds != null || lignesLibres != null;
         }
 
         boolean retient(List<Long> ids, Long id) {
@@ -228,8 +231,29 @@ public class AvoirResource {
             }
         }
 
+        // Lignes libres
+        if (request.lignesLibres != null) {
+            for (AvoirLigneEntity libre : request.lignesLibres) {
+                if (libre == null || libre.designation == null || libre.designation.isBlank()) {
+                    throw new WebApplicationException("Une ligne libre doit avoir une désignation", 400);
+                }
+                if (libre.prixUnitaireHT < 0 || libre.tva < 0) {
+                    throw new WebApplicationException("Le prix et la TVA d'une ligne libre ne peuvent pas être négatifs", 400);
+                }
+                AvoirLigneEntity ligne = new AvoirLigneEntity();
+                ligne.designation = libre.designation.trim();
+                ligne.quantite = Quantite.ouUn(libre.quantite);
+                ligne.prixUnitaireHT = libre.prixUnitaireHT;
+                ligne.tva = exonere ? 0 : libre.tva;
+                double totalHT = ligne.prixUnitaireHT * ligne.quantite;
+                ligne.montantTVA = round2(totalHT * (ligne.tva / 100.0));
+                ligne.totalTTC = round2(totalHT + ligne.montantTVA);
+                avoir.lignes.add(ligne);
+            }
+        }
+
         if (avoir.lignes.isEmpty()) {
-            throw new WebApplicationException("Aucune ligne de la facture n'est sélectionnée", 400);
+            throw new WebApplicationException("Aucune ligne de la facture n'est sélectionnée, ni aucune ligne libre saisie", 400);
         }
 
         // Totaux globaux
