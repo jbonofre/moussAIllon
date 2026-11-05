@@ -2,7 +2,8 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import dayjs from 'dayjs';
-import KpisCommerciaux, { ecartPoints } from './kpis-commerciaux.tsx';
+import KpisCommerciaux from './kpis-commerciaux.tsx';
+import { ecartPoints } from './kpis-commun.tsx';
 import { fetchWithAuth } from './api.ts';
 
 jest.mock('./api.ts', () => ({

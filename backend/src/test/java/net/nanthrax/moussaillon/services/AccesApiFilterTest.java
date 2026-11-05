@@ -81,6 +81,11 @@ public class AccesApiFilterTest {
         assertNotNull(refus(VENDEUR, "GET", "/kpis-commerciaux"));
         assertNotNull(refus(COMPTABLE, "GET", "/kpis-commerciaux"));
         assertNull(refus(Set.of("chantier", "MARKETING"), "GET", "/kpis-commerciaux"));
+        assertNotNull(refus(VENDEUR, "GET", "/kpis-atelier"));
+        assertNotNull(refus(COMPTABLE, "GET", "/kpis-atelier"));
+        assertNull(refus(Set.of("chantier", "ATELIER"), "GET", "/kpis-atelier"));
+        // Les absences des techniciens restent des données de l'atelier accessibles au chantier
+        assertNull(refus(VENDEUR, "GET", "/techniciens/1/absences"));
         assertNull(refus(ADMIN, "GET", "/plateformes-annonces"));
         assertNotNull(refus(VENDEUR, "GET", "/plateformes-annonces"));
     }

@@ -172,6 +172,8 @@ interface VenteForfaitEntity {
     incidentDate?: string;
     incidentDetails?: string;
     notes?: string;
+    // Intervention SAV ou garantie : temps compté au SAV, pas dans les heures facturées (KPIs atelier)
+    sav?: boolean;
     taches?: TaskEntity[];
     images?: string[];
     documents?: string[];
@@ -199,6 +201,8 @@ interface VenteServiceEntity {
     incidentDate?: string;
     incidentDetails?: string;
     notes?: string;
+    // Intervention SAV ou garantie : temps compté au SAV, pas dans les heures facturées (KPIs atelier)
+    sav?: boolean;
     taches?: TaskEntity[];
     images?: string[];
     documents?: string[];
@@ -531,6 +535,7 @@ interface LigneUnifiee {
     remisePourcentage?: number;
     technicienIds?: number[];
     status?: PlanningStatus;
+    sav?: boolean;
     datePlanification?: string;
     dateDebut?: string;
     dateFin?: string;
@@ -1053,7 +1058,7 @@ export default function Vente() {
             // persiste sur la ligne (#398).
             const planningReset: Partial<LigneUnifiee> = isPlanifiable
                 ? { status: 'EN_ATTENTE' }
-                : { status: undefined, technicienIds: undefined };
+                : { status: undefined, technicienIds: undefined, sav: undefined };
             updated[index] = { ...updated[index], type: parsed.type, itemId: parsed.id, ...planningReset };
             const lastLine = updated[updated.length - 1];
             if (lastLine?.type && lastLine?.itemId && (lastLine?.quantite || 0) > 0) {
@@ -1845,6 +1850,7 @@ export default function Vente() {
                 remisePourcentage: vf.remisePourcentage || 0,
                 technicienIds: (vf.techniciens || []).map(t => t.id),
                 status: vf.status || 'EN_ATTENTE',
+                sav: vf.sav || false,
                 datePlanification: vf.datePlanification,
                 dateDebut: vf.dateDebut,
                 dateFin: vf.dateFin,
@@ -1866,6 +1872,7 @@ export default function Vente() {
                 remisePourcentage: vs.remisePourcentage || 0,
                 technicienIds: (vs.techniciens || []).map(t => t.id),
                 status: vs.status || 'EN_ATTENTE',
+                sav: vs.sav || false,
                 datePlanification: vs.datePlanification,
                 dateDebut: vs.dateDebut,
                 dateFin: vs.dateFin,
@@ -2148,6 +2155,7 @@ export default function Vente() {
                     dateDebutOriginale: existingVf?.dateDebutOriginale,
                     dateFinOriginale: existingVf?.dateFinOriginale,
                     status: line.status || 'EN_ATTENTE',
+                    sav: line.sav || false,
                     dureeReelle: line.dureeReelle || existingVf?.dureeReelle || 0,
                     notes: line.notes || '',
                     incidentDate: toBackendDateValue(line.incidentDate),
@@ -2177,6 +2185,7 @@ export default function Vente() {
                     dateDebutOriginale: existingVs?.dateDebutOriginale,
                     dateFinOriginale: existingVs?.dateFinOriginale,
                     status: line.status || 'EN_ATTENTE',
+                    sav: line.sav || false,
                     dureeReelle: line.dureeReelle || existingVs?.dureeReelle || 0,
                     notes: line.notes || '',
                     incidentDate: toBackendDateValue(line.incidentDate),
@@ -3755,6 +3764,16 @@ export default function Vente() {
                                                     const actionsLigne: MenuProps['items'] = isEmptyLine ? [] : [
                                                         ...(lineType === 'service' && itemId ? [{ key: 'modifier', icon: <EditOutlined />, label: 'Modifier le service', onClick: () => openEditServiceModal(itemId) }] : []),
                                                         ...(isForfaitOrService ? [{ key: 'planifier', icon: <CalendarOutlined />, label: 'Planifier', onClick: () => { setModalVisible(false); navigate('/planning'); } }] : []),
+                                                        // Case liée au champ de la ligne : son état reste juste à chaque ouverture du menu
+                                                        ...(isForfaitOrService ? [{
+                                                            key: 'sav',
+                                                            title: "Intervention SAV ou garantie : son temps est compté au SAV, pas dans les heures facturées (KPIs atelier)",
+                                                            label: (
+                                                                <Form.Item name={[field.name, 'sav']} valuePropName="checked" noStyle>
+                                                                    <Checkbox>SAV / garantie</Checkbox>
+                                                                </Form.Item>
+                                                            ),
+                                                        }] : []),
                                                         ...(emplacements.length > 0 ? [{ key: 'emplacements', type: 'group' as const, label: 'Emplacements', children: emplacements }] : []),
                                                     ];
 
@@ -3966,9 +3985,17 @@ export default function Vente() {
                                                                 </Tag>
                                                             )}
                                                             {lineType && (
-                                                                <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
-                                                                    {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
-                                                                </Tag>
+                                                                <Form.Item noStyle shouldUpdate={(prev, cur) => prev.lignes?.[field.name]?.sav !== cur.lignes?.[field.name]?.sav}>
+                                                                    {() => (isForfaitOrService && form.getFieldValue(['lignes', field.name, 'sav']) ? (
+                                                                        <Tag color="volcano" style={{ marginRight: 0, paddingInline: 3 }} title={`${lineType === 'forfait' ? 'Forfait' : 'Service'} SAV / garantie`}>
+                                                                            SAV
+                                                                        </Tag>
+                                                                    ) : (
+                                                                        <Tag color={lineType === 'forfait' ? 'blue' : lineType === 'service' ? 'green' : lineType === 'produit' ? 'orange' : 'purple'} style={{ marginRight: 0 }}>
+                                                                            {lineType === 'forfait' ? 'F' : lineType === 'service' ? 'S' : lineType === 'produit' ? 'P' : lineType === 'bateau' ? 'B' : lineType === 'moteur' ? 'M' : lineType === 'helice' ? 'H' : 'R'}
+                                                                        </Tag>
+                                                                    ))}
+                                                                </Form.Item>
                                                             )}
                                                             {!isEmptyLine && !libre && (
                                                                 <FicheCataloguePopover

@@ -643,6 +643,7 @@ public class VenteResource {
                 cloned.incidentDate = incoming.incidentDate;
                 cloned.incidentDetails = incoming.incidentDetails;
                 cloned.notes = incoming.notes;
+                cloned.sav = incoming.sav;
                 if (incoming.taches != null && !incoming.taches.isEmpty()) {
                     for (TaskEntity t : incoming.taches) {
                         TaskEntity ct = new TaskEntity();
@@ -698,6 +699,7 @@ public class VenteResource {
                 cloned.incidentDate = incoming.incidentDate;
                 cloned.incidentDetails = incoming.incidentDetails;
                 cloned.notes = incoming.notes;
+                cloned.sav = incoming.sav;
                 if (incoming.taches != null && !incoming.taches.isEmpty()) {
                     for (TaskEntity t : incoming.taches) {
                         TaskEntity ct = new TaskEntity();

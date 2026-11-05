@@ -83,6 +83,7 @@ public class MainOeuvreResource {
         entity.tva = mainOeuvre.tva;
         entity.montantTVA = mainOeuvre.montantTVA;
         entity.prixTTC = mainOeuvre.prixTTC;
+        entity.forfaitaire = mainOeuvre.forfaitaire;
 
         return entity;
     }
