@@ -84,6 +84,10 @@ public class VenteServiceEntity extends PanacheEntity {
 
     public String notes;
 
+    // Intervention SAV ou garantie : son temps est compté au SAV, pas dans les heures facturées (KPIs atelier)
+    @jakarta.persistence.Column(columnDefinition = "boolean default false")
+    public boolean sav;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true, fetch = jakarta.persistence.FetchType.EAGER)
     @JoinColumn(name = "vente_service_id")
     public List<TaskEntity> taches = new ArrayList<>();

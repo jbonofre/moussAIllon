@@ -8,6 +8,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.AbsenceTechnicienEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.TechnicienEntity;
 
@@ -44,6 +45,7 @@ public class TechnicienResource {
     @POST
     @Transactional
     public TechnicienEntity create(TechnicienEntity technicien) {
+        technicien.joursTravailles = joursTravailles(technicien.joursTravailles);
         if (technicien.motDePasse != null && !technicien.motDePasse.isBlank()) {
             technicien.motDePasse = PasswordUtil.hash(technicien.motDePasse);
         }
@@ -73,6 +75,7 @@ public class TechnicienResource {
         if (entity == null) {
             throw new WebApplicationException("Le technicien (" + id + ") n'est pas trouvé", 404);
         }
+        AbsenceTechnicienEntity.delete("technicien", entity);
         entity.delete();
         return Response.status(204).build();
     }
@@ -97,11 +100,66 @@ public class TechnicienResource {
         entity.cibleInterventions = technicien.cibleInterventions;
         entity.cibleHeures = technicien.cibleHeures;
         entity.coutHoraire = technicien.coutHoraire;
+        entity.heuresHebdomadaires = technicien.heuresHebdomadaires;
+        entity.joursTravailles = joursTravailles(technicien.joursTravailles);
 
         entity.flush();
         TechnicienEntity.getEntityManager().detach(entity);
         entity.motDePasse = null;
         return entity;
+    }
+
+    // Jours travaillés normalisés (« 1,2,3,4,5 »), null pour la semaine par défaut du lundi au vendredi
+    private static String joursTravailles(String jours) {
+        try {
+            return CapaciteAtelier.formatJours(CapaciteAtelier.joursTravailles(jours));
+        } catch (IllegalArgumentException e) {
+            throw new WebApplicationException(e.getMessage(), 400);
+        }
+    }
+
+    @GET
+    @Path("{id}/absences")
+    public List<AbsenceTechnicienEntity> absences(@PathParam("id") long id) {
+        return AbsenceTechnicienEntity.list("technicien.id = ?1 order by dateDebut desc", technicien(id).id);
+    }
+
+    @POST
+    @Path("{id}/absences")
+    @Transactional
+    public AbsenceTechnicienEntity ajouterAbsence(@PathParam("id") long id, AbsenceTechnicienEntity absence) {
+        if (absence == null || absence.dateDebut == null || absence.dateFin == null) {
+            throw new WebApplicationException("Les dates de début et de fin de l'absence sont requises", 400);
+        }
+        if (absence.dateFin.isBefore(absence.dateDebut)) {
+            throw new WebApplicationException("La fin de l'absence précède son début", 400);
+        }
+        absence.id = null;
+        absence.technicien = technicien(id);
+        if (absence.type == null) {
+            absence.type = AbsenceTechnicienEntity.Type.AUTRE;
+        }
+        absence.persist();
+        return absence;
+    }
+
+    @DELETE
+    @Path("{id}/absences/{absenceId}")
+    @Transactional
+    public Response supprimerAbsence(@PathParam("id") long id, @PathParam("absenceId") long absenceId) {
+        long supprimees = AbsenceTechnicienEntity.delete("id = ?1 and technicien.id = ?2", absenceId, id);
+        if (supprimees == 0) {
+            throw new WebApplicationException("L'absence (" + absenceId + ") n'est pas trouvée", 404);
+        }
+        return Response.status(204).build();
+    }
+
+    private static TechnicienEntity technicien(long id) {
+        TechnicienEntity technicien = TechnicienEntity.findById(id);
+        if (technicien == null) {
+            throw new WebApplicationException("Le technicien (" + id + ") n'est pas trouvé", 404);
+        }
+        return technicien;
     }
 
     @POST

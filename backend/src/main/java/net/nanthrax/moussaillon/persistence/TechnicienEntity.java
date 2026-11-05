@@ -30,4 +30,10 @@ public class TechnicienEntity extends PanacheEntity {
     // Coût horaire chargé (salaire et charges), en € HT : coût de la main d'oeuvre pour la marge brute des prestations
     public Double coutHoraire;
 
+    // Capacité de travail : durée hebdomadaire (heures) répartie sur les jours travaillés, numéros ISO séparés
+    // par des virgules (1 = lundi ... 7 = dimanche), du lundi au vendredi s'ils ne sont pas renseignés
+    public Double heuresHebdomadaires;
+
+    public String joursTravailles;
+
 }

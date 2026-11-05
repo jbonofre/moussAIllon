@@ -5,6 +5,8 @@ import { PlusCircleOutlined, EditOutlined, DeleteOutlined, UserOutlined, BarChar
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
+import AbsencesTechnicien from './AbsencesTechnicien.tsx';
+import { JOURS_SEMAINE, joursDepuisFiche, joursVersFiche } from './capacite-technicien.ts';
 
 // --- Types ---
 
@@ -19,6 +21,9 @@ interface TechnicienEntity {
     cibleInterventions?: number;
     cibleHeures?: number;
     coutHoraire?: number;
+    heuresHebdomadaires?: number;
+    // Jours travaillés, numéros séparés par des virgules (1 = lundi) ; du lundi au vendredi s'ils sont vides
+    joursTravailles?: string;
 }
 
 interface TechnicienKpi {
@@ -53,7 +58,15 @@ interface TechnicienFormValues {
     cibleInterventions?: number;
     cibleHeures?: number;
     coutHoraire?: number;
+    heuresHebdomadaires?: number;
+    joursTravailles?: number[];
 }
+
+// Fiche technicien vers les valeurs du formulaire (jours travaillés en cases à cocher)
+const versFormulaire = (technicien: TechnicienEntity): TechnicienFormValues => ({
+    ...technicien,
+    joursTravailles: joursDepuisFiche(technicien.joursTravailles),
+});
 
 const defaultTechnicien: TechnicienFormValues = {
     nom: '',
@@ -102,7 +115,7 @@ const Techniciens: React.FC = () => {
             setCurrentTechnicien(technicien);
             form.setFieldsValue({
                 ...defaultTechnicien,
-                ...technicien,
+                ...versFormulaire(technicien),
             });
         } else {
             setIsEdit(false);
@@ -110,7 +123,7 @@ const Techniciens: React.FC = () => {
             form.resetFields();
             const randomColor = '#' + Array.from(crypto.getRandomValues(new Uint8Array(3)))
                 .map(b => b.toString(16).padStart(2, '0')).join('');
-            form.setFieldsValue({ ...defaultTechnicien, couleur: randomColor });
+            form.setFieldsValue({ ...defaultTechnicien, couleur: randomColor, joursTravailles: joursDepuisFiche() });
         }
         setFormDirty(false);
         setModalVisible(true);
@@ -138,7 +151,8 @@ const Techniciens: React.FC = () => {
             const { confirmMotDePasse, ...values } = await form.validateFields();
             const payload = {
                 ...values,
-                couleur: values.couleur || defaultTechnicien.couleur
+                couleur: values.couleur || defaultTechnicien.couleur,
+                joursTravailles: joursVersFiche(values.joursTravailles),
             };
 
             if (isEdit && currentTechnicien && currentTechnicien.id) {
@@ -146,14 +160,14 @@ const Techniciens: React.FC = () => {
                 message.success('Technicien modifié avec succès');
                 setFormDirty(false);
                 setCurrentTechnicien(res.data);
-                form.setFieldsValue(res.data);
+                form.setFieldsValue(versFormulaire(res.data));
             } else {
                 const res = await api.post('/techniciens', payload);
                 message.success('Technicien ajouté avec succès');
                 setFormDirty(false);
                 setIsEdit(true);
                 setCurrentTechnicien(res.data);
-                form.setFieldsValue(res.data);
+                form.setFieldsValue(versFormulaire(res.data));
             }
             fetchTechniciens(searchQuery);
         } catch (err) {
@@ -490,6 +504,23 @@ const Techniciens: React.FC = () => {
                                         </Form.Item>
                                     </Col>
                                 </Row>
+                                <Divider orientation="left" plain>Capacité de travail</Divider>
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="heuresHebdomadaires"
+                                            label="Durée hebdomadaire"
+                                            tooltip="Durée de travail prévue au contrat, répartie sur les jours travaillés : base des heures disponibles des KPIs atelier, jours fériés et absences déduits"
+                                        >
+                                            <InputNumber min={0} max={80} step={0.5} style={{ width: '100%' }} addonAfter="h / semaine" placeholder="Ex : 35" />
+                                        </Form.Item>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Form.Item name="joursTravailles" label="Jours travaillés">
+                                            <Checkbox.Group options={JOURS_SEMAINE} />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
                                 <Form.Item
                                     name="couleur"
                                     label="Couleur"
@@ -498,6 +529,12 @@ const Techniciens: React.FC = () => {
                                     <ColorPicker format="hex" />
                                 </Form.Item>
                             </Form>
+                            <Divider orientation="left" plain>Absences</Divider>
+                            {isEdit && currentTechnicien?.id ? (
+                                <AbsencesTechnicien technicienId={currentTechnicien.id} />
+                            ) : (
+                                <Typography.Text type="secondary">Enregistrez le technicien pour saisir ses absences.</Typography.Text>
+                            )}
                         </Modal>
                     </Col>
                 </Row>

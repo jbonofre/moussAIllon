@@ -16,7 +16,7 @@ import java.util.function.Supplier;
  * <ul>
  *   <li>les portails client et technicien n'accèdent qu'à leurs propres points d'API ;</li>
  *   <li>dans le chantier, les fonctions sensibles sont réservées à leur module (utilisateurs, paramètres
- *   et abonnement, comptabilité, marketing). Les données métier que les pages croisent (ventes, clients,
+ *   et abonnement, comptabilité, marketing, KPIs atelier). Les données métier que les pages croisent (ventes, clients,
  *   catalogue, parc, techniciens...) restent accessibles à tout utilisateur du chantier ;</li>
  *   <li>un abonnement non activé, ou impayé depuis 2 mois ou plus, limite l'accès à la facturation.</li>
  * </ul>
@@ -31,6 +31,7 @@ public class AccesApiFilter implements ContainerRequestFilter {
     private static final String PARAMETRAGE = ModuleApplication.PARAMETRAGE.name();
     private static final String COMPTABILITE = ModuleApplication.COMPTABILITE.name();
     private static final String MARKETING = ModuleApplication.MARKETING.name();
+    private static final String ATELIER = ModuleApplication.ATELIER.name();
 
     @Inject
     SecurityIdentity identity;
@@ -100,6 +101,9 @@ public class AccesApiFilter implements ContainerRequestFilter {
         }
         if (sous(chemin, "/campagnes", "/email-sequences", "/kpis-commerciaux")) {
             return groupes.contains(MARKETING) ? null : "Accès réservé au module Marketing.";
+        }
+        if (sous(chemin, "/kpis-atelier")) {
+            return groupes.contains(ATELIER) ? null : "Accès réservé au module Atelier.";
         }
         if (sous(chemin, "/plateformes-annonces")) {
             return parametrage || groupes.contains(MARKETING) ? null : "Accès réservé aux modules Marketing et Paramétrage.";

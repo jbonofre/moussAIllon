@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -25,6 +26,7 @@ import jakarta.ws.rs.core.MediaType;
 import net.nanthrax.moussaillon.persistence.AvoirEntity;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ForfaitProduitEntity;
+import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
@@ -231,8 +233,7 @@ public class KpiFinancierResource {
         }
 
         private List<Ligne> lignes(VenteEntity vente, Map<String, double[]> figes, boolean periodeN) {
-            boolean exonere = vente.exonereTva();
-            double tauxVente = vente.tva > 0 ? vente.tva : TVA_DEFAUT;
+            Map<Object, Double> poids = poidsLignes(vente);
             List<Ligne> lignes = new ArrayList<>();
             for (VenteForfaitEntity vf : vente.venteForfaits) {
                 if (vf.forfait == null) continue;
@@ -245,8 +246,7 @@ public class KpiFinancierResource {
                         cout += fp.quantite * quantite * coutProduit(fp.produit, figes);
                     }
                 }
-                lignes.add(new Ligne(Activite.PRESTATIONS, poidsHT(vf.forfait.prixTTC, vf.forfait.prixHT, vf.forfait.tva, false,
-                        vf.quantite, vf.remise, exonere, tauxVente), cout));
+                lignes.add(new Ligne(Activite.PRESTATIONS, poids.get(vf), cout));
             }
             for (VenteServiceEntity vs : vente.venteServices) {
                 if (vs.service == null) continue;
@@ -259,41 +259,34 @@ public class KpiFinancierResource {
                         cout += sp.quantite * quantite * coutProduit(sp.produit, figes);
                     }
                 }
-                lignes.add(new Ligne(Activite.PRESTATIONS, poidsHT(vs.service.prixTTC, vs.service.prixHT, vs.service.tva, false,
-                        vs.quantite, vs.remise, exonere, tauxVente), cout));
+                lignes.add(new Ligne(Activite.PRESTATIONS, poids.get(vs), cout));
             }
             for (VenteProduitEntity vp : vente.venteProduits) {
                 ProduitCatalogueEntity p = vp.produit;
                 if (p == null) continue;
                 Activite activite = hivernageOuGardiennage(p) ? Activite.HIVERNAGE_GARDIENNAGE : Activite.PIECES;
-                lignes.add(new Ligne(activite, poidsHT(p.prixVenteTTC, p.prixVenteHT, p.tva, p.occasion, vp.quantite, vp.remise, exonere, tauxVente),
-                        Quantite.ouUn(vp.quantite) * coutProduit(p, figes)));
+                lignes.add(new Ligne(activite, poids.get(vp), Quantite.ouUn(vp.quantite) * coutProduit(p, figes)));
             }
             for (VenteBateauCatalogueEntity vb : vente.venteBateauxCatalogue) {
                 BateauCatalogueEntity b = vb.bateau;
                 if (b == null) continue;
-                lignes.add(new Ligne(b.occasion ? Activite.BATEAUX_OCCASION : Activite.BATEAUX_NEUFS,
-                        poidsHT(b.prixVenteTTC, b.prixVenteHT, b.tva, b.occasion, vb.quantite, vb.remise, exonere, tauxVente),
+                lignes.add(new Ligne(b.occasion ? Activite.BATEAUX_OCCASION : Activite.BATEAUX_NEUFS, poids.get(vb),
                         Quantite.ouUn(vb.quantite) * coutFige(figes, "B" + b.id, couts.bateau(b))));
             }
             for (VenteMoteurCatalogueEntity vm : vente.venteMoteursCatalogue) {
                 MoteurCatalogueEntity m = vm.moteur;
                 if (m == null) continue;
-                lignes.add(new Ligne(m.occasion ? Activite.MOTEURS_OCCASION : Activite.MOTEURS_NEUFS,
-                        poidsHT(m.prixVenteTTC, m.prixVenteHT, m.tva, m.occasion, vm.quantite, vm.remise, exonere, tauxVente),
+                lignes.add(new Ligne(m.occasion ? Activite.MOTEURS_OCCASION : Activite.MOTEURS_NEUFS, poids.get(vm),
                         Quantite.ouUn(vm.quantite) * coutFige(figes, "M" + m.id, couts.moteur(m))));
             }
             for (VenteHeliceCatalogueEntity vh : vente.venteHelicesCatalogue) {
                 if (vh.helice == null) continue;
-                lignes.add(new Ligne(Activite.HELICES,
-                        poidsHT(vh.helice.prixVenteTTC, vh.helice.prixVenteHT, vh.helice.tva, vh.helice.occasion, vh.quantite, vh.remise, exonere, tauxVente),
-                        Quantite.ouUn(vh.quantite) * couts.helice(vh.helice)));
+                lignes.add(new Ligne(Activite.HELICES, poids.get(vh), Quantite.ouUn(vh.quantite) * couts.helice(vh.helice)));
             }
             for (VenteRemorqueCatalogueEntity vr : vente.venteRemorquesCatalogue) {
                 RemorqueCatalogueEntity r = vr.remorque;
                 if (r == null) continue;
-                lignes.add(new Ligne(Activite.REMORQUES,
-                        poidsHT(r.prixVenteTTC, r.prixVenteHT, r.tva, r.occasion, vr.quantite, vr.remise, exonere, tauxVente),
+                lignes.add(new Ligne(Activite.REMORQUES, poids.get(vr),
                         Quantite.ouUn(vr.quantite) * coutFige(figes, "R" + r.id, couts.remorque(r))));
             }
             return lignes;
@@ -418,6 +411,50 @@ public class KpiFinancierResource {
             return vente.montantHT * vente.prixVenteTTC / vente.montantTTC;
         }
         return vente.montantHT;
+    }
+
+    /**
+     * Montant HT de chaque ligne d'une vente dont l'article est connu, remise de ligne déduite : base de la répartition
+     * du CA de sa facture entre ses lignes (au prorata de leur montant).
+     */
+    static Map<Object, Double> poidsLignes(VenteEntity vente) {
+        boolean exonere = vente.exonereTva();
+        double tauxVente = vente.tva > 0 ? vente.tva : TVA_DEFAUT;
+        Map<Object, Double> poids = new IdentityHashMap<>();
+        for (VenteForfaitEntity vf : vente.venteForfaits) {
+            if (vf.forfait == null) continue;
+            poids.put(vf, poidsHT(vf.forfait.prixTTC, vf.forfait.prixHT, vf.forfait.tva, false, vf.quantite, vf.remise, exonere, tauxVente));
+        }
+        for (VenteServiceEntity vs : vente.venteServices) {
+            if (vs.service == null) continue;
+            poids.put(vs, poidsHT(vs.service.prixTTC, vs.service.prixHT, vs.service.tva, false, vs.quantite, vs.remise, exonere, tauxVente));
+        }
+        for (VenteProduitEntity vp : vente.venteProduits) {
+            ProduitCatalogueEntity p = vp.produit;
+            if (p == null) continue;
+            poids.put(vp, poidsHT(p.prixVenteTTC, p.prixVenteHT, p.tva, p.occasion, vp.quantite, vp.remise, exonere, tauxVente));
+        }
+        for (VenteBateauCatalogueEntity vb : vente.venteBateauxCatalogue) {
+            BateauCatalogueEntity b = vb.bateau;
+            if (b == null) continue;
+            poids.put(vb, poidsHT(b.prixVenteTTC, b.prixVenteHT, b.tva, b.occasion, vb.quantite, vb.remise, exonere, tauxVente));
+        }
+        for (VenteMoteurCatalogueEntity vm : vente.venteMoteursCatalogue) {
+            MoteurCatalogueEntity m = vm.moteur;
+            if (m == null) continue;
+            poids.put(vm, poidsHT(m.prixVenteTTC, m.prixVenteHT, m.tva, m.occasion, vm.quantite, vm.remise, exonere, tauxVente));
+        }
+        for (VenteHeliceCatalogueEntity vh : vente.venteHelicesCatalogue) {
+            HeliceCatalogueEntity h = vh.helice;
+            if (h == null) continue;
+            poids.put(vh, poidsHT(h.prixVenteTTC, h.prixVenteHT, h.tva, h.occasion, vh.quantite, vh.remise, exonere, tauxVente));
+        }
+        for (VenteRemorqueCatalogueEntity vr : vente.venteRemorquesCatalogue) {
+            RemorqueCatalogueEntity r = vr.remorque;
+            if (r == null) continue;
+            poids.put(vr, poidsHT(r.prixVenteTTC, r.prixVenteHT, r.tva, r.occasion, vr.quantite, vr.remise, exonere, tauxVente));
+        }
+        return poids;
     }
 
     /**

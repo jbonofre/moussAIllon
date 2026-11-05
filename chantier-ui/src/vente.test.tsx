@@ -367,6 +367,34 @@ describe('Transactions - lignes forfait', () => {
         })));
     });
 
+    it('marque une prestation SAV / garantie depuis les actions de la ligne', async () => {
+        const vente = {
+            id: 20, date: '2026-10-20T10:00:00', status: 'DEVIS', bonPourAccord: true,
+            client: { id: 3, nom: 'Jean Dupont' },
+            venteForfaits: [{ id: 1, forfait, quantite: 1, status: 'TERMINEE', dureeReelle: 2 }],
+        };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes' ? [vente] : url === '/ventes/20' ? vente : (donnees[url] || []),
+        }) as any);
+        mockedApi.put.mockImplementation((_url: string, body: any) => Promise.resolve({ data: body }) as any);
+        render(<Vente />);
+
+        fireEvent.click(await screen.findByText('FACT-2026-00020'));
+        await screen.findByText('Transaction/Prestation');
+        const modal = document.querySelector('.ant-modal') as HTMLElement;
+        expect(await within(modal).findByText('Hivernage')).toBeInTheDocument();
+        expect(within(modal).queryByText('SAV')).not.toBeInTheDocument();
+
+        fireEvent.click(within(modal).getByTitle('Autres actions'));
+        fireEvent.click(await screen.findByRole('checkbox', { name: 'SAV / garantie' }));
+        expect(await within(modal).findByTitle('Forfait SAV / garantie')).toHaveTextContent('SAV');
+
+        fireEvent.click(bouton(modal, 'Enregistrer'));
+        await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith('/ventes/20', expect.objectContaining({
+            venteForfaits: [expect.objectContaining({ sav: true, dureeReelle: 2 })],
+        })));
+    });
+
     it("conserve la trace de correction des horaires posée par le technicien", async () => {
         const vente = {
             id: 20, date: '2026-10-20T10:00:00', status: 'DEVIS', bonPourAccord: true,

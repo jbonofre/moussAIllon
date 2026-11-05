@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import MosaicTable from "./MosaicTable.tsx";
-import { Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber, Popconfirm, message } from 'antd';
+import { Card, Row, Col, Space, Input, Button, Table, Modal, Form, InputNumber, Popconfirm, Checkbox, Tag, message } from 'antd';
 import { PlusCircleOutlined, EditOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import { paginationConfig } from './pagination.ts';
@@ -15,6 +15,8 @@ interface MainOeuvreEntity {
     tva?: number;
     montantTVA?: number;
     prixTTC?: number;
+    // Main d'oeuvre au forfait (déplacement, manutention...) : sa quantité n'est pas un nombre d'heures
+    forfaitaire?: boolean;
 }
 
 interface MainOeuvreFormValues {
@@ -25,6 +27,7 @@ interface MainOeuvreFormValues {
     tva?: number;
     montantTVA?: number;
     prixTTC?: number;
+    forfaitaire?: boolean;
 }
 
 const defaultMainOeuvre: MainOeuvreFormValues = {
@@ -34,7 +37,8 @@ const defaultMainOeuvre: MainOeuvreFormValues = {
     prixHT: 0,
     tva: 20,
     montantTVA: 0,
-    prixTTC: 0
+    prixTTC: 0,
+    forfaitaire: false
 };
 
 export default function MainOeuvres() {
@@ -168,6 +172,11 @@ export default function MainOeuvres() {
             title: 'Nom',
             dataIndex: 'nom',
             sorter: (a: MainOeuvreEntity, b: MainOeuvreEntity) => (a.nom || '').localeCompare(b.nom || '')
+        },
+        {
+            title: 'Facturation',
+            dataIndex: 'forfaitaire',
+            render: (forfaitaire?: boolean) => (forfaitaire ? <Tag color="gold">Au forfait</Tag> : <Tag>À l'heure</Tag>)
         },
         {
             title: 'Description',
@@ -319,6 +328,14 @@ export default function MainOeuvres() {
                             </Form.Item>
                         </Col>
                     </Row>
+                    <Form.Item
+                        name="forfaitaire"
+                        valuePropName="checked"
+                        tooltip="Une main d'œuvre au forfait (déplacement, manutention...) n'est pas comptée dans les heures facturées des KPIs atelier : sa quantité n'est pas un nombre d'heures"
+                        label="Facturation"
+                    >
+                        <Checkbox>Au forfait (quantité non horaire)</Checkbox>
+                    </Form.Item>
                 </Form>
             </Modal>
         </Card>

@@ -3,7 +3,7 @@ import { Tag, Typography } from 'antd';
 import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
-// Mise en forme commune aux pages de KPIs (financiers, commerciaux)
+// Mise en forme commune aux pages de KPIs (financiers, commerciaux, atelier)
 
 export const formatEuro = (v?: number | null, decimales = 2) =>
     new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: decimales, maximumFractionDigits: decimales }).format(v ?? 0);
@@ -22,4 +22,14 @@ export const Evolution = ({ n, n1 }: { n: number; n1: number }) => {
             {pct > 0 ? '+' : ''}{pct.toLocaleString('fr-FR')} %
         </Tag>
     );
+};
+
+// Écart en points entre deux taux, null s'il en manque un
+export const ecartPoints = (taux?: number | null, tauxN1?: number | null) =>
+    taux == null || tauxN1 == null ? null : Math.round((taux - tauxN1) * 10) / 10;
+
+export const EcartPoints = ({ taux, tauxN1 }: { taux?: number | null; tauxN1?: number | null }) => {
+    const ecart = ecartPoints(taux, tauxN1);
+    if (ecart === null) return <Typography.Text type="secondary">—</Typography.Text>;
+    return <Tag color={ecart >= 0 ? 'green' : 'red'}>{ecart > 0 ? '+' : ''}{ecart.toLocaleString('fr-FR')} pts</Tag>;
 };

@@ -21,6 +21,7 @@ jest.mock('./connecteurs.tsx', () => () => null);
 jest.mock('./rapprochement-bancaire.tsx', () => () => null);
 jest.mock('./kpis-financiers.tsx', () => () => null);
 jest.mock('./kpis-commerciaux.tsx', () => () => null);
+jest.mock('./kpis-atelier.tsx', () => () => null);
 jest.mock('./utilisateurs.tsx', () => () => null);
 jest.mock('./forfaits.tsx', () => () => null);
 jest.mock('./packages.tsx', () => () => null);

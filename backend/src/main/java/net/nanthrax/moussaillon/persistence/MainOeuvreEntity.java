@@ -23,4 +23,8 @@ public class MainOeuvreEntity extends PanacheEntity {
 
     public double prixTTC;
 
+    // Main d'oeuvre au forfait (déplacement, manutention...) : sa quantité n'est pas un nombre d'heures (KPIs atelier)
+    @jakarta.persistence.Column(columnDefinition = "boolean default false")
+    public boolean forfaitaire;
+
 }

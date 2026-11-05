@@ -7,7 +7,7 @@ import { fetchWithAuth } from './api.ts';
 import { paginationConfig } from './pagination.ts';
 import { useNavigation } from './navigation-context.tsx';
 import { libelleCanalAcquisition } from './canal-acquisition.ts';
-import { Evolution, formatDate, formatEuro, formatMois, formatTaux } from './kpis-commun.tsx';
+import { EcartPoints, Evolution, formatDate, formatEuro, formatMois, formatTaux } from './kpis-commun.tsx';
 
 const { Text, Paragraph } = Typography;
 
@@ -98,16 +98,6 @@ export interface KpisCommerciaux {
     motifsRefus: MotifRefus[];
     pipeline: Pipeline;
 }
-
-// Écart en points entre deux taux, null s'il en manque un
-export const ecartPoints = (taux?: number | null, tauxN1?: number | null) =>
-    taux == null || tauxN1 == null ? null : Math.round((taux - tauxN1) * 10) / 10;
-
-const EcartPoints = ({ taux, tauxN1 }: { taux?: number | null; tauxN1?: number | null }) => {
-    const ecart = ecartPoints(taux, tauxN1);
-    if (ecart === null) return <Text type="secondary">—</Text>;
-    return <Tag color={ecart >= 0 ? 'green' : 'red'}>{ecart > 0 ? '+' : ''}{ecart.toLocaleString('fr-FR')} pts</Tag>;
-};
 
 export default function KpisCommerciaux() {
     const { navigate } = useNavigation();
