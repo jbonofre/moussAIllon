@@ -17,15 +17,17 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Relances de paiement automatiques : chaque test est annulé en fin d'exécution (@TestTransaction). */
+/** Relances de paiement et de devis : chaque test est annulé en fin d'exécution (@TestTransaction). */
 @QuarkusTest
 public class RappelSchedulerTest {
 
     @Inject
     RappelScheduler rappelScheduler;
 
+    // Paramètre les délais, avec l'envoi automatique chaque matin (sinon les relances attendent le journal)
     private static void parametrerRelances(Integer j1, Integer j2, Integer j3) {
         SocieteEntity societe = SocieteEntity.findById(1L);
+        societe.relancesAutomatiques = true;
         societe.relance1Jours = j1;
         societe.relance2Jours = j2;
         societe.relance3Jours = j3;
@@ -48,6 +50,7 @@ public class RappelSchedulerTest {
 
     private static void parametrerRelancesDevis(Integer j1, Integer j2, Integer j3) {
         SocieteEntity societe = SocieteEntity.findById(1L);
+        societe.relancesAutomatiques = true;
         societe.relanceDevis1Jours = j1;
         societe.relanceDevis2Jours = j2;
         societe.relanceDevis3Jours = j3;
@@ -350,6 +353,133 @@ public class RappelSchedulerTest {
         rappelScheduler.envoyerRelancesDevis();
         assertEquals(1, vente.niveauRelanceDevis);
         assertEquals(0, autre.niveauRelanceDevis);
+    }
+
+    @Test
+    @TestTransaction
+    void testRelancesAValiderSansEnvoiAutomatique() {
+        parametrerRelances(15, 30, 45);
+        parametrerRelancesDevis(7, 15, 30);
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        societe.relancesAutomatiques = false;
+        VenteEntity facture = facture(ClientEntity.findById(100L), 500.0);
+        facture.dateEcheance = ilYA(20);
+        facture.persist();
+        VenteEntity devis = devis(ClientEntity.findById(100L), 20);
+        devis.persist();
+
+        rappelScheduler.envoyerRelances();
+        rappelScheduler.envoyerRelancesDevis();
+
+        assertEquals(0, facture.niveauRelance, "Rien n'est envoyé : les relances attendent le journal");
+        assertEquals(0, devis.niveauRelanceDevis);
+        assertTrue(historique(facture).isEmpty());
+        List<RappelScheduler.RelanceDue> dues = RappelScheduler.relancesDues(societe, LocalDate.now());
+        RappelScheduler.RelanceDue relanceFacture = relanceDue(dues, facture);
+        assertFalse(relanceFacture.devis());
+        assertEquals(1, relanceFacture.niveau());
+        assertEquals(LocalDate.now().minusDays(20), relanceFacture.depart());
+        RappelScheduler.RelanceDue relanceDevis = relanceDue(dues, devis);
+        assertTrue(relanceDevis.devis());
+        assertEquals(2, relanceDevis.niveau());
+
+        rappelScheduler.envoyer(relanceFacture);
+        assertEquals(1, facture.niveauRelance);
+        assertEquals(1, historique(facture).size());
+        assertNull(relanceDueOuNull(RappelScheduler.relancesDues(societe, LocalDate.now()), facture),
+            "La relance envoyée n'est plus due");
+    }
+
+    @Test
+    @TestTransaction
+    void testRelanceIgnoreeSansEnvoi() {
+        parametrerRelances(15, 30, 45);
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
+        vente.dateEcheance = ilYA(20);
+        vente.persist();
+
+        rappelScheduler.ignorer(relanceDue(RappelScheduler.relancesDues(societe, LocalDate.now()), vente), "Échéancier convenu");
+
+        assertEquals(1, vente.niveauRelance, "La relance 1 est traitée sans être envoyée");
+        List<RappelHistoriqueEntity> lignes = historique(vente);
+        assertEquals(1, lignes.size());
+        assertTrue(lignes.get(0).ignoree);
+        assertEquals(1, lignes.get(0).numeroRappel);
+        assertEquals("Échéancier convenu", lignes.get(0).motif);
+
+        rappelScheduler.envoyerRelances();
+        assertEquals(1, historique(vente).size(), "La relance ignorée n'est pas envoyée le lendemain");
+
+        // La relance suivante reste prévue
+        vente.dateEcheance = ilYA(31);
+        rappelScheduler.envoyerRelances();
+        assertEquals(2, vente.niveauRelance);
+        assertEquals(2, historique(vente).size());
+    }
+
+    @Test
+    @TestTransaction
+    void testPasDeRelanceVenteSuspendue() {
+        parametrerRelances(15, 30, 45);
+        parametrerRelancesDevis(7, 15, 30);
+        ClientEntity client = ClientEntity.findById(100L);
+        VenteEntity sansFin = facture(client, 500.0);
+        sansFin.dateEcheance = ilYA(20);
+        sansFin.dateSuspensionRelances = ilYA(1);
+        sansFin.persist();
+        VenteEntity jusquAujourdhui = devis(client, 20);
+        jusquAujourdhui.dateSuspensionRelances = ilYA(5);
+        jusquAujourdhui.finSuspensionRelances = ilYA(0);
+        jusquAujourdhui.persist();
+        VenteEntity suspensionTerminee = facture(client, 500.0);
+        suspensionTerminee.dateEcheance = ilYA(20);
+        suspensionTerminee.dateSuspensionRelances = ilYA(10);
+        suspensionTerminee.finSuspensionRelances = ilYA(1);
+        suspensionTerminee.persist();
+
+        rappelScheduler.envoyerRelances();
+        rappelScheduler.envoyerRelancesDevis();
+
+        assertEquals(0, sansFin.niveauRelance, "Suspendue jusqu'à la reprise des relances");
+        assertEquals(0, jusquAujourdhui.niveauRelanceDevis, "La date de fin est incluse dans la suspension");
+        assertEquals(1, suspensionTerminee.niveauRelance, "Les relances reprennent après la date de fin");
+    }
+
+    @Test
+    @TestTransaction
+    void testPasDeRelanceClientSuspendu() {
+        parametrerRelances(15, 30, 45);
+        parametrerRelancesDevis(7, 15, 30);
+        ClientEntity accord = new ClientEntity();
+        accord.nom = "Accord Particulier";
+        accord.type = "Particulier";
+        accord.email = "accord.particulier@test.com";
+        accord.consentement = true;
+        accord.relancesSuspendues = true;
+        accord.persist();
+        VenteEntity facture = facture(accord, 500.0);
+        facture.dateEcheance = ilYA(20);
+        facture.persist();
+        VenteEntity devis = devis(accord, 20);
+        devis.persist();
+
+        rappelScheduler.envoyerRelances();
+        rappelScheduler.envoyerRelancesDevis();
+
+        assertEquals(0, facture.niveauRelance);
+        assertEquals(0, devis.niveauRelanceDevis);
+        assertNull(relanceDueOuNull(RappelScheduler.relancesDues(SocieteEntity.findById(1L), LocalDate.now()), facture));
+    }
+
+    private static RappelScheduler.RelanceDue relanceDue(List<RappelScheduler.RelanceDue> dues, VenteEntity vente) {
+        RappelScheduler.RelanceDue relance = relanceDueOuNull(dues, vente);
+        assertNotNull(relance, "Une relance est due pour la vente " + vente.id);
+        return relance;
+    }
+
+    private static RappelScheduler.RelanceDue relanceDueOuNull(List<RappelScheduler.RelanceDue> dues, VenteEntity vente) {
+        return dues.stream().filter(r -> r.vente().id.equals(vente.id)).findFirst().orElse(null);
     }
 
     @Test

@@ -4,6 +4,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,17 +21,23 @@ import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 
 /**
- * Relances automatiques par email, dont les délais (J+N) sont paramétrés une fois pour toutes sur la société :
+ * Relances par email, dont les délais (J+N) sont paramétrés une fois pour toutes sur la société :
  * <ul>
  *   <li>relances de paiement des factures émises non soldées, comptées à partir de la date d'échéance de la facture,
  *   ou de sa date d'émission si aucune échéance n'est renseignée ;</li>
  *   <li>relances des devis/OR en attente de signature, comptées à partir de la date du devis.</li>
  * </ul>
+ * Selon le paramétrage de la société, les relances dues sont envoyées automatiquement chaque matin, ou attendent
+ * d'être validées dans le journal des relances ({@link RelanceResource}). Les ventes dont les relances sont suspendues
+ * (sur la vente ou sur le client) ne sont pas relancées.
  */
 @ApplicationScoped
 public class RappelScheduler {
 
     private static final DateTimeFormatter FORMAT_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+
+    /** Relance due pour une vente : la plus avancée dont le délai est écoulé, ni envoyée ni ignorée. */
+    public record RelanceDue(VenteEntity vente, boolean devis, int niveau, LocalDate depart) {}
 
     @Inject
     Mailer mailer;
@@ -39,18 +46,37 @@ public class RappelScheduler {
     @Transactional
     public void envoyerRelances() {
         SocieteEntity societe = SocieteEntity.findById(1L);
-        if (societe == null) {
+        // Sans envoi automatique, les relances attendent d'être validées dans le journal des relances.
+        if (societe == null || !societe.relancesAutomatiques) {
             return;
         }
-        Integer[] delais = { societe.relance1Jours, societe.relance2Jours, societe.relance3Jours };
-        LocalDate today = LocalDate.now();
+        relancesFactures(societe, LocalDate.now()).forEach(this::envoyer);
+    }
 
+    @Scheduled(cron = "0 0 8 * * ?")
+    @Transactional
+    public void envoyerRelancesDevis() {
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        if (societe == null || !societe.relancesAutomatiques) {
+            return;
+        }
+        relancesDevis(societe, LocalDate.now()).forEach(this::envoyer);
+    }
+
+    /** Relances de paiement et de devis dues à la date donnée. */
+    public static List<RelanceDue> relancesDues(SocieteEntity societe, LocalDate today) {
+        List<RelanceDue> relances = new ArrayList<>(relancesFactures(societe, today));
+        relances.addAll(relancesDevis(societe, today));
+        return relances;
+    }
+
+    /** Factures émises non soldées des clients qui ont donné leur consentement, dont une relance est due. */
+    static List<RelanceDue> relancesFactures(SocieteEntity societe, LocalDate today) {
+        Integer[] delais = { societe.relance1Jours, societe.relance2Jours, societe.relance3Jours };
+        List<RelanceDue> relances = new ArrayList<>();
         List<VenteEntity> factures = VenteEntity.list("status = ?1 and client is not null", VenteEntity.Status.FACTURE_PRETE);
         for (VenteEntity vente : factures) {
-            if (!vente.client.consentement || vente.client.email == null || vente.client.email.isBlank()) {
-                continue;
-            }
-            if (VenteResource.soldeDu(vente) <= 0.005) {
+            if (!relancable(vente, today) || VenteResource.soldeDu(vente) <= 0.005) {
                 continue;
             }
             LocalDate depart = dateDepartRelance(vente);
@@ -60,31 +86,24 @@ public class RappelScheduler {
             int niveau = niveauAtteint(delais, ChronoUnit.DAYS.between(depart, today));
             // Une seule relance par passage : la plus avancée atteinte, sans rattraper les précédentes.
             if (niveau > vente.niveauRelance) {
-                envoyerRelance(vente, niveau);
-                vente.niveauRelance = niveau;
+                relances.add(new RelanceDue(vente, false, niveau, depart));
             }
         }
+        return relances;
     }
 
     /**
-     * Relance les devis/OR en attente de signature (ni acceptés, ni refusés) des clients qui ont donné leur consentement.
-     * Une prestation rouverte après son démarrage (forfait ajouté) n'est pas relancée : le client est déjà en contact
-     * avec l'atelier.
+     * Devis/OR en attente de signature (ni acceptés, ni refusés) des clients qui ont donné leur consentement, dont une
+     * relance est due. Une prestation rouverte après son démarrage (forfait ajouté) n'est pas relancée : le client est
+     * déjà en contact avec l'atelier.
      */
-    @Scheduled(cron = "0 0 8 * * ?")
-    @Transactional
-    public void envoyerRelancesDevis() {
-        SocieteEntity societe = SocieteEntity.findById(1L);
-        if (societe == null) {
-            return;
-        }
+    static List<RelanceDue> relancesDevis(SocieteEntity societe, LocalDate today) {
         Integer[] delais = { societe.relanceDevis1Jours, societe.relanceDevis2Jours, societe.relanceDevis3Jours };
-        LocalDate today = LocalDate.now();
-
+        List<RelanceDue> relances = new ArrayList<>();
         List<VenteEntity> devis = VenteEntity.list(VenteResource.DEVIS_EN_ATTENTE
                 + " and client is not null and dateFactureEnAttente is null", VenteEntity.Status.DEVIS);
         for (VenteEntity vente : devis) {
-            if (!vente.client.consentement || vente.client.email == null || vente.client.email.isBlank()) {
+            if (!relancable(vente, today)) {
                 continue;
             }
             LocalDate depart = toLocalDate(dateDevis(vente));
@@ -93,10 +112,55 @@ public class RappelScheduler {
             }
             int niveau = niveauAtteint(delais, ChronoUnit.DAYS.between(depart, today));
             if (niveau > vente.niveauRelanceDevis) {
-                envoyerRelanceDevis(vente, niveau);
-                vente.niveauRelanceDevis = niveau;
+                relances.add(new RelanceDue(vente, true, niveau, depart));
             }
         }
+        return relances;
+    }
+
+    /** Client joignable par email, qui a donné son consentement, et relances non suspendues. */
+    private static boolean relancable(VenteEntity vente, LocalDate today) {
+        return vente.client.consentement && vente.client.email != null && !vente.client.email.isBlank()
+                && !relancesSuspendues(vente, today);
+    }
+
+    /** Relances suspendues sur le client, ou sur la vente sans date de fin ou jusqu'à une date pas encore dépassée. */
+    public static boolean relancesSuspendues(VenteEntity vente, LocalDate today) {
+        if (vente.client != null && vente.client.relancesSuspendues) {
+            return true;
+        }
+        return vente.dateSuspensionRelances != null
+                && (vente.finSuspensionRelances == null || !toLocalDate(vente.finSuspensionRelances).isBefore(today));
+    }
+
+    /** Envoie la relance due et la marque comme envoyée. */
+    public void envoyer(RelanceDue relance) {
+        if (relance.devis()) {
+            envoyerRelanceDevis(relance.vente(), relance.niveau());
+            relance.vente().niveauRelanceDevis = relance.niveau();
+        } else {
+            envoyerRelance(relance.vente(), relance.niveau());
+            relance.vente().niveauRelance = relance.niveau();
+        }
+    }
+
+    /** Écarte la relance due sans l'envoyer : elle est marquée comme traitée et inscrite à l'historique. */
+    public void ignorer(RelanceDue relance, String motif) {
+        VenteEntity vente = relance.vente();
+        if (relance.devis()) {
+            vente.niveauRelanceDevis = relance.niveau();
+        } else {
+            vente.niveauRelance = relance.niveau();
+        }
+        RappelHistoriqueEntity historique = new RappelHistoriqueEntity();
+        historique.vente = vente;
+        historique.numeroRappel = relance.niveau();
+        historique.destinataire = vente.client.email;
+        historique.sujet = "Relance " + relance.niveau() + " ignorée";
+        historique.ignoree = true;
+        historique.motif = motif;
+        historique.dateEnvoi = new Timestamp(System.currentTimeMillis());
+        historique.persist();
     }
 
     /** Plus haut numéro de relance dont le délai est écoulé (0 si aucun). */
@@ -126,7 +190,7 @@ public class RappelScheduler {
         return vente.dateDevis != null ? vente.dateDevis : vente.date;
     }
 
-    private static LocalDate toLocalDate(Timestamp timestamp) {
+    static LocalDate toLocalDate(Timestamp timestamp) {
         return timestamp != null ? timestamp.toLocalDateTime().toLocalDate() : null;
     }
 

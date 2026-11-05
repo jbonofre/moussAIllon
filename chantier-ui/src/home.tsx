@@ -12,6 +12,7 @@ const PAGE_LABELS: Record<string, string> = {
     '/comptoir': "le comptoir",
     '/prestations': "les prestations",
     '/avoirs': "les avoirs",
+    '/relances': "le journal des relances (paiement et devis)",
     '/clients': "les clients",
     '/clients/bateaux': "les bateaux des clients",
     '/clients/moteurs': "les moteurs des clients",

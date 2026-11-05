@@ -26,4 +26,10 @@ public class RappelHistoriqueEntity extends PanacheEntity {
 
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateEnvoi;
+
+    // Relance écartée du journal sans être envoyée : la suivante reste prévue. dateEnvoi est alors la date de la décision.
+    @Column(columnDefinition = "boolean default false")
+    public boolean ignoree;
+
+    public String motif;
 }

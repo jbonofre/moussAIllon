@@ -228,9 +228,9 @@ public class KpiCommercialResource {
             Timestamp derniereRelance = dernieresRelances.get(vente.id);
             devis.derniereRelance = derniereRelance != null ? date(derniereRelance) : null;
             devis.emailClient = vente.client != null && vente.client.email != null && !vente.client.email.isBlank();
-            // Les mêmes conditions que la relance automatique (RappelScheduler.envoyerRelancesDevis)
+            // Les mêmes conditions que les relances de devis (RappelScheduler.relancesDevis)
             devis.relanceAutomatique = pipeline.relanceAutomatique && devis.emailClient && vente.client.consentement
-                    && vente.dateFactureEnAttente == null;
+                    && vente.dateFactureEnAttente == null && !RappelScheduler.relancesSuspendues(vente, aujourdhui);
             LocalDate derniereNouvelle = devis.derniereRelance != null && devis.derniereRelance.isAfter(depuis)
                     ? devis.derniereRelance : depuis;
             devis.aRelancer = ChronoUnit.DAYS.between(derniereNouvelle, aujourdhui) >= pipeline.seuilRelanceJours;
@@ -251,14 +251,15 @@ public class KpiCommercialResource {
         return pipeline;
     }
 
-    // Date de la dernière relance (automatique ou manuelle) envoyée pour chaque vente
+    // Date de la dernière relance (automatique ou manuelle) envoyée pour chaque vente, hors relances ignorées
     private static Map<Long, Timestamp> dernieresRelances(List<VenteEntity> ventes) {
         Map<Long, Timestamp> dernieres = new HashMap<>();
         if (ventes.isEmpty()) {
             return dernieres;
         }
         List<Object[]> lignes = RappelHistoriqueEntity.getEntityManager().createQuery(
-                "select r.vente.id, max(r.dateEnvoi) from RappelHistoriqueEntity r where r.vente.id in ?1 group by r.vente.id",
+                "select r.vente.id, max(r.dateEnvoi) from RappelHistoriqueEntity r where r.vente.id in ?1 and r.ignoree = false"
+                + " group by r.vente.id",
                 Object[].class)
                 .setParameter(1, ventes.stream().map(v -> v.id).toList())
                 .getResultList();
@@ -394,7 +395,7 @@ public class KpiCommercialResource {
         // Dernière relance envoyée, automatique ou manuelle
         public LocalDate derniereRelance;
         public boolean emailClient;
-        // Le devis sera relancé automatiquement (paramétrage, email et consentement du client)
+        // Le devis sera relancé (paramétrage, email et consentement du client, relances non suspendues)
         public boolean relanceAutomatique;
         public boolean aRelancer;
     }

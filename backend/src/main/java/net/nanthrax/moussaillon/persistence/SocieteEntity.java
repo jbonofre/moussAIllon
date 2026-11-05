@@ -72,6 +72,10 @@ public class SocieteEntity extends PanacheEntity {
     public Integer relanceDevis2Jours;
     public Integer relanceDevis3Jours;
 
+    // Relances (paiement et devis) envoyées automatiquement chaque matin, ou à valider dans le journal des relances.
+    @Column(columnDefinition = "boolean default false")
+    public boolean relancesAutomatiques;
+
     // Date de création du compte.
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateCreation;

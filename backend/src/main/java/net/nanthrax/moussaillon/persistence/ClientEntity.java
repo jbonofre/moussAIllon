@@ -38,6 +38,12 @@ public class ClientEntity extends PanacheEntity {
 
     public boolean consentement;
 
+    // Accord particulier avec le client : aucune de ses ventes n'est relancée (paiement ou devis).
+    @Column(columnDefinition = "boolean default false")
+    public boolean relancesSuspendues;
+
+    public String motifSuspensionRelances;
+
     public double evaluation;
 
     public String date;

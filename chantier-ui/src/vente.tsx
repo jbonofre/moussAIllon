@@ -57,7 +57,7 @@ import {
     message
 } from 'antd';
 import type { FormInstance, MenuProps } from 'antd';
-import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, MoreOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, ReloadOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, StopOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
+import { CalendarOutlined, CheckCircleOutlined, CreditCardOutlined, DeleteOutlined, DownloadOutlined, EditOutlined, EnvironmentOutlined, FileDoneOutlined, FileTextOutlined, InfoCircleOutlined, MailOutlined, MoreOutlined, PauseCircleOutlined, PlayCircleOutlined, PlusCircleOutlined, PlusOutlined, PrinterOutlined, ReloadOutlined, RollbackOutlined, SendOutlined, SolutionOutlined, StopOutlined, WalletOutlined, ShoppingCartOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import api from './api.ts';
 import { CGV_SECTIONS, CGV_TITLE } from './cgv-content.tsx';
@@ -70,6 +70,7 @@ import ReceptionResume from './ReceptionResume.tsx';
 import { Reception, VOLUMES_CARBURANT, receptionRenseignee } from './reception.ts';
 import ProgressionVente, { PopoverProgressionVente } from './ProgressionVente.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
+import SuspensionRelancesModal from './SuspensionRelancesModal.tsx';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import SectionLignes from './SectionLignes.tsx';
 import MontantsService from './MontantsService.tsx';
@@ -102,6 +103,9 @@ interface ClientEntity {
     adresse?: string;
     siret?: string;
     tva?: string;
+    // Accord particulier : aucune vente du client n'est relancée
+    relancesSuspendues?: boolean;
+    motifSuspensionRelances?: string;
 }
 
 interface CatalogueMoteurEntity {
@@ -510,6 +514,10 @@ interface VenteEntity {
     niveauRelance?: number;
     // Dernière relance automatique du devis/OR en attente de signature (0 = aucune)
     niveauRelanceDevis?: number;
+    // Relances suspendues sur la vente, jusqu'à la date de fin incluse si elle est renseignée
+    dateSuspensionRelances?: string | null;
+    finSuspensionRelances?: string | null;
+    motifSuspensionRelances?: string | null;
     note?: string;
     reception?: Reception | null;
 }
@@ -521,6 +529,9 @@ interface RappelHistoriqueEntity {
     sujet: string;
     contenu: string;
     dateEnvoi?: string;
+    // Relance écartée du journal sans être envoyée
+    ignoree?: boolean;
+    motif?: string;
 }
 
 type LigneType = 'forfait' | 'service' | 'produit' | 'bateau' | 'moteur' | 'helice' | 'remorque';
@@ -759,6 +770,7 @@ export default function Vente() {
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
     const [refusVisible, setRefusVisible] = useState(false);
     const [motifRefus, setMotifRefus] = useState('');
+    const [suspensionRelancesVisible, setSuspensionRelancesVisible] = useState(false);
     // Conditions de paiement du paramétrage global (société), recopiées sur la vente jusqu'à l'émission de la facture
     const [conditionsSociete, setConditionsSociete] = useState<SocieteData | null>(null);
     const [form] = Form.useForm<VenteFormValues>();
@@ -768,6 +780,10 @@ export default function Vente() {
     const isReadOnly = watchedStatus === 'FACTURE_PAYEE';
     // Devis/OR enregistré en attente de signature, ni accepté ni refusé : il peut être relancé ou refusé
     const devisEnAttente = isEdit && !!currentVente?.id && currentVente.status === 'DEVIS' && !currentVente.bonPourAccord && !currentVente.dateRefus;
+    // Facture émise ou devis/OR en attente : la vente peut être relancée, ou ses relances suspendues
+    const relancable = isEdit && !!currentVente?.id && (currentVente.status === 'FACTURE_PRETE' || devisEnAttente);
+    const relancesVenteSuspendues = !!currentVente?.dateSuspensionRelances
+        && (!currentVente.finSuspensionRelances || !dayjs(currentVente.finSuspensionRelances).isBefore(dayjs(), 'day'));
     const exonereTva = clientExonereTva(clients.find((client) => client.id === watchedClientId));
     const [newProduitModalVisible, setNewProduitModalVisible] = useState(false);
     const [newProduitTargetLine, setNewProduitTargetLine] = useState<number | null>(null);
@@ -2403,6 +2419,17 @@ export default function Vente() {
         }
     };
 
+    const reprendreRelances = async () => {
+        if (!currentVente?.id) return;
+        try {
+            await api.delete(`/relances/ventes/${currentVente.id}/suspension`);
+            message.success('Les relances de la vente reprennent');
+            await refreshCurrentVente(currentVente.id);
+        } catch (err: any) {
+            message.error(err?.response?.data || 'Erreur lors de la reprise des relances');
+        }
+    };
+
     const refreshCurrentVente = async (id: number) => {
         try {
             const res = await api.get<VenteEntity>(`/ventes/${id}`);
@@ -3467,6 +3494,18 @@ export default function Vente() {
                 </Col>
             </Row>
 
+            <SuspensionRelancesModal
+                open={suspensionRelancesVisible}
+                venteId={currentVente?.id}
+                numero={currentVente?.numeroFacture || (currentVente?.id ? `#${currentVente.id}` : undefined)}
+                client={currentVente?.client ? { id: currentVente.client.id, nom: currentVente.client.nom } : undefined}
+                onClose={() => setSuspensionRelancesVisible(false)}
+                onSuspendu={() => {
+                    setSuspensionRelancesVisible(false);
+                    if (currentVente?.id) refreshCurrentVente(currentVente.id);
+                }}
+            />
+
             <Modal
                 title="Devis refusé par le client"
                 open={refusVisible}
@@ -4336,28 +4375,61 @@ export default function Vente() {
                                         <Row justify="space-between" align="middle" gutter={16} style={{ marginBottom: 16 }}>
                                             <Col flex="auto">
                                                 <div style={{ color: '#666' }}>
-                                                    Les devis/OR en attente de signature sont relancés automatiquement selon les délais
-                                                    définis dans Paramétrage &gt; Société, à partir de la date du devis. Les relances de paiement
+                                                    Les devis/OR en attente de signature sont relancés selon les délais définis dans
+                                                    Paramétrage &gt; Société, à partir de la date du devis. Les relances de paiement
                                                     des factures émises non soldées le sont à partir de la date d'échéance (ou de la date de
-                                                    facture à défaut).
+                                                    facture à défaut). Les relances dues sont listées chaque jour dans Vente &gt; Relances.
                                                 </div>
                                                 {isEdit && currentVente?.status === 'FACTURE_PRETE' && (
                                                     <div style={{ marginTop: 8 }}>
-                                                        Dernière relance automatique : {currentVente.niveauRelance
+                                                        Dernière relance : {currentVente.niveauRelance
                                                             ? <Tag color={RELANCE_COULEURS[currentVente.niveauRelance]}>Relance {currentVente.niveauRelance}</Tag>
                                                             : 'aucune'}
                                                     </div>
                                                 )}
                                                 {devisEnAttente && (
                                                     <div style={{ marginTop: 8 }}>
-                                                        Dernière relance automatique du devis : {currentVente?.niveauRelanceDevis
+                                                        Dernière relance du devis : {currentVente?.niveauRelanceDevis
                                                             ? <Tag color={RELANCE_COULEURS[currentVente.niveauRelanceDevis]}>Relance {currentVente.niveauRelanceDevis}</Tag>
                                                             : 'aucune'}
                                                     </div>
                                                 )}
+                                                {relancable && currentVente?.client?.relancesSuspendues && (
+                                                    <Alert
+                                                        style={{ marginTop: 8 }}
+                                                        type="warning"
+                                                        showIcon
+                                                        title="Relances suspendues pour ce client (accord particulier)"
+                                                        description={currentVente.client.motifSuspensionRelances
+                                                            ? `Motif : ${currentVente.client.motifSuspensionRelances}` : undefined}
+                                                    />
+                                                )}
+                                                {relancable && !currentVente?.client?.relancesSuspendues && relancesVenteSuspendues && (
+                                                    <Alert
+                                                        style={{ marginTop: 8 }}
+                                                        type="warning"
+                                                        showIcon
+                                                        title={`Relances suspendues depuis le ${dayjs(currentVente?.dateSuspensionRelances).format('DD/MM/YYYY')} `
+                                                            + (currentVente?.finSuspensionRelances
+                                                                ? `jusqu'au ${dayjs(currentVente.finSuspensionRelances).format('DD/MM/YYYY')} inclus`
+                                                                : "jusqu'à leur reprise")}
+                                                        description={currentVente?.motifSuspensionRelances
+                                                            ? `Motif : ${currentVente.motifSuspensionRelances}` : undefined}
+                                                        action={<Button size="small" icon={<PlayCircleOutlined />} onClick={reprendreRelances}>Reprendre</Button>}
+                                                    />
+                                                )}
                                             </Col>
-                                            {isEdit && currentVente?.id && (currentVente.status === 'FACTURE_PRETE' || devisEnAttente) && (
+                                            {relancable && (
                                                 <Col>
+                                                    {!currentVente?.client?.relancesSuspendues && !relancesVenteSuspendues && (
+                                                        <Button
+                                                            icon={<PauseCircleOutlined />}
+                                                            style={{ marginRight: 8 }}
+                                                            onClick={() => setSuspensionRelancesVisible(true)}
+                                                        >
+                                                            Suspendre les relances
+                                                        </Button>
+                                                    )}
                                                     <Button
                                                         icon={<SendOutlined />}
                                                         onClick={async () => {
@@ -4377,7 +4449,7 @@ export default function Vente() {
                                         </Row>
                                         {isEdit && rappelHistorique.length > 0 && (
                                             <>
-                                                <h4 style={{ marginTop: 16 }}>Historique des relances envoyées</h4>
+                                                <h4 style={{ marginTop: 16 }}>Historique des relances</h4>
                                                 <Table
                                                     dataSource={rappelHistorique}
                                                     rowKey="id"
@@ -4387,8 +4459,13 @@ export default function Vente() {
                                                         {
                                                             title: 'Relance',
                                                             dataIndex: 'numeroRappel',
-                                                            width: 80,
-                                                            render: (v: number) => v === 0 ? 'Manuel' : `#${v}`
+                                                            width: 120,
+                                                            render: (v: number, r: RappelHistoriqueEntity) => (
+                                                                <>
+                                                                    {v === 0 ? 'Manuel' : `#${v}`}
+                                                                    {r.ignoree && <Tag style={{ marginLeft: 8 }}>Ignorée</Tag>}
+                                                                </>
+                                                            )
                                                         },
                                                         {
                                                             title: 'Date d\'envoi',
@@ -4403,7 +4480,10 @@ export default function Vente() {
                                                         },
                                                         {
                                                             title: 'Sujet',
-                                                            dataIndex: 'sujet'
+                                                            dataIndex: 'sujet',
+                                                            render: (v: string, r: RappelHistoriqueEntity) => (r.ignoree
+                                                                ? <span style={{ color: '#666' }}>Non envoyée{r.motif ? ` : ${r.motif}` : ''}</span>
+                                                                : v)
                                                         }
                                                     ]}
                                                 />
