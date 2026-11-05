@@ -20,9 +20,12 @@ import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 
 /**
- * Relances de paiement automatiques des factures émises non soldées.
- * Les délais (J+N) sont paramétrés une fois pour toutes sur la société et comptés à partir
- * de la date d'échéance de la facture, ou de sa date d'émission si aucune échéance n'est renseignée.
+ * Relances automatiques par email, dont les délais (J+N) sont paramétrés une fois pour toutes sur la société :
+ * <ul>
+ *   <li>relances de paiement des factures émises non soldées, comptées à partir de la date d'échéance de la facture,
+ *   ou de sa date d'émission si aucune échéance n'est renseignée ;</li>
+ *   <li>relances des devis/OR en attente de signature, comptées à partir de la date du devis.</li>
+ * </ul>
  */
 @ApplicationScoped
 public class RappelScheduler {
@@ -63,6 +66,39 @@ public class RappelScheduler {
         }
     }
 
+    /**
+     * Relance les devis/OR en attente de signature (ni acceptés, ni refusés) des clients qui ont donné leur consentement.
+     * Une prestation rouverte après son démarrage (forfait ajouté) n'est pas relancée : le client est déjà en contact
+     * avec l'atelier.
+     */
+    @Scheduled(cron = "0 0 8 * * ?")
+    @Transactional
+    public void envoyerRelancesDevis() {
+        SocieteEntity societe = SocieteEntity.findById(1L);
+        if (societe == null) {
+            return;
+        }
+        Integer[] delais = { societe.relanceDevis1Jours, societe.relanceDevis2Jours, societe.relanceDevis3Jours };
+        LocalDate today = LocalDate.now();
+
+        List<VenteEntity> devis = VenteEntity.list(VenteResource.DEVIS_EN_ATTENTE
+                + " and client is not null and dateFactureEnAttente is null", VenteEntity.Status.DEVIS);
+        for (VenteEntity vente : devis) {
+            if (!vente.client.consentement || vente.client.email == null || vente.client.email.isBlank()) {
+                continue;
+            }
+            LocalDate depart = toLocalDate(dateDevis(vente));
+            if (depart == null) {
+                continue;
+            }
+            int niveau = niveauAtteint(delais, ChronoUnit.DAYS.between(depart, today));
+            if (niveau > vente.niveauRelanceDevis) {
+                envoyerRelanceDevis(vente, niveau);
+                vente.niveauRelanceDevis = niveau;
+            }
+        }
+    }
+
     /** Plus haut numéro de relance dont le délai est écoulé (0 si aucun). */
     static int niveauAtteint(Integer[] delais, long joursEcoules) {
         int niveau = 0;
@@ -84,6 +120,10 @@ public class RappelScheduler {
 
     private static Timestamp dateFacture(VenteEntity vente) {
         return vente.dateFacturePrete != null ? vente.dateFacturePrete : vente.date;
+    }
+
+    static Timestamp dateDevis(VenteEntity vente) {
+        return vente.dateDevis != null ? vente.dateDevis : vente.date;
     }
 
     private static LocalDate toLocalDate(Timestamp timestamp) {
@@ -122,9 +162,31 @@ public class RappelScheduler {
         variables.put("{numeroRappel}", numeroRelance > 0 ? String.valueOf(numeroRelance) : "");
 
         EmailTemplateEntity template = EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RAPPEL);
-        String subject = appliquerVariables(template != null ? template.sujet : EmailTemplateResource.RELANCE_SUJET, variables);
-        String body = appliquerVariables(template != null ? template.contenu : EmailTemplateResource.RELANCE_CONTENU, variables);
+        envoyer(vente, numeroRelance,
+            appliquerVariables(template != null ? template.sujet : EmailTemplateResource.RELANCE_SUJET, variables),
+            appliquerVariables(template != null ? template.contenu : EmailTemplateResource.RELANCE_CONTENU, variables));
+    }
 
+    /** Envoie la relance n° {@code numeroRelance} (0 = relance manuelle) du devis/OR et l'inscrit à l'historique. */
+    public void envoyerRelanceDevis(VenteEntity vente, int numeroRelance) {
+        SocieteEntity societe = SocieteEntity.findById(1L);
+
+        Map<String, String> variables = new LinkedHashMap<>();
+        variables.put("{client}", vente.client.nom != null ? vente.client.nom : "");
+        variables.put("{typeDevis}", vente.ordreDeReparation ? "ordre de réparation" : "devis");
+        variables.put("{numeroDevis}", vente.numeroFacture != null ? vente.numeroFacture : String.valueOf(vente.id));
+        variables.put("{dateDevis}", formatDate(dateDevis(vente)));
+        variables.put("{montantTTC}", String.format("%.2f", vente.prixVenteTTC));
+        variables.put("{numeroRelance}", numeroRelance > 0 ? String.valueOf(numeroRelance) : "");
+        variables.put("{societe}", societe != null ? societe.nom : "moussAIllon");
+
+        EmailTemplateEntity template = EmailTemplateEntity.findByType(EmailTemplateEntity.Type.RELANCE_DEVIS);
+        envoyer(vente, numeroRelance,
+            appliquerVariables(template != null ? template.sujet : EmailTemplateResource.RELANCE_DEVIS_SUJET, variables),
+            appliquerVariables(template != null ? template.contenu : EmailTemplateResource.RELANCE_DEVIS_CONTENU, variables));
+    }
+
+    private void envoyer(VenteEntity vente, int numeroRelance, String subject, String body) {
         mailer.send(Mail.withHtml(vente.client.email, subject, body));
 
         RappelHistoriqueEntity historique = new RappelHistoriqueEntity();

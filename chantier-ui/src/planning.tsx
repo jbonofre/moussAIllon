@@ -79,6 +79,8 @@ interface VenteEntity {
     id?: number;
     status: string;
     bonPourAccord?: boolean;
+    // Devis refusé par le client : ses prestations ne sont pas à planifier
+    dateRefus?: string;
     client?: ClientEntity;
     bateau?: { id: number; name?: string; immatriculation?: string };
     produits?: ProduitCatalogueEntity[];
@@ -294,6 +296,7 @@ const getTechnicienColor = (techniciens?: TechnicienEntity[]) => {
 const buildPlanningItems = (ventes: VenteEntity[]): PlanningItemRow[] => {
     const rows: PlanningItemRow[] = [];
     for (const vente of ventes) {
+        if (vente.dateRefus) continue;
         const clientNom = vente.client ? vente.client.nom : '';
         const bateauNom = vente.bateau?.name;
         const bateauImmatriculation = vente.bateau?.immatriculation;

@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Societe from './societe.tsx';
 import { fetchWithAuth } from './api.ts';
@@ -36,6 +36,10 @@ const modeleRelance = {
     id: 5, type: 'RAPPEL', sujet: 'Relance {numeroFacture}', contenu: '<p>Solde : {soldeDu}</p>',
     description: 'Variables disponibles : {soldeDu}',
 };
+const modeleRelanceDevis = {
+    id: 6, type: 'RELANCE_DEVIS', sujet: 'Votre {typeDevis} {numeroDevis}', contenu: '<p>Devis du {dateDevis}</p>',
+    description: 'Variables disponibles : {dateDevis}',
+};
 
 const appel = (url: string, method: string) =>
     mockedFetch.mock.calls.find(([u, options]) => u === url && options?.method === method);
@@ -46,8 +50,8 @@ beforeEach(() => {
         const corps = options?.body ? JSON.parse(options.body as string) : undefined;
         if (url === './societe') return reponse(options?.method === 'PUT' ? { ...societe, ...corps } : societe);
         if (url === './email-templates/init') return reponse(null);
-        if (url === './email-templates') return reponse([{ id: 4, type: 'FACTURE', sujet: 'Facture', contenu: '-' }, modeleRelance]);
-        if (url === './email-templates/5') return reponse(corps);
+        if (url === './email-templates') return reponse([{ id: 4, type: 'FACTURE', sujet: 'Facture', contenu: '-' }, modeleRelance, modeleRelanceDevis]);
+        if (url === './email-templates/5' || url === './email-templates/6') return reponse(corps);
         return reponse(null, false);
     });
 });
@@ -84,6 +88,29 @@ describe('Société - conditions et relances de paiement', () => {
 
         await screen.findByText('La société a été mise à jour.');
         expect(appel('./societe', 'PUT')).toBeTruthy();
+        expect(appel('./email-templates/5', 'PUT')).toBeUndefined();
+        expect(appel('./email-templates/6', 'PUT')).toBeUndefined();
+    });
+
+    it('enregistre les délais et l\'email des relances de devis', async () => {
+        render(<Societe />);
+
+        const sujet = await screen.findByLabelText("Sujet de l'email de relance de devis");
+        expect(sujet).toHaveValue('Votre {typeDevis} {numeroDevis}');
+        expect(screen.getByLabelText('Message de relance de devis')).toHaveValue('<p>Devis du {dateDevis}</p>');
+
+        fireEvent.change(document.getElementById('societe_relanceDevis1Jours') as HTMLElement, { target: { value: '7' } });
+        fireEvent.change(sujet, { target: { value: 'Relance de votre {typeDevis}' } });
+        fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+
+        // Les messages des tests précédents peuvent encore être affichés
+        await waitFor(() => expect(appel('./email-templates/6', 'PUT')).toBeTruthy());
+        const corpsSociete = JSON.parse(appel('./societe', 'PUT')[1].body);
+        expect(corpsSociete).toMatchObject({ relanceDevis1Jours: 7 });
+        expect(corpsSociete).not.toHaveProperty('relanceDevisSujet');
+        expect(JSON.parse(appel('./email-templates/6', 'PUT')[1].body)).toMatchObject({
+            id: 6, type: 'RELANCE_DEVIS', sujet: 'Relance de votre {typeDevis}',
+        });
         expect(appel('./email-templates/5', 'PUT')).toBeUndefined();
     });
 });

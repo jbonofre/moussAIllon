@@ -175,6 +175,42 @@ describe('Transactions - référence', () => {
     });
 });
 
+describe('Transactions - devis refusé', () => {
+    const ouvrirVente = async (vente: any) => {
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes' ? [vente] : url === `/ventes/${vente.id}` ? vente : (donnees[url] || []),
+        }) as any);
+        mockedApi.delete.mockResolvedValue({ data: null } as any);
+        render(<Vente />);
+        fireEvent.click(await screen.findByText(vente.numeroFacture));
+        await screen.findByText('Transaction/Prestation');
+        return document.querySelector('.ant-modal') as HTMLElement;
+    };
+
+    it('marque un devis en attente comme refusé, avec son motif', async () => {
+        const modal = await ouvrirVente({ id: 12, numeroFacture: 'DE26-000012', date: '2026-10-01T10:00:00', status: 'DEVIS', client: { id: 3, nom: 'Jean Dupont' } });
+
+        fireEvent.click(await waitFor(() => bouton(modal, 'Refusé par le client')));
+        fireEvent.change(await screen.findByLabelText('Motif du refus'), { target: { value: 'Prix' } });
+        fireEvent.click(screen.getByText('Marquer comme refusé').closest('button') as HTMLElement);
+
+        await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes/12/refus', { motif: 'Prix' }));
+    });
+
+    it('signale le devis refusé et permet de le reprendre', async () => {
+        const vente = { id: 13, numeroFacture: 'DE26-000013', date: '2026-10-01T10:00:00', status: 'DEVIS', client: { id: 3, nom: 'Jean Dupont' },
+            dateRefus: '2026-10-20T09:00:00', motifRefus: 'Concurrent' };
+        const modal = await ouvrirVente(vente);
+
+        expect(screen.getAllByText('Refusé').length).toBeGreaterThan(0);
+        expect(await within(modal).findByText('Refusé par le client le 20/10/2026 — motif : Concurrent')).toBeInTheDocument();
+        expect(within(modal).queryByText('Refusé par le client')).toBeNull();
+
+        fireEvent.click(bouton(modal, 'Reprendre le devis'));
+        await waitFor(() => expect(mockedApi.delete).toHaveBeenCalledWith('/ventes/13/refus'));
+    });
+});
+
 describe('Transactions - liste', () => {
     it('classe les transactions du plus récent au plus ancien', async () => {
         const client = { id: 3, nom: 'Jean Dupont' };

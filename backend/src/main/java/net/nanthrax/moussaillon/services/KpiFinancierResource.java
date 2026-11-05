@@ -165,7 +165,7 @@ public class KpiFinancierResource {
         return kpis;
     }
 
-    private static YearMonth moisFin(String fin) {
+    static YearMonth moisFin(String fin) {
         if (fin == null || fin.isBlank()) {
             return YearMonth.now();
         }
@@ -601,16 +601,16 @@ public class KpiFinancierResource {
         }
     }
 
-    private static LocalDate date(Timestamp timestamp) {
+    static LocalDate date(Timestamp timestamp) {
         return timestamp.toLocalDateTime().toLocalDate();
     }
 
-    private static double arrondi(double montant) {
+    static double arrondi(double montant) {
         return Math.round(montant * 100.0) / 100.0;
     }
 
     // Taux en %, à une décimale ; null sans base
-    private static Double taux(double part, double base) {
+    static Double taux(double part, double base) {
         return Math.abs(base) >= 0.005 ? Math.round(part / base * 1000.0) / 10.0 : null;
     }
 

@@ -78,6 +78,9 @@ public class AccesApiFilterTest {
         assertNotNull(refus(VENDEUR, "GET", "/connecteurs"));
         assertNotNull(refus(VENDEUR, "GET", "/campagnes"));
         assertNull(refus(Set.of("chantier", "MARKETING"), "POST", "/email-sequences"));
+        assertNotNull(refus(VENDEUR, "GET", "/kpis-commerciaux"));
+        assertNotNull(refus(COMPTABLE, "GET", "/kpis-commerciaux"));
+        assertNull(refus(Set.of("chantier", "MARKETING"), "GET", "/kpis-commerciaux"));
         assertNull(refus(ADMIN, "GET", "/plateformes-annonces"));
         assertNotNull(refus(VENDEUR, "GET", "/plateformes-annonces"));
     }

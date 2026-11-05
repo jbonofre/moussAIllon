@@ -1,10 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Col, DatePicker, Empty, Row, Space, Spin, Statistic, Table, Tag, Tooltip, Typography, message } from 'antd';
-import { ArrowDownOutlined, ArrowUpOutlined, InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, ReloadOutlined } from '@ant-design/icons';
 import { Column, Line } from '@ant-design/charts';
 import dayjs from 'dayjs';
 import { fetchWithAuth } from './api.ts';
 import { paginationConfig } from './pagination.ts';
+import { Evolution, formatDate, formatEuro, formatMois } from './kpis-commun.tsx';
 
 const { Text, Paragraph } = Typography;
 
@@ -114,24 +115,6 @@ interface LigneActivite extends ActiviteKpi {
 }
 
 const ORDRE_GROUPES = ['Transactions', 'Prestations', 'Hivernage / gardiennage', 'Autres'];
-
-const formatEuro = (v?: number | null, decimales = 2) =>
-    new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR', minimumFractionDigits: decimales, maximumFractionDigits: decimales }).format(v ?? 0);
-const formatDate = (v?: string) => (v ? dayjs(v).format('DD/MM/YYYY') : '—');
-const formatMois = (mois: string) => dayjs(mois + '-01').format('MM/YYYY');
-
-// Évolution en % par rapport à N-1, null sans base de comparaison
-const evolution = (n: number, n1: number) => (Math.abs(n1) >= 0.005 ? Math.round(((n - n1) / Math.abs(n1)) * 1000) / 10 : null);
-
-const Evolution = ({ n, n1 }: { n: number; n1: number }) => {
-    const pct = evolution(n, n1);
-    if (pct === null) return <Text type="secondary">—</Text>;
-    return (
-        <Tag color={pct >= 0 ? 'green' : 'red'} icon={pct >= 0 ? <ArrowUpOutlined /> : <ArrowDownOutlined />}>
-            {pct > 0 ? '+' : ''}{pct.toLocaleString('fr-FR')} %
-        </Tag>
-    );
-};
 
 // Somme des activités d'un groupe
 const sommeActivites = (groupe: string, activites: ActiviteKpi[]): ActiviteKpi => {

@@ -66,6 +66,12 @@ public class SocieteEntity extends PanacheEntity {
     public Integer relance2Jours;
     public Integer relance3Jours;
 
+    // Relances automatiques des devis/OR en attente de signature : nombre de jours écoulés depuis le devis.
+    // Vide = relance désactivée.
+    public Integer relanceDevis1Jours;
+    public Integer relanceDevis2Jours;
+    public Integer relanceDevis3Jours;
+
     // Date de création du compte.
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp dateCreation;

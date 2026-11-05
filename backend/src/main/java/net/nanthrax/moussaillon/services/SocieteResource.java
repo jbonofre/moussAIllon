@@ -249,6 +249,9 @@ public class SocieteResource {
         entity.relance1Jours = societe.relance1Jours;
         entity.relance2Jours = societe.relance2Jours;
         entity.relance3Jours = societe.relance3Jours;
+        entity.relanceDevis1Jours = societe.relanceDevis1Jours;
+        entity.relanceDevis2Jours = societe.relanceDevis2Jours;
+        entity.relanceDevis3Jours = societe.relanceDevis3Jours;
         entity.stripePaymentLinkMensuel = societe.stripePaymentLinkMensuel;
         entity.stripePaymentLinkAnnuel = societe.stripePaymentLinkAnnuel;
         entity.payplugPaymentLinkMensuel = societe.payplugPaymentLinkMensuel;
@@ -523,7 +526,11 @@ public class SocieteResource {
 
     /** Les délais de relance renseignés doivent être positifs et strictement croissants. */
     private static void validerRelances(SocieteEntity societe) {
-        Integer[] delais = { societe.relance1Jours, societe.relance2Jours, societe.relance3Jours };
+        validerDelais("la relance", societe.relance1Jours, societe.relance2Jours, societe.relance3Jours);
+        validerDelais("la relance de devis", societe.relanceDevis1Jours, societe.relanceDevis2Jours, societe.relanceDevis3Jours);
+    }
+
+    private static void validerDelais(String relance, Integer... delais) {
         Integer precedent = null;
         for (int i = 0; i < delais.length; i++) {
             Integer delai = delais[i];
@@ -531,11 +538,11 @@ public class SocieteResource {
                 continue;
             }
             if (delai < 0) {
-                throw new WebApplicationException("Le délai de la relance " + (i + 1) + " doit être positif", 400);
+                throw new WebApplicationException("Le délai de " + relance + " " + (i + 1) + " doit être positif", 400);
             }
             if (precedent != null && delai <= precedent) {
                 throw new WebApplicationException(
-                    "Le délai de la relance " + (i + 1) + " doit être supérieur à celui de la relance précédente", 400);
+                    "Le délai de " + relance + " " + (i + 1) + " doit être supérieur à celui de la relance précédente", 400);
             }
             precedent = delai;
         }

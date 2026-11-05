@@ -5,7 +5,7 @@ import { MailOutlined, EditOutlined, InfoCircleOutlined } from '@ant-design/icon
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
 
-// Le modèle RAPPEL (relance de paiement) se modifie dans Paramétrage > Société, avec les conditions de paiement.
+// Les modèles RAPPEL (relance de paiement) et RELANCE_DEVIS se modifient dans Paramétrage > Société, avec leurs délais.
 const TYPE_LABELS = {
     INCIDENT: 'Incident',
     FACTURE: 'Facture',
@@ -37,7 +37,7 @@ export default function Emails() {
                 return response.json();
             })
             .then((data) => {
-                setTemplates(data.filter((template) => template.type !== 'RAPPEL'));
+                setTemplates(data.filter((template) => template.type !== 'RAPPEL' && template.type !== 'RELANCE_DEVIS'));
             })
             .catch((error) => {
                 message.error('Une erreur est survenue: ' + error.message);

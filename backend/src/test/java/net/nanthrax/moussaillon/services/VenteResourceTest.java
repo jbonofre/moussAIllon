@@ -233,6 +233,21 @@ public class VenteResourceTest {
     void testEnvoyerRelanceManuelleRefuseeHorsFactureEmise() {
         int id = given()
             .contentType("application/json")
+            .body("{\"status\":\"FACTURE_EN_ATTENTE\",\"bonPourAccord\":true,\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .when().post("/ventes/" + id + "/rappel")
+            .then()
+            .statusCode(400);
+    }
+
+    @Test
+    void testEnvoyerRelanceManuelleDevisEnAttente() {
+        int id = given()
+            .contentType("application/json")
             .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
             .when().post("/ventes")
             .then().statusCode(201).extract().path("id");
@@ -240,6 +255,96 @@ public class VenteResourceTest {
         given()
             .contentType("application/json")
             .when().post("/ventes/" + id + "/rappel")
+            .then()
+            .statusCode(200);
+
+        given()
+            .when().get("/rappels/vente/" + id)
+            .then()
+            .statusCode(200)
+            .body("size()", is(1))
+            .body("[0].numeroRappel", is(0))
+            .body("[0].sujet", containsString("devis DE"));
+        // La relance manuelle ne compte pas parmi les relances automatiques
+        given().when().get("/ventes/" + id).then().body("niveauRelanceDevis", is(0));
+    }
+
+    @Test
+    void testRefuserEtReprendreDevis() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"motif\":\"  Prix trop élevé \"}")
+            .when().post("/ventes/" + id + "/refus")
+            .then()
+            .statusCode(204);
+        given()
+            .when().get("/ventes/" + id)
+            .then()
+            .body("dateRefus", notNullValue())
+            .body("motifRefus", is("Prix trop élevé"));
+
+        // Un devis refusé n'est plus relancé
+        given()
+            .contentType("application/json")
+            .when().post("/ventes/" + id + "/rappel")
+            .then()
+            .statusCode(400);
+
+        // L'enregistrement de la vente conserve le refus
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":120.0,\"client\":{\"id\":100}}")
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("motifRefus", is("Prix trop élevé"));
+
+        given()
+            .when().delete("/ventes/" + id + "/refus")
+            .then()
+            .statusCode(204);
+        given()
+            .when().get("/ventes/" + id)
+            .then()
+            .body("dateRefus", nullValue())
+            .body("motifRefus", nullValue());
+    }
+
+    @Test
+    void testDevisAccepteApresRefus() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+        given()
+            .contentType("application/json")
+            .body("{}")
+            .when().post("/ventes/" + id + "/refus")
+            .then()
+            .statusCode(204);
+        given().when().get("/ventes/" + id).then().body("dateRefus", notNullValue()).body("motifRefus", nullValue());
+
+        // Le client signe finalement le bon pour accord : le refus est levé
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"bonPourAccord\":true,\"prixVenteTTC\":100.0,\"client\":{\"id\":100}}")
+            .when().put("/ventes/" + id)
+            .then()
+            .statusCode(200)
+            .body("dateRefus", nullValue());
+
+        // Un devis signé ne peut plus être refusé
+        given()
+            .contentType("application/json")
+            .body("{\"motif\":\"Délai\"}")
+            .when().post("/ventes/" + id + "/refus")
             .then()
             .statusCode(400);
     }

@@ -98,7 +98,7 @@ public class AccesApiFilter implements ContainerRequestFilter {
         if (sous(chemin, "/reglements", "/kpis-financiers")) {
             return groupes.contains(COMPTABILITE) ? null : "Accès réservé au module Comptabilité.";
         }
-        if (sous(chemin, "/campagnes", "/email-sequences")) {
+        if (sous(chemin, "/campagnes", "/email-sequences", "/kpis-commerciaux")) {
             return groupes.contains(MARKETING) ? null : "Accès réservé au module Marketing.";
         }
         if (sous(chemin, "/plateformes-annonces")) {
