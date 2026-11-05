@@ -227,6 +227,8 @@ public class ClientResource {
         entity.telephone = client.telephone;
         entity.adresse = client.adresse;
         entity.consentement = client.consentement;
+        entity.relancesSuspendues = client.relancesSuspendues;
+        entity.motifSuspensionRelances = client.relancesSuspendues ? client.motifSuspensionRelances : null;
         entity.date = client.date;
         entity.evaluation = client.evaluation;
         entity.notes = client.notes;

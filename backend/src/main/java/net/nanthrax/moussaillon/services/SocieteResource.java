@@ -252,6 +252,7 @@ public class SocieteResource {
         entity.relanceDevis1Jours = societe.relanceDevis1Jours;
         entity.relanceDevis2Jours = societe.relanceDevis2Jours;
         entity.relanceDevis3Jours = societe.relanceDevis3Jours;
+        entity.relancesAutomatiques = societe.relancesAutomatiques;
         entity.stripePaymentLinkMensuel = societe.stripePaymentLinkMensuel;
         entity.stripePaymentLinkAnnuel = societe.stripePaymentLinkAnnuel;
         entity.payplugPaymentLinkMensuel = societe.payplugPaymentLinkMensuel;

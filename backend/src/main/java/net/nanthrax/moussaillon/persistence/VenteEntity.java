@@ -189,6 +189,16 @@ public class VenteEntity extends PanacheEntity {
     @jakarta.persistence.Column(columnDefinition = "integer default 0")
     public int niveauRelanceDevis;
 
+    // Relances (paiement ou devis) suspendues sur cette vente, par exemple après un accord particulier avec le client :
+    // jusqu'à la date de fin incluse si elle est renseignée, sinon jusqu'à leur reprise.
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateSuspensionRelances;
+
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp finSuspensionRelances;
+
+    public String motifSuspensionRelances;
+
     @jakarta.persistence.Column(columnDefinition = "TEXT")
     public String note;
 

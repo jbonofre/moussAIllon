@@ -1,6 +1,6 @@
 import { fetchWithAuth } from './api.ts';
 import { useState, useEffect } from 'react';
-import { Card, Row, Col, Space, Button, Divider, Form, Input, InputNumber, Spin, Typography, message } from 'antd';
+import { Card, Row, Col, Space, Button, Divider, Form, Input, InputNumber, Radio, Spin, Typography, message } from 'antd';
 import { PauseCircleOutlined, DeploymentUnitOutlined, SaveOutlined } from '@ant-design/icons';
 import { demo } from './workspace.tsx';
 import ImageUpload from './ImageUpload.tsx';
@@ -235,10 +235,19 @@ export default function Societe(props) {
                         rules={[{ required: true, message: 'L\'indemnité forfaitaire est requise' }]}>
                         <InputNumber min={0} step={1} addonAfter="€" style={{ width: 200 }} />
                     </Form.Item>
+                    <Divider titlePlacement="start">Envoi des relances</Divider>
+                    <Form.Item name="relancesAutomatiques" label="Relances de paiement et de devis">
+                        <Radio.Group>
+                            <Space orientation="vertical">
+                                <Radio value={false}>À valider chaque matin dans le journal des relances (Vente &gt; Relances)</Radio>
+                                <Radio value={true}>Envoyées automatiquement chaque matin à 8h</Radio>
+                            </Space>
+                        </Radio.Group>
+                    </Form.Item>
                     <Divider titlePlacement="start">Relances de paiement</Divider>
                     <Form.Item label={null}>
                         <Typography.Text type="secondary">
-                            Relances envoyées automatiquement par email pour toutes les factures émises non soldées.
+                            Relances par email des factures émises non soldées.
                             Les délais sont comptés à partir de la date d'échéance de la facture, ou de sa date d'émission
                             si aucune échéance n'est renseignée. Laisser vide pour désactiver une relance.
                         </Typography.Text>
@@ -248,7 +257,7 @@ export default function Societe(props) {
                     <Divider titlePlacement="start">Relances des devis</Divider>
                     <Form.Item label={null}>
                         <Typography.Text type="secondary">
-                            Relances envoyées automatiquement par email pour les devis/OR en attente de signature, ni acceptés
+                            Relances par email des devis/OR en attente de signature, ni acceptés
                             ni refusés, aux clients qui ont donné leur consentement. Les délais sont comptés à partir de la
                             date du devis. Laisser vide pour désactiver une relance.
                         </Typography.Text>

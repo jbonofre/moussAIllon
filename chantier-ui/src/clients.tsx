@@ -65,6 +65,9 @@ interface Client {
   telephone?: string;
   adresse?: string;
   consentement?: boolean;
+  // Accord particulier : aucune vente du client n'est relancée (paiement ou devis)
+  relancesSuspendues?: boolean;
+  motifSuspensionRelances?: string;
   date?: string;
   evaluation?: number;
   notes?: string;
@@ -86,6 +89,7 @@ const defaultClient = {
   telephone: "",
   adresse: "",
   consentement: false,
+  relancesSuspendues: false,
   date: "",
   evaluation: 0,
   notes: "",
@@ -125,6 +129,7 @@ function Clients() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [form] = Form.useForm();
+  const relancesSuspendues = Form.useWatch('relancesSuspendues', form);
   const [formDirty, setFormDirty] = useState(false);
 
   const fetchClients = async (params: { nom?: string; type?: string } = {}) => {
@@ -538,7 +543,17 @@ function Clients() {
                 <Checkbox>Consentement</Checkbox>
               </Form.Item>
             </Col>
+            <Col span={12}>
+              <Form.Item name="relancesSuspendues" valuePropName="checked">
+                <Checkbox>Ne pas relancer (accord particulier)</Checkbox>
+              </Form.Item>
+            </Col>
           </Row>
+          {relancesSuspendues && (
+            <Form.Item label="Motif (relances suspendues)" name="motifSuspensionRelances">
+              <Input placeholder="Ex : règle à 60 jours, échéancier convenu…" allowClear />
+            </Form.Item>
+          )}
           <Form.Item label="Téléphone" name="telephone">
             <Input style={{ width: "50%" }}/>
           </Form.Item>
