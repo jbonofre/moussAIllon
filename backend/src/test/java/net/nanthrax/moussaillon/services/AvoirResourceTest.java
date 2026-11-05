@@ -220,6 +220,74 @@ public class AvoirResourceTest {
                 .body("montantTVA", is(0.0f))
                 .body("montantHT", is(100.0f))
                 .body("montantTTC", is(100.0f));
+
+        // Une ligne libre est aussi sans TVA
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Geste commercial\",\"lignesLibres\":[{\"designation\":\"Main d'oeuvre\",\"quantite\":1,\"prixUnitaireHT\":50.0,\"tva\":20.0}]}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(200)
+                .body("lignes[0].tva", is(0.0f))
+                .body("lignes[0].montantTVA", is(0.0f))
+                .body("montantTTC", is(50.0f));
+    }
+
+    @Test
+    void testAvoirAvecLigneLibre() {
+        String vente = "{\"status\":\"DEVIS\",\"comptoir\":true,\"client\":{\"id\":100},\"prixVenteTTC\":12.0,\"venteProduits\":["
+                + "{\"quantite\":1,\"produit\":{\"designation\":\"Ligne C " + System.nanoTime() + "\",\"prixVenteTTC\":12.0,\"tva\":20.0}}]}";
+        io.restassured.path.json.JsonPath created = given()
+                .contentType("application/json")
+                .body(vente)
+                .when().post("/ventes")
+                .then().statusCode(201).extract().jsonPath();
+        int venteId = created.getInt("id");
+        int ligne = created.getInt("venteProduits[0].id");
+        String demiHeure = "{\"designation\":\" Main d'oeuvre \",\"quantite\":0.5,\"prixUnitaireHT\":60.0,\"tva\":20.0}";
+
+        // Une demi-heure de main d'œuvre, sans reprendre de ligne de la facture
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Temps passé\",\"produitIds\":[],\"lignesLibres\":[" + demiHeure + "]}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(200)
+                .body("lignes.size()", is(1))
+                .body("lignes[0].designation", is("Main d'oeuvre"))
+                .body("lignes[0].quantite", is(0.5f))
+                .body("lignes[0].montantTVA", is(6.0f))
+                .body("lignes[0].totalTTC", is(36.0f))
+                .body("montantHT", is(30.0f))
+                .body("montantTVA", is(6.0f))
+                .body("montantTTC", is(36.0f));
+
+        // Des lignes libres seules ne reprennent pas toute la facture
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Temps passé\",\"lignesLibres\":[" + demiHeure + "]}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(200)
+                .body("lignes.size()", is(1));
+
+        // Une ligne libre s'ajoute aux lignes reprises de la facture
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Retour et temps passé\",\"produitIds\":[" + ligne + "],\"lignesLibres\":[" + demiHeure + "]}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(200)
+                .body("lignes.size()", is(2))
+                .body("montantTTC", is(48.0f));
+
+        // Une ligne libre sans désignation, ou à prix négatif, est refusée
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Temps passé\",\"lignesLibres\":[{\"designation\":\" \",\"quantite\":1,\"prixUnitaireHT\":60.0,\"tva\":20.0}]}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(400);
+        given()
+                .contentType("application/json")
+                .body("{\"motif\":\"Temps passé\",\"lignesLibres\":[{\"designation\":\"Main d'oeuvre\",\"quantite\":1,\"prixUnitaireHT\":-60.0,\"tva\":20.0}]}")
+                .when().post("/avoirs/from-vente/" + venteId)
+                .then().statusCode(400);
     }
 
     @Test

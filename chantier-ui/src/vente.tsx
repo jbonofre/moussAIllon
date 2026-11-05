@@ -91,6 +91,8 @@ import {
 } from './ligne-libre.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
 import InputQuantite from './InputQuantite.tsx';
+import LignesLibresAvoir from './LignesLibresAvoir.tsx';
+import { AvoirLigneLibre, erreurLignesLibresAvoir, totalTTCLigneLibreAvoir } from './avoir-ligne-libre.ts';
 import { quantiteLigne } from './quantite.ts';
 
 interface ClientEntity {
@@ -913,6 +915,7 @@ export default function Vente() {
     const [genAvoirNotes, setGenAvoirNotes] = useState('');
     const [generatingAvoir, setGeneratingAvoir] = useState(false);
     const [genAvoirSelection, setGenAvoirSelection] = useState<string[]>([]);
+    const [genAvoirLignesLibres, setGenAvoirLignesLibres] = useState<AvoirLigneLibre[]>([]);
 
     const clientOptions = useMemo(
         () => clients.map((client) => ({ value: client.id, label: getClientLabel(client) })),
@@ -2618,6 +2621,7 @@ export default function Vente() {
         }
         setGenAvoirMotif('');
         setGenAvoirNotes('');
+        setGenAvoirLignesLibres([]);
         setGenAvoirSelection([
             ...(complete.venteForfaits || []).filter((l) => l.id && l.forfait).map((l) => `forfait:${l.id}`),
             ...(complete.venteServices || []).filter((l) => l.id && l.service).map((l) => `service:${l.id}`),
@@ -2629,7 +2633,12 @@ export default function Vente() {
     const handleGenerateAvoir = async () => {
         if (!genAvoirModalVente?.id) return;
         if (!genAvoirMotif.trim()) { message.warning('Le motif est requis'); return; }
-        if (genAvoirSelection.length === 0) { message.warning('Sélectionnez au moins une ligne'); return; }
+        if (genAvoirSelection.length === 0 && genAvoirLignesLibres.length === 0) {
+            message.warning('Sélectionnez au moins une ligne ou ajoutez une ligne libre');
+            return;
+        }
+        const erreurLignesLibres = erreurLignesLibresAvoir(genAvoirLignesLibres);
+        if (erreurLignesLibres) { message.warning(erreurLignesLibres); return; }
         const ids = (type: string) => genAvoirSelection
             .filter((k) => k.startsWith(`${type}:`))
             .map((k) => Number(k.slice(type.length + 1)));
@@ -2641,10 +2650,12 @@ export default function Vente() {
                 forfaitIds: ids('forfait'),
                 serviceIds: ids('service'),
                 produitIds: ids('produit'),
+                lignesLibres: genAvoirLignesLibres.map((l) => ({ ...l, designation: l.designation.trim() })),
             });
             setGenAvoirModalVente(null);
             setGenAvoirMotif('');
             setGenAvoirNotes('');
+            setGenAvoirLignesLibres([]);
             Modal.confirm({
                 title: 'Avoir généré',
                 content: 'L\'avoir a été créé en brouillon. Voulez-vous accéder à la gestion des avoirs ?',
@@ -5270,7 +5281,8 @@ export default function Vente() {
                 width="95vw"
             >
                 <p style={{ marginBottom: 16, color: '#595959' }}>
-                    Un avoir en brouillon sera créé avec les lignes cochées de la facture <strong>#{genAvoirModalVente?.id}</strong>.
+                    Un avoir en brouillon sera créé avec les lignes cochées de la facture <strong>#{genAvoirModalVente?.id}</strong>
+                    et les lignes libres saisies (ex : une heure de main d'œuvre d'un forfait).
                 </p>
                 <Table
                     size="small"
@@ -5294,20 +5306,23 @@ export default function Vente() {
                             render: (v: number) => `${v.toFixed(2)} EUR`,
                         },
                     ]}
-                    summary={() => (
-                        <Table.Summary.Row>
-                            <Table.Summary.Cell index={0} colSpan={4}>Total de l'avoir (TTC)</Table.Summary.Cell>
-                            <Table.Summary.Cell index={4} align="right">
-                                <strong>
-                                    {genAvoirLignes
-                                        .filter((l) => genAvoirSelection.includes(l.key))
-                                        .reduce((sum, l) => sum + l.totalTTC, 0)
-                                        .toFixed(2)} EUR
-                                </strong>
-                            </Table.Summary.Cell>
-                        </Table.Summary.Row>
-                    )}
                 />
+                <LignesLibresAvoir
+                    lignes={genAvoirLignesLibres}
+                    onChange={setGenAvoirLignesLibres}
+                    exonere={clientExonereTva(genAvoirModalVente?.client)}
+                    tvaDefaut={TVA_VENTE_DEFAUT}
+                />
+                <div style={{ textAlign: 'right', marginBottom: 16 }}>
+                    Total de l'avoir (TTC) :{' '}
+                    <strong>
+                        {(genAvoirLignes
+                            .filter((l) => genAvoirSelection.includes(l.key))
+                            .reduce((sum, l) => sum + l.totalTTC, 0)
+                            + genAvoirLignesLibres.reduce((sum, l) => sum + totalTTCLigneLibreAvoir(l), 0)
+                        ).toFixed(2)} EUR
+                    </strong>
+                </div>
                 <Form layout="vertical">
                     <Form.Item label="Motif" required>
                         <Input

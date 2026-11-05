@@ -37,6 +37,7 @@ import { clientExonereTva, prixArticleVente, prixPrestationVente } from './tva-v
 import SearchAutoComplete from './SearchAutoComplete.tsx';
 import InputQuantite from './InputQuantite.tsx';
 import { quantiteLigne } from './quantite.ts';
+import { TVA_OPTIONS_AVOIR } from './avoir-ligne-libre.ts';
 
 const { TextArea } = Input;
 
@@ -113,13 +114,6 @@ const MODE_REMBOURSEMENT_OPTIONS = [
     { value: 'VIREMENT', label: 'Virement' },
     { value: 'CARTE', label: 'Carte' },
     { value: 'ESPÈCES', label: 'Espèces' },
-];
-
-const TVA_OPTIONS = [
-    { value: 0, label: '0%' },
-    { value: 5.5, label: '5,5%' },
-    { value: 10, label: '10%' },
-    { value: 20, label: '20%' },
 ];
 
 const formatDate = (value?: string) => {
@@ -814,7 +808,7 @@ export default function Avoirs() {
                 <Select
                     value={formLignes[index].tva}
                     onChange={(v) => updateLigne(index, 'tva', v)}
-                    options={TVA_OPTIONS}
+                    options={TVA_OPTIONS_AVOIR}
                     style={{ width: '100%' }}
                 />
             ),
