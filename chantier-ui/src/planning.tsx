@@ -1957,7 +1957,7 @@ export default function Planning() {
                 okText="Enregistrer"
                 confirmLoading={saving}
                 cancelText="Fermer"
-                width="95vw"
+                width="24vw"
                 onCancel={handleModalCancel}
                 destroyOnHidden
             >
