@@ -490,6 +490,7 @@ public class VenteResource {
         appliquerConditionsPaiement(vente);
         vente.persist();
         attribuerNumeroDocument(vente);
+        ClientResource.convertirEnClient(vente);
         return Response.status(Response.Status.CREATED).entity(vente).build();
     }
 
@@ -927,6 +928,7 @@ public class VenteResource {
         }
 
         attribuerNumeroDocument(entity);
+        ClientResource.convertirEnClient(entity);
 
         return entity;
     }

@@ -221,6 +221,7 @@ public class ClientPortalResource {
         entity.bonPourAccord = true;
         entity.dateBonPourAccord = new java.sql.Timestamp(System.currentTimeMillis());
         VenteResource.effacerRefus(entity);
+        ClientResource.convertirEnClient(entity);
         if (body != null && body.get("signature") != null) {
             entity.signatureBonPourAccord = body.get("signature");
         }

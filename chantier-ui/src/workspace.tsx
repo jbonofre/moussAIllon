@@ -1,7 +1,7 @@
 import { fetchWithAuth } from './api.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined, FundOutlined, LineChartOutlined, BarChartOutlined, BellOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined, FundOutlined, LineChartOutlined, BarChartOutlined, BellOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -33,6 +33,7 @@ import MainOeuvres from './main-oeuvres.tsx';
 import Vente from './vente.tsx';
 import Avoirs from './avoirs.tsx';
 import Relances from './relances.tsx';
+import ActionsCommerciales from './actions-commerciales.tsx';
 import Planning from './planning.tsx';
 import Comptoir from './comptoir.tsx';
 import Dashboard from './dashboard.tsx';
@@ -60,6 +61,7 @@ const MENU_ITEMS = [
     { key: '/avoirs', label: 'Avoirs', icon: <RollbackOutlined/> },
     { key: '/relances', label: 'Relances', icon: <BellOutlined/> },
     { key: '/clients', label: 'Clients', icon: <TeamOutlined /> },
+    { key: '/actions-commerciales', label: 'Actions commerciales', icon: <ScheduleOutlined /> },
   ]},
   { key: 'parc', label: 'Parc', icon: <Icon component={ ParcOutlined } />, module: 'PARC', children: [
     { key: '/clients/bateaux', label: 'Bateaux', icon: <Icon component={ BoatOutlined } />},
@@ -586,6 +588,8 @@ export default function Workspace(props) {
                 return <Avoirs />;
             case '/relances':
                 return <Relances />;
+            case '/actions-commerciales':
+                return <ActionsCommerciales />;
             case '/forfaits':
                 return <Forfaits />;
             case '/techniciens':

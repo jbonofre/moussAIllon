@@ -12,6 +12,7 @@ import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.BateauClientEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.FormatNomListener;
+import net.nanthrax.moussaillon.persistence.InteractionClientEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 import org.jboss.resteasy.reactive.RestForm;
@@ -21,6 +22,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.sql.Timestamp;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -43,6 +45,7 @@ public class ClientResource {
             c.bateaux = listBateaux(c.id);
             c.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(c.id);
         });
+        renseignerSuiviCommercial(clients);
         return clients;
     }
 
@@ -66,6 +69,7 @@ public class ClientResource {
             c.bateaux = listBateaux(c.id);
             c.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(c.id);
         });
+        renseignerSuiviCommercial(clients);
         return clients;
     }
 
@@ -197,6 +201,7 @@ public class ClientResource {
         entity.nombreBateaux = computeNombreBateaux(id);
         entity.bateaux = listBateaux(id);
         entity.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(id);
+        renseignerSuiviCommercial(List.of(entity));
         return entity;
     }
 
@@ -208,6 +213,8 @@ public class ClientResource {
         if (entity == null) {
             throw new WebApplicationException("Le client (" + id + ") n'est pas trouvé", 404);
         }
+        // Son suivi commercial disparaît avec lui
+        InteractionClientEntity.delete("client.id", id);
         entity.delete();
         return Response.status(204).build();
     }
@@ -223,6 +230,9 @@ public class ClientResource {
 
         entity.nom = client.nom;
         entity.type = client.type;
+        if (client.statut != null) {
+            entity.statut = client.statut;
+        }
         entity.email = client.email;
         entity.telephone = client.telephone;
         entity.adresse = client.adresse;
@@ -250,6 +260,7 @@ public class ClientResource {
         entity.nombreBateaux = computeNombreBateaux(id);
         entity.bateaux = listBateaux(id);
         entity.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(id);
+        renseignerSuiviCommercial(List.of(entity));
         return entity;
     }
 
@@ -271,6 +282,46 @@ public class ClientResource {
         }
         long modifies = ClientEntity.update("consentement = ?1 where id in ?2", request.consentement, request.ids);
         return Map.of("modifies", modifies);
+    }
+
+    /**
+     * Un prospect, ou un client inactif, devient client dès qu'une de ses ventes est acceptée : bon pour accord
+     * signé, ou vente facturée (vente comptoir, prestation lancée...). Un devis en attente ne change rien.
+     */
+    static void convertirEnClient(VenteEntity vente) {
+        if (vente == null || vente.client == null || vente.client.id == null) {
+            return;
+        }
+        if (!vente.bonPourAccord && (vente.status == null || vente.status == VenteEntity.Status.DEVIS)) {
+            return;
+        }
+        ClientEntity client = ClientEntity.findById(vente.client.id);
+        if (client != null && client.statut != ClientEntity.Statut.CLIENT) {
+            client.statut = ClientEntity.Statut.CLIENT;
+        }
+    }
+
+    /** Suivi commercial des clients : date du dernier échange et échéance de la prochaine action à faire. */
+    private static void renseignerSuiviCommercial(List<ClientEntity> clients) {
+        Map<Long, Timestamp> derniersEchanges = datesParClient(
+            "SELECT i.client.id, MAX(COALESCE(i.dateRealisation, i.date)) FROM InteractionClientEntity i WHERE i.statut = :statut GROUP BY i.client.id",
+            InteractionClientEntity.Statut.FAITE);
+        Map<Long, Timestamp> prochainesActions = datesParClient(
+            "SELECT i.client.id, MIN(i.date) FROM InteractionClientEntity i WHERE i.statut = :statut GROUP BY i.client.id",
+            InteractionClientEntity.Statut.A_FAIRE);
+        for (ClientEntity client : clients) {
+            client.derniereInteraction = derniersEchanges.get(client.id);
+            client.prochaineAction = prochainesActions.get(client.id);
+        }
+    }
+
+    private static Map<Long, Timestamp> datesParClient(String requete, InteractionClientEntity.Statut statut) {
+        Map<Long, Timestamp> dates = new HashMap<>();
+        InteractionClientEntity.getEntityManager().createQuery(requete, Object[].class)
+            .setParameter("statut", statut)
+            .getResultList()
+            .forEach(r -> dates.put((Long) r[0], (Timestamp) r[1]));
+        return dates;
     }
 
     private double computeSoldeDu(long clientId) {
