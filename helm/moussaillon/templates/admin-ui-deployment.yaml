@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "moussaillon.fullname" . }}-admin-ui
+  labels:
+    {{- include "moussaillon.labels" . | nindent 4 }}
+    app.kubernetes.io/component: admin-ui
+spec:
+  replicas: {{ .Values.adminUi.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: admin-ui
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: admin-ui
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: admin-ui
+          image: {{ include "moussaillon.image" (dict "global" .Values.global "image" .Values.adminUi.image) }}
+          imagePullPolicy: {{ .Values.adminUi.image.pullPolicy }}
+          ports:
+            - containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.adminUi.resources | nindent 12 }}

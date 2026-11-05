@@ -1,11 +1,10 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 
 @Entity
-public class FournisseurHeliceEntity extends PanacheEntity {
+public class FournisseurHeliceEntity extends PanacheEntityChantier {
 
     @ManyToOne
     public FournisseurEntity fournisseur;

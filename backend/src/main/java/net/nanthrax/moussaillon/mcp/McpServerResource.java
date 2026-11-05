@@ -22,13 +22,17 @@ import java.util.stream.Collectors;
 
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
+import net.nanthrax.moussaillon.services.ChantierFilter;
+
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 import jakarta.json.bind.Jsonb;
 import jakarta.json.bind.JsonbBuilder;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -70,6 +74,11 @@ public class McpServerResource {
             Arrays.asList("GET", "POST", "PUT", "DELETE"));
 
     private final Jsonb jsonb = JsonbBuilder.create();
+
+    // En-têtes de la requête MCP : le jeton (et le chantier) de l'appelant sont transmis aux appels de l'API,
+    // qui lisent ainsi les données de son chantier.
+    @Inject
+    HttpHeaders headers;
 
     @ConfigProperty(name = "quarkus.http.port", defaultValue = "8080")
     int backendPort;
@@ -194,6 +203,13 @@ public class McpServerResource {
         throw new IllegalArgumentException("Unknown tool: " + toolName);
     }
 
+    private void transmettreEntete(HttpURLConnection connection, String entete) {
+        String valeur = headers.getHeaderString(entete);
+        if (valeur != null && !valeur.isBlank()) {
+            connection.setRequestProperty(entete, valeur);
+        }
+    }
+
     private Map<String, Object> callApiResource(Map<String, Object> arguments) {
         String rawMethod = asString(arguments.get("method"));
         if (rawMethod == null || rawMethod.trim().isEmpty()) {
@@ -222,6 +238,8 @@ public class McpServerResource {
             connection = (HttpURLConnection) new URL(url).openConnection();
             connection.setRequestMethod(method);
             connection.setRequestProperty("Accept", "application/json");
+            transmettreEntete(connection, HttpHeaders.AUTHORIZATION);
+            transmettreEntete(connection, ChantierFilter.ENTETE);
 
             if ("POST".equals(method) || "PUT".equals(method)) {
                 String body = arguments.containsKey("body") ? jsonb.toJson(arguments.get("body")) : "{}";

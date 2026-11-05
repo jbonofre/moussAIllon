@@ -30,6 +30,9 @@ public class UserResource {
     @Inject
     SecurityIdentity identity;
 
+    @Inject
+    ChantierContexte chantier;
+
     public static class LoginRequest {
         public String name;
         public String password;
@@ -44,6 +47,8 @@ public class UserResource {
         // Abonnement non activé, ou échéance impayée depuis 2 mois ou plus : l'accès est limité à la facturation.
         public boolean accesLimiteFacturation;
         public boolean abonnementActif;
+        // Code du chantier de l'utilisateur.
+        public String chantier;
     }
 
     public static class ChangePasswordRequest {
@@ -55,6 +60,9 @@ public class UserResource {
     @Path("/authenticate")
     @Transactional
     public Response authenticate(LoginRequest request) {
+        if (!chantier.defini()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Le code chantier est requis.").build();
+        }
         if (SocieteResource.accesBloqueParResiliation()) {
             return Response.status(Response.Status.FORBIDDEN)
                 .entity("Accès bloqué : l'abonnement a été résilié.").build();
@@ -62,7 +70,7 @@ public class UserResource {
         if (request == null || request.name == null || request.password == null) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Nom d'utilisateur et mot de passe requis.").build();
         }
-        UserEntity entity = UserEntity.findById(request.name);
+        UserEntity entity = UserEntity.findByName(request.name);
         if (entity == null || !PasswordUtil.verify(request.password, entity.password)) {
             return Response.status(Response.Status.UNAUTHORIZED).entity("Identifiants invalides.").build();
         }
@@ -87,6 +95,7 @@ public class UserResource {
         auth.theme = entity.theme;
         auth.accesLimiteFacturation = limitation != null;
         auth.abonnementActif = SocieteResource.abonnementActif();
+        auth.chantier = chantier.code();
         return Response.ok(auth).build();
     }
 
@@ -101,7 +110,7 @@ public class UserResource {
             return Response.status(Response.Status.BAD_REQUEST).entity("Le nouveau mot de passe ne peut pas être vide.").build();
         }
 
-        UserEntity entity = UserEntity.findById(name);
+        UserEntity entity = UserEntity.findByName(name);
         if (entity == null) {
             return Response.status(Response.Status.NOT_FOUND).entity("L'utilisateur " + name + " n'est pas trouvé").build();
         }
@@ -131,6 +140,12 @@ public class UserResource {
     @POST
     @Transactional
     public Response create(UserEntity user) {
+        if (user.name == null || user.name.isBlank()) {
+            throw requeteInvalide("Le nom de l'utilisateur est requis.");
+        }
+        if (UserEntity.findByName(user.name) != null) {
+            throw requeteInvalide("L'utilisateur " + user.name + " existe déjà.");
+        }
         validerModules(user.name, user);
         if (user.password != null && !user.password.isBlank()) {
             user.password = PasswordUtil.hash(user.password);
@@ -145,7 +160,7 @@ public class UserResource {
     @GET
     @Path("{name}")
     public UserEntity get(String name) {
-        UserEntity entity = UserEntity.findById(name);
+        UserEntity entity = UserEntity.findByName(name);
         if (entity == null) {
             throw new WebApplicationException("L'utilisateur " + name + " n'est pas trouvé", 404);
         }
@@ -157,7 +172,7 @@ public class UserResource {
     @Path("{name}")
     @Transactional
     public Response delete(String name) {
-        UserEntity entity = UserEntity.findById(name);
+        UserEntity entity = UserEntity.findByName(name);
         if (entity == null) {
             throw new WebApplicationException("L'utilisateur " + name + " n'est pas trouvé", 404);
         }
@@ -170,7 +185,7 @@ public class UserResource {
     @Path("{name}")
     @Transactional
     public UserEntity update(String name, UserEntity user) {
-        UserEntity entity = UserEntity.findById(name);
+        UserEntity entity = UserEntity.findByName(name);
         if (entity == null) {
             throw new WebApplicationException("L'utilisateur " + name + " n'est pas trouvé", 404);
         }
@@ -181,6 +196,9 @@ public class UserResource {
         if (identity.isAnonymous() || identity.hasRole(ModuleApplication.PARAMETRAGE.name())) {
             validerModules(name, user);
             verifierAccesParametrageConserve(entity, user.modules);
+            if (user.name != null && !user.name.equals(entity.name) && UserEntity.findByName(user.name) != null) {
+                throw requeteInvalide("L'utilisateur " + user.name + " existe déjà.");
+            }
 
             entity.name = user.name;
             entity.email = user.email;

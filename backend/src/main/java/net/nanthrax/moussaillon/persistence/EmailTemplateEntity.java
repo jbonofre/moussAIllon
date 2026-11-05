@@ -1,13 +1,15 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 @Entity
-public class EmailTemplateEntity extends PanacheEntity {
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"chantier", "type"}))
+public class EmailTemplateEntity extends PanacheEntityChantier {
 
     public enum Type {
         // Relance de paiement 1 (RAPPEL, nom historique), 2 et 3
@@ -25,7 +27,7 @@ public class EmailTemplateEntity extends PanacheEntity {
     }
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     public Type type;
 
     @Column(nullable = false)

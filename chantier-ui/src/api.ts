@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { enteteChantier } from './chantier.ts';
 
 const api = axios.create({ baseURL: '/api' });
 
@@ -6,6 +7,8 @@ api.interceptors.request.use((config) => {
     const token = localStorage.getItem('moussaillon-token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    } else {
+        Object.assign(config.headers, enteteChantier());
     }
     return config;
 });
@@ -33,6 +36,8 @@ export function fetchWithAuth(rawUrl: string, options: RequestInit = {}): Promis
     };
     if (token) {
         headers['Authorization'] = `Bearer ${token}`;
+    } else {
+        Object.assign(headers, enteteChantier());
     }
     return fetch(url, { ...options, headers }).then((response) => {
         if (response.status === 401) {

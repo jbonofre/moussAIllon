@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Form, Button, Input, Image, message, Typography, Space } from 'antd';
-import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { UserOutlined, LockOutlined, ShopOutlined } from '@ant-design/icons';
+import { codeChantierInitial, enteteChantier, memoriserChantier } from './chantier.ts';
 
 const { Title, Text } = Typography;
 
@@ -13,20 +14,23 @@ export default function Login(props) {
         setLoading(true);
         fetch('/api/users/authenticate', {
             method: 'POST',
-            body: JSON.stringify(values),
+            body: JSON.stringify({ name: values.name, password: values.password }),
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                ...enteteChantier(values.chantier),
             }
         })
         .then(async (response) => {
             if (!response.ok) {
-                // Accès bloqué (abonnement résilié, non activé ou impayé) : le serveur en donne la raison
-                const raison = response.status === 403 ? await response.text() : '';
+                // Code chantier inconnu, identifiants invalides, accès bloqué (chantier suspendu, abonnement
+                // résilié, non activé ou impayé) : le serveur en donne la raison
+                const raison = [400, 401, 403].includes(response.status) ? await response.text() : '';
                 throw new Error(raison || 'Erreur (code ' + response.status + ')');
             }
             return response.json();
         })
         .then((data) => {
+            memoriserChantier(values.chantier);
             localStorage.setItem('moussaillon-token', data.token);
             const user = {
                 name: data.name,
@@ -34,6 +38,7 @@ export default function Login(props) {
                 theme: data.theme,
                 accesLimiteFacturation: !!data.accesLimiteFacturation,
                 abonnementActif: data.abonnementActif !== false,
+                chantier: data.chantier,
             };
             localStorage.setItem('moussaillon-user', JSON.stringify(user));
             props.setUser(user);
@@ -74,6 +79,7 @@ export default function Login(props) {
                         form={loginForm}
                         layout="vertical"
                         autoComplete="off"
+                        initialValues={{ chantier: codeChantierInitial() }}
                         onFinish={handleLogin}
                         onKeyUp={(event) => {
                             if (event.keyCode === 13) {
@@ -81,6 +87,19 @@ export default function Login(props) {
                             }
                         }}
                     >
+                        <Form.Item
+                            name="chantier"
+                            rules={[{ required: true, whitespace: true, message: 'Le code chantier est requis' }]}
+                        >
+                            <Input
+                                prefix={<ShopOutlined style={{ color: '#bfbfbf' }} />}
+                                placeholder="Code chantier"
+                                aria-label="Code chantier"
+                                size="large"
+                                autoCapitalize="none"
+                                style={{ borderRadius: 10, height: 48 }}
+                            />
+                        </Form.Item>
                         <Form.Item
                             name="name"
                             rules={[{ required: true, message: "L'utilisateur est requis" }]}

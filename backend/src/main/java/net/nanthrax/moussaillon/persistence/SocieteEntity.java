@@ -1,6 +1,6 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.panache.common.Sort;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.*;
 
@@ -12,7 +12,7 @@ import java.util.Set;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class SocieteEntity extends PanacheEntity {
+public class SocieteEntity extends PanacheEntityChantier {
 
     @Column(nullable = false)
     @FormatNom
@@ -142,7 +142,7 @@ public class SocieteEntity extends PanacheEntity {
     @Transient
     public boolean accesBloqueImpaye;
 
-    // Version « Free » (propriété abonnement.free) : les accès ne sont jamais bloqués.
+    // Abonnement gratuit, accordé par l'administrateur au chantier : les accès ne sont jamais bloqués.
     @Transient
     public boolean versionFree;
 
@@ -177,5 +177,10 @@ public class SocieteEntity extends PanacheEntity {
     public String stripePaymentLinkAnnuel;
     public String payplugPaymentLinkMensuel;
     public String payplugPaymentLinkAnnuel;
+
+    /** Société du chantier courant (une par chantier), ou null s'il n'y en a pas encore. */
+    public static SocieteEntity courante() {
+        return SocieteEntity.<SocieteEntity>findAll(Sort.ascending("id")).firstResult();
+    }
 
 }

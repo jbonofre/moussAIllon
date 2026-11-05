@@ -1,4 +1,5 @@
 import { fetchWithAuth } from './api.ts';
+import { chantierMemorise } from './chantier.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
 import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined, FundOutlined, LineChartOutlined, BarChartOutlined, BellOutlined, ScheduleOutlined } from '@ant-design/icons';
@@ -220,8 +221,10 @@ function Header(props) {
         }
     };
 
+    const chantier = chantierMemorise();
     const menuUser = [
               { key: 'user', label: props.user, icon: <UserOutlined />, children: [
+                ...(chantier ? [{ key: 'chantier', label: 'Chantier : ' + chantier, icon: <ShopOutlined/>, disabled: true }] : []),
                 { key: 'preferences', label: 'Préférences', icon: <SettingOutlined/> },
                 { key: 'deconnexion', label: 'Déconnexion', icon: <DisconnectOutlined/> }
               ]}

@@ -2,14 +2,13 @@ package net.nanthrax.moussaillon.persistence;
 
 import java.sql.Timestamp;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 
 @Entity
-public class CampagneHistoriqueEntity extends PanacheEntity {
+public class CampagneHistoriqueEntity extends PanacheEntityChantier {
 
     @ManyToOne
     public CampagneEntity campagne;

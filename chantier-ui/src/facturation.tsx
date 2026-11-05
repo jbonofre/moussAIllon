@@ -489,7 +489,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
             <Card title={
                 <Space>
                     <CreditCardOutlined /> Facturation
-                    {societe.versionFree && <Tag color="blue">Version Free</Tag>}
+                    {societe.versionFree && <Tag color="blue">Abonnement gratuit</Tag>}
                 </Space>
             }>
                 {societe.versionFree && (
@@ -497,8 +497,8 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                         type="info"
                         showIcon
                         style={{ marginBottom: 16 }}
-                        message="Version Free : les accès ne sont jamais bloqués"
-                        description="Ni un abonnement non activé, ni une échéance impayée, ni une résiliation ne bloquent l'accès à l'application, et les modules s'ajoutent sans paiement. Les paiements restent possibles."
+                        message="Abonnement gratuit : les accès ne sont jamais bloqués"
+                        description="Accordé par l'éditeur de moussAIllon : ni un abonnement non activé, ni une échéance impayée, ni une résiliation ne bloquent l'accès à l'application, et les modules s'ajoutent sans paiement. Les paiements restent possibles."
                     />
                 )}
                 <Descriptions title="Abonnement" column={1} bordered size="small">

@@ -33,6 +33,9 @@ public class ClientPortalResource {
     @Inject
     TokenService tokenService;
 
+    @Inject
+    ChantierContexte chantierContexte;
+
     public static class LoginRequest {
         public String email;
         public String password;
@@ -64,6 +67,9 @@ public class ClientPortalResource {
     @Path("/login")
     @Transactional
     public Response login(LoginRequest request) {
+        if (!chantierContexte.defini()) {
+            throw new WebApplicationException("Le code chantier est requis", Response.Status.BAD_REQUEST);
+        }
         if (SocieteResource.accesBloque()) {
             throw new WebApplicationException("Accès bloqué : l'abonnement n'est pas actif, a été résilié ou est impayé.", Response.Status.FORBIDDEN);
         }
@@ -157,7 +163,7 @@ public class ClientPortalResource {
     @GET
     @Path("/societe")
     public SocieteEntity getSociete() {
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", Response.Status.NOT_FOUND);
         }

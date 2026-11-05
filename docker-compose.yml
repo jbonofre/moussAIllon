@@ -16,6 +16,10 @@ services:
       MAILER_HOST: ${MAILER_HOST:-mailhog}
       MAILER_PORT: ${MAILER_PORT:-1025}
       MAILER_MOCK: ${MAILER_MOCK:-true}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@moussaillon.local}
+      CHANTIER_INITIAL: ${CHANTIER_INITIAL:-principal}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/q/health/ready"]
       interval: 10s
@@ -43,6 +47,13 @@ services:
       backend:
         condition: service_healthy
 
+  admin-ui:
+    build:
+      context: admin-ui
+    depends_on:
+      backend:
+        condition: service_healthy
+
   gateway:
     image: nginx:stable-alpine
     ports:
@@ -53,6 +64,7 @@ services:
       - chantier-ui
       - client-ui
       - technicien-ui
+      - admin-ui
 
 volumes:
   backend-data:

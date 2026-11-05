@@ -27,14 +27,21 @@ backend:
     MAILER_HOST: localhost
     MAILER_PORT: "1025"
     MAILER_MOCK: "true"
+    # Administrateur de l'instance (application admin : gestion des chantiers)
+    ADMIN_USERNAME: admin
+    ADMIN_EMAIL: admin@moussaillon.local
+    # Chantier qui reçoit les données d'une installation antérieure au multi-chantier
+    CHANTIER_INITIAL: principal
   # Sensitive keys injected only when no existingSecret is provided
   secretEnv:
     AI_OPENAI_API_KEY: not-set
     AI_ANTHROPIC_API_KEY: not-set
     STRIPE_API_KEY: not-set
     PAYPLUG_API_KEY: not-set
+    # À changer : mot de passe de l'administrateur de l'instance
+    ADMIN_PASSWORD: admin
   # Reference to an existing Kubernetes secret for sensitive values
-  # Keys: AI_OPENAI_API_KEY, AI_ANTHROPIC_API_KEY, STRIPE_API_KEY, PAYPLUG_API_KEY
+  # Keys: AI_OPENAI_API_KEY, AI_ANTHROPIC_API_KEY, STRIPE_API_KEY, PAYPLUG_API_KEY, ADMIN_PASSWORD
   existingSecret: ""
 
 chantierUi:
@@ -88,6 +95,23 @@ technicienUi:
       cpu: 200m
       memory: 128Mi
 
+adminUi:
+  replicaCount: 1
+  image:
+    repository: moussaillon/admin-ui
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 ingress:
   enabled: false
   className: ""
@@ -111,4 +135,9 @@ ingress:
         - path: /
           pathType: Prefix
           service: technicien-ui
+    - host: admin.moussaillon.local
+      paths:
+        - path: /
+          pathType: Prefix
+          service: admin-ui
   tls: []

@@ -4,13 +4,12 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 
 @Entity
-public class AnnonceEntity extends PanacheEntity {
+public class AnnonceEntity extends PanacheEntityChantier {
 
     public enum Status {
         ACTIVE,

@@ -1,6 +1,5 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.*;
@@ -12,7 +11,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 @Entity
-public class SocietePaiementEntity extends PanacheEntity {
+public class SocietePaiementEntity extends PanacheEntityChantier {
 
     // MODULES : modules ajoutés en cours de période, payés pour les mois déjà réglés.
     public enum Type { MENSUEL, ANNUEL, MODULES }

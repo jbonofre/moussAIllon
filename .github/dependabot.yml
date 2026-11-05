@@ -51,6 +51,19 @@ updates:
           - "@types/react"
           - "@types/react-dom"
 
+  # npm - admin-ui
+  - package-ecosystem: "npm"
+    directory: "/admin-ui"
+    schedule:
+      interval: "weekly"
+    groups:
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
+
   # Docker - backend
   - package-ecosystem: "docker"
     directory: "/backend"
@@ -72,6 +85,12 @@ updates:
   # Docker - technicien-ui
   - package-ecosystem: "docker"
     directory: "/technicien-ui"
+    schedule:
+      interval: "weekly"
+
+  # Docker - admin-ui
+  - package-ecosystem: "docker"
+    directory: "/admin-ui"
     schedule:
       interval: "weekly"
 

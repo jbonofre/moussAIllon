@@ -4,10 +4,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
-import jakarta.transaction.Transactional;
 import net.nanthrax.moussaillon.persistence.BateauCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.HeliceCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.MoteurCatalogueEntity;
@@ -31,8 +28,8 @@ import net.nanthrax.moussaillon.persistence.VenteRemorqueCatalogueEntity;
 @ApplicationScoped
 public class VenteLignesMigrator {
 
-    @Transactional
-    void onStart(@Observes StartupEvent event) {
+    /** Appelé au démarrage par DataInitializer, pour chaque chantier. */
+    void migrer() {
         List<VenteEntity> ventes = VenteEntity.listAll();
         for (VenteEntity vente : ventes) {
             migrateVente(vente);

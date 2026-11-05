@@ -8,7 +8,7 @@ import java.time.OffsetDateTime;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.transaction.Transactional;
+import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.Path;
@@ -27,19 +27,33 @@ public class FluxAnnonceResource {
     @ConfigProperty(name = "annonces.public-url")
     String urlPublique;
 
+    @Inject
+    Chantiers chantiers;
+
     @GET
     @Path("{code}.xml")
     @Produces(MediaType.APPLICATION_XML + ";charset=UTF-8")
-    @Transactional
     public String flux(@PathParam("code") String code, @QueryParam("token") String token) {
-        PlateformeAnnonceEntity plateforme = PlateformeAnnonceEntity.find("code", code.toUpperCase()).firstResult();
+        String plateformeCode = code.toUpperCase();
+        // Le jeton secret de la plateforme désigne aussi son chantier : l'URL du flux ne porte pas de code chantier
+        String chantier = chantiers.enRacine(() -> {
+            for (PlateformeAnnonceEntity plateforme : PlateformeAnnonceEntity.<PlateformeAnnonceEntity>list("code", plateformeCode)) {
+                if (plateforme.actif && jetonValide(plateforme.jeton, token)) {
+                    return plateforme.chantier;
+                }
+            }
+            return null;
+        });
         // Même réponse si la plateforme est inconnue, désactivée ou le jeton faux : rien n'est révélé
-        if (plateforme == null || !plateforme.actif || !jetonValide(plateforme.jeton, token)) {
+        if (chantier == null) {
             throw new NotFoundException();
         }
-        plateforme.derniereLecture = new Timestamp(System.currentTimeMillis());
-        return NautixFlux.generer(PlateformeAnnonceEntity.annoncesDiffusees(plateforme.code),
-                SocieteEntity.findById(1L), urlPublique, OffsetDateTime.now());
+        return chantiers.dans(chantier, () -> {
+            PlateformeAnnonceEntity plateforme = PlateformeAnnonceEntity.find("code", plateformeCode).firstResult();
+            plateforme.derniereLecture = new Timestamp(System.currentTimeMillis());
+            return NautixFlux.generer(PlateformeAnnonceEntity.annoncesDiffusees(plateforme.code),
+                    SocieteEntity.courante(), urlPublique, OffsetDateTime.now());
+        });
     }
 
     private static boolean jetonValide(String attendu, String recu) {

@@ -1,6 +1,5 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -16,7 +15,7 @@ import java.util.List;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class ClientEntity extends PanacheEntity {
+public class ClientEntity extends PanacheEntityChantier {
 
     // Un professionnel de la mer est exonéré de TVA (article 262 II du CGI)
     public static final String TYPE_PROFESSIONNEL_MER = "PROFESSIONNEL_MER";

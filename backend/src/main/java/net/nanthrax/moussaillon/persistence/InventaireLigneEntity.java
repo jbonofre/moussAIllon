@@ -1,6 +1,5 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbProperty;
 import jakarta.persistence.Entity;
 
@@ -9,7 +8,7 @@ import jakarta.persistence.Entity;
  * (produit, bateau, moteur, remorque) et son identifiant ; sa désignation est figée pour l'historique.
  */
 @Entity
-public class InventaireLigneEntity extends PanacheEntity {
+public class InventaireLigneEntity extends PanacheEntityChantier {
 
     public String typeArticle;
 

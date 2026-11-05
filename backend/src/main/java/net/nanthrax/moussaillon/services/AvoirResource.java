@@ -426,7 +426,7 @@ public class AvoirResource {
             throw new WebApplicationException("Le client n'a pas d'adresse email", 400);
         }
 
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
         String clientName = entity.client.nom;
         String dateStr = entity.dateEmission != null

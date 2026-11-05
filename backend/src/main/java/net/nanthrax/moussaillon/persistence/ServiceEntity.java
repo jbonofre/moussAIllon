@@ -3,7 +3,6 @@ package net.nanthrax.moussaillon.persistence;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -13,7 +12,7 @@ import jakarta.persistence.OrderBy;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class ServiceEntity extends PanacheEntity {
+public class ServiceEntity extends PanacheEntityChantier {
 
     @FormatNom
     public String nom;

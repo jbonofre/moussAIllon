@@ -48,8 +48,8 @@ public class AbonnementMoisTest {
     /** Tous les modules souscrits, pour la société et l'admin, quel que soit le déroulé du test. */
     private static void restaurerModules() {
         QuarkusTransaction.requiringNew().run(() -> {
-            SocieteEntity.<SocieteEntity>findById(1L).modules.addAll(EnumSet.allOf(ModuleApplication.class));
-            UserEntity.<UserEntity>findById("admin").modules.addAll(EnumSet.allOf(ModuleApplication.class));
+            SocieteEntity.courante().modules.addAll(EnumSet.allOf(ModuleApplication.class));
+            UserEntity.findByName("admin").modules.addAll(EnumSet.allOf(ModuleApplication.class));
         });
     }
 

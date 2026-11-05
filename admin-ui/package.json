@@ -1,0 +1,59 @@
+{
+  "name": "moussaillon-admin-ui",
+  "version": "0.9-SNAPSHOT",
+  "homepage": "/admin",
+  "main": "/index.tsx",
+  "dependencies": {
+    "@ant-design/icons": "^6.3.4",
+    "ajv": "^8.20.0",
+    "antd": "^6.6.8",
+    "axios": "^1.21.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-scripts": "^5.0.1"
+  },
+  "devDependencies": {
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "typescript": "^7"
+  },
+  "scripts": {
+    "start": "PORT=3003 react-scripts start",
+    "build": "BUILD_PATH=target/classes/META-INF/resources react-scripts build",
+    "test": "react-scripts test",
+    "eject": "react-scripts eject"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!(axios|@ant-design|@rc-component)/)"
+    ],
+    "moduleNameMapper": {
+      "^@rc-component/picker/locale/(.*)$": "@rc-component/picker/lib/locale/$1",
+      "^@rc-component/picker/generate/(.*)$": "@rc-component/picker/lib/generate/$1",
+      "^@rc-component/picker/interface$": "@rc-component/picker/lib/interface",
+      "^@rc-component/pagination/locale/(.*)$": "@rc-component/pagination/lib/locale/$1"
+    }
+  },
+  "allowScripts": {
+    "fsevents": true,
+    "core-js": false,
+    "core-js-pure": false
+  }
+}

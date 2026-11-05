@@ -98,6 +98,31 @@ jobs:
       - name: Build
         run: npm run build
 
+  admin-ui:
+    name: Admin UI Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: admin-ui
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '25'
+          cache: npm
+          cache-dependency-path: admin-ui/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: CI=true npm test -- --watchAll=false
+
+      - name: Build
+        run: npm run build
+
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
@@ -115,6 +140,9 @@ jobs:
 
       - name: Build technicien-ui image
         run: docker build -t moussaillon/technicien-ui:test technicien-ui/
+
+      - name: Build admin-ui image
+        run: docker build -t moussaillon/admin-ui:test admin-ui/
 
       - name: Verify backend starts
         run: |
@@ -135,7 +163,8 @@ jobs:
           docker run -d --name chantier-test -p 3000:80 moussaillon/chantier-ui:test
           docker run -d --name client-test -p 3001:80 moussaillon/client-ui:test
           docker run -d --name technicien-test -p 3002:80 moussaillon/technicien-ui:test
-          declare -A ports=([chantier-ui]=3000 [client-ui]=3001 [technicien-ui]=3002)
+          docker run -d --name admin-test -p 3003:80 moussaillon/admin-ui:test
+          declare -A ports=([chantier-ui]=3000 [client-ui]=3001 [technicien-ui]=3002 [admin-ui]=3003)
           for name in "${!ports[@]}"; do
             port=${ports[$name]}
             for i in $(seq 1 15); do

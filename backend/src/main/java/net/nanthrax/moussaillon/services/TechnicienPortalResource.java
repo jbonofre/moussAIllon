@@ -53,6 +53,9 @@ public class TechnicienPortalResource {
     TokenService tokenService;
 
     @Inject
+    ChantierContexte chantierContexte;
+
+    @Inject
     PretRecuperationService pretRecuperationService;
 
     public static class LoginRequest {
@@ -342,6 +345,9 @@ public class TechnicienPortalResource {
     @Path("/login")
     @Transactional
     public Response login(LoginRequest request) {
+        if (!chantierContexte.defini()) {
+            throw new WebApplicationException("Le code chantier est requis", Response.Status.BAD_REQUEST);
+        }
         if (SocieteResource.accesBloque()) {
             throw new WebApplicationException("Accès bloqué : l'abonnement n'est pas actif, a été résilié ou est impayé.", Response.Status.FORBIDDEN);
         }
@@ -1278,7 +1284,7 @@ public class TechnicienPortalResource {
         if (points.isEmpty()) {
             return;
         }
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         if (societe == null || societe.email == null || societe.email.isBlank()) {
             return;
         }
@@ -1298,7 +1304,7 @@ public class TechnicienPortalResource {
     }
 
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
         String clientName = vente.client.nom;
 

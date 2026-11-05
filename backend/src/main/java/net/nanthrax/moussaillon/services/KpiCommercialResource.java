@@ -200,7 +200,7 @@ public class KpiCommercialResource {
      * relance automatique des devis, à défaut depuis {@link #JOURS_A_RELANCER_DEFAUT} jours.
      */
     private static Pipeline pipeline(LocalDate aujourdhui) {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         Integer premiereRelance = societe != null ? societe.relanceDevis1Jours : null;
 
         Pipeline pipeline = new Pipeline();

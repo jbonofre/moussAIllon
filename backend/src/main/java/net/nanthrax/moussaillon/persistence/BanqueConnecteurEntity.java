@@ -2,14 +2,13 @@ package net.nanthrax.moussaillon.persistence;
 
 import java.sql.Timestamp;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbProperty;
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.Entity;
 
 @Entity
-public class BanqueConnecteurEntity extends PanacheEntity {
+public class BanqueConnecteurEntity extends PanacheEntityChantier {
 
     public String nom;
 

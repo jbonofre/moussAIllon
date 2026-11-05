@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Form, Button, Input, Image, message, Typography } from 'antd';
-import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { MailOutlined, LockOutlined, ShopOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import { codeChantierInitial, enteteChantier, memoriserChantier } from './chantier.ts';
 
 const { Title, Text } = Typography;
 
@@ -22,16 +23,18 @@ export default function Login({ setUser }: LoginProps) {
     const [loginForm] = Form.useForm();
     const [loading, setLoading] = useState(false);
 
-    const handleLogin = async (values: { email: string; password?: string }) => {
+    const handleLogin = async (values: { chantier: string; email: string; password?: string }) => {
         setLoading(true);
         try {
-            const res = await axios.post('/api/portal/login', { email: values.email, password: values.password });
+            const res = await axios.post('/api/portal/login', { email: values.email, password: values.password },
+                { headers: enteteChantier(values.chantier) });
             const { token, ...userData } = res.data;
+            memoriserChantier(values.chantier);
             localStorage.setItem('moussaillon-client-token', token);
             localStorage.setItem('moussaillon-client-user', JSON.stringify(userData));
             setUser(userData);
-        } catch {
-            message.error("Email ou mot de passe incorrect.");
+        } catch (error) {
+            message.error(messageErreurConnexion(error, "Email ou mot de passe incorrect."));
         } finally {
             setLoading(false);
         }
@@ -82,6 +85,7 @@ export default function Login({ setUser }: LoginProps) {
                         form={loginForm}
                         layout="vertical"
                         autoComplete="off"
+                        initialValues={{ chantier: codeChantierInitial() }}
                         onFinish={handleLogin}
                         onKeyUp={(event: React.KeyboardEvent) => {
                             if (event.key === 'Enter') {
@@ -89,6 +93,19 @@ export default function Login({ setUser }: LoginProps) {
                             }
                         }}
                     >
+                        <Form.Item
+                            name="chantier"
+                            rules={[{ required: true, whitespace: true, message: 'Le code chantier est requis' }]}
+                        >
+                            <Input
+                                prefix={<ShopOutlined style={{ color: '#bfbfbf' }} />}
+                                placeholder="Code chantier"
+                                aria-label="Code chantier"
+                                size="large"
+                                autoCapitalize="none"
+                                style={{ borderRadius: 10, height: 48 }}
+                            />
+                        </Form.Item>
                         <Form.Item
                             name="email"
                             rules={[

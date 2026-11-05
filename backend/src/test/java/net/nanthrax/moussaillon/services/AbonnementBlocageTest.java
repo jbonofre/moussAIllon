@@ -19,11 +19,11 @@ public class AbonnementBlocageTest {
     private static final String CLIENT = "{\"email\":\"jean.dupont@test.com\",\"password\":\"client123\"}";
 
     static Timestamp echeance() {
-        return QuarkusTransaction.requiringNew().call(() -> SocieteEntity.<SocieteEntity>findById(1L).abonnementProchainPaiementDate);
+        return QuarkusTransaction.requiringNew().call(() -> SocieteEntity.courante().abonnementProchainPaiementDate);
     }
 
     static void echeance(Timestamp date) {
-        QuarkusTransaction.requiringNew().run(() -> SocieteEntity.<SocieteEntity>findById(1L).abonnementProchainPaiementDate = date);
+        QuarkusTransaction.requiringNew().run(() -> SocieteEntity.courante().abonnementProchainPaiementDate = date);
     }
 
     static Timestamp ilYa(int mois, int jours) {
@@ -33,14 +33,14 @@ public class AbonnementBlocageTest {
     /** Date d'activation et prochaine échéance de l'abonnement. */
     static Timestamp[] activation() {
         return QuarkusTransaction.requiringNew().call(() -> {
-            SocieteEntity societe = SocieteEntity.findById(1L);
+            SocieteEntity societe = SocieteEntity.courante();
             return new Timestamp[] { societe.abonnementActivationDate, societe.abonnementProchainPaiementDate };
         });
     }
 
     static void activation(Timestamp[] dates) {
         QuarkusTransaction.requiringNew().run(() -> {
-            SocieteEntity societe = SocieteEntity.findById(1L);
+            SocieteEntity societe = SocieteEntity.courante();
             societe.abonnementActivationDate = dates[0];
             societe.abonnementProchainPaiementDate = dates[1];
         });

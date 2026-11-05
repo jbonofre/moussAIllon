@@ -16,6 +16,8 @@ MoussAIllon centralise l'ensemble des metiers d'un chantier naval dans une seule
 - **Espace technicien** - planning mobile des interventions
 - **IA integree** - chat assisté (OpenAI / Anthropic), serveur MCP pour l'exploration de l'API
 - **Notifications email** - alertes incidents, mots de passe, planning
+- **Multi-chantier** - une instance heberge plusieurs chantiers, chacun avec ses donnees, ses utilisateurs, ses clients et son abonnement ; chaque utilisateur se connecte avec le code de son chantier
+- **Administration de l'instance** - application admin pour creer les chantiers, gerer leur abonnement (gratuit, modules, paiements recus, resiliation), couper leur acces et les supprimer
 - **Modules & abonnement** - acces des utilisateurs par module (Vente, Parc, Catalogue, Atelier, Marketing, Comptabilite, Parametrage) ; abonnement calcule selon le nombre d'utilisateurs, de techniciens et de clients ayant acces au portail, et les modules souscrits ; active au premier paiement (frais d'activation et premier mois ou premiere annee), suivi mois par mois, modules ajoutes payes tout de suite ; sans abonnement active, l'acces est limite a la facturation
 
 ## Architecture
@@ -25,7 +27,8 @@ moussAIllon/
 ├── backend/          Java 21, Quarkus 3.32, Hibernate/Panache, H2
 ├── chantier-ui/      React 18, TypeScript, Ant Design 6 — gestion du chantier
 ├── client-ui/        React 18, TypeScript, Ant Design 5 — portail client
-└── technicien-ui/    React 18, TypeScript, Ant Design 5 — espace technicien
+├── technicien-ui/    React 18, TypeScript, Ant Design 5 — espace technicien
+└── admin-ui/         React, TypeScript, Ant Design 6 — administration de l'instance (chantiers)
 ```
 
 Les frontends communiquent avec le backend via proxy sur `http://localhost:8080`.
@@ -58,7 +61,12 @@ cd client-ui && npm install && npm start
 
 # Technicien UI (port 3002)
 cd technicien-ui && npm install && npm start
+
+# Admin UI (port 3003)
+cd admin-ui && npm install && npm start
 ```
+
+Sur une base vide, creez d'abord un chantier dans l'application admin (identifiants `admin` / `admin` par defaut, voir [Multi-chantier](#multi-chantier)), puis connectez-vous a l'espace chantier avec son code.
 
 ## Configuration
 
@@ -77,7 +85,11 @@ cd technicien-ui && npm install && npm start
 | `MAILER_HOST` | Serveur SMTP | `localhost` |
 | `MAILER_PORT` | Port SMTP | `1025` |
 | `MAILER_MOCK` | Mode mock (pas d'envoi reel) | `true` |
-| `ABONNEMENT_FREE` | Version Free : les acces ne sont jamais bloques (abonnement non active, impaye depuis 2 mois ou plus, ou resilie) et les modules s'ajoutent sans paiement | `false` |
+| `ADMIN_USERNAME` | Utilisateur de l'administrateur de l'instance (application admin) | `admin` |
+| `ADMIN_PASSWORD` | Mot de passe de l'administrateur de l'instance — **a changer en production** | `admin` |
+| `ADMIN_EMAIL` | Email de l'administrateur, indique aux chantiers dont l'acces est suspendu | `admin@moussaillon.local` |
+| `CHANTIER_INITIAL` | Code du chantier qui recoit les donnees d'une installation anterieure au multi-chantier (une seule fois, au demarrage) | `principal` |
+| `CHANTIER_PAR_DEFAUT` | Chantier des requetes qui n'en designent aucun (instance mono-chantier, outils) | _(aucun)_ |
 | `ABONNEMENT_STRIPE_API_KEY` | Cle API Stripe de l'editeur pour payer l'abonnement en ligne au montant calcule (distincte de `STRIPE_API_KEY`, qui encaisse les ventes du chantier) ; sans cle, le lien de paiement fixe de la societe est utilise | _(vide)_ |
 | `ABONNEMENT_PAYPLUG_API_KEY` | Cle API PayPlug de l'editeur pour payer l'abonnement en ligne au montant calcule | _(vide)_ |
 | `ABONNEMENT_PAIEMENT_RETOUR_URL` | Page de retour apres le paiement en ligne de l'abonnement | `http://localhost:3000/chantier/` |
@@ -85,6 +97,16 @@ cd technicien-ui && npm install && npm start
 | `ABONNEMENT_PRIX_TECHNICIEN` | Prix mensuel de l'abonnement par technicien (EUR) | `10` |
 | `ABONNEMENT_PRIX_CLIENT` | Prix mensuel de l'abonnement par client ayant acces au portail client (EUR) | `0.10` |
 | `ABONNEMENT_PRIX_MODULE_<MODULE>` | Prix mensuel d'un module souscrit (EUR) : `VENTE`, `PARC`, `CATALOGUE`, `ATELIER`, `MARKETING`, `COMPTABILITE` (`PARAMETRAGE` est inclus) | `35`, `20`, `25`, `20`, `20`, `20` |
+
+### Multi-chantier
+
+Une instance heberge plusieurs chantiers. Chaque table porte une colonne `chantier`, renseignee et filtree automatiquement par Hibernate (`@TenantId`, mode `DISCRIMINATOR`) : un chantier ne voit que ses donnees, y compris par identifiant.
+
+- **Connexion** : les ecrans de connexion (chantier, client, technicien) demandent le **code chantier**. Il est memorise dans le navigateur, et un lien `?chantier=code` le pre-remplit (ex. `https://hote/client/?chantier=ms-plaisance`, a transmettre aux clients du chantier). Le jeton emis porte le chantier (claim `chantier`) : il designe les donnees de toutes les requetes suivantes. Les requetes sans jeton designent leur chantier par l'en-tete `X-Chantier` (ou le parametre `chantier`).
+- **Application admin** (`/admin/`) : l'administrateur de l'instance (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`) cree les chantiers (code, nom, email, premier utilisateur, modules), accorde l'**abonnement gratuit** (remplace l'ancienne variable `ABONNEMENT_FREE`, desormais par chantier), modifie les modules, enregistre les paiements recus, resilie ou reactive l'abonnement, **coupe l'acces** (connexions refusees, jetons en cours rejetes, envois automatiques arretes) et **supprime** un chantier et toutes ses donnees (code a confirmer). Les images et documents deposes restent sur le disque.
+- **Taches planifiees** (relances, campagnes, sequences d'emails, factures soldees) : executees pour chaque chantier dont l'acces n'est pas suspendu.
+- **Flux d'annonces** : l'URL donnee aux plateformes ne change pas, son jeton secret designe le chantier.
+- **Migration** : au premier demarrage, les donnees d'une installation mono-chantier sont affectees au chantier `CHANTIER_INITIAL` (cree au nom de la societe ; si `ABONNEMENT_FREE` etait active, son abonnement est gratuit), les utilisateurs sont recopies dans la table `UtilisateurEntity` et les contraintes d'unicite deviennent propres a chaque chantier. Ses utilisateurs se connectent ensuite avec ce code.
 
 ### Upload d'images
 
@@ -134,8 +156,9 @@ Chaque composant dispose d'un `Dockerfile` multi-stage :
 | `chantier-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
 | `client-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
 | `technicien-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
+| `admin-ui/Dockerfile` | `node:20-alpine` | `nginx:stable-alpine` | 80 |
 
-Les frontends utilisent nginx pour servir le SPA et proxifier `/api/` vers le backend (le préfixe `/api` est strippé avant transmission). Un service `gateway` (nginx) unifie les 3 UIs sur le port 80 (`/chantier/`, `/client/`, `/technicien/`), la racine `/` redirigeant vers `/chantier/`.
+Les frontends utilisent nginx pour servir le SPA et proxifier `/api/` vers le backend (le préfixe `/api` est strippé avant transmission). Un service `gateway` (nginx) unifie les 4 UIs sur le port 80 (`/chantier/`, `/client/`, `/technicien/`, `/admin/`), la racine `/` redirigeant vers `/chantier/`.
 
 ### Docker Compose
 
@@ -151,6 +174,7 @@ docker compose up --build
 | Chantier UI | `http://localhost/chantier/` |
 | Client UI | `http://localhost/client/` |
 | Technicien UI | `http://localhost/technicien/` |
+| Admin UI | `http://localhost/admin/` |
 
 Les variables d'environnement peuvent etre definies dans un fichier `.env` a la racine du projet.
 
@@ -164,6 +188,7 @@ docker build -f backend/Dockerfile -t moussaillon/backend .
 docker build -t moussaillon/chantier-ui chantier-ui/
 docker build -t moussaillon/client-ui client-ui/
 docker build -t moussaillon/technicien-ui technicien-ui/
+docker build -t moussaillon/admin-ui admin-ui/
 ```
 
 ## Helm Chart
@@ -189,6 +214,7 @@ Les valeurs principales sont definies dans `values.yaml` :
 | `chantierUi.replicaCount` | Replicas chantier-ui | `1` |
 | `clientUi.replicaCount` | Replicas client-ui | `1` |
 | `technicienUi.replicaCount` | Replicas technicien-ui | `1` |
+| `adminUi.replicaCount` | Replicas admin-ui | `1` |
 | `ingress.enabled` | Activer l'Ingress | `false` |
 
 ### Secrets
@@ -200,7 +226,8 @@ kubectl create secret generic moussaillon-secrets \
   --from-literal=AI_OPENAI_API_KEY=sk-... \
   --from-literal=AI_ANTHROPIC_API_KEY=sk-ant-... \
   --from-literal=STRIPE_API_KEY=sk_live_... \
-  --from-literal=PAYPLUG_API_KEY=...
+  --from-literal=PAYPLUG_API_KEY=... \
+  --from-literal=ADMIN_PASSWORD=...
 
 helm install moussaillon ./helm/moussaillon \
   --set backend.existingSecret=moussaillon-secrets
@@ -215,6 +242,7 @@ L'Ingress (desactive par defaut) utilise un routage par host :
 | `moussaillon.local` | chantier-ui (+ `/api` vers backend) |
 | `client.moussaillon.local` | client-ui |
 | `technicien.moussaillon.local` | technicien-ui |
+| `admin.moussaillon.local` | admin-ui |
 
 ```bash
 helm install moussaillon ./helm/moussaillon \
@@ -231,7 +259,7 @@ L'annotation `proxy-body-size` est necessaire pour l'upload d'images (voir [Uplo
 
 GitHub Actions (`.github/workflows/ci.yml`) — declenchement sur push et PR vers `main`.
 
-4 jobs en parallele :
+Jobs en parallele :
 
 | Job | Contenu |
 |---|---|
@@ -239,6 +267,7 @@ GitHub Actions (`.github/workflows/ci.yml`) — declenchement sur push et PR ver
 | **Chantier UI Tests** | `npm ci` + tests Jest + build |
 | **Client UI Tests** | `npm ci` + tests Jest + build |
 | **Technicien UI Tests** | `npm ci` + tests Jest + build |
+| **Admin UI Tests** | `npm ci` + tests Jest + build |
 
 ## Serveur MCP (IA)
 

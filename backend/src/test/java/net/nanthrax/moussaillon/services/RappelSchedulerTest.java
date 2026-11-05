@@ -30,7 +30,7 @@ public class RappelSchedulerTest {
 
     // Paramètre les délais, avec l'envoi automatique chaque matin (sinon les relances attendent le journal)
     private static void parametrerRelances(Integer j1, Integer j2, Integer j3) {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         societe.relancesAutomatiques = true;
         societe.relance1Jours = j1;
         societe.relance2Jours = j2;
@@ -53,7 +53,7 @@ public class RappelSchedulerTest {
     }
 
     private static void parametrerRelancesDevis(Integer j1, Integer j2, Integer j3) {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         societe.relancesAutomatiques = true;
         societe.relanceDevis1Jours = j1;
         societe.relanceDevis2Jours = j2;
@@ -369,7 +369,7 @@ public class RappelSchedulerTest {
     void testRelancesAValiderSansEnvoiAutomatique() {
         parametrerRelances(15, 30, 45);
         parametrerRelancesDevis(7, 15, 30);
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         societe.relancesAutomatiques = false;
         VenteEntity facture = facture(ClientEntity.findById(100L), 500.0);
         facture.dateEcheance = ilYA(20);
@@ -403,7 +403,7 @@ public class RappelSchedulerTest {
     @TestTransaction
     void testRelanceIgnoreeSansEnvoi() {
         parametrerRelances(15, 30, 45);
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         VenteEntity vente = facture(ClientEntity.findById(100L), 500.0);
         vente.dateEcheance = ilYA(20);
         vente.persist();
@@ -478,7 +478,7 @@ public class RappelSchedulerTest {
 
         assertEquals(0, facture.niveauRelance);
         assertEquals(0, devis.niveauRelanceDevis);
-        assertNull(relanceDueOuNull(RappelScheduler.relancesDues(SocieteEntity.findById(1L), LocalDate.now()), facture));
+        assertNull(relanceDueOuNull(RappelScheduler.relancesDues(SocieteEntity.courante(), LocalDate.now()), facture));
     }
 
     @Test
@@ -542,7 +542,7 @@ public class RappelSchedulerTest {
     void testRelance3ParCourrier() {
         parametrerRelances(15, 30, 45);
         parametrerRelancesDevis(7, 15, 30);
-        SocieteEntity.<SocieteEntity>findById(1L).relance3Courrier = true;
+        SocieteEntity.courante().relance3Courrier = true;
         // Client propre au test : les ventes d'autres classes de test ne lui envoient pas d'email
         ClientEntity client = new ClientEntity();
         client.nom = "Jean Courrier";
@@ -577,7 +577,7 @@ public class RappelSchedulerTest {
     @TestTransaction
     void testCourrierPourUnClientSansEmail() {
         parametrerRelances(15, 30, 45);
-        SocieteEntity.<SocieteEntity>findById(1L).relance3Courrier = true;
+        SocieteEntity.courante().relance3Courrier = true;
         ClientEntity sansEmail = new ClientEntity();
         sansEmail.nom = "Sans Email";
         sansEmail.type = "Particulier";

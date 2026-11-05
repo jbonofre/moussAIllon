@@ -16,7 +16,15 @@ public class CampagneScheduler {
     @Inject
     CampagneResource campagneResource;
 
+    @Inject
+    Chantiers chantiers;
+
     @Scheduled(cron = "0 */5 * * * ?")
+    void planifierCampagnes() {
+        chantiers.pourChaqueChantier("Envoi des campagnes programmées", this::envoyerCampagnesProgrammees);
+    }
+
+    /** Envoie les campagnes programmées échues du chantier courant. */
     @Transactional
     public void envoyerCampagnesProgrammees() {
         List<CampagneEntity> campagnes = CampagneEntity.list(

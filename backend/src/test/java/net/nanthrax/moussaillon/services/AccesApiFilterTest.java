@@ -23,6 +23,20 @@ public class AccesApiFilterTest {
     }
 
     @Test
+    void testAdministrationReserveeALAdministrateurDeLInstance() {
+        Set<String> administrateur = Set.of(AccesApiFilter.GROUPE_ADMIN);
+        assertNull(refus(administrateur, "GET", "/admin/chantiers"));
+        assertNull(refus(administrateur, "DELETE", "/admin/chantiers/port"));
+        assertNotNull(refus(administrateur, "GET", "/clients"));
+        assertNotNull(refus(administrateur, "GET", "/societe"));
+        // Ni les utilisateurs des chantiers (même avec le Paramétrage), ni les portails
+        assertNotNull(refus(ADMIN, "GET", "/admin/chantiers"));
+        assertNotNull(refus(Set.of("client"), "GET", "/admin/chantiers"));
+        assertNotNull(refus(Set.of("technicien"), "PUT", "/admin/chantiers/port"));
+        assertNull(refus(ADMIN, "POST", "/admin/authenticate"));
+    }
+
+    @Test
     void testPortailClientLimiteASesPointsDApi() {
         Set<String> client = Set.of("client");
         assertNull(refus(client, "GET", "/portal/clients/100/ventes"));

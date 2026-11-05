@@ -148,7 +148,7 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
         expect(screen.getByRole('button', { name: 'Enregistrer les modules' })).toBeDisabled();
     });
 
-    it("affiche l'échéance impayée et la version Free, et en informe l'espace de travail", async () => {
+    it("affiche l'échéance impayée et l'abonnement gratuit, et en informe l'espace de travail", async () => {
         const impaye = {
             ...societe, abonnementBlocageImpayeDate: '2026-10-01T00:00:00', accesBloqueImpaye: true, versionFree: false,
         };
@@ -162,28 +162,28 @@ describe('Facturation - prix selon les utilisateurs et les modules', () => {
 
         mockedFetch.mockImplementation((url: string) => reponse(url === './societe/tarifs' ? tarifs : { ...societe, versionFree: true }));
         render(<Facturation />);
-        expect(await screen.findByText('Version Free : les accès ne sont jamais bloqués')).toBeInTheDocument();
+        expect(await screen.findByText('Abonnement gratuit : les accès ne sont jamais bloqués')).toBeInTheDocument();
         expect(screen.queryByText(/Échéance/)).not.toBeInTheDocument();
     });
 
-    it('affiche clairement la version Free, même sans abonnement activé', async () => {
+    it("affiche clairement l'abonnement gratuit, même sans abonnement activé", async () => {
         mockedFetch.mockImplementation((url: string) => reponse(url === './societe/tarifs' ? tarifs : { ...nonActive, versionFree: true }));
         render(<Facturation />);
 
         // Dans le titre et en bandeau
-        expect(await screen.findByText('Version Free')).toBeInTheDocument();
-        expect(screen.getByText('Version Free : les accès ne sont jamais bloqués')).toBeInTheDocument();
+        expect(await screen.findByText('Abonnement gratuit')).toBeInTheDocument();
+        expect(screen.getByText('Abonnement gratuit : les accès ne sont jamais bloqués')).toBeInTheDocument();
         expect(screen.getByText(/les modules s'ajoutent sans paiement/)).toBeInTheDocument();
         // L'abonnement non activé ne limite pas l'accès
         expect(screen.getByText('Non activé')).toBeInTheDocument();
         expect(screen.queryByText(/accès limité à la facturation/)).not.toBeInTheDocument();
     });
 
-    it("n'affiche pas la version Free quand elle n'est pas configurée", async () => {
+    it("n'affiche pas l'abonnement gratuit quand il n'est pas accordé", async () => {
         render(<Facturation />);
 
         expect(await screen.findByText('Actif')).toBeInTheDocument();
-        expect(screen.queryByText(/Version Free/)).not.toBeInTheDocument();
+        expect(screen.queryByText(/Abonnement gratuit/)).not.toBeInTheDocument();
     });
 
     it("ouvre le paiement en ligne au montant de l'échéance", async () => {

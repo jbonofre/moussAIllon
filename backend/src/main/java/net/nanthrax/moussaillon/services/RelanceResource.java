@@ -208,7 +208,7 @@ public class RelanceResource {
 
     private Response pdf(List<RappelHistoriqueEntity> courriers, String nom) {
         try {
-            byte[] pdf = relanceCourrierService.generer(courriers, SocieteEntity.findById(1L));
+            byte[] pdf = relanceCourrierService.generer(courriers, SocieteEntity.courante());
             return Response.ok(pdf)
                     .header("Content-Disposition", "inline; filename=\"" + nom + "\"")
                     .build();
@@ -230,7 +230,7 @@ public class RelanceResource {
     }
 
     private static SocieteEntity societe() {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         if (societe == null) {
             throw new WebApplicationException("La société n'est pas paramétrée", 404);
         }

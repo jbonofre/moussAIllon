@@ -1,6 +1,5 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -17,7 +16,7 @@ import java.util.List;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class BateauCatalogueEntity extends PanacheEntity {
+public class BateauCatalogueEntity extends PanacheEntityChantier {
 
     @jakarta.persistence.Transient
     public List<String> referencesFournisseurs;

@@ -2,7 +2,6 @@ package net.nanthrax.moussaillon.persistence;
 
 import java.time.LocalDate;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -14,7 +13,7 @@ import jakarta.persistence.ManyToOne;
  * sont déduits de sa capacité de travail (KPIs atelier).
  */
 @Entity
-public class AbsenceTechnicienEntity extends PanacheEntity {
+public class AbsenceTechnicienEntity extends PanacheEntityChantier {
 
     public enum Type {
         CONGES,
