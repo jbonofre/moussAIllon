@@ -87,6 +87,9 @@ const choisir = async (modal: HTMLElement, placeholder: string, libelle: string)
 
 const choisirDansLaLigneVide = (modal: HTMLElement, libelle: string) => choisir(modal, PLACEHOLDER_LIGNE, libelle);
 
+// getByRole calcule le nom accessible de chaque élément du formulaire : près de 10 s par recherche sous jsdom
+const bouton = (conteneur: HTMLElement, nom: string | RegExp) => within(conteneur).getByText(nom).closest('button') as HTMLElement;
+
 describe('Transactions - saisie des lignes', () => {
     it('calcule le montant dès la saisie d\'un produit, pour une quantité de 1', async () => {
         const modal = await ouvrirNouvelleVente();
@@ -152,7 +155,7 @@ describe('Transactions - référence', () => {
         await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
         await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
         await within(modal).findByText('Anode zinc');
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
 
         await waitFor(() => expect(within(modal).getByLabelText('Référence')).toHaveValue(`FACT-${new Date().getFullYear()}-00042`));
     });
@@ -201,7 +204,7 @@ describe('Transactions - onglet Produits & Paiements', () => {
         }) as any);
         const modal = await ouvrirNouvelleVente();
 
-        const onglet = within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }).closest('[role="tabpanel"]') as HTMLElement;
+        const onglet = bouton(modal, /Ajouter une ligne libre/).closest('[role="tabpanel"]') as HTMLElement;
         expect(onglet).not.toBeNull();
         expect(within(onglet).getByLabelText('Note')).toBeInTheDocument();
         expect(within(onglet).getByLabelText('Montant TTC')).toBeInTheDocument();
@@ -221,7 +224,7 @@ describe('Transactions - création de service', () => {
             data: url === '/main-oeuvres' ? [mainOeuvre] : (donnees[url] || []),
         }) as any);
         const transaction = await ouvrirNouvelleVente();
-        fireEvent.click(within(transaction).getByRole('button', { name: /Ajouter Service/ }));
+        fireEvent.click(bouton(transaction, /Ajouter Service/));
         await screen.findByText('Créer un service');
         const modal = Array.from(document.querySelectorAll('.ant-modal')).find((m) => m.textContent?.includes('Créer un service')) as HTMLElement;
 
@@ -247,7 +250,7 @@ describe('Transactions - création de service', () => {
 describe('Transactions - création de forfait', () => {
     it('présente les produits inclus comme les lignes de la transaction et calcule le prix du forfait', async () => {
         const transaction = await ouvrirNouvelleVente();
-        fireEvent.click(within(transaction).getByRole('button', { name: /Créer Forfait/ }));
+        fireEvent.click(bouton(transaction, /Créer Forfait/));
         await screen.findByText('Créer un forfait');
         const modal = Array.from(document.querySelectorAll('.ant-modal')).find((m) => m.textContent?.includes('Créer un forfait')) as HTMLElement;
 
@@ -299,7 +302,7 @@ describe('Transactions - lignes forfait', () => {
         fireEvent.click(within(modal).getByTitle('Autres actions'));
         expect(await screen.findByText('Planifier')).toBeInTheDocument();
 
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
         await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith('/ventes/20', expect.objectContaining({
             venteForfaits: [expect.objectContaining({ techniciens: [technicien] })],
         })));
@@ -322,7 +325,7 @@ describe('Transactions - lignes forfait', () => {
         const modal = document.querySelector('.ant-modal') as HTMLElement;
         expect(await within(modal).findByText('Hivernage')).toBeInTheDocument();
 
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
         await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith('/ventes/20', expect.objectContaining({
             venteForfaits: [expect.objectContaining({ dateReouverture: '2026-11-02T14:00:00', dureeReelle: 2 })],
         })));
@@ -350,7 +353,7 @@ describe('Transactions - lignes forfait', () => {
         const modal = document.querySelector('.ant-modal') as HTMLElement;
         expect(await within(modal).findByText('Hivernage')).toBeInTheDocument();
 
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
         await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith('/ventes/20', expect.objectContaining({
             venteForfaits: [expect.objectContaining({
                 dateCorrectionHoraires: '2026-11-02T18:00:00',
@@ -394,7 +397,7 @@ describe('Transactions - ligne libre', () => {
         const modal = await ouvrirNouvelleVente();
 
         await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
-        fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
+        fireEvent.click(bouton(modal, /Ajouter une ligne libre/));
         const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ligne-vente') as HTMLElement;
         saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
         saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
@@ -405,7 +408,7 @@ describe('Transactions - ligne libre', () => {
         // la ligne de saisie d'un article du catalogue reste disponible
         expect(within(modal).getAllByText(PLACEHOLDER_LIGNE)).toHaveLength(1);
 
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
         await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
             venteProduits: [expect.objectContaining({ produit: { ref: 'MAN-6', designation: 'Manille inox', prixVenteTTC: 4.5, tva: 20 }, quantite: 2 })],
             montantTTC: 9,
@@ -422,12 +425,12 @@ describe('Transactions - ligne libre', () => {
         const modal = await ouvrirNouvelleVente();
 
         await choisir(modal, 'Rechercher un client par prénom ou nom', 'Jean Dupont');
-        fireEvent.click(within(modal).getByRole('button', { name: /Ajouter une ligne libre/ }));
+        fireEvent.click(bouton(modal, /Ajouter une ligne libre/));
         const ligne = (await within(modal).findByPlaceholderText('Réf.')).closest('.ligne-vente') as HTMLElement;
         saisir(within(ligne).getByPlaceholderText('Réf.'), 'MAN-6');
         saisir(within(ligne).getByPlaceholderText('Désignation'), 'Manille inox');
         saisir(within(ligne).getByPlaceholderText('P.U.'), '4.5');
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
 
         expect(await screen.findByText('La référence « MAN-6 » est déjà utilisée au catalogue')).toBeInTheDocument();
         // la ligne libre reste à corriger
@@ -454,7 +457,7 @@ describe('Transactions - packages', () => {
         expect(within(modal).getByText(PLACEHOLDER_LIGNE)).toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('58348.00');
 
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
         await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
             client: expect.objectContaining({ nom: 'Jean Dupont' }),
             venteForfaits: [expect.objectContaining({ forfait: expect.objectContaining({ nom: 'Hivernage' }), quantite: 1 })],
@@ -477,7 +480,7 @@ describe('Transactions - packages', () => {
         expect(within(modal).queryByText('PKG-000009 - Pack entretien')).not.toBeInTheDocument();
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('324.00');
 
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
         await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
             venteForfaits: [expect.objectContaining({ forfait: expect.objectContaining({ nom: 'Hivernage' }), quantite: 1, status: 'EN_ATTENTE' })],
             venteProduits: [expect.objectContaining({ produit: expect.objectContaining({ designation: 'Anode zinc' }), quantite: 2 })],
@@ -517,7 +520,7 @@ describe('Transactions - produits ajoutés automatiquement aux interventions', (
         expect(within(modal).getAllByText(PLACEHOLDER_LIGNE)).toHaveLength(1);
         expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('315.00');
 
-        fireEvent.click(within(modal).getByRole('button', { name: 'Enregistrer' }));
+        fireEvent.click(bouton(modal, 'Enregistrer'));
         await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/ventes', expect.objectContaining({
             venteForfaits: [expect.objectContaining({ forfait: expect.objectContaining({ nom: 'Hivernage' }) })],
             venteProduits: [expect.objectContaining({ produit: expect.objectContaining({ designation: 'Traitement des déchets' }), quantite: 1 })],

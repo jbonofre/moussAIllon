@@ -1,3 +1,6 @@
+// Le rendu d'Ant Design sous jsdom est lent sur les runners CI : 5 s par défaut ne suffisent pas
+jest.setTimeout(30000);
+
 // Polyfills for jsdom (required by Ant Design)
 window.matchMedia = window.matchMedia || function matchMediaMock(query: string) {
     return {
