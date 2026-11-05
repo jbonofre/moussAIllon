@@ -29,7 +29,21 @@ const journal = {
     clientsSuspendus: [{ clientId: 102, client: 'Marina du Port', motif: 'Règle à 60 jours' }],
 };
 
-const reponse = (data: any) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data), text: () => Promise.resolve('') });
+const reponse = (data: any) => Promise.resolve({
+    ok: true, status: 200, json: () => Promise.resolve(data), text: () => Promise.resolve(''),
+    blob: () => Promise.resolve(new Blob(['%PDF'], { type: 'application/pdf' })),
+});
+
+// Relance 3 par courrier dans le journal, et courrier déjà préparé (envoi automatique) à imprimer
+const relanceCourrier = {
+    venteId: 30, devis: false, ordreDeReparation: false, numero: 'FA26-00030', clientId: 103, client: 'Yves Le Goff',
+    email: null, courrier: true, adresse: '4 rue des Halles\n29900 Concarneau', dateDepart: '2026-09-01', joursEcoules: 65,
+    niveau: 3, montant: 450,
+};
+const courrierAImprimer = {
+    id: 77, venteId: 31, numero: 'FA26-00031', clientId: 104, client: 'Anne Kerivel', adresse: null, niveau: 3,
+    objet: 'Mise en demeure de payer - Facture FA26-00031', datePreparation: '2026-11-05', soldeDu: 820,
+};
 
 const ligne = (texte: string) => screen.getByText(texte).closest('tr') as HTMLElement;
 
@@ -38,6 +52,9 @@ const appels = (url: string, method: string) =>
 
 beforeEach(() => {
     mockedFetch.mockReset();
+    window.open = jest.fn(() => ({} as Window));
+    URL.createObjectURL = jest.fn(() => 'blob:courriers');
+    URL.revokeObjectURL = jest.fn();
     mockedFetch.mockImplementation((url: string) =>
         reponse(url === './relances/envoyer' ? { envoyees: 1, erreurs: [] } : journal));
 });
@@ -141,5 +158,53 @@ describe('Journal des relances', () => {
         expect(await screen.findByText('Envoi automatique activé')).toBeInTheDocument();
         expect(screen.getByText("Aucune relance à envoyer aujourd'hui")).toBeInTheDocument();
         expect(screen.getByRole('button', { name: /Envoyer la sélection \(0\)/ })).toBeDisabled();
+    });
+
+    it('prépare la relance 3 par courrier et ouvre aussitôt le PDF à imprimer', async () => {
+        mockedFetch.mockImplementation((url: string) => {
+            if (url === './relances/envoyer') return reponse({ envoyees: 1, courriers: [91], erreurs: [] });
+            return reponse({ ...journal, relances: [journal.relances[0], relanceCourrier] });
+        });
+        render(<Relances />);
+
+        await screen.findByText('FA26-00030');
+        const courrier = ligne('FA26-00030');
+        expect(within(courrier).getByText('Courrier')).toBeInTheDocument();
+        expect(within(courrier).getByText('4 rue des Halles, 29900 Concarneau')).toBeInTheDocument();
+        expect(within(ligne('FA26-00012')).getByText('jean.dupont@test.com')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: /Envoyer la sélection \(2\)/ }));
+        expect(await screen.findByText('Envoyer 1 relance par email et préparer 1 courrier à imprimer ?')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Envoyer' }));
+
+        await waitFor(() => expect(appels('./relances/courriers/impression', 'POST')).toHaveLength(1));
+        expect(JSON.parse(appels('./relances/courriers/impression', 'POST')[0][1].body)).toEqual({ courriers: [91] });
+        await waitFor(() => expect(window.open).toHaveBeenCalledWith('blob:courriers', '_blank'));
+    });
+
+    it('imprime les courriers déjà préparés', async () => {
+        mockedFetch.mockImplementation(() => reponse({ ...journal, courriers: [courrierAImprimer] }));
+        render(<Relances />);
+
+        expect(await screen.findByText('Courriers à imprimer (1)')).toBeInTheDocument();
+        const courrier = ligne('FA26-00031');
+        expect(within(courrier).getByText('Anne Kerivel')).toBeInTheDocument();
+        expect(within(courrier).getByText('Adresse manquante')).toBeInTheDocument();
+        expect(within(courrier).getByText('05/11/2026')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: /Tout imprimer \(1\)/ }));
+
+        await waitFor(() => expect(appels('./relances/courriers/impression', 'POST')).toHaveLength(1));
+        expect(JSON.parse(appels('./relances/courriers/impression', 'POST')[0][1].body)).toEqual({ courriers: [77] });
+        await waitFor(() => expect(window.open).toHaveBeenCalled());
+        // Le journal est rechargé : le courrier imprimé en sort
+        await waitFor(() => expect(mockedFetch.mock.calls.filter(([url]) => url === './relances')).toHaveLength(2));
+    });
+
+    it("n'affiche pas de courriers à imprimer quand il n'y en a pas", async () => {
+        render(<Relances />);
+
+        await screen.findByText('FA26-00012');
+        expect(screen.queryByText(/Courriers à imprimer/)).not.toBeInTheDocument();
     });
 });

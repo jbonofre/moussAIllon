@@ -71,6 +71,7 @@ import { Reception, VOLUMES_CARBURANT, receptionRenseignee } from './reception.t
 import ProgressionVente, { PopoverProgressionVente } from './ProgressionVente.tsx';
 import CommandeFournisseurFromVenteModal from './CommandeFournisseurFromVenteModal.tsx';
 import SuspensionRelancesModal from './SuspensionRelancesModal.tsx';
+import { ouvrirPdf } from './ouvrir-pdf.ts';
 import { FicheCataloguePopover } from './FicheCatalogueModal.tsx';
 import SectionLignes from './SectionLignes.tsx';
 import MontantsService from './MontantsService.tsx';
@@ -534,6 +535,9 @@ interface RappelHistoriqueEntity {
     // Relance écartée du journal sans être envoyée
     ignoree?: boolean;
     motif?: string;
+    // Relance par courrier (mise en demeure) : le destinataire est l'adresse postale, à imprimer tant que dateImpression est vide
+    courrier?: boolean;
+    dateImpression?: string | null;
 }
 
 type LigneType = 'forfait' | 'service' | 'produit' | 'bateau' | 'moteur' | 'helice' | 'remorque';
@@ -2419,6 +2423,21 @@ export default function Vente() {
             fetchVentes();
         } catch (err: any) {
             message.error(err?.response?.data || 'Erreur lors de la reprise du devis');
+        }
+    };
+
+    // Courrier de relance : sa première impression le date et le retire du journal, les suivantes le réimpriment tel quel
+    const imprimerCourrier = async (courrier: RappelHistoriqueEntity) => {
+        try {
+            const res = courrier.dateImpression
+                ? await api.get(`/relances/courriers/${courrier.id}`, { responseType: 'blob' })
+                : await api.post('/relances/courriers/impression', { courriers: [courrier.id] }, { responseType: 'blob' });
+            ouvrirPdf(res.data, `relance-${currentVente?.numeroFacture || currentVente?.id}.pdf`);
+            if (currentVente?.id) {
+                api.get<RappelHistoriqueEntity[]>(`/rappels/vente/${currentVente.id}`).then(r => setRappelHistorique(r.data)).catch(() => {});
+            }
+        } catch {
+            message.error("Erreur lors de l'impression du courrier de relance");
         }
     };
 
@@ -4475,6 +4494,7 @@ export default function Vente() {
                                                                 <>
                                                                     {v === 0 ? 'Manuel' : `#${v}`}
                                                                     {r.ignoree && <Tag style={{ marginLeft: 8 }}>Ignorée</Tag>}
+                                                                    {r.courrier && <Tag color="volcano" style={{ marginLeft: 8 }}>Courrier</Tag>}
                                                                 </>
                                                             )
                                                         },
@@ -4492,9 +4512,22 @@ export default function Vente() {
                                                         {
                                                             title: 'Sujet',
                                                             dataIndex: 'sujet',
-                                                            render: (v: string, r: RappelHistoriqueEntity) => (r.ignoree
-                                                                ? <span style={{ color: '#666' }}>Non envoyée{r.motif ? ` : ${r.motif}` : ''}</span>
-                                                                : v)
+                                                            render: (v: string, r: RappelHistoriqueEntity) => {
+                                                                if (r.ignoree) {
+                                                                    return <span style={{ color: '#666' }}>Non envoyée{r.motif ? ` : ${r.motif}` : ''}</span>;
+                                                                }
+                                                                if (!r.courrier) {
+                                                                    return v;
+                                                                }
+                                                                return (
+                                                                    <Space>
+                                                                        {v}
+                                                                        <Button size="small" icon={<PrinterOutlined />} onClick={() => imprimerCourrier(r)}>
+                                                                            {r.dateImpression ? 'Réimprimer' : 'Imprimer'}
+                                                                        </Button>
+                                                                    </Space>
+                                                                );
+                                                            }
                                                         }
                                                     ]}
                                                 />

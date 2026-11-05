@@ -11,14 +11,8 @@ jest.mock('./api.ts', () => ({
 }));
 jest.mock('./workspace.tsx', () => ({ demo: () => null }));
 jest.mock('./ImageUpload.tsx', () => () => null);
-// L'éditeur riche ne fonctionne pas sous jsdom : une zone de texte suffit pour le formulaire
-jest.mock('react-quill-new/dist/quill.snow.css', () => ({}));
-jest.mock('react-quill-new', () => ({
-    __esModule: true,
-    default: ({ id, value, onChange }: any) => (
-        <textarea id={id} value={value || ''} onChange={(e) => onChange(e.target.value)} />
-    ),
-}));
+const mockNavigate = jest.fn();
+jest.mock('./navigation-context.tsx', () => ({ useNavigation: () => ({ navigate: mockNavigate }) }));
 
 // Le formulaire complet est lent à rendre sous jsdom quand toute la suite tourne en parallèle
 jest.setTimeout(30000);
@@ -30,15 +24,7 @@ const reponse = (data: any, ok = true) =>
 
 const societe = {
     id: 1, nom: 'MS Plaisance', siren: '123456789', adresse: '10 quai du Port', images: [],
-    conditionsPaiement: '30 jours nets', indemniteForfaitaire: 40,
-};
-const modeleRelance = {
-    id: 5, type: 'RAPPEL', sujet: 'Relance {numeroFacture}', contenu: '<p>Solde : {soldeDu}</p>',
-    description: 'Variables disponibles : {soldeDu}',
-};
-const modeleRelanceDevis = {
-    id: 6, type: 'RELANCE_DEVIS', sujet: 'Votre {typeDevis} {numeroDevis}', contenu: '<p>Devis du {dateDevis}</p>',
-    description: 'Variables disponibles : {dateDevis}',
+    conditionsPaiement: '30 jours nets', indemniteForfaitaire: 40, relance3Courrier: false,
 };
 
 const appel = (url: string, method: string) =>
@@ -46,71 +32,54 @@ const appel = (url: string, method: string) =>
 
 beforeEach(() => {
     mockedFetch.mockReset();
+    mockNavigate.mockReset();
     mockedFetch.mockImplementation((url: string, options?: RequestInit) => {
         const corps = options?.body ? JSON.parse(options.body as string) : undefined;
         if (url === './societe') return reponse(options?.method === 'PUT' ? { ...societe, ...corps } : societe);
-        if (url === './email-templates/init') return reponse(null);
-        if (url === './email-templates') return reponse([{ id: 4, type: 'FACTURE', sujet: 'Facture', contenu: '-' }, modeleRelance, modeleRelanceDevis]);
-        if (url === './email-templates/5' || url === './email-templates/6') return reponse(corps);
         return reponse(null, false);
     });
 });
 
 describe('Société - conditions et relances de paiement', () => {
-    it("enregistre les conditions de paiement avec la société et l'email de relance dans son modèle", async () => {
+    it('enregistre les conditions de paiement et la relance 3 par courrier avec la société', async () => {
         render(<Societe />);
 
-        const sujet = await screen.findByLabelText("Sujet de l'email de relance");
-        expect(sujet).toHaveValue('Relance {numeroFacture}');
-        expect(screen.getByLabelText('Message de relance')).toHaveValue('<p>Solde : {soldeDu}</p>');
+        const penalites = await screen.findByLabelText('Pénalités de retard');
         expect(screen.getByLabelText('Conditions de paiement')).toHaveValue('30 jours nets');
-        expect(screen.getByText(/Variables disponibles : \{soldeDu\}/)).toBeInTheDocument();
+        expect(screen.getByLabelText('Par email')).toBeChecked();
 
-        fireEvent.change(screen.getByLabelText('Pénalités de retard'), { target: { value: '3 fois le taux légal' } });
-        fireEvent.change(sujet, { target: { value: 'Facture {numeroFacture} impayée' } });
+        fireEvent.change(penalites, { target: { value: '3 fois le taux légal' } });
+        fireEvent.click(screen.getByLabelText(/Par courrier : mise en demeure à imprimer/));
         fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
         await screen.findByText('La société a été mise à jour.');
-        const corpsSociete = JSON.parse(appel('./societe', 'PUT')[1].body);
-        expect(corpsSociete).toMatchObject({ conditionsPaiement: '30 jours nets', penalitesRetard: '3 fois le taux légal', indemniteForfaitaire: 40 });
-        expect(corpsSociete).not.toHaveProperty('relanceSujet');
-        expect(corpsSociete).not.toHaveProperty('relanceContenu');
-        expect(JSON.parse(appel('./email-templates/5', 'PUT')[1].body)).toMatchObject({
-            id: 5, type: 'RAPPEL', sujet: 'Facture {numeroFacture} impayée', contenu: '<p>Solde : {soldeDu}</p>',
+        expect(JSON.parse(appel('./societe', 'PUT')[1].body)).toMatchObject({
+            conditionsPaiement: '30 jours nets', penalitesRetard: '3 fois le taux légal', indemniteForfaitaire: 40,
+            relance3Courrier: true,
         });
+        // Les textes des relances ne se modifient plus ici
+        expect(mockedFetch.mock.calls.some(([url]) => String(url).startsWith('./email-templates'))).toBe(false);
     });
 
-    it("ne réenregistre pas l'email de relance resté inchangé", async () => {
+    it("renvoie vers Paramétrage > Emails pour le texte des relances", async () => {
         render(<Societe />);
 
-        await screen.findByLabelText("Sujet de l'email de relance");
-        fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
+        const liens = await screen.findAllByText('Paramétrage > Emails');
+        expect(liens).toHaveLength(2);
+        fireEvent.click(liens[0]);
 
-        await screen.findByText('La société a été mise à jour.');
-        expect(appel('./societe', 'PUT')).toBeTruthy();
-        expect(appel('./email-templates/5', 'PUT')).toBeUndefined();
-        expect(appel('./email-templates/6', 'PUT')).toBeUndefined();
+        expect(mockNavigate).toHaveBeenCalledWith('/emails');
     });
 
-    it('enregistre les délais et l\'email des relances de devis', async () => {
+    it('enregistre les délais des relances de devis', async () => {
         render(<Societe />);
 
-        const sujet = await screen.findByLabelText("Sujet de l'email de relance de devis");
-        expect(sujet).toHaveValue('Votre {typeDevis} {numeroDevis}');
-        expect(screen.getByLabelText('Message de relance de devis')).toHaveValue('<p>Devis du {dateDevis}</p>');
-
+        await screen.findByLabelText('Pénalités de retard');
         fireEvent.change(document.getElementById('societe_relanceDevis1Jours') as HTMLElement, { target: { value: '7' } });
-        fireEvent.change(sujet, { target: { value: 'Relance de votre {typeDevis}' } });
         fireEvent.click(screen.getByRole('button', { name: /Enregistrer/ }));
 
         // Les messages des tests précédents peuvent encore être affichés
-        await waitFor(() => expect(appel('./email-templates/6', 'PUT')).toBeTruthy());
-        const corpsSociete = JSON.parse(appel('./societe', 'PUT')[1].body);
-        expect(corpsSociete).toMatchObject({ relanceDevis1Jours: 7 });
-        expect(corpsSociete).not.toHaveProperty('relanceDevisSujet');
-        expect(JSON.parse(appel('./email-templates/6', 'PUT')[1].body)).toMatchObject({
-            id: 6, type: 'RELANCE_DEVIS', sujet: 'Relance de votre {typeDevis}',
-        });
-        expect(appel('./email-templates/5', 'PUT')).toBeUndefined();
+        await waitFor(() => expect(appel('./societe', 'PUT')).toBeTruthy());
+        expect(JSON.parse(appel('./societe', 'PUT')[1].body)).toMatchObject({ relanceDevis1Jours: 7, relance3Courrier: false });
     });
 });

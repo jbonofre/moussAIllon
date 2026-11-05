@@ -249,6 +249,7 @@ public class SocieteResource {
         entity.relance1Jours = societe.relance1Jours;
         entity.relance2Jours = societe.relance2Jours;
         entity.relance3Jours = societe.relance3Jours;
+        entity.relance3Courrier = societe.relance3Courrier;
         entity.relanceDevis1Jours = societe.relanceDevis1Jours;
         entity.relanceDevis2Jours = societe.relanceDevis2Jours;
         entity.relanceDevis3Jours = societe.relanceDevis3Jours;

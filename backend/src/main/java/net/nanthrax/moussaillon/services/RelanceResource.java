@@ -1,5 +1,6 @@
 package net.nanthrax.moussaillon.services;
 
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
@@ -23,6 +24,7 @@ import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
+import net.nanthrax.moussaillon.persistence.RappelHistoriqueEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
 import net.nanthrax.moussaillon.services.RappelScheduler.RelanceDue;
@@ -31,6 +33,7 @@ import net.nanthrax.moussaillon.services.RappelScheduler.RelanceDue;
  * Journal des relances (issue #758) : chaque matin, les relances de paiement et de devis dues sont listées pour être
  * validées avant l'envoi. Une relance peut aussi être ignorée (la suivante reste prévue), ou les relances suspendues
  * sur la vente (jusqu'à une date ou jusqu'à leur reprise) ou sur le client (accord particulier).
+ * Les relances de paiement 3 envoyées par courrier (issue #759) y attendent d'être imprimées.
  */
 @Path("/relances")
 @ApplicationScoped
@@ -40,6 +43,9 @@ public class RelanceResource {
 
     @Inject
     RappelScheduler rappelScheduler;
+
+    @Inject
+    RelanceCourrierService relanceCourrierService;
 
     @GET
     public Journal journal() {
@@ -59,6 +65,14 @@ public class RelanceResource {
                 journal.ventesSuspendues.add(venteSuspendue(vente));
             }
         }
+        // Courriers pas encore imprimés, sauf ceux des factures soldées entre-temps
+        List<RappelHistoriqueEntity> courriers = RappelHistoriqueEntity.list(
+                "courrier = true and dateImpression is null order by dateEnvoi");
+        for (RappelHistoriqueEntity courrier : courriers) {
+            if (enAttente(courrier.vente)) {
+                journal.courriers.add(courrier(courrier));
+            }
+        }
         List<ClientEntity> clients = ClientEntity.list("relancesSuspendues = true order by nom");
         for (ClientEntity client : clients) {
             ClientSuspendu suspendu = new ClientSuspendu();
@@ -70,7 +84,7 @@ public class RelanceResource {
         return journal;
     }
 
-    /** Envoie les relances sélectionnées dans le journal, si elles sont toujours dues. */
+    /** Envoie les relances sélectionnées dans le journal, si elles sont toujours dues, ou prépare leur courrier. */
     @POST
     @Path("envoyer")
     @Transactional
@@ -85,8 +99,12 @@ public class RelanceResource {
                 continue;
             }
             try {
-                rappelScheduler.envoyer(relance);
-                resultat.envoyees++;
+                RappelHistoriqueEntity historique = rappelScheduler.envoyer(relance);
+                if (historique.courrier) {
+                    resultat.courriers.add(historique.id);
+                } else {
+                    resultat.envoyees++;
+                }
             } catch (RuntimeException e) {
                 resultat.erreurs.add(numero(relance.vente()) + " : " + e.getMessage());
             }
@@ -105,6 +123,39 @@ public class RelanceResource {
                 .orElseThrow(() -> new WebApplicationException("Aucune relance n'est due pour cette vente", 400));
         rappelScheduler.ignorer(relance, motif(request != null ? request.motif : null));
         return Response.noContent().build();
+    }
+
+    /**
+     * Courriers de relance réunis dans un PDF à imprimer : ils sont datés de leur première impression et sortent de la
+     * liste des courriers à imprimer.
+     */
+    @POST
+    @Path("courriers/impression")
+    @Produces("application/pdf")
+    @Transactional
+    public Response imprimer(ImpressionRequest request) {
+        if (request == null || request.courriers == null || request.courriers.isEmpty()) {
+            throw new WebApplicationException("Aucun courrier sélectionné", 400);
+        }
+        List<RappelHistoriqueEntity> courriers = new ArrayList<>();
+        Timestamp maintenant = new Timestamp(System.currentTimeMillis());
+        for (Long id : request.courriers) {
+            RappelHistoriqueEntity courrier = courrier(id);
+            if (courrier.dateImpression == null) {
+                courrier.dateImpression = maintenant;
+            }
+            courriers.add(courrier);
+        }
+        return pdf(courriers, courriers.size() > 1 ? "courriers-relance.pdf" : nomPdf(courriers.get(0)));
+    }
+
+    /** Courrier de relance déjà préparé, à réimprimer : son état ne change pas. */
+    @GET
+    @Path("courriers/{id}")
+    @Produces("application/pdf")
+    public Response reimprimer(@PathParam("id") long id) {
+        RappelHistoriqueEntity courrier = courrier(id);
+        return pdf(List.of(courrier), nomPdf(courrier));
     }
 
     /** Suspend les relances de la vente, jusqu'à la date de fin incluse si elle est renseignée. */
@@ -153,6 +204,29 @@ public class RelanceResource {
         client.relancesSuspendues = false;
         client.motifSuspensionRelances = null;
         return Response.noContent().build();
+    }
+
+    private Response pdf(List<RappelHistoriqueEntity> courriers, String nom) {
+        try {
+            byte[] pdf = relanceCourrierService.generer(courriers, SocieteEntity.findById(1L));
+            return Response.ok(pdf)
+                    .header("Content-Disposition", "inline; filename=\"" + nom + "\"")
+                    .build();
+        } catch (IOException e) {
+            throw new WebApplicationException("Erreur lors de la génération du courrier : " + e.getMessage(), 500);
+        }
+    }
+
+    private static String nomPdf(RappelHistoriqueEntity courrier) {
+        return "relance-" + numero(courrier.vente) + ".pdf";
+    }
+
+    private static RappelHistoriqueEntity courrier(long id) {
+        RappelHistoriqueEntity courrier = RappelHistoriqueEntity.findById(id);
+        if (courrier == null || !courrier.courrier) {
+            throw new WebApplicationException("Le courrier de relance (" + id + ") n'est pas trouvé", 404);
+        }
+        return courrier;
     }
 
     private static SocieteEntity societe() {
@@ -205,11 +279,29 @@ public class RelanceResource {
         relance.clientId = vente.client.id;
         relance.client = vente.client.nom;
         relance.email = vente.client.email;
+        relance.courrier = due.courrier();
+        relance.adresse = vente.client.adresse;
         relance.dateDepart = due.depart();
         relance.joursEcoules = ChronoUnit.DAYS.between(due.depart(), today);
         relance.niveau = due.niveau();
         relance.montant = due.devis() ? vente.prixVenteTTC : VenteResource.soldeDu(vente);
         return relance;
+    }
+
+    private static Courrier courrier(RappelHistoriqueEntity historique) {
+        VenteEntity vente = historique.vente;
+        Courrier courrier = new Courrier();
+        courrier.id = historique.id;
+        courrier.venteId = vente.id;
+        courrier.numero = numero(vente);
+        courrier.clientId = vente.client.id;
+        courrier.client = vente.client.nom;
+        courrier.adresse = vente.client.adresse;
+        courrier.niveau = historique.numeroRappel;
+        courrier.objet = historique.sujet;
+        courrier.datePreparation = RappelScheduler.toLocalDate(historique.dateEnvoi);
+        courrier.soldeDu = VenteResource.soldeDu(vente);
+        return courrier;
     }
 
     private static VenteSuspendue venteSuspendue(VenteEntity vente) {
@@ -229,6 +321,8 @@ public class RelanceResource {
         // Les relances dues sont envoyées automatiquement chaque matin : le journal sert alors à en écarter.
         public boolean relancesAutomatiques;
         public List<Relance> relances = new ArrayList<>();
+        // Relances déjà préparées par courrier, à imprimer
+        public List<Courrier> courriers = new ArrayList<>();
         public List<VenteSuspendue> ventesSuspendues = new ArrayList<>();
         public List<ClientSuspendu> clientsSuspendus = new ArrayList<>();
     }
@@ -242,6 +336,9 @@ public class RelanceResource {
         public Long clientId;
         public String client;
         public String email;
+        // Relance de paiement 3 envoyée par courrier à l'adresse du client, plutôt que par email
+        public boolean courrier;
+        public String adresse;
         // Échéance de la facture (ou sa date d'émission à défaut), ou date du devis
         public LocalDate dateDepart;
         public long joursEcoules;
@@ -249,6 +346,21 @@ public class RelanceResource {
         public int niveau;
         // Solde dû de la facture, ou montant TTC du devis
         public double montant;
+    }
+
+    public static class Courrier {
+        // Ligne de l'historique des relances
+        public Long id;
+        public Long venteId;
+        public String numero;
+        public Long clientId;
+        public String client;
+        // Adresse actuelle du client, imprimée sur le courrier
+        public String adresse;
+        public int niveau;
+        public String objet;
+        public LocalDate datePreparation;
+        public double soldeDu;
     }
 
     public static class VenteSuspendue {
@@ -274,8 +386,15 @@ public class RelanceResource {
     }
 
     public static class EnvoiResultat {
+        // Emails envoyés
         public int envoyees;
+        // Courriers préparés, à imprimer
+        public List<Long> courriers = new ArrayList<>();
         public List<String> erreurs = new ArrayList<>();
+    }
+
+    public static class ImpressionRequest {
+        public List<Long> courriers;
     }
 
     public static class MotifRequest {

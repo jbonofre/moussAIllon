@@ -32,4 +32,12 @@ public class RappelHistoriqueEntity extends PanacheEntity {
     public boolean ignoree;
 
     public String motif;
+
+    // Relance par courrier (mise en demeure) : préparée à dateEnvoi, à imprimer tant que dateImpression est vide.
+    // Le destinataire est alors l'adresse postale du client.
+    @Column(columnDefinition = "boolean default false")
+    public boolean courrier;
+
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateImpression;
 }

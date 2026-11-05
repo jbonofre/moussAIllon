@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Empty, Input, Modal, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
-import { PauseCircleOutlined, PlayCircleOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
+import { PauseCircleOutlined, PlayCircleOutlined, PrinterOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
 import { fetchWithAuth } from './api.ts';
 import { paginationConfig } from './pagination.ts';
 import { useNavigation } from './navigation-context.tsx';
 import { formatDate, formatEuro } from './kpis-commun.tsx';
 import SuspensionRelancesModal from './SuspensionRelancesModal.tsx';
+import { ouvrirPdf } from './ouvrir-pdf.ts';
 
 const { Text, Title } = Typography;
 
@@ -18,12 +19,29 @@ interface Relance {
     clientId: number;
     client: string;
     email: string;
+    // Relance de paiement 3 envoyée par courrier à l'adresse du client, plutôt que par email
+    courrier: boolean;
+    adresse?: string | null;
     // Échéance de la facture (ou sa date d'émission à défaut), ou date du devis
     dateDepart: string;
     joursEcoules: number;
     niveau: number;
     // Solde dû de la facture, ou montant TTC du devis
     montant: number;
+}
+
+// Courrier de relance (mise en demeure) préparé, à imprimer
+interface Courrier {
+    id: number;
+    venteId: number;
+    numero: string;
+    clientId: number;
+    client: string;
+    adresse?: string | null;
+    niveau: number;
+    objet: string;
+    datePreparation: string;
+    soldeDu: number;
 }
 
 interface VenteSuspendue {
@@ -46,6 +64,7 @@ interface ClientSuspendu {
 interface Journal {
     relancesAutomatiques: boolean;
     relances: Relance[];
+    courriers?: Courrier[];
     ventesSuspendues: VenteSuspendue[];
     clientsSuspendus: ClientSuspendu[];
 }
@@ -55,6 +74,13 @@ const RELANCE_COULEURS: Record<number, string> = { 1: 'gold', 2: 'orange', 3: 'r
 
 const typeVente = (v: { devis: boolean; ordreDeReparation: boolean }) =>
     v.devis ? <Tag color="blue">{v.ordreDeReparation ? 'OR' : 'Devis'}</Tag> : <Tag color="purple">Paiement</Tag>;
+
+const pluriel = (n: number, mot: string) => `${n} ${mot}${n > 1 ? 's' : ''}`;
+
+// Adresse postale du client sur une ligne, ou signalée si elle manque (le courrier ne peut pas partir sans)
+const adresse = (valeur?: string | null) => (valeur?.trim()
+    ? <Text type="secondary" style={{ fontSize: 12 }}>{valeur.trim().split(/\s*\n\s*/).join(', ')}</Text>
+    : <Text type="warning" style={{ fontSize: 12 }}>Adresse manquante</Text>);
 
 export default function Relances() {
     const { navigate } = useNavigation();
@@ -66,6 +92,7 @@ export default function Relances() {
     const [aIgnorer, setAIgnorer] = useState<Relance | null>(null);
     const [motifIgnore, setMotifIgnore] = useState('');
     const [aSuspendre, setASuspendre] = useState<Relance | null>(null);
+    const [impressionEnCours, setImpressionEnCours] = useState(false);
 
     const load = useCallback(() => {
         setLoading(true);
@@ -80,6 +107,16 @@ export default function Relances() {
 
     const relances = useMemo(() => journal?.relances ?? [], [journal]);
     const selection = relances.filter((r) => !decochees.has(r.venteId)).map((r) => r.venteId);
+    const courriersSelection = relances.filter((r) => r.courrier && !decochees.has(r.venteId)).length;
+    const emailsSelection = selection.length - courriersSelection;
+    const parEmail = pluriel(emailsSelection, 'relance') + ' par email';
+    const parCourrier = pluriel(courriersSelection, 'courrier') + ' à imprimer';
+    let titreEnvoi = `Envoyer ${parEmail} et préparer ${parCourrier} ?`;
+    if (courriersSelection === 0) {
+        titreEnvoi = `Envoyer ${parEmail} ?`;
+    } else if (emailsSelection === 0) {
+        titreEnvoi = `Préparer ${parCourrier} ?`;
+    }
 
     const requete = async (url: string, method: string, corps?: object) => {
         const r = await fetchWithAuth(url, {
@@ -91,12 +128,31 @@ export default function Relances() {
         return r;
     };
 
+    // Ouvre le PDF des courriers pour les imprimer : ils sortent de la liste des courriers à imprimer
+    const imprimer = async (courriers: number[], nom: string) => {
+        setImpressionEnCours(true);
+        try {
+            const r = await requete('./relances/courriers/impression', 'POST', { courriers });
+            ouvrirPdf(await r.blob(), nom);
+        } catch (e: any) {
+            message.error("Erreur lors de l'impression des courriers : " + e.message);
+        } finally {
+            setImpressionEnCours(false);
+        }
+    };
+
     const envoyer = async () => {
         setEnvoiEnCours(true);
         try {
             const resultat = await (await requete('./relances/envoyer', 'POST', { ventes: selection })).json();
             if (resultat.envoyees > 0) {
                 message.success(resultat.envoyees > 1 ? `${resultat.envoyees} relances envoyées` : '1 relance envoyée');
+            }
+            const courriers: number[] = resultat.courriers ?? [];
+            if (courriers.length > 0) {
+                // Les courriers préparés s'ouvrent aussitôt pour être imprimés
+                message.success(pluriel(courriers.length, 'courrier') + ' à imprimer');
+                await imprimer(courriers, 'courriers-relance.pdf');
             }
             if (resultat.erreurs?.length) {
                 Modal.error({
@@ -142,7 +198,16 @@ export default function Relances() {
         { title: 'Type', key: 'type', render: (_: unknown, r: Relance) => typeVente(r) },
         { title: 'N°', dataIndex: 'numero', key: 'numero', render: (v: string, r: Relance) => lienVente(r.venteId, v) },
         { title: 'Client', dataIndex: 'client', key: 'client' },
-        { title: 'Email', dataIndex: 'email', key: 'email' },
+        {
+            title: 'Envoi',
+            key: 'envoi',
+            render: (_: unknown, r: Relance) => (r.courrier ? (
+                <Space orientation="vertical" size={0}>
+                    <Tag icon={<PrinterOutlined />} color="volcano">Courrier</Tag>
+                    {adresse(r.adresse)}
+                </Space>
+            ) : r.email),
+        },
         {
             title: 'Depuis',
             key: 'dateDepart',
@@ -182,6 +247,7 @@ export default function Relances() {
         },
     ];
 
+    const courriers = journal?.courriers ?? [];
     const ventesSuspendues = journal?.ventesSuspendues ?? [];
     const clientsSuspendus = journal?.clientsSuspendus ?? [];
 
@@ -195,7 +261,8 @@ export default function Relances() {
                         showIcon
                         title="Envoi automatique activé"
                         description={'Les relances dues sont envoyées chaque matin à 8h (Paramétrage > Société). '
-                            + 'Ignorez ou suspendez avant ce moment celles qui ne doivent pas partir.'}
+                            + 'Ignorez ou suspendez avant ce moment celles qui ne doivent pas partir. '
+                            + 'Les relances par courrier sont préparées en même temps : imprimez-les ici.'}
                     />
                 ) : (
                     <Alert
@@ -212,7 +279,7 @@ export default function Relances() {
                     extra={(
                         <Space>
                             <Popconfirm
-                                title={selection.length > 1 ? `Envoyer ${selection.length} relances par email ?` : 'Envoyer 1 relance par email ?'}
+                                title={titreEnvoi}
                                 onConfirm={envoyer}
                                 okText="Envoyer"
                                 cancelText="Annuler"
@@ -243,6 +310,69 @@ export default function Relances() {
                         size="small"
                     />
                 </Card>
+                {courriers.length > 0 && (
+                    <Card
+                        title={`Courriers à imprimer (${courriers.length})`}
+                        extra={(
+                            <Button
+                                type="primary"
+                                icon={<PrinterOutlined />}
+                                loading={impressionEnCours}
+                                onClick={async () => {
+                                    await imprimer(courriers.map((c) => c.id), 'courriers-relance.pdf');
+                                    load();
+                                }}
+                            >
+                                Tout imprimer ({courriers.length})
+                            </Button>
+                        )}
+                    >
+                        <Space orientation="vertical" size={16} style={{ width: '100%' }}>
+                            <Text type="secondary">
+                                Mises en demeure à envoyer par courrier, de préférence en recommandé avec accusé de réception.
+                                Un courrier imprimé sort de cette liste ; il reste réimprimable depuis les relances de la vente.
+                            </Text>
+                            <Table
+                                rowKey="id"
+                                dataSource={courriers}
+                                pagination={false}
+                                size="small"
+                                columns={[
+                                    { title: 'N°', dataIndex: 'numero', key: 'numero', render: (n: string, c: Courrier) => lienVente(c.venteId, n) },
+                                    { title: 'Client', dataIndex: 'client', key: 'client' },
+                                    { title: 'Adresse', dataIndex: 'adresse', key: 'adresse', render: adresse },
+                                    {
+                                        title: 'Relance',
+                                        dataIndex: 'niveau',
+                                        key: 'niveau',
+                                        render: (v: number) => <Tag color={RELANCE_COULEURS[v]}>Relance {v}</Tag>,
+                                    },
+                                    { title: 'Préparé le', dataIndex: 'datePreparation', key: 'datePreparation', render: formatDate },
+                                    {
+                                        title: 'Solde dû',
+                                        dataIndex: 'soldeDu',
+                                        key: 'soldeDu',
+                                        align: 'right' as const,
+                                        render: (v: number) => formatEuro(v),
+                                    },
+                                    {
+                                        title: 'Actions',
+                                        key: 'actions',
+                                        render: (_: unknown, c: Courrier) => (
+                                            <Button size="small" icon={<PrinterOutlined />}
+                                                onClick={async () => {
+                                                    await imprimer([c.id], `relance-${c.numero}.pdf`);
+                                                    load();
+                                                }}>
+                                                Imprimer
+                                            </Button>
+                                        ),
+                                    },
+                                ]}
+                            />
+                        </Space>
+                    </Card>
+                )}
                 <Card title="Relances suspendues">
                     {ventesSuspendues.length === 0 && clientsSuspendus.length === 0 ? (
                         <Empty description="Aucune relance suspendue" />

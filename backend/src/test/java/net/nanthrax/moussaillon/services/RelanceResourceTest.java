@@ -4,11 +4,15 @@ import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.RappelHistoriqueEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
+import net.nanthrax.moussaillon.persistence.VentePaiementEntity;
 import org.junit.jupiter.api.Test;
+
+import java.nio.charset.StandardCharsets;
 
 import java.sql.Timestamp;
 import java.time.LocalDate;
@@ -70,6 +74,16 @@ public class RelanceResourceTest {
 
     private static List<RappelHistoriqueEntity> historique(VenteEntity vente) {
         return RappelHistoriqueEntity.list("vente.id", vente.id);
+    }
+
+    private static RelanceResource.Courrier courrierAImprimer(RelanceResource.Journal journal, VenteEntity vente) {
+        return journal.courriers.stream().filter(c -> c.venteId.equals(vente.id)).findFirst().orElse(null);
+    }
+
+    private static void assertPdf(Response reponse) {
+        assertEquals(200, reponse.getStatus());
+        byte[] pdf = (byte[]) reponse.getEntity();
+        assertEquals("%PDF", new String(pdf, 0, 4, StandardCharsets.US_ASCII));
     }
 
     @Test
@@ -202,5 +216,84 @@ public class RelanceResourceTest {
         assertFalse(client.relancesSuspendues);
         assertNull(client.motifSuspensionRelances);
         assertNotNull(ligne(relanceResource.journal(), facture));
+    }
+
+    @Test
+    @TestTransaction
+    void testRelance3ParCourrierAImprimer() {
+        parametrerRelances();
+        SocieteEntity.<SocieteEntity>findById(1L).relance3Courrier = true;
+        ClientEntity client = ClientEntity.findById(100L);
+        VenteEntity courrier = facture(client, 50);
+        VenteEntity email = facture(client, 20);
+
+        RelanceResource.Journal journal = relanceResource.journal();
+        RelanceResource.Relance relanceCourrier = ligne(journal, courrier);
+        assertEquals(3, relanceCourrier.niveau);
+        assertTrue(relanceCourrier.courrier);
+        assertEquals("1 rue du Port", relanceCourrier.adresse);
+        assertFalse(ligne(journal, email).courrier, "La relance 1 part par email");
+
+        RelanceResource.EnvoiRequest request = new RelanceResource.EnvoiRequest();
+        request.ventes = List.of(courrier.id, email.id);
+        RelanceResource.EnvoiResultat resultat = relanceResource.envoyer(request);
+
+        assertEquals(1, resultat.envoyees, "Un seul email envoyé");
+        assertEquals(1, resultat.courriers.size(), "Un courrier préparé");
+        Long id = resultat.courriers.get(0);
+        assertEquals(3, courrier.niveauRelance);
+        RelanceResource.Courrier aImprimer = courrierAImprimer(relanceResource.journal(), courrier);
+        assertNotNull(aImprimer, "Le courrier attend d'être imprimé");
+        assertEquals(id, aImprimer.id);
+        assertEquals(LocalDate.now(), aImprimer.datePreparation);
+        assertEquals(500.0, aImprimer.soldeDu, 0.001);
+        assertTrue(aImprimer.objet.startsWith("Mise en demeure de payer"), aImprimer.objet);
+
+        RelanceResource.ImpressionRequest impression = new RelanceResource.ImpressionRequest();
+        impression.courriers = List.of(id);
+        assertPdf(relanceResource.imprimer(impression));
+
+        assertNotNull(RappelHistoriqueEntity.<RappelHistoriqueEntity>findById(id).dateImpression);
+        assertNull(courrierAImprimer(relanceResource.journal(), courrier), "Un courrier imprimé sort de la liste");
+        assertPdf(relanceResource.reimprimer(id));
+    }
+
+    @Test
+    @TestTransaction
+    void testCourrierDUneFactureSoldeeNonListe() {
+        parametrerRelances();
+        SocieteEntity.<SocieteEntity>findById(1L).relance3Courrier = true;
+        VenteEntity vente = facture(ClientEntity.findById(100L), 50);
+        RelanceResource.EnvoiRequest request = new RelanceResource.EnvoiRequest();
+        request.ventes = List.of(vente.id);
+        relanceResource.envoyer(request);
+        assertNotNull(courrierAImprimer(relanceResource.journal(), vente));
+
+        VentePaiementEntity paiement = new VentePaiementEntity();
+        paiement.mode = VentePaiementEntity.Mode.VIREMENT;
+        paiement.montant = 500.0;
+        paiement.date = ilYA(0);
+        vente.paiements.add(paiement);
+
+        assertNull(courrierAImprimer(relanceResource.journal(), vente), "Plus de mise en demeure pour une facture soldée");
+    }
+
+    @Test
+    @TestTransaction
+    void testImpressionSansCourrier() {
+        parametrerRelances();
+        VenteEntity vente = facture(ClientEntity.findById(100L), 20);
+        RelanceResource.EnvoiRequest request = new RelanceResource.EnvoiRequest();
+        request.ventes = List.of(vente.id);
+        relanceResource.envoyer(request);
+        long email = historique(vente).get(0).id;
+        assertEquals(404, assertThrows(WebApplicationException.class, () -> relanceResource.reimprimer(email))
+            .getResponse().getStatus(), "Une relance par email n'a pas de courrier");
+
+        // En dernier : l'erreur annule la transaction du test
+        RelanceResource.ImpressionRequest vide = new RelanceResource.ImpressionRequest();
+        vide.courriers = List.of();
+        assertEquals(400, assertThrows(WebApplicationException.class, () -> relanceResource.imprimer(vide))
+            .getResponse().getStatus());
     }
 }
