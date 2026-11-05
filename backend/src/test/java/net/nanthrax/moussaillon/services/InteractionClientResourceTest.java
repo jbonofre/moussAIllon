@@ -102,7 +102,41 @@ public class InteractionClientResourceTest {
             .when().post("/ventes")
             .then()
             .statusCode(201);
-        given().when().get("/clients/" + inactif).then().statusCode(200).body("statut", is("CLIENT"));
+        // Un client inactif qui revient n'est pas un prospect converti
+        given().when().get("/clients/" + inactif).then().statusCode(200)
+            .body("statut", is("CLIENT"))
+            .body("dateConversion", nullValue());
+    }
+
+    @Test
+    void testDateDeConversionDuProspect() {
+        int prospect = creerClient("Prospect Conversion", "PROSPECT");
+        given().when().get("/clients/" + prospect).then().statusCode(200).body("dateConversion", nullValue());
+
+        // Passé client depuis sa fiche, puis repassé prospect
+        modifierStatut(prospect, "Prospect Conversion", "CLIENT").body("dateConversion", notNullValue());
+        modifierStatut(prospect, "Prospect Conversion", "PROSPECT").body("dateConversion", nullValue());
+
+        // Devenu client avec une vente acceptée
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"comptoir\":true,\"prixVenteTTC\":30.0,\"client\":{\"id\":" + prospect + "}}")
+            .when().post("/ventes")
+            .then()
+            .statusCode(201);
+        given().when().get("/clients/" + prospect).then().statusCode(200)
+            .body("statut", is("CLIENT"))
+            .body("dateConversion", notNullValue());
+    }
+
+    private static io.restassured.response.ValidatableResponse modifierStatut(int client, String nom, String statut) {
+        return given()
+            .contentType("application/json")
+            .body("{\"nom\":\"" + nom + "\",\"type\":\"PARTICULIER\",\"statut\":\"" + statut + "\"}")
+            .when().put("/clients/" + client)
+            .then()
+            .statusCode(200)
+            .body("statut", is(statut));
     }
 
     @Test

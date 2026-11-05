@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Button, Card, Col, DatePicker, Empty, Row, Space, Spin, Statistic, Table, Tag, Tooltip, Typography, message } from 'antd';
-import { InfoCircleOutlined, ReloadOutlined, SendOutlined } from '@ant-design/icons';
+import { InfoCircleOutlined, ReloadOutlined, ScheduleOutlined, SendOutlined } from '@ant-design/icons';
 import { Column, Line } from '@ant-design/charts';
 import dayjs from 'dayjs';
 import { fetchWithAuth } from './api.ts';
@@ -8,6 +8,7 @@ import { paginationConfig } from './pagination.ts';
 import { useNavigation } from './navigation-context.tsx';
 import { libelleCanalAcquisition } from './canal-acquisition.ts';
 import { EcartPoints, Evolution, formatDate, formatEuro, formatMois, formatTaux } from './kpis-commun.tsx';
+import { EcheanceTag, TYPES_INTERACTION } from './crm.tsx';
 
 const { Text, Paragraph } = Typography;
 
@@ -24,6 +25,9 @@ interface MoisKpi {
     tauxConversion?: number | null;
     tauxConversionN1?: number | null;
     leadsParCanal: Record<string, number>;
+    echanges: number;
+    echangesN1: number;
+    echangesParType: Record<string, number>;
 }
 
 interface CanalKpi {
@@ -48,6 +52,7 @@ interface DevisEnAttente {
     venteId: number;
     numero?: string;
     ordreDeReparation: boolean;
+    clientId?: number | null;
     client?: string;
     canal: string;
     dateDevis?: string;
@@ -59,6 +64,8 @@ interface DevisEnAttente {
     emailClient: boolean;
     relanceAutomatique: boolean;
     aRelancer: boolean;
+    dernierEchange?: string | null;
+    prochaineAction?: string | null;
 }
 
 interface Pipeline {
@@ -75,6 +82,34 @@ interface Pipeline {
     relanceAutomatique: boolean;
     devis: DevisEnAttente[];
 }
+
+interface UtilisateurKpi {
+    utilisateur?: string | null;
+    echanges: number;
+    actionsFaites: number;
+    actionsFaitesALEcheance: number;
+    tauxRespectEcheances?: number | null;
+    actionsAFaire: number;
+    actionsEnRetard: number;
+}
+
+interface SuiviCommercial {
+    echanges: number;
+    echangesN1: number;
+    actionsFaites: number;
+    actionsFaitesALEcheance: number;
+    tauxRespectEcheances?: number | null;
+    actionsAFaire: number;
+    actionsEnRetard: number;
+    prospects: number;
+    prospectsSansAction: number;
+    prospectsConvertis: number;
+    prospectsConvertisN1: number;
+    delaiMoyenConversionJours?: number | null;
+    utilisateurs: UtilisateurKpi[];
+}
+
+const libelleTypeInteraction = (type: string) => TYPES_INTERACTION.find((t) => t.value === type)?.label ?? type;
 
 export interface KpisCommerciaux {
     debut: string;
@@ -97,6 +132,7 @@ export interface KpisCommerciaux {
     canaux: CanalKpi[];
     motifsRefus: MotifRefus[];
     pipeline: Pipeline;
+    suivi: SuiviCommercial;
 }
 
 export default function KpisCommerciaux() {
@@ -144,6 +180,9 @@ export default function KpisCommerciaux() {
     const leadsParOrigine = useMemo(() => (kpis?.mois ?? []).flatMap((m) => Object.entries(m.leadsParCanal)
         .map(([canal, leads]) => ({ mois: formatMois(m.mois), origine: libelleCanalAcquisition(canal), leads }))), [kpis]);
 
+    const echangesParType = useMemo(() => (kpis?.mois ?? []).flatMap((m) => Object.entries(m.echangesParType ?? {})
+        .map(([type, echanges]) => ({ mois: formatMois(m.mois), type: libelleTypeInteraction(type), echanges }))), [kpis]);
+
     if (!kpis) {
         return (
             <div>
@@ -153,7 +192,7 @@ export default function KpisCommerciaux() {
         );
     }
 
-    const { pipeline } = kpis;
+    const { pipeline, suivi } = kpis;
 
     const colonnesCanaux = [
         { title: 'Origine', dataIndex: 'code', render: (v: string) => libelleCanalAcquisition(v) },
@@ -183,7 +222,12 @@ export default function KpisCommerciaux() {
                 </Space>
             ),
         },
-        { title: 'Client', dataIndex: 'client', render: (v?: string) => v || '—' },
+        {
+            title: 'Client', dataIndex: 'client',
+            render: (v: string | undefined, d: DevisEnAttente) => (d.clientId
+                ? <a onClick={() => navigate('/clients', { ouvrirClientId: d.clientId })}>{v || `#${d.clientId}`}</a>
+                : v || '—'),
+        },
         { title: 'Origine', dataIndex: 'canal', render: (v: string) => libelleCanalAcquisition(v) },
         { title: 'Date', dataIndex: 'dateDevis', render: formatDate },
         {
@@ -197,6 +241,18 @@ export default function KpisCommerciaux() {
                 <Space orientation="vertical" size={0}>
                     <span>{d.niveauRelance > 0 ? `${d.niveauRelance}/3` : '—'}{d.derniereRelance && <Text type="secondary"> (dernière le {formatDate(d.derniereRelance)})</Text>}</span>
                     {!d.relanceAutomatique && <Text type="secondary" style={{ fontSize: 12 }}>{d.emailClient ? 'Sans relance automatique' : 'Client sans email'}</Text>}
+                </Space>
+            ),
+        },
+        {
+            title: 'Suivi commercial', key: 'suivi',
+            render: (_: unknown, d: DevisEnAttente) => (
+                <Space orientation="vertical" size={0}>
+                    {d.prochaineAction && (
+                        <Space size={4}><span>Action le {formatDate(d.prochaineAction)}</span><EcheanceTag date={d.prochaineAction} /></Space>
+                    )}
+                    {d.dernierEchange && <Text type="secondary" style={{ fontSize: 12 }}>Dernier échange le {formatDate(d.dernierEchange)}</Text>}
+                    {!d.prochaineAction && !d.dernierEchange && <Text type="secondary">—</Text>}
                 </Space>
             ),
         },
@@ -228,14 +284,26 @@ export default function KpisCommerciaux() {
         },
     ];
 
+    const colonnesUtilisateurs = [
+        { title: 'Utilisateur', dataIndex: 'utilisateur', render: (v?: string | null) => v || <Text type="secondary">Non attribué</Text> },
+        { title: 'Échanges', dataIndex: 'echanges', align: 'right' as const, sorter: (a: UtilisateurKpi, b: UtilisateurKpi) => a.echanges - b.echanges },
+        { title: 'Actions faites', dataIndex: 'actionsFaites', align: 'right' as const },
+        { title: 'Échéances respectées', dataIndex: 'tauxRespectEcheances', align: 'right' as const, render: formatTaux },
+        { title: 'Actions à faire', dataIndex: 'actionsAFaire', align: 'right' as const },
+        {
+            title: 'En retard', dataIndex: 'actionsEnRetard', align: 'right' as const,
+            render: (v: number) => (v > 0 ? <Tag color="red">{v}</Tag> : v),
+        },
+    ];
+
     return (
         <div>
             <Row justify="space-between" align="middle" gutter={[12, 12]} style={{ marginBottom: 8 }}>
                 <Col>
                     <Typography.Title level={3} style={{ marginBottom: 0 }}>KPIs commerciaux</Typography.Title>
                     <Text type="secondary">
-                        Leads (devis/OR) de {formatMois(kpis.debut)} à {formatMois(kpis.fin)}, comparés aux 12 mois précédents (N-1).
-                        Pipeline à ce jour.
+                        Leads (devis/OR) et suivi commercial de {formatMois(kpis.debut)} à {formatMois(kpis.fin)}, comparés aux 12 mois précédents (N-1).
+                        Pipeline, actions à faire et prospects à ce jour.
                     </Text>
                 </Col>
                 <Col>
@@ -378,6 +446,7 @@ export default function KpisCommerciaux() {
                         locale={{ emptyText: 'Aucun devis en attente' }}
                     />
                     <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+                        Un échange avec le client (appel, email, visite, rendez-vous) compte comme une nouvelle du devis, au même titre qu'une relance.
                         Marquez les devis refusés depuis Transactions/Prestations : ils sortent du pipeline et leurs motifs sont suivis ci-dessous.
                     </Paragraph>
                 </Card>
@@ -391,6 +460,63 @@ export default function KpisCommerciaux() {
                         pagination={false}
                         locale={{ emptyText: 'Aucun devis refusé sur la période' }}
                     />
+                </Card>
+
+                <Card
+                    title="Suivi commercial"
+                    extra={<Button size="small" icon={<ScheduleOutlined />} onClick={() => navigate('/actions-commerciales')}>Actions commerciales</Button>}
+                >
+                    <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+                        <Col xs={24} sm={12} xl={6}>
+                            <Statistic
+                                title={<Space size={4}>Échanges<Tooltip title="Appels, emails, visites et rendez-vous avec les clients et prospects (hors notes), à leur date."><InfoCircleOutlined /></Tooltip></Space>}
+                                value={suivi.echanges}
+                            />
+                            <Space size={4}><Evolution n={suivi.echanges} n1={suivi.echangesN1} /><Text type="secondary">N-1 : {suivi.echangesN1}</Text></Space>
+                        </Col>
+                        <Col xs={24} sm={12} xl={6}>
+                            <Statistic title="Actions à faire" value={suivi.actionsAFaire} />
+                            <Text type={suivi.actionsEnRetard > 0 ? 'danger' : 'secondary'}>dont {suivi.actionsEnRetard} en retard</Text>
+                        </Col>
+                        <Col xs={24} sm={12} xl={6}>
+                            <Statistic
+                                title={<Space size={4}>Échéances respectées<Tooltip title="Actions faites sur la période au plus tard le jour de leur échéance."><InfoCircleOutlined /></Tooltip></Space>}
+                                value={formatTaux(suivi.tauxRespectEcheances)}
+                            />
+                            <Text type="secondary">{suivi.actionsFaitesALEcheance} sur {suivi.actionsFaites} actions faites</Text>
+                        </Col>
+                        <Col xs={24} sm={12} xl={6}>
+                            <Statistic
+                                title={<Space size={4}>Prospects<Tooltip title="Prospects à ce jour, et prospects devenus clients sur la période (vente acceptée ou statut changé sur la fiche)."><InfoCircleOutlined /></Tooltip></Space>}
+                                value={suivi.prospects}
+                            />
+                            <Space orientation="vertical" size={0}>
+                                <Text type={suivi.prospectsSansAction > 0 ? 'warning' : 'secondary'}>dont {suivi.prospectsSansAction} sans action à faire</Text>
+                                <Space size={4} wrap>
+                                    <Evolution n={suivi.prospectsConvertis} n1={suivi.prospectsConvertisN1} />
+                                    <Text type="secondary">
+                                        {suivi.prospectsConvertis} devenus clients (N-1 : {suivi.prospectsConvertisN1})
+                                        {suivi.delaiMoyenConversionJours != null && `, en ${suivi.delaiMoyenConversionJours.toLocaleString('fr-FR')} j en moyenne`}
+                                    </Text>
+                                </Space>
+                            </Space>
+                        </Col>
+                    </Row>
+                    {echangesParType.length > 0 && (
+                        <Column data={echangesParType} xField="mois" yField="echanges" colorField="type" stack height={300} />
+                    )}
+                    <Table<UtilisateurKpi>
+                        rowKey={(u) => u.utilisateur ?? ''}
+                        size="small"
+                        columns={colonnesUtilisateurs}
+                        dataSource={suivi.utilisateurs}
+                        pagination={false}
+                        scroll={{ x: 'max-content' }}
+                        locale={{ emptyText: 'Aucun échange ni action commerciale' }}
+                    />
+                    <Paragraph type="secondary" style={{ marginTop: 8, marginBottom: 0 }}>
+                        Échanges et actions faites sur la période ; actions à faire à ce jour. Notez les échanges et planifiez les actions depuis l'onglet « Suivi commercial » de la fiche client.
+                    </Paragraph>
                 </Card>
             </Space>
         </div>

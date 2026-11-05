@@ -231,7 +231,7 @@ public class ClientResource {
         entity.nom = client.nom;
         entity.type = client.type;
         if (client.statut != null) {
-            entity.statut = client.statut;
+            changerStatut(entity, client.statut);
         }
         entity.email = client.email;
         entity.telephone = client.telephone;
@@ -297,8 +297,21 @@ public class ClientResource {
         }
         ClientEntity client = ClientEntity.findById(vente.client.id);
         if (client != null && client.statut != ClientEntity.Statut.CLIENT) {
-            client.statut = ClientEntity.Statut.CLIENT;
+            changerStatut(client, ClientEntity.Statut.CLIENT);
         }
+    }
+
+    /**
+     * Le passage de prospect à client est daté pour les KPIs commerciaux (un client inactif qui revient n'est pas une
+     * conversion) ; un retour en prospect efface cette date.
+     */
+    static void changerStatut(ClientEntity client, ClientEntity.Statut statut) {
+        if (statut == ClientEntity.Statut.CLIENT && client.statut == ClientEntity.Statut.PROSPECT) {
+            client.dateConversion = new Timestamp(System.currentTimeMillis());
+        } else if (statut == ClientEntity.Statut.PROSPECT) {
+            client.dateConversion = null;
+        }
+        client.statut = statut;
     }
 
     /** Suivi commercial des clients : date du dernier échange et échéance de la prochaine action à faire. */

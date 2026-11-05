@@ -1,19 +1,30 @@
 package net.nanthrax.moussaillon.services;
 
+import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.util.Map;
 
+import io.quarkus.test.TestTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.path.json.JsonPath;
+import jakarta.inject.Inject;
+import net.nanthrax.moussaillon.persistence.ClientEntity;
+import net.nanthrax.moussaillon.persistence.InteractionClientEntity;
+import net.nanthrax.moussaillon.persistence.VenteEntity;
 import org.junit.jupiter.api.Test;
 
 import static io.restassured.RestAssured.given;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
 public class KpiCommercialResourceTest {
+
+    @Inject
+    KpiCommercialResource resource;
 
     @Test
     void testLeadsConversionEtPipeline() {
@@ -98,8 +109,145 @@ public class KpiCommercialResourceTest {
     }
 
     @Test
+    @TestTransaction
+    void testSuiviCommercial() {
+        // Prospects et actions à faire sont comptés à ce jour, toutes données confondues : on mesure l'écart
+        KpiCommercialResource.SuiviCommercial avant = resource.get("2003-12").suivi;
+
+        ClientEntity sansAction = client("Prospect Sans Action KPI", ClientEntity.Statut.PROSPECT);
+        ClientEntity suivi = client("Prospect Suivi KPI", ClientEntity.Statut.PROSPECT);
+        // Prospects devenus clients : en 2003 (30 jours après la création de leur fiche) et en 2002 (N-1)
+        ClientEntity converti = client("Prospect Converti KPI", ClientEntity.Statut.CLIENT);
+        converti.dateCreation = Timestamp.valueOf("2003-01-10 09:00:00");
+        converti.dateConversion = Timestamp.valueOf("2003-02-09 17:00:00");
+        ClientEntity convertiN1 = client("Prospect Converti N-1 KPI", ClientEntity.Statut.CLIENT);
+        convertiN1.dateConversion = Timestamp.valueOf("2002-06-01 10:00:00");
+
+        String commercial = "commercial.kpi";
+        // Mars 2003 : un appel, un email et une note interne (qui n'est pas un échange) ; mars 2002 : une visite
+        interaction(suivi, InteractionClientEntity.Type.APPEL, "2003-03-05 10:00:00", null, commercial);
+        interaction(suivi, InteractionClientEntity.Type.EMAIL, "2003-03-20 10:00:00", null, commercial);
+        interaction(suivi, InteractionClientEntity.Type.NOTE, "2003-03-21 10:00:00", null, commercial);
+        interaction(suivi, InteractionClientEntity.Type.VISITE, "2002-03-10 10:00:00", null, commercial);
+        // Avril 2003 : deux actions faites, l'une le jour de son échéance, l'autre 4 jours après
+        interaction(suivi, InteractionClientEntity.Type.RENDEZ_VOUS, "2003-04-10 09:00:00", "2003-04-10 15:00:00", commercial);
+        interaction(suivi, InteractionClientEntity.Type.APPEL, "2003-04-01 09:00:00", "2003-04-05 11:00:00", commercial);
+        // À faire : une action en retard, une à venir
+        aFaire(suivi, LocalDate.now().minusDays(1), commercial);
+        aFaire(suivi, LocalDate.now().plusDays(1), commercial);
+
+        KpiCommercialResource.KpisCommerciaux kpis = resource.get("2003-12");
+        KpiCommercialResource.SuiviCommercial apres = kpis.suivi;
+        assertEquals(4, apres.echanges);
+        assertEquals(1, apres.echangesN1);
+        assertEquals(2, apres.actionsFaites);
+        assertEquals(1, apres.actionsFaitesALEcheance);
+        assertEquals(50.0, apres.tauxRespectEcheances, 0.001);
+        assertEquals(2, apres.actionsAFaire - avant.actionsAFaire);
+        assertEquals(1, apres.actionsEnRetard - avant.actionsEnRetard);
+        assertEquals(2, apres.prospects - avant.prospects);
+        assertEquals(1, apres.prospectsSansAction - avant.prospectsSansAction);
+        assertEquals(1, apres.prospectsConvertis);
+        assertEquals(1, apres.prospectsConvertisN1);
+        assertEquals(30.0, apres.delaiMoyenConversionJours, 0.001);
+
+        KpiCommercialResource.MoisKpi mars = mois(kpis, "2003-03");
+        assertEquals(2, mars.echanges);
+        assertEquals(1, mars.echangesN1);
+        assertEquals(Map.of("APPEL", 1, "EMAIL", 1), mars.echangesParType);
+        KpiCommercialResource.MoisKpi avril = mois(kpis, "2003-04");
+        assertEquals(2, avril.echanges);
+        assertEquals(Map.of("APPEL", 1, "RENDEZ_VOUS", 1), avril.echangesParType);
+
+        KpiCommercialResource.UtilisateurKpi parCommercial = apres.utilisateurs.stream()
+                .filter(u -> commercial.equals(u.utilisateur)).findFirst().orElseThrow();
+        assertEquals(4, parCommercial.echanges);
+        assertEquals(2, parCommercial.actionsFaites);
+        assertEquals(50.0, parCommercial.tauxRespectEcheances, 0.001);
+        assertEquals(2, parCommercial.actionsAFaire);
+        assertEquals(1, parCommercial.actionsEnRetard);
+    }
+
+    @Test
+    @TestTransaction
+    void testPipelineEtSuiviCommercialDuClient() {
+        ClientEntity client = client("Client Pipeline Suivi KPI", ClientEntity.Statut.CLIENT);
+        VenteEntity devis = new VenteEntity();
+        devis.status = VenteEntity.Status.DEVIS;
+        devis.client = client;
+        devis.date = Timestamp.valueOf(LocalDate.now().minusDays(90).atStartOfDay());
+        devis.dateDevis = devis.date;
+        devis.prixVenteTTC = 1200.0;
+        devis.persist();
+
+        KpiCommercialResource.DevisEnAttente ligne = devisEnAttente(devis);
+        assertEquals(client.id, ligne.clientId);
+        assertNull(ligne.dernierEchange);
+        assertNull(ligne.prochaineAction);
+        assertTrue(ligne.aRelancer);
+
+        // Une note interne n'est pas une nouvelle du client
+        interaction(client, InteractionClientEntity.Type.NOTE, LocalDate.now() + " 08:00:00", null, "commercial.kpi");
+        LocalDate dansCinqJours = LocalDate.now().plusDays(5);
+        aFaire(client, dansCinqJours, "commercial.kpi");
+        ligne = devisEnAttente(devis);
+        assertNull(ligne.dernierEchange);
+        assertEquals(dansCinqJours, ligne.prochaineAction);
+        assertTrue(ligne.aRelancer);
+
+        // Un appel avec le client il y a 2 jours : le devis a des nouvelles
+        LocalDate avantHier = LocalDate.now().minusDays(2);
+        interaction(client, InteractionClientEntity.Type.APPEL, avantHier + " 10:00:00", null, "commercial.kpi");
+        ligne = devisEnAttente(devis);
+        assertEquals(avantHier, ligne.dernierEchange);
+        assertFalse(ligne.aRelancer);
+    }
+
+    @Test
     void testMoisDeFinInvalide() {
         given().queryParam("fin", "2003-13").when().get("/kpis-commerciaux").then().statusCode(400);
+    }
+
+    private static ClientEntity client(String nom, ClientEntity.Statut statut) {
+        ClientEntity client = new ClientEntity();
+        client.nom = nom;
+        client.type = "PARTICULIER";
+        client.statut = statut;
+        client.persist();
+        return client;
+    }
+
+    // Échange déjà eu (realisation null), ou action faite à sa date de réalisation
+    private static void interaction(ClientEntity client, InteractionClientEntity.Type type, String date, String realisation,
+            String utilisateur) {
+        InteractionClientEntity interaction = new InteractionClientEntity();
+        interaction.client = client;
+        interaction.type = type;
+        interaction.statut = InteractionClientEntity.Statut.FAITE;
+        interaction.sujet = type.name();
+        interaction.date = Timestamp.valueOf(date);
+        interaction.dateRealisation = realisation != null ? Timestamp.valueOf(realisation) : null;
+        interaction.utilisateur = utilisateur;
+        interaction.persist();
+    }
+
+    private static void aFaire(ClientEntity client, LocalDate echeance, String utilisateur) {
+        InteractionClientEntity action = new InteractionClientEntity();
+        action.client = client;
+        action.type = InteractionClientEntity.Type.APPEL;
+        action.statut = InteractionClientEntity.Statut.A_FAIRE;
+        action.sujet = "Rappeler";
+        action.date = Timestamp.valueOf(echeance.atTime(9, 0));
+        action.utilisateur = utilisateur;
+        action.persist();
+    }
+
+    private static KpiCommercialResource.MoisKpi mois(KpiCommercialResource.KpisCommerciaux kpis, String mois) {
+        return kpis.mois.stream().filter(m -> m.mois.equals(mois)).findFirst().orElseThrow();
+    }
+
+    private KpiCommercialResource.DevisEnAttente devisEnAttente(VenteEntity vente) {
+        return resource.get(null).pipeline.devis.stream().filter(d -> d.venteId.equals(vente.id)).findFirst().orElseThrow();
     }
 
     // Vente au montant HT donné (TTC à 20 %), datée de son devis ; le JSON est à compléter et fermer

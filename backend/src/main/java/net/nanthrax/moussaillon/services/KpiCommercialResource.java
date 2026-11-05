@@ -5,11 +5,14 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.ws.rs.GET;
@@ -17,6 +20,8 @@ import jakarta.ws.rs.Path;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
+import net.nanthrax.moussaillon.persistence.ClientEntity;
+import net.nanthrax.moussaillon.persistence.InteractionClientEntity;
 import net.nanthrax.moussaillon.persistence.RappelHistoriqueEntity;
 import net.nanthrax.moussaillon.persistence.SocieteEntity;
 import net.nanthrax.moussaillon.persistence.VenteEntity;
@@ -32,7 +37,9 @@ import static net.nanthrax.moussaillon.services.KpiFinancierResource.taux;
  *   <li>leads par mois et par origine (canal d'acquisition du client), montant HT ;</li>
  *   <li>conversion des leads de chaque mois : acceptés (bon pour accord signé ou prestation lancée), refusés
  *   (et leurs motifs), encore en attente ;</li>
- *   <li>pipeline à ce jour : devis/OR en attente de signature par ancienneté, et ceux à relancer.</li>
+ *   <li>pipeline à ce jour : devis/OR en attente de signature par ancienneté, et ceux à relancer ;</li>
+ *   <li>suivi commercial (CRM) : échanges avec les clients et prospects, actions commerciales faites et à faire,
+ *   par utilisateur, prospects à ce jour et prospects devenus clients.</li>
  * </ul>
  */
 @Path("/kpis-commerciaux")
@@ -154,7 +161,9 @@ public class KpiCommercialResource {
         }
         kpis.motifsRefus.sort(Comparator.comparingInt((MotifRefus m) -> m.nombre).reversed());
 
-        kpis.pipeline = pipeline(LocalDate.now());
+        LocalDate aujourdhui = LocalDate.now();
+        kpis.pipeline = pipeline(aujourdhui);
+        kpis.suivi = suiviCommercial(kpis.mois, debutN, debut, finExclue, aujourdhui);
         return kpis;
     }
 
@@ -187,8 +196,8 @@ public class KpiCommercialResource {
 
     /**
      * Devis/OR en attente de signature à ce jour, quelle que soit leur date. Un devis est à relancer quand il est sans
-     * nouvelle (depuis sa date ou sa dernière relance) depuis le délai de la première relance automatique des devis,
-     * à défaut depuis {@link #JOURS_A_RELANCER_DEFAUT} jours.
+     * nouvelle (depuis sa date, sa dernière relance ou le dernier échange avec le client) depuis le délai de la première
+     * relance automatique des devis, à défaut depuis {@link #JOURS_A_RELANCER_DEFAUT} jours.
      */
     private static Pipeline pipeline(LocalDate aujourdhui) {
         SocieteEntity societe = SocieteEntity.findById(1L);
@@ -200,6 +209,16 @@ public class KpiCommercialResource {
 
         List<VenteEntity> enAttente = VenteEntity.list(VenteResource.DEVIS_EN_ATTENTE, VenteEntity.Status.DEVIS);
         Map<Long, Timestamp> dernieresRelances = dernieresRelances(enAttente);
+        List<Long> clients = enAttente.stream().filter(v -> v.client != null).map(v -> v.client.id).distinct().toList();
+        // Une note interne n'est pas un échange avec le client
+        Map<Long, Timestamp> derniersEchanges = datesParId(
+                "select i.client.id, max(coalesce(i.dateRealisation, i.date)) from InteractionClientEntity i"
+                + " where i.client.id in ?1 and i.statut = ?2 and i.type <> ?3 group by i.client.id",
+                clients, InteractionClientEntity.Statut.FAITE, InteractionClientEntity.Type.NOTE);
+        Map<Long, Timestamp> prochainesActions = datesParId(
+                "select i.client.id, min(i.date) from InteractionClientEntity i"
+                + " where i.client.id in ?1 and i.statut = ?2 group by i.client.id",
+                clients, InteractionClientEntity.Statut.A_FAIRE);
         for (VenteEntity vente : enAttente) {
             Timestamp dateDevis = RappelScheduler.dateDevis(vente);
             LocalDate depuis = dateDevis != null ? date(dateDevis) : aujourdhui;
@@ -218,6 +237,7 @@ public class KpiCommercialResource {
             devis.venteId = vente.id;
             devis.numero = vente.numeroFacture;
             devis.ordreDeReparation = vente.ordreDeReparation;
+            devis.clientId = vente.client != null ? vente.client.id : null;
             devis.client = vente.client != null ? vente.client.nom : null;
             devis.canal = canal(vente);
             devis.dateDevis = dateDevis != null ? depuis : null;
@@ -231,8 +251,10 @@ public class KpiCommercialResource {
             // Les mêmes conditions que les relances de devis (RappelScheduler.relancesDevis)
             devis.relanceAutomatique = pipeline.relanceAutomatique && devis.emailClient && vente.client.consentement
                     && vente.dateFactureEnAttente == null && !RappelScheduler.relancesSuspendues(vente, aujourdhui);
-            LocalDate derniereNouvelle = devis.derniereRelance != null && devis.derniereRelance.isAfter(depuis)
-                    ? devis.derniereRelance : depuis;
+            devis.dernierEchange = devis.clientId != null ? dateOuNull(derniersEchanges.get(devis.clientId)) : null;
+            devis.prochaineAction = devis.clientId != null ? dateOuNull(prochainesActions.get(devis.clientId)) : null;
+            LocalDate derniereNouvelle = Stream.of(depuis, devis.derniereRelance, devis.dernierEchange)
+                    .filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(depuis);
             devis.aRelancer = ChronoUnit.DAYS.between(derniereNouvelle, aujourdhui) >= pipeline.seuilRelanceJours;
             if (devis.aRelancer) {
                 pipeline.nombreARelancer++;
@@ -253,22 +275,153 @@ public class KpiCommercialResource {
 
     // Date de la dernière relance (automatique ou manuelle) envoyée pour chaque vente, hors relances ignorées
     private static Map<Long, Timestamp> dernieresRelances(List<VenteEntity> ventes) {
-        Map<Long, Timestamp> dernieres = new HashMap<>();
-        if (ventes.isEmpty()) {
-            return dernieres;
-        }
-        List<Object[]> lignes = RappelHistoriqueEntity.getEntityManager().createQuery(
+        return datesParId(
                 "select r.vente.id, max(r.dateEnvoi) from RappelHistoriqueEntity r where r.vente.id in ?1 and r.ignoree = false"
                 + " group by r.vente.id",
-                Object[].class)
-                .setParameter(1, ventes.stream().map(v -> v.id).toList())
-                .getResultList();
-        for (Object[] ligne : lignes) {
+                ventes.stream().map(v -> v.id).toList());
+    }
+
+    // Date par identifiant : la requête sélectionne l'identifiant et une date, ?1 est la liste des identifiants
+    private static Map<Long, Timestamp> datesParId(String requete, Collection<Long> ids, Object... parametres) {
+        Map<Long, Timestamp> dates = new HashMap<>();
+        if (ids.isEmpty()) {
+            return dates;
+        }
+        var query = RappelHistoriqueEntity.getEntityManager().createQuery(requete, Object[].class).setParameter(1, ids);
+        for (int i = 0; i < parametres.length; i++) {
+            query.setParameter(i + 2, parametres[i]);
+        }
+        for (Object[] ligne : query.getResultList()) {
             if (ligne[1] != null) {
-                dernieres.put((Long) ligne[0], (Timestamp) ligne[1]);
+                dates.put((Long) ligne[0], (Timestamp) ligne[1]);
             }
         }
-        return dernieres;
+        return dates;
+    }
+
+    private static LocalDate dateOuNull(Timestamp timestamp) {
+        return timestamp != null ? date(timestamp) : null;
+    }
+
+    /**
+     * Suivi commercial. Sur la période : échanges avec les clients et prospects (hors notes internes), à leur date,
+     * comparés à N-1, et actions commerciales faites, à leur échéance ou en retard. À ce jour : actions à faire,
+     * prospects et prospects sans action prévue. Prospects devenus clients sur la période et N-1.
+     */
+    private static SuiviCommercial suiviCommercial(List<MoisKpi> moisKpis, YearMonth debutN, Timestamp debut,
+            Timestamp finExclue, LocalDate aujourdhui) {
+        SuiviCommercial suivi = new SuiviCommercial();
+        Map<String, MoisKpi> parMois = new HashMap<>();
+        moisKpis.forEach(m -> parMois.put(m.mois, m));
+        Map<String, UtilisateurKpi> utilisateurs = new HashMap<>();
+        var em = InteractionClientEntity.getEntityManager();
+
+        List<Object[]> faites = em.createQuery(
+                "select i.type, i.utilisateur, i.date, i.dateRealisation from InteractionClientEntity i where i.statut = ?1"
+                + " and coalesce(i.dateRealisation, i.date) >= ?2 and coalesce(i.dateRealisation, i.date) < ?3",
+                Object[].class)
+                .setParameter(1, InteractionClientEntity.Statut.FAITE)
+                .setParameter(2, debut)
+                .setParameter(3, finExclue)
+                .getResultList();
+        for (Object[] ligne : faites) {
+            InteractionClientEntity.Type type = (InteractionClientEntity.Type) ligne[0];
+            String utilisateur = (String) ligne[1];
+            Timestamp echeance = (Timestamp) ligne[2];
+            Timestamp realisation = (Timestamp) ligne[3];
+            YearMonth mois = YearMonth.from(date(realisation != null ? realisation : echeance));
+            boolean periodeN = !mois.isBefore(debutN);
+            if (type != InteractionClientEntity.Type.NOTE) {
+                if (periodeN) {
+                    MoisKpi kpi = parMois.get(mois.toString());
+                    kpi.echanges++;
+                    kpi.echangesParType.merge(type.name(), 1, Integer::sum);
+                    suivi.echanges++;
+                    utilisateur(utilisateurs, utilisateur).echanges++;
+                } else {
+                    parMois.get(mois.plusMonths(12).toString()).echangesN1++;
+                    suivi.echangesN1++;
+                }
+            }
+            // Seule une action à faire, une fois faite, a une date de réalisation à comparer à son échéance
+            if (periodeN && realisation != null) {
+                boolean aLEcheance = echeance == null || !date(realisation).isAfter(date(echeance));
+                UtilisateurKpi kpi = utilisateur(utilisateurs, utilisateur);
+                suivi.actionsFaites++;
+                kpi.actionsFaites++;
+                if (aLEcheance) {
+                    suivi.actionsFaitesALEcheance++;
+                    kpi.actionsFaitesALEcheance++;
+                }
+            }
+        }
+
+        List<Object[]> aFaire = em.createQuery(
+                "select i.utilisateur, i.date from InteractionClientEntity i where i.statut = ?1", Object[].class)
+                .setParameter(1, InteractionClientEntity.Statut.A_FAIRE)
+                .getResultList();
+        for (Object[] ligne : aFaire) {
+            Timestamp echeance = (Timestamp) ligne[1];
+            UtilisateurKpi kpi = utilisateur(utilisateurs, (String) ligne[0]);
+            suivi.actionsAFaire++;
+            kpi.actionsAFaire++;
+            if (echeance != null && date(echeance).isBefore(aujourdhui)) {
+                suivi.actionsEnRetard++;
+                kpi.actionsEnRetard++;
+            }
+        }
+        suivi.tauxRespectEcheances = taux(suivi.actionsFaitesALEcheance, suivi.actionsFaites);
+        utilisateurs.values().forEach(u -> {
+            u.tauxRespectEcheances = taux(u.actionsFaitesALEcheance, u.actionsFaites);
+            suivi.utilisateurs.add(u);
+        });
+        suivi.utilisateurs.sort(Comparator.comparingInt((UtilisateurKpi u) -> u.echanges + u.actionsFaites)
+                .thenComparingInt(u -> u.actionsAFaire)
+                .reversed()
+                .thenComparing(u -> u.utilisateur, Comparator.nullsLast(Comparator.<String>naturalOrder())));
+
+        suivi.prospects = (int) ClientEntity.count("statut", ClientEntity.Statut.PROSPECT);
+        suivi.prospectsSansAction = (int) ClientEntity.count(
+                "statut = ?1 and id not in (select i.client.id from InteractionClientEntity i where i.statut = ?2)",
+                ClientEntity.Statut.PROSPECT, InteractionClientEntity.Statut.A_FAIRE);
+
+        List<Object[]> conversions = em.createQuery(
+                "select c.dateCreation, c.dateConversion from ClientEntity c where c.dateConversion >= ?1 and c.dateConversion < ?2",
+                Object[].class)
+                .setParameter(1, debut)
+                .setParameter(2, finExclue)
+                .getResultList();
+        long joursConversion = 0;
+        int conversionsDatees = 0;
+        for (Object[] ligne : conversions) {
+            Timestamp creation = (Timestamp) ligne[0];
+            Timestamp conversion = (Timestamp) ligne[1];
+            if (YearMonth.from(date(conversion)).isBefore(debutN)) {
+                suivi.prospectsConvertisN1++;
+                continue;
+            }
+            suivi.prospectsConvertis++;
+            if (creation != null) {
+                long jours = ChronoUnit.DAYS.between(date(creation), date(conversion));
+                if (jours >= 0) {
+                    joursConversion += jours;
+                    conversionsDatees++;
+                }
+            }
+        }
+        suivi.delaiMoyenConversionJours = conversionsDatees > 0
+                ? Math.round((double) joursConversion / conversionsDatees * 10.0) / 10.0 : null;
+        return suivi;
+    }
+
+    // Une action ou un échange sans utilisateur est rangé sous « non attribué » (null)
+    private static UtilisateurKpi utilisateur(Map<String, UtilisateurKpi> utilisateurs, String nom) {
+        String cle = nom != null && !nom.isBlank() ? nom : null;
+        return utilisateurs.computeIfAbsent(cle, c -> {
+            UtilisateurKpi kpi = new UtilisateurKpi();
+            kpi.utilisateur = c;
+            return kpi;
+        });
     }
 
     private static final class Cumul {
@@ -327,6 +480,7 @@ public class KpiCommercialResource {
         public List<CanalKpi> canaux = new ArrayList<>();
         public List<MotifRefus> motifsRefus = new ArrayList<>();
         public Pipeline pipeline;
+        public SuiviCommercial suivi;
     }
 
     public static class MoisKpi {
@@ -343,6 +497,10 @@ public class KpiCommercialResource {
         public Double tauxConversionN1;
         // Nombre de leads du mois par canal d'acquisition
         public Map<String, Integer> leadsParCanal = new LinkedHashMap<>();
+        // Échanges du mois avec les clients et prospects (hors notes), au total et par type
+        public int echanges;
+        public int echangesN1;
+        public Map<String, Integer> echangesParType = new LinkedHashMap<>();
     }
 
     public static class CanalKpi {
@@ -384,6 +542,7 @@ public class KpiCommercialResource {
         public Long venteId;
         public String numero;
         public boolean ordreDeReparation;
+        public Long clientId;
         public String client;
         public String canal;
         public LocalDate dateDevis;
@@ -398,5 +557,40 @@ public class KpiCommercialResource {
         // Le devis sera relancé (paramétrage, email et consentement du client, relances non suspendues)
         public boolean relanceAutomatique;
         public boolean aRelancer;
+        // Suivi commercial du client : dernier échange (hors notes) et prochaine action à faire
+        public LocalDate dernierEchange;
+        public LocalDate prochaineAction;
+    }
+
+    public static class SuiviCommercial {
+        // Échanges avec les clients et prospects (hors notes) sur la période et N-1
+        public int echanges;
+        public int echangesN1;
+        // Actions commerciales faites sur la période, dont celles faites au plus tard le jour de leur échéance
+        public int actionsFaites;
+        public int actionsFaitesALEcheance;
+        public Double tauxRespectEcheances;
+        // Actions à faire à ce jour, dont celles dont l'échéance est passée
+        public int actionsAFaire;
+        public int actionsEnRetard;
+        // Prospects à ce jour, dont ceux sans action à faire
+        public int prospects;
+        public int prospectsSansAction;
+        // Prospects devenus clients sur la période et N-1, en jours depuis la création de leur fiche
+        public int prospectsConvertis;
+        public int prospectsConvertisN1;
+        public Double delaiMoyenConversionJours;
+        public List<UtilisateurKpi> utilisateurs = new ArrayList<>();
+    }
+
+    public static class UtilisateurKpi {
+        // null : échanges et actions sans utilisateur
+        public String utilisateur;
+        public int echanges;
+        public int actionsFaites;
+        public int actionsFaitesALEcheance;
+        public Double tauxRespectEcheances;
+        public int actionsAFaire;
+        public int actionsEnRetard;
     }
 }

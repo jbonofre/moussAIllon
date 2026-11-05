@@ -44,6 +44,10 @@ public class ClientEntity extends PanacheEntity {
     @Column(columnDefinition = "varchar(32) default 'CLIENT'")
     public Statut statut;
 
+    // Date à laquelle le prospect est devenu client (KPIs commerciaux), voir ClientResource.changerStatut
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateConversion;
+
     public String email;
 
     public String motDePasse;
