@@ -588,30 +588,41 @@ public class CommandeFournisseurResource {
             throw new WebApplicationException("Fournisseur introuvable", 400);
         }
 
-        CommandeFournisseurEntity commande = new CommandeFournisseurEntity();
+        CommandeFournisseurEntity commande = nouvelleCommande(fournisseur, req.reference, req.portTotal, req.lignes);
         commande.vente = vente;
-        commande.fournisseur = fournisseur;
-        commande.date = new Timestamp(System.currentTimeMillis());
         if (req.status != null && !req.status.trim().isEmpty()) {
             commande.status = CommandeFournisseurEntity.Status.valueOf(req.status.trim());
         } else {
             commande.status = CommandeFournisseurEntity.Status.EN_ATTENTE;
         }
+        commande.referenceFournisseur = req.referenceFournisseur;
+        commande.notes = req.notes != null ? req.notes : ("Commande fournisseur issue de la vente comptoir #" + vente.id + (vente.numeroFacture != null ? " (" + vente.numeroFacture + ")" : ""));
 
-        if (req.reference != null && !req.reference.trim().isEmpty()) {
-            commande.reference = req.reference.trim();
+        commande.persist();
+        return Response.status(Response.Status.CREATED).entity(commande).build();
+    }
+
+    /**
+     * Commande au fournisseur des lignes demandées (quantités nulles ignorées), datée de maintenant, avec ses montants et
+     * sa référence (générée si elle n'est pas fournie). Le statut, la vente et les notes restent à renseigner avant de
+     * l'enregistrer.
+     */
+    static CommandeFournisseurEntity nouvelleCommande(FournisseurEntity fournisseur, String reference, Double portTotal,
+                                                      List<CreateCommandeLigneRequest> lignes) {
+        CommandeFournisseurEntity commande = new CommandeFournisseurEntity();
+        commande.fournisseur = fournisseur;
+        commande.date = new Timestamp(System.currentTimeMillis());
+        if (reference != null && !reference.trim().isEmpty()) {
+            commande.reference = reference.trim();
         } else {
             int year = java.time.LocalDate.now().getYear();
             long count = CommandeFournisseurEntity.count();
             commande.reference = String.format("CF-%d-%04d", year, count + 1);
         }
+        commande.portTotal = portTotal != null ? portTotal : 0.0;
 
-        commande.referenceFournisseur = req.referenceFournisseur;
-        commande.portTotal = req.portTotal != null ? req.portTotal : 0.0;
-        commande.notes = req.notes != null ? req.notes : ("Commande fournisseur issue de la vente comptoir #" + vente.id + (vente.numeroFacture != null ? " (" + vente.numeroFacture + ")" : ""));
-
-        if (req.lignes != null) {
-            for (CreateCommandeLigneRequest lr : req.lignes) {
+        if (lignes != null) {
+            for (CreateCommandeLigneRequest lr : lignes) {
                 if (lr.quantite <= 0) continue;
                 CommandeFournisseurLigneEntity l = new CommandeFournisseurLigneEntity();
                 if ("produit".equalsIgnoreCase(lr.type)) {
@@ -647,9 +658,7 @@ public class CommandeFournisseurResource {
         commande.montantTVA = Math.round(tva * 100.0) / 100.0;
         commande.montantTTC = Math.round((ttc + commande.portTotal) * 100.0) / 100.0;
         commande.tva = ht > 0 ? Math.round((tva / ht * 100.0) * 100.0) / 100.0 : 20.0;
-
-        commande.persist();
-        return Response.status(Response.Status.CREATED).entity(commande).build();
+        return commande;
     }
 
     public static class FournisseurItemDTO {

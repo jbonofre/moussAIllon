@@ -392,7 +392,7 @@ export default function Dashboard({ user }: { user?: string }) {
                         <Button icon={<ClockCircleOutlined />} block size="large" onClick={() => navigate('/planning')}>Vérifier les retards en cours</Button>
                     </Col>
                     <Col xs={24} sm={12} lg={6}>
-                        <Button icon={<WarningOutlined />} block size="large" onClick={() => navigate('/catalogue/produits')}>Consulter le stock critique</Button>
+                        <Button icon={<WarningOutlined />} block size="large" onClick={() => navigate('/stock', { alertes: true })}>Consulter le stock critique</Button>
                     </Col>
                 </Row>
             </Card>
@@ -431,7 +431,7 @@ export default function Dashboard({ user }: { user?: string }) {
                     </Card>
                 </Col>
                 <Col xs={24} sm={12} lg={6}>
-                    <Card hoverable onClick={() => navigate('/catalogue/produits')} style={{ borderTop: '3px solid #faad14', cursor: 'pointer' }}>
+                    <Card hoverable onClick={() => navigate('/stock', { alertes: true })} style={{ borderTop: '3px solid #faad14', cursor: 'pointer' }}>
                         <Statistic
                             title="Alertes stock"
                             value={data.alertesStock}
@@ -530,7 +530,7 @@ export default function Dashboard({ user }: { user?: string }) {
                                 </List.Item>
                             )}
                             footer={data.stockAlerts.length > STOCK_ALERTES_MAX && (
-                                <Button type="link" style={{ padding: 0 }} onClick={() => navigate('/catalogue/produits')}>
+                                <Button type="link" style={{ padding: 0 }} onClick={() => navigate('/stock', { alertes: true })}>
                                     Voir les {data.stockAlerts.length} produits en alerte
                                 </Button>
                             )}
