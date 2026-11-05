@@ -14,6 +14,7 @@ const PAGE_LABELS: Record<string, string> = {
     '/avoirs': "les avoirs",
     '/relances': "le journal des relances (paiement et devis)",
     '/clients': "les clients",
+    '/actions-commerciales': "les actions commerciales à faire (rappels, rendez-vous) auprès des clients et prospects",
     '/clients/bateaux': "les bateaux des clients",
     '/clients/moteurs': "les moteurs des clients",
     '/clients/remorques': "les remorques des clients",

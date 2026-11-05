@@ -1,9 +1,13 @@
 package net.nanthrax.moussaillon.persistence;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.PrePersist;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
@@ -17,6 +21,14 @@ public class ClientEntity extends PanacheEntity {
     // Un professionnel de la mer est exonéré de TVA (article 262 II du CGI)
     public static final String TYPE_PROFESSIONNEL_MER = "PROFESSIONNEL_MER";
 
+    // Un prospect, ou un client inactif, devient client dès qu'une de ses ventes est acceptée
+    // (voir ClientResource.convertirEnClient) ; un client ne devient inactif que sur décision du chantier.
+    public enum Statut {
+        PROSPECT,
+        CLIENT,
+        INACTIF
+    }
+
     @Column(nullable = false)
     @FormatNom
     public String nom;
@@ -26,6 +38,15 @@ public class ClientEntity extends PanacheEntity {
 
     @Column(nullable = false)
     public String type;
+
+    // VARCHAR plutôt qu'ENUM natif H2 ; les clients existants sont des clients
+    @Enumerated(EnumType.STRING)
+    @Column(columnDefinition = "varchar(32) default 'CLIENT'")
+    public Statut statut;
+
+    // Date à laquelle le prospect est devenu client (KPIs commerciaux), voir ClientResource.changerStatut
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp dateConversion;
 
     public String email;
 
@@ -80,6 +101,23 @@ public class ClientEntity extends PanacheEntity {
     // et sa date de paiement (dateFacturePayee), sur les factures payées de ce client.
     @jakarta.persistence.Transient
     public Double delaiPaiementMoyenJours;
+
+    // Suivi commercial : date du dernier échange et échéance de la prochaine action à faire.
+    @jakarta.persistence.Transient
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp derniereInteraction;
+
+    @jakarta.persistence.Transient
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp prochaineAction;
+
+    // Sans statut (formulaire, import, vente comptoir...), un nouveau contact est un client
+    @PrePersist
+    void statutParDefaut() {
+        if (statut == null) {
+            statut = Statut.CLIENT;
+        }
+    }
 
     public boolean exonereTva() {
         return TYPE_PROFESSIONNEL_MER.equals(type);

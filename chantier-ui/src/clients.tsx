@@ -54,6 +54,8 @@ import ImportCsvButton from "./ImportCsvButton.tsx";
 import { paginationConfig } from "./pagination.ts";
 import { CLIENT_NOM_AIDE, CLIENT_NOM_PLACEHOLDER } from "./client-nom.ts";
 import SearchAutoComplete from "./SearchAutoComplete.tsx";
+import SuiviCommercial from "./SuiviCommercial.tsx";
+import { STATUTS_CLIENT, StatutClient, StatutClientTag, echeance, formatDateHeure } from "./crm.tsx";
 
 const { Option } = Select;
 
@@ -61,6 +63,8 @@ interface Client {
   id?: number;
   nom: string;
   type: string;
+  // Prospect, client (a déjà acheté) ou inactif
+  statut?: StatutClient;
   email?: string;
   telephone?: string;
   adresse?: string;
@@ -80,11 +84,15 @@ interface Client {
   documents?: string[];
   soldeDu?: number;
   nombreBateaux?: number;
+  // Suivi commercial : dernier échange et prochaine action à faire
+  derniereInteraction?: string | null;
+  prochaineAction?: string | null;
 }
 
 const defaultClient = {
   nom: "",
   type: "PARTICULIER",
+  statut: "CLIENT",
   email: "",
   telephone: "",
   adresse: "",
@@ -290,6 +298,14 @@ function Clients() {
 
   const columns = [
     { title: "Nom", dataIndex: "nom", key: "nom", width: 250, sorter: (a, b) => a.nom.localeCompare(b.nom) },
+    {
+      title: "Statut",
+      dataIndex: "statut",
+      key: "statut",
+      filters: STATUTS_CLIENT.map((s) => ({ text: s.label, value: s.value })),
+      onFilter: (value, record) => (record.statut || "CLIENT") === value,
+      render: (val) => <StatutClientTag statut={val} />,
+    },
     { title: "Email", dataIndex: "email", key: "email", sorter: (a, b) => (a.email || '').localeCompare(b.email || '') },
     { title: "Téléphone", dataIndex: "telephone", key: "telephone", sorter: (a, b) => (a.telephone || '').localeCompare(b.telephone || '') },
     {
@@ -307,6 +323,21 @@ function Clients() {
       render: (val) => {
         if (!val || val === 0) return <span style={{ color: "#52c41a" }}>0,00 €</span>;
         return <span style={{ color: "#ff4d4f", fontWeight: 600 }}>{val.toLocaleString("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €</span>;
+      },
+    },
+    {
+      title: "Prochaine action",
+      dataIndex: "prochaineAction",
+      key: "prochaineAction",
+      sorter: (a, b) => (a.prochaineAction || "9999").localeCompare(b.prochaineAction || "9999"),
+      render: (val, record) => {
+        if (val) {
+          const retard = echeance(val) === "EN_RETARD";
+          return <span style={retard ? { color: "#ff4d4f", fontWeight: 600 } : undefined}>{formatDateHeure(val)}</span>;
+        }
+        return record.derniereInteraction
+          ? <Tooltip title="Dernier échange"><span style={{ color: "#8c8c8c" }}>{formatDateHeure(record.derniereInteraction)}</span></Tooltip>
+          : <span style={{ color: "#bfbfbf" }}>-</span>;
       },
     },
     {
@@ -441,7 +472,12 @@ function Clients() {
             <Input />
           </Form.Item>
           <Row gutter={16}>
-            <Col span={12}>
+            <Col span={8}>
+              <Form.Item label="Statut" name="statut" tooltip="Un prospect devient client dès qu'une de ses ventes est acceptée (bon pour accord ou facture).">
+                <Select options={STATUTS_CLIENT.map((s) => ({ value: s.value, label: s.label }))} />
+              </Form.Item>
+            </Col>
+            <Col span={8}>
               <Form.Item label="Type" name="type" rules={[{ required: true }]}>
                 <Select>
                   {typeOptions.map((opt) => (
@@ -452,7 +488,7 @@ function Clients() {
                 </Select>
               </Form.Item>
             </Col>
-            <Col span={12}>
+            <Col span={8}>
               <Form.Item label="Canal d'acquisition" name="canalAcquisition">
                 <Select allowClear placeholder="Sélectionner un canal">
                   {canalAcquisitionOptions.map((opt) => (
@@ -648,6 +684,11 @@ function Clients() {
                   key: 'prestations',
                   label: 'Prestations',
                   children: <PrestationsList clientId={editing.id} />,
+                },
+                {
+                  key: 'suivi',
+                  label: 'Suivi commercial',
+                  children: <SuiviCommercial clientId={editing.id} />,
                 },
                 {
                   key: 'historique',
