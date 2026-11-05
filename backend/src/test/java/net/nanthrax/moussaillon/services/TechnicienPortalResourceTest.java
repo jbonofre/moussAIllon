@@ -731,7 +731,7 @@ public class TechnicienPortalResourceTest {
 
         org.junit.jupiter.api.Assertions.assertEquals(8.0f, stockProduit(produitId));
         given().when().get("/catalogue/produits/" + produitId + "/mouvements").then().statusCode(200)
-            .body("size()", is(1))
+            .body("findAll { it.type == 'VENTE' }.size()", is(1))
             .body("[0].type", is("VENTE"))
             .body("[0].quantite", is(2.0f))
             .body("[0].venteId", is(venteId));
@@ -760,7 +760,7 @@ public class TechnicienPortalResourceTest {
             .when().put("/technicien-portal/forfaits/" + forfaitId).then().statusCode(200);
         org.junit.jupiter.api.Assertions.assertEquals(7.0f, stockProduit(produitId));
         given().when().get("/catalogue/produits/" + produitId + "/mouvements").then().statusCode(200)
-            .body("size()", is(1))
+            .body("findAll { it.type == 'VENTE' }.size()", is(1))
             .body("[0].quantite", is(3.0f));
     }
 

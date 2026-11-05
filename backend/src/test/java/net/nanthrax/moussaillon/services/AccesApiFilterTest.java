@@ -71,6 +71,8 @@ public class AccesApiFilterTest {
         assertNull(refus(ADMIN, "PUT", "/societe/modules"));
         assertNotNull(refus(VENDEUR, "GET", "/reglements"));
         assertNull(refus(COMPTABLE, "GET", "/reglements"));
+        assertNotNull(refus(VENDEUR, "GET", "/kpis-financiers"));
+        assertNull(refus(COMPTABLE, "GET", "/kpis-financiers"));
         assertNull(refus(COMPTABLE, "POST", "/connecteurs/1/synchronisation"));
         assertNull(refus(ADMIN, "GET", "/connecteurs"));
         assertNotNull(refus(VENDEUR, "GET", "/connecteurs"));

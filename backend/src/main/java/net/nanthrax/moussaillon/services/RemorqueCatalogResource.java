@@ -7,6 +7,7 @@ import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import net.nanthrax.moussaillon.persistence.RemorqueCatalogueEntity;
 import net.nanthrax.moussaillon.persistence.PackageLigneEntity;
+import net.nanthrax.moussaillon.persistence.ProduitMouvementEntity;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 
 import java.util.Collections;
@@ -79,6 +80,13 @@ public class RemorqueCatalogResource {
     @Transactional
     public RemorqueCatalogueEntity create(RemorqueCatalogueEntity remorque) {
         remorque.persist();
+        // Le stock initial date l'entrée en stock de l'article
+        if (remorque.stock > 0) {
+            ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                    ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL, remorque.stock, remorque.stock, null, null);
+            mouvement.remorque = remorque;
+            mouvement.persist();
+        }
         if (ReferenceInterne.absente(remorque.ref)) {
             remorque.ref = ReferenceInterne.generer("REM", remorque.id);
         }
@@ -120,6 +128,12 @@ public class RemorqueCatalogResource {
         entity.typeChassis = remorque.typeChassis;
         entity.roues = remorque.roues;
         entity.equipement = remorque.equipement;
+        if (remorque.stock != entity.stock) {
+            ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL,
+                    remorque.stock - entity.stock, remorque.stock, null, null);
+            mouvement.remorque = entity;
+            mouvement.persist();
+        }
         entity.stock = remorque.stock;
         entity.stockAlerte = remorque.stockAlerte;
         entity.emplacement = remorque.emplacement;
@@ -144,6 +158,8 @@ public class RemorqueCatalogResource {
         }
         // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
         PackageLigneEntity.delete("remorque.id = ?1", id);
+        // Son historique de stock disparaît avec lui (un article vendu ou commandé reste protégé par ses lignes)
+        ProduitMouvementEntity.delete("remorque.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }

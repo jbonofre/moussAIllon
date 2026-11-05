@@ -5,10 +5,13 @@ import { paginationConfig } from './pagination.ts';
 
 type Mouvement = {
     id: number;
-    type: 'VENTE' | 'AJUSTEMENT_MANUEL';
+    type: 'VENTE' | 'AJUSTEMENT_MANUEL' | 'RECEPTION';
     quantite: number;
     stockApres: number;
+    prixUnitaireHT?: number;
     venteId?: number;
+    commandeFournisseurId?: number;
+    commandeFournisseurReference?: string;
     date?: string;
 };
 
@@ -24,6 +27,13 @@ type Statistiques = {
 const typeLabel: Record<Mouvement['type'], string> = {
     VENTE: 'Vente',
     AJUSTEMENT_MANUEL: 'Ajustement manuel',
+    RECEPTION: 'Réception',
+};
+
+const typeCouleur: Record<Mouvement['type'], string> = {
+    VENTE: 'blue',
+    AJUSTEMENT_MANUEL: 'orange',
+    RECEPTION: 'green',
 };
 
 const ProduitHistorique = ({ produitId }: { produitId?: number }) => {
@@ -58,7 +68,7 @@ const ProduitHistorique = ({ produitId }: { produitId?: number }) => {
             title: 'Type',
             dataIndex: 'type',
             render: (value: Mouvement['type']) => (
-                <Tag color={value === 'VENTE' ? 'blue' : 'orange'}>{typeLabel[value] || value}</Tag>
+                <Tag color={typeCouleur[value]}>{typeLabel[value] || value}</Tag>
             ),
         },
         {
@@ -71,9 +81,18 @@ const ProduitHistorique = ({ produitId }: { produitId?: number }) => {
             dataIndex: 'stockApres',
         },
         {
-            title: 'Vente liée',
-            dataIndex: 'venteId',
-            render: (value?: number) => (value ? `#${value}` : '-'),
+            title: 'Coût unitaire HT',
+            dataIndex: 'prixUnitaireHT',
+            render: (value?: number) => (value != null ? `${value.toFixed(2)} €` : '-'),
+        },
+        {
+            title: 'Origine',
+            key: 'origine',
+            render: (_: unknown, mouvement: Mouvement) => {
+                if (mouvement.venteId) return `Vente #${mouvement.venteId}`;
+                if (mouvement.commandeFournisseurId) return `Commande ${mouvement.commandeFournisseurReference || '#' + mouvement.commandeFournisseurId}`;
+                return '-';
+            },
         },
     ];
 

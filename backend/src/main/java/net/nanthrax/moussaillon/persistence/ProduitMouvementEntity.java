@@ -11,12 +11,19 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.ManyToOne;
 
+/**
+ * Mouvement de stock d'un article du catalogue suivi en stock : produit, ou bateau, moteur, remorque.
+ * Les entrées (réceptions, ajustements positifs) datent le stock, pour son ancienneté ; les sorties
+ * des ventes figent le coût d'achat de l'article, pour la marge.
+ */
 @Entity
 public class ProduitMouvementEntity extends PanacheEntity {
 
     public enum Type {
         VENTE,
-        AJUSTEMENT_MANUEL
+        AJUSTEMENT_MANUEL,
+        // Réception d'une commande fournisseur
+        RECEPTION
     }
 
     @ManyToOne
@@ -28,12 +35,44 @@ public class ProduitMouvementEntity extends PanacheEntity {
         return produit != null ? produit.id : null;
     }
 
+    @ManyToOne
+    @JsonbTransient
+    public BateauCatalogueEntity bateau;
+
+    @JsonbProperty("bateauId")
+    public Long getBateauId() {
+        return bateau != null ? bateau.id : null;
+    }
+
+    @ManyToOne
+    @JsonbTransient
+    public MoteurCatalogueEntity moteur;
+
+    @JsonbProperty("moteurId")
+    public Long getMoteurId() {
+        return moteur != null ? moteur.id : null;
+    }
+
+    @ManyToOne
+    @JsonbTransient
+    public RemorqueCatalogueEntity remorque;
+
+    @JsonbProperty("remorqueId")
+    public Long getRemorqueId() {
+        return remorque != null ? remorque.id : null;
+    }
+
     @Enumerated(EnumType.STRING)
     public Type type;
 
+    // Positive pour une sortie de vente (négative pour un retour en stock) ; signée pour un ajustement ; positive pour une réception
     public double quantite;
 
     public double stockApres;
+
+    // Coût d'achat unitaire HT : prix de réception (frais de port compris), ou coût de l'article à sa sortie pour une vente.
+    // Null pour les mouvements antérieurs à son suivi.
+    public Double prixUnitaireHT;
 
     @ManyToOne
     @JsonbTransient
@@ -44,7 +83,32 @@ public class ProduitMouvementEntity extends PanacheEntity {
         return vente != null ? vente.id : null;
     }
 
+    @ManyToOne
+    @JsonbTransient
+    public CommandeFournisseurEntity commandeFournisseur;
+
+    @JsonbProperty("commandeFournisseurId")
+    public Long getCommandeFournisseurId() {
+        return commandeFournisseur != null ? commandeFournisseur.id : null;
+    }
+
+    @JsonbProperty("commandeFournisseurReference")
+    public String getCommandeFournisseurReference() {
+        return commandeFournisseur != null ? commandeFournisseur.reference : null;
+    }
+
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)
     public Timestamp date;
+
+    // Mouvement à rattacher à son article (et à sa vente ou sa commande) avant d'être enregistré ; daté de maintenant sans date
+    public static ProduitMouvementEntity nouveau(Type type, double quantite, double stockApres, Double prixUnitaireHT, Timestamp date) {
+        ProduitMouvementEntity mouvement = new ProduitMouvementEntity();
+        mouvement.type = type;
+        mouvement.quantite = quantite;
+        mouvement.stockApres = stockApres;
+        mouvement.prixUnitaireHT = prixUnitaireHT;
+        mouvement.date = date != null ? date : new Timestamp(System.currentTimeMillis());
+        return mouvement;
+    }
 
 }

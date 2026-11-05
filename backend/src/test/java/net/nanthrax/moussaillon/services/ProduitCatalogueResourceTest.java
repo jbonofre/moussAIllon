@@ -192,10 +192,12 @@ public class ProduitCatalogueResourceTest {
             .when().get("/catalogue/produits/" + id + "/mouvements")
             .then()
             .statusCode(200)
-            .body("size()", is(1))
+            // L'ajustement, puis le stock initial de la création (qui date l'entrée en stock)
+            .body("size()", is(2))
             .body("[0].type", is("AJUSTEMENT_MANUEL"))
             .body("[0].quantite", is(-3.0f))
-            .body("[0].stockApres", is(7.0f));
+            .body("[0].stockApres", is(7.0f))
+            .body("[1].quantite", is(10.0f));
     }
 
     @Test
@@ -230,7 +232,7 @@ public class ProduitCatalogueResourceTest {
             .when().get("/catalogue/produits/" + id + "/mouvements")
             .then()
             .statusCode(200)
-            .body("size()", is(1));
+            .body("findAll { it.type == 'VENTE' }.size()", is(1));
 
         given()
             .when().get("/catalogue/produits/" + id + "/statistiques")

@@ -85,6 +85,13 @@ public class ProduitCatalogueResource {
     @Transactional
     public ProduitCatalogueEntity create(ProduitCatalogueEntity produit) {
         produit.persist();
+        // Le stock initial date l'entrée en stock de l'article
+        if (produit.stock > 0) {
+            ProduitMouvementEntity mouvement = ProduitMouvementEntity.nouveau(
+                    ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL, produit.stock, produit.stock, null, null);
+            mouvement.produit = produit;
+            mouvement.persist();
+        }
         if (ReferenceInterne.absente(produit.ref)) {
             produit.ref = ReferenceInterne.generer("PRD", produit.id);
         }
@@ -593,6 +600,8 @@ public class ProduitCatalogueResource {
         }
         // Un package ne peut pas proposer un article retiré du catalogue : on retire les lignes concernées
         PackageLigneEntity.delete("produit.id = ?1", id);
+        // Son historique de stock disparaît avec lui (un article vendu ou commandé reste protégé par ses lignes)
+        ProduitMouvementEntity.delete("produit.id = ?1", id);
         entity.delete();
         return Response.status(204).build();
     }

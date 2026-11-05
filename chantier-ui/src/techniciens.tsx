@@ -18,6 +18,7 @@ interface TechnicienEntity {
     couleur?: string;
     cibleInterventions?: number;
     cibleHeures?: number;
+    coutHoraire?: number;
 }
 
 interface TechnicienKpi {
@@ -51,6 +52,7 @@ interface TechnicienFormValues {
     couleur?: string;
     cibleInterventions?: number;
     cibleHeures?: number;
+    coutHoraire?: number;
 }
 
 const defaultTechnicien: TechnicienFormValues = {
@@ -473,6 +475,18 @@ const Techniciens: React.FC = () => {
                                             label="Cible heures / mois"
                                         >
                                             <InputNumber min={0} step={0.5} style={{ width: '100%' }} addonAfter="h" placeholder="Ex : 40" />
+                                        </Form.Item>
+                                    </Col>
+                                </Row>
+                                <Divider orientation="left" plain>Coût</Divider>
+                                <Row gutter={16}>
+                                    <Col span={12}>
+                                        <Form.Item
+                                            name="coutHoraire"
+                                            label="Coût horaire chargé"
+                                            tooltip="Salaire et charges par heure de travail, en € HT : coût de la main d'œuvre déduit de la marge brute des prestations (KPIs financiers)"
+                                        >
+                                            <InputNumber min={0} step={0.5} style={{ width: '100%' }} addonAfter="€ HT / h" placeholder="Ex : 32" />
                                         </Form.Item>
                                     </Col>
                                 </Row>
