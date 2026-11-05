@@ -84,7 +84,8 @@ public class CatalogueConversionResource {
         } else if (source instanceof MoteurCatalogueEntity moteur) {
             moteur.helicesCompatibles.clear();
         }
-        // Historique des ajustements de stock (seuls mouvements possibles d'un article non référencé), repris par la cible
+        // Historique des ajustements de stock et écarts d'inventaire (seuls mouvements possibles d'un article non référencé),
+        // repris par la cible
         List<ProduitMouvementEntity> ajustements = request.source.equals("helice") ? List.of()
                 : ProduitMouvementEntity.list(request.source + ".id = ?1", request.id);
         ajustements.forEach(m -> rattacher(m, null));
@@ -174,8 +175,10 @@ public class CatalogueConversionResource {
     }
 
     // Mouvements de vente ou de réception de l'article : ils le rattachent à l'historique de facturation et d'achat
-    private static final String MOUVEMENTS_HORS_AJUSTEMENTS = "select count(m) from ProduitMouvementEntity m where m.type <> "
-            + "net.nanthrax.moussaillon.persistence.ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL and ";
+    // (les ajustements et les écarts d'inventaire sont repris par la cible)
+    private static final String MOUVEMENTS_HORS_AJUSTEMENTS = "select count(m) from ProduitMouvementEntity m where m.type not in ("
+            + "net.nanthrax.moussaillon.persistence.ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL, "
+            + "net.nanthrax.moussaillon.persistence.ProduitMouvementEntity.Type.INVENTAIRE) and ";
 
     // Rattache un mouvement de stock à un article (produit, bateau, moteur ou remorque), ou le détache avec null
     private static void rattacher(ProduitMouvementEntity mouvement, PanacheEntity article) {

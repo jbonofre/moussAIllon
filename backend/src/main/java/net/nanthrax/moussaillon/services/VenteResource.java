@@ -1432,7 +1432,11 @@ public class VenteResource {
         return mouvement;
     }
 
-    static void decrementStock(VenteEntity vente) {
+    /**
+     * Quantités de produits du catalogue qui sortent du stock avec la vente, par identifiant de produit : ses lignes
+     * produit et les produits de ses forfaits. Sert aussi au stock réservé par les devis/OR signés.
+     */
+    static Map<Long, Double> quantitesProduits(VenteEntity vente) {
         Map<Long, Double> produitQuantites = new HashMap<>();
         if (vente.venteProduits != null) {
             for (VenteProduitEntity vp : vente.venteProduits) {
@@ -1452,6 +1456,11 @@ public class VenteResource {
                 }
             }
         }
+        return produitQuantites;
+    }
+
+    static void decrementStock(VenteEntity vente) {
+        Map<Long, Double> produitQuantites = quantitesProduits(vente);
         for (Map.Entry<Long, Double> entry : produitQuantites.entrySet()) {
             ProduitCatalogueEntity p = ProduitCatalogueEntity.findById(entry.getKey());
             if (p != null) {

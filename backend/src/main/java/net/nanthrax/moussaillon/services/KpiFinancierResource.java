@@ -532,13 +532,15 @@ public class KpiFinancierResource {
 
     /**
      * Valeur du stock au coût d'achat, par catégorie et par ancienneté. Le stock d'un article est composé de ses entrées
-     * (réceptions, stock initial et ajustements positifs) les plus récentes ; ce qu'elles ne couvrent pas est non daté.
+     * (réceptions, stock initial, ajustements et écarts d'inventaire positifs) les plus récentes ; ce qu'elles ne couvrent
+     * pas est non daté.
      */
     private static Stock stock(LocalDate aujourdhui, CoutAchat couts) {
         Map<String, List<ProduitMouvementEntity>> entrees = new HashMap<>();
         List<ProduitMouvementEntity> mouvements = ProduitMouvementEntity.list(
-                "(type = ?1 or (type = ?2 and quantite > 0)) and date is not null order by date desc",
-                ProduitMouvementEntity.Type.RECEPTION, ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL);
+                "(type = ?1 or ((type = ?2 or type = ?3) and quantite > 0)) and date is not null order by date desc",
+                ProduitMouvementEntity.Type.RECEPTION, ProduitMouvementEntity.Type.AJUSTEMENT_MANUEL,
+                ProduitMouvementEntity.Type.INVENTAIRE);
         for (ProduitMouvementEntity mouvement : mouvements) {
             String article = cleArticle(mouvement);
             if (article != null) {

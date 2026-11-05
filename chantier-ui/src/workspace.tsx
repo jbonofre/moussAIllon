@@ -40,6 +40,7 @@ import Dashboard from './dashboard.tsx';
 import Annonces from './annonces.tsx';
 import Campagnes from './campagnes.tsx';
 import CommandesFournisseur from './commandes-fournisseur.tsx';
+import Stock from './stock.tsx';
 import Emails from './emails.tsx';
 import SequenceEmails from './sequence-emails.tsx';
 import ReferenceValeurs from './reference-valeurs.tsx';
@@ -75,6 +76,7 @@ const MENU_ITEMS = [
     { key: '/forfaits', label: 'Forfaits', icon: <FileDoneOutlined/> },
     { key: '/catalogue/fournisseurs', label: 'Fournisseurs', icon: <TruckOutlined/> },
     { key: '/commandes-fournisseur', label: 'Commandes Fournisseur', icon: <ShoppingCartOutlined/> },
+    { key: '/stock', label: 'Stock', icon: <StockOutlined/> },
   ]},
   { key: 'atelier', label: 'Atelier', icon: <ToolOutlined/>, module: 'ATELIER', children: [
     { key: '/techniciens', label: 'Equipe', icon: <TeamOutlined/> },
@@ -558,6 +560,8 @@ export default function Workspace(props) {
                 return <Fournisseurs />;
             case '/commandes-fournisseur':
                 return <CommandesFournisseur />;
+            case '/stock':
+                return <Stock />;
             case '/societe':
                 return <Societe />;
             case '/facturation':

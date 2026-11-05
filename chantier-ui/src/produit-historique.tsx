@@ -1,19 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Card, Col, Row, Spin, Statistic, Table, Tag, message } from 'antd';
+import { Card, Col, Row, Spin, Statistic, message } from 'antd';
 import api from './api.ts';
-import { paginationConfig } from './pagination.ts';
-
-type Mouvement = {
-    id: number;
-    type: 'VENTE' | 'AJUSTEMENT_MANUEL' | 'RECEPTION';
-    quantite: number;
-    stockApres: number;
-    prixUnitaireHT?: number;
-    venteId?: number;
-    commandeFournisseurId?: number;
-    commandeFournisseurReference?: string;
-    date?: string;
-};
+import MouvementsStock, { Mouvement } from './MouvementsStock.tsx';
 
 type Statistiques = {
     quantiteVendue30j: number;
@@ -22,18 +10,6 @@ type Statistiques = {
     chiffreAffaires30j: number;
     chiffreAffaires90j: number;
     chiffreAffairesTotal: number;
-};
-
-const typeLabel: Record<Mouvement['type'], string> = {
-    VENTE: 'Vente',
-    AJUSTEMENT_MANUEL: 'Ajustement manuel',
-    RECEPTION: 'Réception',
-};
-
-const typeCouleur: Record<Mouvement['type'], string> = {
-    VENTE: 'blue',
-    AJUSTEMENT_MANUEL: 'orange',
-    RECEPTION: 'green',
 };
 
 const ProduitHistorique = ({ produitId }: { produitId?: number }) => {
@@ -55,46 +31,6 @@ const ProduitHistorique = ({ produitId }: { produitId?: number }) => {
             .catch(() => message.error("Erreur lors du chargement de l'historique du produit"))
             .finally(() => setLoading(false));
     }, [produitId]);
-
-    const columns = [
-        {
-            title: 'Date',
-            dataIndex: 'date',
-            render: (value?: string) => (value ? new Date(value).toLocaleString('fr-FR') : '-'),
-            sorter: (a: Mouvement, b: Mouvement) => (a.date || '').localeCompare(b.date || ''),
-            defaultSortOrder: 'descend' as const,
-        },
-        {
-            title: 'Type',
-            dataIndex: 'type',
-            render: (value: Mouvement['type']) => (
-                <Tag color={typeCouleur[value]}>{typeLabel[value] || value}</Tag>
-            ),
-        },
-        {
-            title: 'Quantité',
-            dataIndex: 'quantite',
-            render: (value: number) => (value > 0 ? `+${value}` : value),
-        },
-        {
-            title: 'Stock après',
-            dataIndex: 'stockApres',
-        },
-        {
-            title: 'Coût unitaire HT',
-            dataIndex: 'prixUnitaireHT',
-            render: (value?: number) => (value != null ? `${value.toFixed(2)} €` : '-'),
-        },
-        {
-            title: 'Origine',
-            key: 'origine',
-            render: (_: unknown, mouvement: Mouvement) => {
-                if (mouvement.venteId) return `Vente #${mouvement.venteId}`;
-                if (mouvement.commandeFournisseurId) return `Commande ${mouvement.commandeFournisseurReference || '#' + mouvement.commandeFournisseurId}`;
-                return '-';
-            },
-        },
-    ];
 
     return (
         <Card title="Historique et statistiques" style={{ marginTop: 24 }}>
@@ -122,13 +58,7 @@ const ProduitHistorique = ({ produitId }: { produitId?: number }) => {
                         />
                     </Col>
                 </Row>
-                <Table
-                    rowKey="id"
-                    columns={columns}
-                    dataSource={mouvements}
-                    bordered
-                    pagination={paginationConfig()}
-                />
+                <MouvementsStock mouvements={mouvements} />
             </Spin>
         </Card>
     );
