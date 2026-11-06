@@ -122,6 +122,39 @@ public class ForfaitResourceTest {
     }
 
     @Test
+    void testForfaitSurNumerosSerieMoteur() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Rappel constructeur\",\"reference\":\"FNS-1\",\"numerosSerieMoteur\":\"7XQ-10*\"}")
+            .when().post("/forfaits")
+            .then().statusCode(201)
+            .body("numerosSerieMoteur", is("7XQ-10*"))
+            .extract().path("id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Rappel constructeur\",\"reference\":\"FNS-1\",\"numerosSerieMoteur\":\"7XQ-1000000..7XQ-1050000\"}")
+            .when().put("/forfaits/" + id)
+            .then().statusCode(200)
+            .body("numerosSerieMoteur", is("7XQ-1000000..7XQ-1050000"));
+
+        // Un numéro de série couvert par la plage trouve le forfait, un numéro hors plage non
+        given().queryParam("q", "7xq-1012345")
+            .when().get("/forfaits/search")
+            .then().statusCode(200)
+            .body("id", hasItem(id));
+        given().queryParam("q", "7XQ-1099999")
+            .when().get("/forfaits/search")
+            .then().statusCode(200)
+            .body("id", not(hasItem(id)));
+        // Le texte des motifs reste cherchable
+        given().queryParam("q", "7xq-10000")
+            .when().get("/forfaits/search")
+            .then().statusCode(200)
+            .body("id", hasItem(id));
+    }
+
+    @Test
     void testForfaitSurBateauEtMoteurClient() {
         int bateauId = given()
             .contentType("application/json")

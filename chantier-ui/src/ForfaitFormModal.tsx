@@ -24,6 +24,7 @@ import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from '
 import LignesArticles from './LignesArticles.tsx';
 import SectionLignes from './SectionLignes.tsx';
 import { aplatirTaches } from './checklistParLigne.ts';
+import { MOTIFS_NUMERO_SERIE_AIDE, MOTIFS_NUMERO_SERIE_PLACEHOLDER } from './numero-serie.ts';
 
 interface ProduitCatalogueEntity {
     id: number;
@@ -74,6 +75,7 @@ const defaultForfait = {
     bateauIds: [],
     moteurClientIds: [],
     bateauClientIds: [],
+    numerosSerieMoteur: '',
     produits: [{}],
     mainOeuvres: [{}],
     heuresFonctionnement: 0,
@@ -317,6 +319,7 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                     .filter(Boolean),
                 bateauxClientsAssocies: (values.bateauClientIds || []).map((id: number) => ({ id })),
                 moteursClientsAssocies: (values.moteurClientIds || []).map((id: number) => ({ id })),
+                numerosSerieMoteur: values.numerosSerieMoteur?.trim() || undefined,
                 produits: (values.produits || [])
                     .filter((item: any) => item.produitId)
                     .map((item: any) => ({
@@ -531,6 +534,10 @@ export default function ForfaitFormModal({ open, onCancel, onCreated, preAssocia
                         </Form.Item>
                     </Col>
                 </Row>
+
+                <Form.Item name="numerosSerieMoteur" label="Numéros de série moteur" tooltip={MOTIFS_NUMERO_SERIE_AIDE}>
+                    <Input allowClear placeholder={MOTIFS_NUMERO_SERIE_PLACEHOLDER} />
+                </Form.Item>
 
                 <Form.Item name="dureeEstimee" label="Durée estimée" tooltip="Calculée automatiquement : 1h par unité de main d'œuvre">
                     <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" disabled />

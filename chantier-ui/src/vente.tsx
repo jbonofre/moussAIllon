@@ -28,6 +28,7 @@ import {
     TVA_VENTE_DEFAUT,
 } from './tva-vente.ts';
 import { comparerDatesVentes } from './tri-ventes.ts';
+import { forfaitCorrespondAuMoteur, motifsNumeroSerie } from './numero-serie.ts';
 import { calculerMarge } from './marge-vente.ts';
 import {
     Alert,
@@ -234,6 +235,7 @@ interface ForfaitEntity {
     bateauxAssocies?: Array<{ id: number }>;
     moteursClientsAssocies?: Array<{ id: number }>;
     bateauxClientsAssocies?: Array<{ id: number }>;
+    numerosSerieMoteur?: string;
     produits?: ForfaitProduitEntity[];
     mainOeuvres?: ForfaitMainOeuvreEntity[];
     heuresFonctionnement?: number;
@@ -1737,13 +1739,15 @@ export default function Vente() {
         if (selectedBateauId || selectedMoteurId || bateauMoteurIds.size > 0) {
             const selectedMoteur = moteurs.find((m) => m.id === selectedMoteurId);
             const matchingForfaits = forfaits.filter((f) =>
-                // Forfaits gérés directement sur le bateau / moteur client
+                // Forfaits gérés directement sur le bateau client
                 (selectedBateauId && f.bateauxClientsAssocies?.some((b) => b.id === selectedBateauId)) ||
-                (selectedMoteurId && f.moteursClientsAssocies?.some((m) => m.id === selectedMoteurId)) ||
-                // Forfaits du catalogue, via le modèle du bateau / moteur client
+                // Forfaits du moteur client : associés directement, via son modèle ou son numéro de série
+                forfaitCorrespondAuMoteur(f, selectedMoteur) ||
+                // Forfaits du catalogue, via le modèle du bateau ou ses moteurs (un forfait limité à des numéros de série
+                // ne s'applique qu'au moteur client dont le numéro correspond)
                 (selectedBateau?.modele?.id && f.bateauxAssocies?.some((b) => b.id === selectedBateau.modele?.id)) ||
-                (selectedMoteur?.modele?.id && f.moteursAssocies?.some((m) => m.id === selectedMoteur.modele?.id)) ||
-                (bateauMoteurIds.size > 0 && f.moteursAssocies?.some((m) => bateauMoteurIds.has(m.id)))
+                (bateauMoteurIds.size > 0 && motifsNumeroSerie(f.numerosSerieMoteur).length === 0
+                    && f.moteursAssocies?.some((m) => bateauMoteurIds.has(m.id)))
             );
             if (matchingForfaits.length > 0) {
                 const currentLignes: LigneUnifiee[] = form.getFieldValue('lignes') || [];
