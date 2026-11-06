@@ -370,15 +370,7 @@ public class TechnicienPortalResourceTest {
     void testPieceAjouteeNApparaitQueSurSaPrestation() {
         int produitMaintenance = nouveauProduit("Filtre Maintenance 752", 10);
         int produitAntifouling = nouveauProduit("Rouleau Antifouling 752", 10);
-        io.restassured.response.Response vente = given()
-            .contentType("application/json")
-            .body("{\"status\":\"FACTURE_EN_ATTENTE\",\"bonPourAccord\":true,"
-                + "\"montantTTC\":600.0,\"prixVenteTTC\":600.0,\"tva\":20.0,"
-                + "\"venteForfaits\":["
-                + "{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"},"
-                + "{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"}]}")
-            .when().post("/ventes")
-            .then().statusCode(201).extract().response();
+        io.restassured.response.Response vente = venteAvecDeuxForfaits();
         int venteId = vente.path("id");
         int maintenanceId = vente.path("venteForfaits[0].id");
         int antifoulingId = vente.path("venteForfaits[1].id");
@@ -410,6 +402,88 @@ public class TechnicienPortalResourceTest {
         given().when().get("/ventes/" + venteId)
             .then().statusCode(200)
             .body("venteProduits.size()", is(2));
+    }
+
+    @Test
+    void testPieceAjouteeResteSurSaPrestationQuandLaVenteEstReenregistree() {
+        int produit = nouveauProduit("Joint Reenregistrement 752", 10);
+        io.restassured.response.Response vente = venteAvecDeuxForfaits();
+        int venteId = vente.path("id");
+        int maintenanceId = vente.path("venteForfaits[0].id");
+        ajouterPiece(maintenanceId, produit);
+
+        // Le planning et la CLI renvoient la vente telle quelle : ses prestations sont recréées
+        String telleQuelle = given().when().get("/ventes/" + venteId).then().statusCode(200).extract().asString();
+        io.restassured.response.Response apres = given()
+            .contentType("application/json")
+            .body(telleQuelle)
+            .when().put("/ventes/" + venteId)
+            .then().statusCode(200)
+            .body("venteProduits[0].ajouteParTechnicien", is(true))
+            .extract().response();
+        int maintenanceApres = apres.path("venteForfaits[0].id");
+        int antifoulingApres = apres.path("venteForfaits[1].id");
+
+        org.junit.jupiter.api.Assertions.assertNotEquals(maintenanceId, maintenanceApres);
+        org.hamcrest.MatcherAssert.assertThat(piecesTechnicien(maintenanceApres), org.hamcrest.Matchers.contains("Joint Reenregistrement 752"));
+        org.hamcrest.MatcherAssert.assertThat(piecesTechnicien(antifoulingApres), org.hamcrest.Matchers.empty());
+    }
+
+    @Test
+    void testPieceAjouteeSurUnePrestationRetireeResteVisibleSurLesAutres() {
+        int produit = nouveauProduit("Durite Prestation Retiree 752", 10);
+        io.restassured.response.Response vente = venteAvecDeuxForfaits();
+        int venteId = vente.path("id");
+        int maintenanceId = vente.path("venteForfaits[0].id");
+        int antifoulingId = vente.path("venteForfaits[1].id");
+        ajouterPiece(maintenanceId, produit);
+
+        // Le bureau retire la maintenance : la pièce, toujours facturée, n'est plus rattachée
+        int antifoulingApres = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_EN_ATTENTE\",\"bonPourAccord\":true,"
+                + "\"montantTTC\":312.0,\"prixVenteTTC\":312.0,\"tva\":20.0,"
+                + "\"venteForfaits\":[{\"id\":" + antifoulingId + ",\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"}],"
+                + "\"venteProduits\":[{\"produit\":{\"id\":" + produit + "},\"quantite\":1,"
+                + "\"ajouteParTechnicien\":true,\"venteForfaitId\":" + maintenanceId + "}]}")
+            .when().put("/ventes/" + venteId)
+            .then().statusCode(200)
+            .body("venteProduits[0].ajouteParTechnicien", is(true))
+            .body("venteProduits[0].venteForfaitId", nullValue())
+            .extract().path("venteForfaits[0].id");
+
+        org.hamcrest.MatcherAssert.assertThat(piecesTechnicien(antifoulingApres), org.hamcrest.Matchers.contains("Durite Prestation Retiree 752"));
+    }
+
+    // Vente avec deux forfaits en cours (une maintenance et un antifouling)
+    private static io.restassured.response.Response venteAvecDeuxForfaits() {
+        return given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_EN_ATTENTE\",\"bonPourAccord\":true,"
+                + "\"montantTTC\":600.0,\"prixVenteTTC\":600.0,\"tva\":20.0,"
+                + "\"venteForfaits\":["
+                + "{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"},"
+                + "{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().response();
+    }
+
+    private static void ajouterPiece(int forfaitId, int produitId) {
+        given()
+            .contentType("application/json")
+            .body("{\"produitId\":" + produitId + ",\"quantite\":1}")
+            .when().post("/technicien-portal/forfaits/" + forfaitId + "/produits")
+            .then().statusCode(200);
+    }
+
+    // Désignations des pièces ajoutées par le technicien, telles qu'affichées sur la prestation
+    private static java.util.List<String> piecesTechnicien(int forfaitId) {
+        return given()
+            .contentType("application/json")
+            .body("{\"status\":\"EN_COURS\"}")
+            .when().put("/technicien-portal/forfaits/" + forfaitId)
+            .then().statusCode(200)
+            .extract().path("produitsExtra.designation");
     }
 
     @Test

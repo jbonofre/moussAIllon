@@ -626,6 +626,10 @@ public class VenteResource {
 
         int nbForfaitsAvant = entity.venteForfaits.size();
         int nbServicesAvant = entity.venteServices.size();
+        // Prestations recréées : ancien identifiant -> nouveau, pour que les pièces ajoutées par le technicien
+        // restent rattachées à leur prestation
+        Map<Long, Long> forfaitsRecrees = new HashMap<>();
+        Map<Long, Long> servicesRecrees = new HashMap<>();
 
         // Update venteForfaits
         entity.venteForfaits.clear();
@@ -680,6 +684,11 @@ public class VenteResource {
                 cloned.images = incoming.images != null ? new java.util.ArrayList<>(incoming.images) : new java.util.ArrayList<>();
                 cloned.documents = incoming.documents != null ? new java.util.ArrayList<>(incoming.documents) : new java.util.ArrayList<>();
                 entity.venteForfaits.add(cloned);
+                if (incoming.id != null) {
+                    // Enregistrée tout de suite pour connaître son nouvel identifiant
+                    cloned.persist();
+                    forfaitsRecrees.put(incoming.id, cloned.id);
+                }
             }
         }
 
@@ -736,6 +745,11 @@ public class VenteResource {
                 cloned.images = incoming.images != null ? new java.util.ArrayList<>(incoming.images) : new java.util.ArrayList<>();
                 cloned.documents = incoming.documents != null ? new java.util.ArrayList<>(incoming.documents) : new java.util.ArrayList<>();
                 entity.venteServices.add(cloned);
+                if (incoming.id != null) {
+                    // Enregistrée tout de suite pour connaître son nouvel identifiant
+                    cloned.persist();
+                    servicesRecrees.put(incoming.id, cloned.id);
+                }
             }
         }
 
@@ -757,6 +771,10 @@ public class VenteResource {
                 cloned.quantite = incoming.quantite;
                 cloned.remise = incoming.remise;
                 cloned.remisePourcentage = incoming.remisePourcentage;
+                cloned.ajouteParTechnicien = incoming.ajouteParTechnicien;
+                // La pièce suit sa prestation recréée ; prestation retirée de la vente = pièce non rattachée
+                cloned.venteForfaitId = forfaitsRecrees.get(incoming.venteForfaitId);
+                cloned.venteServiceId = servicesRecrees.get(incoming.venteServiceId);
                 entity.venteProduits.add(cloned);
             }
         } else if (vente.produits != null) {
