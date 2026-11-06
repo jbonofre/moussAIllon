@@ -193,6 +193,13 @@ export default function ChantierDetail({ vue, onChange, onRename, onDelete }: Ch
                                     ? formatDate(societe.abonnementActivationDate)
                                     : `Au premier paiement (${formatMontant(societe.abonnementActivationMontant)})`}
                             </Descriptions.Item>
+                            {chantier.essaiFin && (
+                                <Descriptions.Item label="Essai gratuit">
+                                    {societe.enEssai
+                                        ? `Jusqu'au ${formatDate(chantier.essaiFin)} (inscrit depuis l'espace chantier)`
+                                        : `Jusqu'au ${formatDate(chantier.essaiFin)}, terminé`}
+                                </Descriptions.Item>
+                            )}
                             <Descriptions.Item label="Prochaine échéance">
                                 {societe.abonnementActif ? formatDate(societe.abonnementProchainPaiementDate) : '—'}
                             </Descriptions.Item>

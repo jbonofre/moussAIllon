@@ -146,6 +146,15 @@ public class SocieteEntity extends PanacheEntityChantier {
     @Transient
     public boolean versionFree;
 
+    // Période d'essai gratuite du chantier (voir ChantierEntity.essaiFin) : sa fin, et si elle est en cours
+    // (abonnement pas encore activé).
+    @Transient
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp essaiFin;
+
+    @Transient
+    public boolean enEssai;
+
     // Champs calculés (non persistés) du suivi de l'abonnement mois par mois.
     // Abonnement activé (frais d'activation payés).
     @Transient

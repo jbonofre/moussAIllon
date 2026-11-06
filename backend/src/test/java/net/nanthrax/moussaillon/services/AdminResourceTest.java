@@ -1,7 +1,5 @@
 package net.nanthrax.moussaillon.services;
 
-import io.quarkus.arc.Arc;
-import io.quarkus.arc.ManagedContext;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.response.ValidatableResponse;
 import jakarta.inject.Inject;
@@ -15,6 +13,7 @@ import static net.nanthrax.moussaillon.services.MultiChantierTest.avecJeton;
 import static net.nanthrax.moussaillon.services.MultiChantierTest.connexion;
 import static net.nanthrax.moussaillon.services.MultiChantierTest.creerChantier;
 import static net.nanthrax.moussaillon.services.MultiChantierTest.dans;
+import static net.nanthrax.moussaillon.services.MultiChantierTest.horsRequete;
 import static net.nanthrax.moussaillon.services.MultiChantierTest.supprimerChantier;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -118,17 +117,6 @@ public class AdminResourceTest {
         return given().contentType("application/json").body("{\"code\":\"" + nouveau + "\"}")
             .when().put("/admin/chantiers/" + code + "/code")
             .then();
-    }
-
-    /** Exécute le traitement hors requête HTTP (contexte de requête activé pour l'occasion). */
-    private static void horsRequete(Runnable traitement) {
-        ManagedContext contexte = Arc.container().requestContext();
-        contexte.activate();
-        try {
-            traitement.run();
-        } finally {
-            contexte.terminate();
-        }
     }
 
     @Test

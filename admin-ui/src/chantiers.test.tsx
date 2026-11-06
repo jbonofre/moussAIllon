@@ -46,6 +46,7 @@ const chantiers = [
     vue('ms-plaisance', 'MS Plaisance'),
     vue('port-gratuit', 'Port Gratuit', { gratuit: true }, { abonnementActif: false }),
     vue('port-suspendu', 'Port Suspendu', { accesSuspendu: true, accesSuspenduDate: '2026-10-01T00:00:00' }, { abonnementActif: false }),
+    vue('port-essai', 'Port Essai', { essaiFin: '2026-12-06T10:00:00' }, { abonnementActif: false, enEssai: true }),
 ];
 
 const gerer = async (nom: string) => {
@@ -67,7 +68,8 @@ describe('Chantiers', () => {
         expect(screen.getByText('Gratuit')).toBeInTheDocument();
         expect(screen.getByText('Non activé')).toBeInTheDocument();
         expect(screen.getByText('Suspendu')).toBeInTheDocument();
-        expect(screen.getAllByText('3 / 2 / 10')).toHaveLength(3);
+        expect(screen.getByText("Essai jusqu'au 06/12/2026")).toBeInTheDocument();
+        expect(screen.getAllByText('3 / 2 / 10')).toHaveLength(4);
     });
 
     it('filtre les chantiers', async () => {

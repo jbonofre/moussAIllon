@@ -38,6 +38,9 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static net.nanthrax.moussaillon.services.CreationChantier.codeSaisi;
+import static net.nanthrax.moussaillon.services.CreationChantier.requeteInvalide;
+
 /**
  * Administration de l'instance, réservée à l'administrateur défini dans la configuration (admin.username,
  * admin.password, admin.email) : création des chantiers, changement de leur code, gestion de leur abonnement
@@ -75,7 +78,7 @@ public class AdminResource {
     SocieteResource societeResource;
 
     @Inject
-    DataInitializer dataInitializer;
+    CreationChantier creationChantier;
 
     public static class LoginRequest {
         public String name;
@@ -92,18 +95,6 @@ public class AdminResource {
     public static class ChantierVue {
         public ChantierEntity chantier;
         public SocieteEntity societe;
-    }
-
-    public static class ChantierCreation {
-        public String code;
-        public String nom;
-        public String email;
-        // Premier utilisateur du chantier, qui a accès à tous les modules.
-        public String utilisateur;
-        public String motDePasse;
-        public boolean gratuit;
-        // Modules souscrits ; tous si vide.
-        public Set<ModuleApplication> modules;
     }
 
     public static class ChantierModification {
@@ -160,38 +151,8 @@ public class AdminResource {
     @POST
     @Path("/chantiers")
     @Consumes(MediaType.APPLICATION_JSON)
-    public Response create(ChantierCreation creation) {
-        if (creation == null) {
-            throw requeteInvalide("Les informations du chantier sont requises.");
-        }
-        String code = codeSaisi(creation.code);
-        if (creation.nom == null || creation.nom.isBlank()) {
-            throw requeteInvalide("Le nom du chantier est requis.");
-        }
-        if (creation.email == null || creation.email.isBlank()) {
-            throw requeteInvalide("L'email du chantier est requis.");
-        }
-        if (creation.motDePasse == null || creation.motDePasse.isBlank()) {
-            throw requeteInvalide("Le mot de passe du premier utilisateur est requis.");
-        }
-        String utilisateur = creation.utilisateur == null || creation.utilisateur.isBlank() ? UserResource.ADMIN : creation.utilisateur.trim();
-        if (chantiers.trouver(code) != null) {
-            throw requeteInvalide("Le chantier " + code + " existe déjà.");
-        }
-        chantiers.dans(code, () -> {
-            ChantierEntity chantier = new ChantierEntity();
-            chantier.code = code;
-            chantier.nom = creation.nom.trim();
-            chantier.email = creation.email.trim();
-            chantier.gratuit = creation.gratuit;
-            chantier.dateCreation = SocieteResource.horodatage();
-            chantier.persist();
-            dataInitializer.initialiserChantier(chantier.nom, chantier.email, utilisateur, creation.motDePasse, chantier.email);
-            if (creation.modules != null && !creation.modules.isEmpty()) {
-                SocieteResource.appliquerModules(SocieteEntity.courante(), creation.modules);
-            }
-        });
-        LOG.infof("Chantier %s créé (%s)", code, creation.nom);
+    public Response create(CreationChantier.Demande demande) {
+        String code = creationChantier.creer(demande, null);
         return Response.status(Response.Status.CREATED).entity(vue(code)).build();
     }
 
@@ -474,16 +435,6 @@ public class AdminResource {
         });
     }
 
-    /** Code chantier saisi, normalisé ; refusé s'il n'a pas le format des codes. */
-    private static String codeSaisi(String saisi) {
-        String code = ChantierEntity.normaliser(saisi);
-        if (!ChantierEntity.codeValide(code)) {
-            throw requeteInvalide("Code chantier invalide : 2 à " + ChantierEntity.LONGUEUR_CODE
-                + " caractères parmi les lettres minuscules, les chiffres et le tiret, en commençant par une lettre ou un chiffre.");
-        }
-        return code;
-    }
-
     private ChantierEntity existant(String code) {
         ChantierEntity chantier = chantiers.trouver(ChantierEntity.normaliser(code));
         if (chantier == null) {
@@ -504,11 +455,6 @@ public class AdminResource {
     private static boolean egal(String attendu, String recu) {
         return attendu != null && recu != null
             && MessageDigest.isEqual(attendu.getBytes(StandardCharsets.UTF_8), recu.getBytes(StandardCharsets.UTF_8));
-    }
-
-    private static WebApplicationException requeteInvalide(String message) {
-        return new WebApplicationException(Response.status(Response.Status.BAD_REQUEST)
-            .entity(message).type(MediaType.TEXT_PLAIN + ";charset=UTF-8").build());
     }
 
 }

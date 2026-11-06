@@ -32,6 +32,11 @@ backend:
     ADMIN_EMAIL: admin@moussaillon.local
     # Chantier qui reçoit les données d'une installation antérieure au multi-chantier
     CHANTIER_INITIAL: principal
+    # Inscription d'un chantier depuis l'espace chantier, avec un essai gratuit (mois)
+    INSCRIPTION_ACTIVE: "true"
+    INSCRIPTION_ESSAI_MOIS: "1"
+    # Adresse publique de l'espace chantier (lien de l'email de bienvenue)
+    CHANTIER_URL: http://moussaillon.local/chantier/
   # Sensitive keys injected only when no existingSecret is provided
   secretEnv:
     AI_OPENAI_API_KEY: not-set

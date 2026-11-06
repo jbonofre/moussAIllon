@@ -322,7 +322,8 @@ public class SocieteResource {
 
     /**
      * Paie le mois suivant non payé, ou les 12 suivants au prix annuel. Le premier paiement active
-     * l'abonnement, qui démarre ce jour-là, et comprend les frais d'activation.
+     * l'abonnement et comprend les frais d'activation ; l'abonnement démarre ce jour-là, ou à la fin de la
+     * période d'essai si elle est en cours (l'essai n'est pas écourté).
      */
     private void payerMois(SocieteEntity entity, SocietePaiementEntity.Type type, SocietePaiementEntity.Mode mode) {
         boolean annuel = type == SocietePaiementEntity.Type.ANNUEL;
@@ -331,8 +332,9 @@ public class SocieteResource {
         double activation = fraisActivationDus(entity);
         Timestamp maintenant = horodatage();
         if (!entity.abonnementActif) {
+            Timestamp finEssai = finEssai();
             entity.abonnementActivationDate = maintenant;
-            entity.abonnementProchainPaiementDate = maintenant;
+            entity.abonnementProchainPaiementDate = finEssai != null && finEssai.after(maintenant) ? finEssai : maintenant;
         }
         Timestamp debut = entity.abonnementProchainPaiementDate;
         Timestamp fin = plusMois(debut, nombreMois);
@@ -600,6 +602,8 @@ public class SocieteResource {
 
         entity.versionFree = versionFree();
         entity.abonnementActif = entity.abonnementActivationDate != null;
+        entity.essaiFin = finEssai();
+        entity.enEssai = enEssai(entity);
         entity.abonnementAJour = entity.abonnementActif && entity.abonnementProchainPaiementDate != null
             && entity.abonnementProchainPaiementDate.after(Timestamp.from(Instant.now()));
         entity.abonnementBlocageDate = dateBlocageResiliation(entity);
@@ -640,6 +644,18 @@ public class SocieteResource {
         return chantier != null && chantier.gratuit;
     }
 
+    /** Fin de la période d'essai gratuite du chantier courant ; null s'il n'en a pas eu. */
+    static Timestamp finEssai() {
+        ChantierEntity chantier = ChantierEntity.findById(ChantierContexte.courant());
+        return chantier == null ? null : chantier.essaiFin;
+    }
+
+    /** Période d'essai en cours : l'abonnement n'est pas encore activé et l'essai n'est pas terminé. */
+    static boolean enEssai(SocieteEntity entity) {
+        Timestamp fin = finEssai();
+        return entity.abonnementActivationDate == null && fin != null && !depasse(fin);
+    }
+
     /** Fin de la période de rétractation après résiliation ; null si l'abonnement n'est pas résilié ou est gratuit. */
     static Timestamp dateBlocageResiliation(SocieteEntity entity) {
         if (versionFree() || !entity.abonnementResilie || entity.abonnementResiliationDate == null) {
@@ -674,17 +690,21 @@ public class SocieteResource {
     }
 
     /**
-     * Motif pour lequel l'accès est limité à la facturation, ou null : abonnement non activé, ou échéance
-     * impayée depuis {@link #DELAI_BLOCAGE_IMPAYE_MOIS} mois ou plus (hors abonnement gratuit). Seuls les
-     * utilisateurs du module Paramétrage peuvent alors se connecter, pour activer l'abonnement ou régler
-     * les échéances en retard.
+     * Motif pour lequel l'accès est limité à la facturation, ou null : abonnement non activé (après la période
+     * d'essai s'il y en a une), ou échéance impayée depuis {@link #DELAI_BLOCAGE_IMPAYE_MOIS} mois ou plus
+     * (hors abonnement gratuit). Seuls les utilisateurs du module Paramétrage peuvent alors se connecter, pour
+     * activer l'abonnement ou régler les échéances en retard.
      */
     static String motifLimitationFacturation(SocieteEntity entity) {
         if (versionFree()) {
             return null;
         }
         if (entity.abonnementActivationDate == null) {
-            return "l'abonnement n'est pas activé";
+            Timestamp fin = finEssai();
+            if (fin == null) {
+                return "l'abonnement n'est pas activé";
+            }
+            return depasse(fin) ? "la période d'essai gratuite est terminée et l'abonnement n'est pas activé" : null;
         }
         if (depasse(dateBlocageImpaye(entity))) {
             return "l'abonnement est impayé depuis " + DELAI_BLOCAGE_IMPAYE_MOIS + " mois ou plus";

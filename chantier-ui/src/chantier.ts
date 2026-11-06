@@ -27,3 +27,17 @@ export function enteteChantier(code?: string): Record<string, string> {
     const chantier = normaliserChantier(code ?? chantierMemorise());
     return chantier ? { [ENTETE_CHANTIER]: chantier } : {};
 }
+
+// Format des codes chantier (vérifié aussi par le serveur).
+export const FORMAT_CODE = /^[a-z0-9][a-z0-9-]{1,39}$/;
+
+/** Code chantier proposé pour un nom : minuscules sans accents, mots séparés par des tirets, 40 caractères au plus. */
+export function codeDepuisNom(nom: string): string {
+    return (nom || '')
+        .normalize('NFD').replace(/[̀-ͯ]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+/, '')
+        .slice(0, 40)
+        .replace(/-+$/, '');
+}

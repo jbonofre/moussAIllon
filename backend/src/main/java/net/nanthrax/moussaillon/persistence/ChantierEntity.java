@@ -47,6 +47,11 @@ public class ChantierEntity extends PanacheEntityBase {
     // et les modules s'ajoutent sans paiement.
     public boolean gratuit;
 
+    // Fin de la période d'essai gratuite (chantier inscrit depuis l'espace chantier) : jusque-là, l'accès n'est
+    // pas limité à la facturation sans abonnement activé. Un abonnement activé pendant l'essai démarre à cette date.
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp essaiFin;
+
     public static boolean codeValide(String code) {
         return code != null && FORMAT_CODE.matcher(code).matches();
     }

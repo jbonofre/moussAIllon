@@ -1,5 +1,7 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.arc.Arc;
+import io.quarkus.arc.ManagedContext;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.specification.RequestSpecification;
 import jakarta.inject.Inject;
@@ -46,6 +48,17 @@ public class MultiChantierTest {
 
     static void supprimerChantier(String code) {
         given().queryParam("confirmation", code).when().delete("/admin/chantiers/" + code);
+    }
+
+    /** Exécute le traitement hors requête HTTP (contexte de requête activé pour l'occasion). */
+    static void horsRequete(Runnable traitement) {
+        ManagedContext contexte = Arc.container().requestContext();
+        contexte.activate();
+        try {
+            traitement.run();
+        } finally {
+            contexte.terminate();
+        }
     }
 
     static String connexion(String chantier, String nom, String motDePasse) {

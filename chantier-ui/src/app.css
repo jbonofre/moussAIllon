@@ -276,9 +276,17 @@
     position: relative;
     z-index: 1;
     display: flex;
-    align-items: center;
     justify-content: center;
     height: 100vh;
+    box-sizing: border-box;
+    padding: 24px 0;
+    /* Formulaire plus haut que l'écran (inscription) : il défile au lieu d'être coupé. */
+    overflow-y: auto;
+}
+
+/* Centré verticalement quand il tient dans l'écran, sans couper son haut sinon. */
+.login-card > div {
+    margin: auto 0;
 }
 
 .login-card .ant-modal {

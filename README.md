@@ -17,6 +17,7 @@ MoussAIllon centralise l'ensemble des metiers d'un chantier naval dans une seule
 - **IA integree** - chat assisté (OpenAI / Anthropic), serveur MCP pour l'exploration de l'API
 - **Notifications email** - alertes incidents, mots de passe, planning
 - **Multi-chantier** - une instance heberge plusieurs chantiers, chacun avec ses donnees, ses utilisateurs, ses clients et son abonnement ; chaque utilisateur se connecte avec le code de son chantier
+- **Inscription en libre-service** - un chantier cree son espace depuis l'ecran de connexion, avec un premier mois gratuit
 - **Administration de l'instance** - application admin pour creer les chantiers, gerer leur abonnement (gratuit, modules, paiements recus, resiliation), couper leur acces et les supprimer
 - **Modules & abonnement** - acces des utilisateurs par module (Vente, Parc, Catalogue, Atelier, Marketing, Comptabilite, Parametrage) ; abonnement calcule selon le nombre d'utilisateurs, de techniciens et de clients ayant acces au portail, et les modules souscrits ; active au premier paiement (frais d'activation et premier mois ou premiere annee), suivi mois par mois, modules ajoutes payes tout de suite ; sans abonnement active, l'acces est limite a la facturation
 
@@ -89,6 +90,10 @@ Sur une base vide, creez d'abord un chantier dans l'application admin (identifia
 | `ADMIN_PASSWORD` | Mot de passe de l'administrateur de l'instance — **a changer en production** | `admin` |
 | `ADMIN_EMAIL` | Email de l'administrateur, indique aux chantiers dont l'acces est suspendu | `admin@moussaillon.local` |
 | `CHANTIER_INITIAL` | Code du chantier qui recoit les donnees d'une installation anterieure au multi-chantier (une seule fois, au demarrage) | `principal` |
+| `INSCRIPTION_ACTIVE` | Propose sur l'ecran de connexion de l'espace chantier de creer son chantier (inscription en libre-service) | `true` |
+| `INSCRIPTION_ESSAI_MOIS` | Duree de l'essai gratuit d'un chantier inscrit (mois) : acces complet sans abonnement active | `1` |
+| `INSCRIPTION_LIMITE_PAR_HEURE` | Inscriptions acceptees par heure depuis une meme adresse IP (en-tete `X-Real-IP` du proxy) | `3` |
+| `CHANTIER_URL` | Adresse publique de l'espace chantier, pour le lien de l'email de bienvenue (pas de lien si vide) | _(vide)_ |
 | `CHANTIER_PAR_DEFAUT` | Chantier des requetes qui n'en designent aucun (instance mono-chantier, outils) | _(aucun)_ |
 | `ABONNEMENT_STRIPE_API_KEY` | Cle API Stripe de l'editeur pour payer l'abonnement en ligne au montant calcule (distincte de `STRIPE_API_KEY`, qui encaisse les ventes du chantier) ; sans cle, le lien de paiement fixe de la societe est utilise | _(vide)_ |
 | `ABONNEMENT_PAYPLUG_API_KEY` | Cle API PayPlug de l'editeur pour payer l'abonnement en ligne au montant calcule | _(vide)_ |
@@ -104,6 +109,7 @@ Une instance heberge plusieurs chantiers. Chaque table porte une colonne `chanti
 
 - **Connexion** : les ecrans de connexion (chantier, client, technicien) demandent le **code chantier**. Il est memorise dans le navigateur, et un lien `?chantier=code` le pre-remplit (ex. `https://hote/client/?chantier=ms-plaisance`, a transmettre aux clients du chantier). Le jeton emis porte le chantier (claim `chantier`) : il designe les donnees de toutes les requetes suivantes. Les requetes sans jeton designent leur chantier par l'en-tete `X-Chantier` (ou le parametre `chantier`).
 - **Application admin** (`/admin/`) : l'administrateur de l'instance (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`) cree les chantiers (code, nom, email, premier utilisateur, modules), **change le code** d'un chantier (remplace dans toutes ses donnees ; ses utilisateurs, clients et techniciens se reconnectent avec le nouveau code et les liens transmis avec l'ancien ne fonctionnent plus), accorde l'**abonnement gratuit** (remplace l'ancienne variable `ABONNEMENT_FREE`, desormais par chantier), modifie les modules, enregistre les paiements recus, resilie ou reactive l'abonnement, **coupe l'acces** (connexions refusees, jetons en cours rejetes, envois automatiques arretes) et **supprime** un chantier et toutes ses donnees (code a confirmer). Les images et documents deposes restent sur le disque.
+- **Inscription en libre-service** : l'ecran de connexion de l'espace chantier propose « Creez votre chantier en 1 minute ! » (nom, code propose d'apres le nom, email, utilisateur, mot de passe). Le chantier est cree aussitot avec tous les modules et un **essai gratuit** (`INSCRIPTION_ESSAI_MOIS`) : acces complet sans abonnement active, puis acces limite a la facturation tant que l'abonnement n'est pas active. Active pendant l'essai, l'abonnement demarre a la fin de l'essai. Le chantier recoit un email de bienvenue (code et utilisateur), l'administrateur un avis d'inscription ; l'application admin affiche l'essai en cours. `INSCRIPTION_ACTIVE=false` ferme les inscriptions.
 - **Taches planifiees** (relances, campagnes, sequences d'emails, factures soldees) : executees pour chaque chantier dont l'acces n'est pas suspendu.
 - **Flux d'annonces** : l'URL donnee aux plateformes ne change pas, son jeton secret designe le chantier.
 - **Migration** : au premier demarrage, les donnees d'une installation mono-chantier sont affectees au chantier `CHANTIER_INITIAL` (cree au nom de la societe ; si `ABONNEMENT_FREE` etait active, son abonnement est gratuit), les utilisateurs sont recopies dans la table `UtilisateurEntity` et les contraintes d'unicite deviennent propres a chaque chantier. Ses utilisateurs se connectent ensuite avec ce code.
@@ -419,6 +425,7 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD=<mot de passe de l'administrateur de l'instance>
 ADMIN_EMAIL=admin@example.com
 CHANTIER_INITIAL=ms-plaisance
+CHANTIER_URL=http://<IP_PUBLIQUE>/chantier/
 MAILER_MOCK=true
 STRIPE_SUCCESS_URL=http://<IP_PUBLIQUE>/ventes?payment=success
 STRIPE_CANCEL_URL=http://<IP_PUBLIQUE>/ventes?payment=cancel

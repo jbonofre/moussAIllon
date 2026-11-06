@@ -42,6 +42,8 @@ export interface Chantier {
     accesSuspendu: boolean;
     accesSuspenduDate?: string;
     gratuit: boolean;
+    // Fin de l'essai gratuit (chantier inscrit depuis l'espace chantier).
+    essaiFin?: string;
 }
 
 export interface Paiement {
@@ -60,6 +62,8 @@ export interface Societe {
     email?: string;
     modules: string[];
     versionFree: boolean;
+    enEssai?: boolean;
+    essaiFin?: string;
     abonnementActif: boolean;
     abonnementAJour: boolean;
     abonnementResilie: boolean;
@@ -129,7 +133,10 @@ export function statutAbonnement(vue: ChantierVue): { label: string; color: stri
         return { label: societe.accesBloque ? 'Résilié, accès bloqué' : 'Résilié', color: 'red' };
     }
     if (!societe.abonnementActif) {
-        return { label: 'Non activé', color: 'orange' };
+        if (societe.enEssai) {
+            return { label: `Essai jusqu'au ${formatDate(vue.chantier.essaiFin)}`, color: 'cyan' };
+        }
+        return { label: vue.chantier.essaiFin ? 'Essai terminé, non activé' : 'Non activé', color: 'orange' };
     }
     if (societe.accesBloqueImpaye) {
         return { label: 'Impayé, accès limité', color: 'red' };
