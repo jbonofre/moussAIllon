@@ -5403,7 +5403,7 @@ export default function Vente() {
                 okText="Valider"
                 confirmLoading={addingPaiement}
                 destroyOnHidden
-                width="95vw"
+                width="24vw"
             >
                 <Form layout="vertical">
                     <Form.Item label="Mode de règlement" required>
