@@ -142,6 +142,31 @@ describe('Chantiers', () => {
         await waitFor(() => expect(mockedApi.post).toHaveBeenCalledWith('/admin/chantiers/ms-plaisance/paiements', { type: 'MENSUEL', mode: 'VIREMENT' }));
     });
 
+    it("change le code d'un chantier", async () => {
+        mockedApi.put.mockResolvedValue({ data: vue('port-libre', 'Port Gratuit', { gratuit: true }, { abonnementActif: false }) });
+        render(<Chantiers />);
+        await gerer('Port Gratuit');
+
+        fireEvent.click(await screen.findByRole('button', { name: /Modifier le code/ }));
+        const champ = await screen.findByLabelText('Nouveau code chantier');
+        const dialogue = within(champ.closest('.ant-modal') as HTMLElement);
+        expect(dialogue.getByText('Modifier le code du chantier port-gratuit')).toBeInTheDocument();
+        fireEvent.change(dialogue.getByLabelText('Nouveau code chantier'), { target: { value: 'port gratuit' } });
+        fireEvent.click(dialogue.getByRole('button', { name: /Modifier le code/ }));
+        expect(await dialogue.findByText(/2 à 40 caractères/)).toBeInTheDocument();
+        fireEvent.change(dialogue.getByLabelText('Nouveau code chantier'), { target: { value: 'port-gratuit' } });
+        fireEvent.click(dialogue.getByRole('button', { name: /Modifier le code/ }));
+        expect(await dialogue.findByText('Le code est inchangé')).toBeInTheDocument();
+        expect(mockedApi.put).not.toHaveBeenCalled();
+
+        fireEvent.change(dialogue.getByLabelText('Nouveau code chantier'), { target: { value: 'Port-Libre' } });
+        fireEvent.click(dialogue.getByRole('button', { name: /Modifier le code/ }));
+        await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith('/admin/chantiers/port-gratuit/code', { code: 'port-libre' }));
+        // Le détail reste ouvert sur le chantier, avec son nouveau code et ses nouveaux liens
+        expect(await screen.findByText('Port Gratuit (port-libre)')).toBeInTheDocument();
+        expect(screen.getByText(/chantier\/\?chantier=port-libre/)).toBeInTheDocument();
+    });
+
     it('supprime un chantier après confirmation de son code', async () => {
         mockedApi.delete.mockResolvedValue({});
         render(<Chantiers />);

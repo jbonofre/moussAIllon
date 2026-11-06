@@ -103,7 +103,7 @@ Sur une base vide, creez d'abord un chantier dans l'application admin (identifia
 Une instance heberge plusieurs chantiers. Chaque table porte une colonne `chantier`, renseignee et filtree automatiquement par Hibernate (`@TenantId`, mode `DISCRIMINATOR`) : un chantier ne voit que ses donnees, y compris par identifiant.
 
 - **Connexion** : les ecrans de connexion (chantier, client, technicien) demandent le **code chantier**. Il est memorise dans le navigateur, et un lien `?chantier=code` le pre-remplit (ex. `https://hote/client/?chantier=ms-plaisance`, a transmettre aux clients du chantier). Le jeton emis porte le chantier (claim `chantier`) : il designe les donnees de toutes les requetes suivantes. Les requetes sans jeton designent leur chantier par l'en-tete `X-Chantier` (ou le parametre `chantier`).
-- **Application admin** (`/admin/`) : l'administrateur de l'instance (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`) cree les chantiers (code, nom, email, premier utilisateur, modules), accorde l'**abonnement gratuit** (remplace l'ancienne variable `ABONNEMENT_FREE`, desormais par chantier), modifie les modules, enregistre les paiements recus, resilie ou reactive l'abonnement, **coupe l'acces** (connexions refusees, jetons en cours rejetes, envois automatiques arretes) et **supprime** un chantier et toutes ses donnees (code a confirmer). Les images et documents deposes restent sur le disque.
+- **Application admin** (`/admin/`) : l'administrateur de l'instance (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_EMAIL`) cree les chantiers (code, nom, email, premier utilisateur, modules), **change le code** d'un chantier (remplace dans toutes ses donnees ; ses utilisateurs, clients et techniciens se reconnectent avec le nouveau code et les liens transmis avec l'ancien ne fonctionnent plus), accorde l'**abonnement gratuit** (remplace l'ancienne variable `ABONNEMENT_FREE`, desormais par chantier), modifie les modules, enregistre les paiements recus, resilie ou reactive l'abonnement, **coupe l'acces** (connexions refusees, jetons en cours rejetes, envois automatiques arretes) et **supprime** un chantier et toutes ses donnees (code a confirmer). Les images et documents deposes restent sur le disque.
 - **Taches planifiees** (relances, campagnes, sequences d'emails, factures soldees) : executees pour chaque chantier dont l'acces n'est pas suspendu.
 - **Flux d'annonces** : l'URL donnee aux plateformes ne change pas, son jeton secret designe le chantier.
 - **Migration** : au premier demarrage, les donnees d'une installation mono-chantier sont affectees au chantier `CHANTIER_INITIAL` (cree au nom de la societe ; si `ABONNEMENT_FREE` etait active, son abonnement est gratuit), les utilisateurs sont recopies dans la table `UtilisateurEntity` et les contraintes d'unicite deviennent propres a chaque chantier. Ses utilisateurs se connectent ensuite avec ce code.
@@ -346,7 +346,7 @@ Les options conteneurisees necessitent :
 
 ```bash
 # Creer les repositories ECR
-for repo in backend chantier-ui client-ui technicien-ui; do
+for repo in backend chantier-ui client-ui technicien-ui admin-ui; do
   aws ecr create-repository --repository-name moussaillon/$repo --region eu-west-3
 done
 
@@ -357,7 +357,7 @@ aws ecr get-login-password --region eu-west-3 | docker login --username AWS --pa
 docker build -f backend/Dockerfile -t <account-id>.dkr.ecr.eu-west-3.amazonaws.com/moussaillon/backend:latest .
 docker push <account-id>.dkr.ecr.eu-west-3.amazonaws.com/moussaillon/backend:latest
 
-for ui in chantier-ui client-ui technicien-ui; do
+for ui in chantier-ui client-ui technicien-ui admin-ui; do
   docker build -t <account-id>.dkr.ecr.eu-west-3.amazonaws.com/moussaillon/$ui:latest $ui/
   docker push <account-id>.dkr.ecr.eu-west-3.amazonaws.com/moussaillon/$ui:latest
 done
@@ -397,7 +397,7 @@ git clone https://github.com/jbonofre/moussAIllon.git
 cd moussAIllon
 
 # Builder les frontends
-for ui in chantier-ui client-ui technicien-ui; do
+for ui in chantier-ui client-ui technicien-ui admin-ui; do
   cd $ui && npm ci && npm run build && cd ..
 done
 
@@ -415,6 +415,10 @@ AI_OPENAI_API_KEY=sk-...
 AI_ANTHROPIC_API_KEY=sk-ant-...
 STRIPE_API_KEY=sk_live_...
 PAYPLUG_API_KEY=...
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=<mot de passe de l'administrateur de l'instance>
+ADMIN_EMAIL=admin@example.com
+CHANTIER_INITIAL=ms-plaisance
 MAILER_MOCK=true
 STRIPE_SUCCESS_URL=http://<IP_PUBLIQUE>/ventes?payment=success
 STRIPE_CANCEL_URL=http://<IP_PUBLIQUE>/ventes?payment=cancel
@@ -485,6 +489,11 @@ server {
         try_files $uri $uri/ /technicien/index.html;
     }
 
+    location ^~ /admin/ {
+        alias /home/ec2-user/moussAIllon/admin-ui/target/classes/META-INF/resources/;
+        try_files $uri $uri/ /admin/index.html;
+    }
+
     location = / {
         return 301 /chantier/;
     }
@@ -533,7 +542,8 @@ kubectl create secret generic moussaillon-secrets \
   --from-literal=AI_OPENAI_API_KEY=sk-... \
   --from-literal=AI_ANTHROPIC_API_KEY=sk-ant-... \
   --from-literal=STRIPE_API_KEY=sk_live_... \
-  --from-literal=PAYPLUG_API_KEY=...
+  --from-literal=PAYPLUG_API_KEY=... \
+  --from-literal=ADMIN_PASSWORD=...
 ```
 
 **Deploiement avec Helm :**
@@ -576,6 +586,7 @@ aws ecs create-cluster --cluster-name moussaillon
 | chantier-ui | `moussaillon/chantier-ui:latest` | 80 | `/` |
 | client-ui | `moussaillon/client-ui:latest` | 80 | `/` |
 | technicien-ui | `moussaillon/technicien-ui:latest` | 80 | `/` |
+| admin-ui | `moussaillon/admin-ui:latest` | 80 | `/` |
 
 **Exemple de task definition backend :**
 
@@ -601,7 +612,8 @@ aws ecs create-cluster --cluster-name moussaillon
         { "name": "AI_OPENAI_API_KEY", "valueFrom": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/AI_OPENAI_API_KEY" },
         { "name": "AI_ANTHROPIC_API_KEY", "valueFrom": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/AI_ANTHROPIC_API_KEY" },
         { "name": "STRIPE_API_KEY", "valueFrom": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/STRIPE_API_KEY" },
-        { "name": "PAYPLUG_API_KEY", "valueFrom": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/PAYPLUG_API_KEY" }
+        { "name": "PAYPLUG_API_KEY", "valueFrom": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/PAYPLUG_API_KEY" },
+        { "name": "ADMIN_PASSWORD", "valueFrom": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/ADMIN_PASSWORD" }
       ],
       "environment": [
         { "name": "MAILER_MOCK", "value": "true" }
@@ -669,7 +681,8 @@ aws apprunner create-service \
           "AI_OPENAI_API_KEY": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/AI_OPENAI_API_KEY",
           "AI_ANTHROPIC_API_KEY": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/AI_ANTHROPIC_API_KEY",
           "STRIPE_API_KEY": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/STRIPE_API_KEY",
-          "PAYPLUG_API_KEY": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/PAYPLUG_API_KEY"
+          "PAYPLUG_API_KEY": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/PAYPLUG_API_KEY",
+          "ADMIN_PASSWORD": "arn:aws:ssm:eu-west-3:<account-id>:parameter/moussaillon/ADMIN_PASSWORD"
         },
         "RuntimeEnvironmentVariables": {
           "MAILER_MOCK": "true"
@@ -694,7 +707,7 @@ Chaque frontend doit pointer vers l'URL publique du backend (et non `http://back
 BACKEND_URL=$(aws apprunner list-services --query "ServiceSummaryList[?ServiceName=='moussaillon-backend'].ServiceUrl" --output text)
 
 # Pour chaque frontend, remplacer le proxy_pass dans nginx.conf avant le build Docker
-for ui in chantier-ui client-ui technicien-ui; do
+for ui in chantier-ui client-ui technicien-ui admin-ui; do
   sed "s|proxy_pass http://backend:8080/;|proxy_pass https://$BACKEND_URL/;|" $ui/nginx.conf > $ui/nginx.conf.aws
   docker build --build-arg NGINX_CONF=nginx.conf.aws -t <account-id>.dkr.ecr.eu-west-3.amazonaws.com/moussaillon/$ui:latest $ui/
   docker push <account-id>.dkr.ecr.eu-west-3.amazonaws.com/moussaillon/$ui:latest

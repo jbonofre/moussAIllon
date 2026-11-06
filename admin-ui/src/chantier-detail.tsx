@@ -3,15 +3,17 @@ import {
     Alert, Button, Card, Checkbox, Descriptions, Form, Input, Modal, Popconfirm, Select, Space, Switch, Table, Tag,
     Typography, message,
 } from 'antd';
-import { DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { DeleteOutlined, EditOutlined, SaveOutlined } from '@ant-design/icons';
 import api, {
-    ChantierVue, MODULES, MODULE_PARAMETRAGE, Paiement, formatDate, formatMontant, lienEspace, messageErreur,
-    statutAbonnement,
+    ChantierVue, FORMAT_CODE, MESSAGE_FORMAT_CODE, MODULES, MODULE_PARAMETRAGE, Paiement, formatDate, formatMontant, lienEspace,
+    messageErreur, statutAbonnement,
 } from './api.ts';
 
 interface ChantierDetailProps {
     vue: ChantierVue;
     onChange: (vue: ChantierVue) => void;
+    // Code changé : la vue porte le nouveau code.
+    onRename: (ancienCode: string, vue: ChantierVue) => void;
     onDelete: (code: string) => void;
 }
 
@@ -27,7 +29,7 @@ const MODES_PAIEMENT = [
     { value: 'PAYPLUG', label: 'PayPlug' },
 ];
 
-export default function ChantierDetail({ vue, onChange, onDelete }: ChantierDetailProps) {
+export default function ChantierDetail({ vue, onChange, onRename, onDelete }: ChantierDetailProps) {
     const { chantier, societe } = vue;
     const code = chantier.code;
     const [enCours, setEnCours] = useState<string | null>(null);
@@ -36,7 +38,9 @@ export default function ChantierDetail({ vue, onChange, onDelete }: ChantierDeta
     const [modePaiement, setModePaiement] = useState('VIREMENT');
     const [suppressionOuverte, setSuppressionOuverte] = useState(false);
     const [confirmation, setConfirmation] = useState('');
+    const [changementCodeOuvert, setChangementCodeOuvert] = useState(false);
     const [form] = Form.useForm();
+    const [formCode] = Form.useForm();
 
     useEffect(() => {
         setModules(societe?.modules || []);
@@ -62,6 +66,20 @@ export default function ChantierDetail({ vue, onChange, onDelete }: ChantierDeta
 
     const modifier = (modification: Record<string, unknown>, succes: string) =>
         executer('modifier', () => api.put(`/admin/chantiers/${code}`, modification), succes);
+
+    const changerCode = async ({ nouveauCode }: { nouveauCode: string }) => {
+        setEnCours('code');
+        try {
+            const res = await api.put<ChantierVue>(`/admin/chantiers/${code}/code`, { code: nouveauCode });
+            setChangementCodeOuvert(false);
+            onRename(code, res.data);
+            message.success(`Code du chantier changé en ${res.data.chantier.code}`);
+        } catch (error) {
+            message.error(messageErreur(error, 'Erreur lors du changement de code du chantier.'));
+        } finally {
+            setEnCours(null);
+        }
+    };
 
     const supprimer = async () => {
         setEnCours('supprimer');
@@ -98,7 +116,18 @@ export default function ChantierDetail({ vue, onChange, onDelete }: ChantierDeta
                     </Button>
                 </Form>
                 <Descriptions column={1} size="small" style={{ marginTop: 16 }}>
-                    <Descriptions.Item label="Code">{code}</Descriptions.Item>
+                    <Descriptions.Item label="Code">
+                        <Space>
+                            <Typography.Text strong>{code}</Typography.Text>
+                            <Button
+                                size="small"
+                                icon={<EditOutlined />}
+                                onClick={() => { formCode.resetFields(); setChangementCodeOuvert(true); }}
+                            >
+                                Modifier le code
+                            </Button>
+                        </Space>
+                    </Descriptions.Item>
                     <Descriptions.Item label="Créé le">{formatDate(chantier.dateCreation)}</Descriptions.Item>
                     <Descriptions.Item label="Espace chantier">
                         <Typography.Text copyable>{lienEspace('chantier', code)}</Typography.Text>
@@ -118,7 +147,7 @@ export default function ChantierDetail({ vue, onChange, onDelete }: ChantierDeta
                         type="error"
                         showIcon
                         style={{ marginBottom: 12 }}
-                        message={`Accès suspendu depuis le ${formatDate(chantier.accesSuspenduDate)}`}
+                        title={`Accès suspendu depuis le ${formatDate(chantier.accesSuspenduDate)}`}
                         description="Personne ne peut se connecter (chantier, clients, techniciens) et aucun envoi automatique n'est fait. Les données sont conservées."
                     />
                 )}
@@ -155,7 +184,7 @@ export default function ChantierDetail({ vue, onChange, onDelete }: ChantierDeta
                     <span>Abonnement gratuit : accès jamais bloqués, modules ajoutés sans paiement</span>
                 </Space>
                 {!societe ? (
-                    <Alert type="warning" showIcon message="La société de ce chantier n'existe pas : son abonnement ne se gère pas." />
+                    <Alert type="warning" showIcon title="La société de ce chantier n'existe pas : son abonnement ne se gère pas." />
                 ) : (
                     <>
                         <Descriptions column={1} size="small" bordered>
@@ -275,6 +304,43 @@ export default function ChantierDetail({ vue, onChange, onDelete }: ChantierDeta
                     Supprimer le chantier
                 </Button>
             </Card>
+
+            <Modal
+                title={`Modifier le code du chantier ${code}`}
+                open={changementCodeOuvert}
+                onCancel={() => setChangementCodeOuvert(false)}
+                onOk={() => formCode.submit()}
+                okText="Modifier le code"
+                cancelText="Annuler"
+                confirmLoading={enCours === 'code'}
+                forceRender
+            >
+                <Alert
+                    type="warning"
+                    showIcon
+                    style={{ marginBottom: 16 }}
+                    title="Les utilisateurs, clients et techniciens du chantier sont déconnectés"
+                    description="Ils se reconnectent avec le nouveau code, sans changer de mot de passe. Les liens transmis avec l'ancien code ne fonctionnent plus : transmettez les nouveaux."
+                />
+                <Form form={formCode} name="code-chantier" layout="vertical" onFinish={changerCode}>
+                    <Form.Item
+                        name="nouveauCode"
+                        label="Nouveau code chantier"
+                        normalize={(valeur: string) => (valeur || '').toLowerCase()}
+                        rules={[
+                            { required: true, message: 'Le nouveau code est requis' },
+                            { pattern: FORMAT_CODE, message: MESSAGE_FORMAT_CODE },
+                            {
+                                validator: (_, valeur) => valeur === code
+                                    ? Promise.reject(new Error('Le code est inchangé'))
+                                    : Promise.resolve(),
+                            },
+                        ]}
+                    >
+                        <Input placeholder={code} autoCapitalize="none" />
+                    </Form.Item>
+                </Form>
+            </Modal>
 
             <Modal
                 title={`Supprimer le chantier ${code} ?`}

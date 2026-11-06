@@ -99,6 +99,7 @@ export const MODULES = [
 export const MODULE_PARAMETRAGE = 'PARAMETRAGE';
 
 export const FORMAT_CODE = /^[a-z0-9][a-z0-9-]{1,39}$/;
+export const MESSAGE_FORMAT_CODE = '2 à 40 caractères : lettres minuscules, chiffres et tirets, sans tiret au début';
 
 export function formatDate(date?: string): string {
     return date ? new Date(date).toLocaleDateString('fr-FR') : '—';

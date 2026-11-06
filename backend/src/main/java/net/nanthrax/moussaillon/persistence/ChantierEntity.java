@@ -21,7 +21,8 @@ public class ChantierEntity extends PanacheEntityBase {
     // Lettres minuscules, chiffres et tirets, commençant par une lettre ou un chiffre.
     private static final Pattern FORMAT_CODE = Pattern.compile("[a-z0-9][a-z0-9-]{1," + (LONGUEUR_CODE - 1) + "}");
 
-    // Code saisi à la connexion (ou passé dans le lien ?chantier=code) : ne change jamais.
+    // Code saisi à la connexion (ou passé dans le lien ?chantier=code). Il ne change que depuis l'administration,
+    // qui le remplace aussi dans toutes les données du chantier.
     @Id
     @Column(length = LONGUEUR_CODE)
     public String code;

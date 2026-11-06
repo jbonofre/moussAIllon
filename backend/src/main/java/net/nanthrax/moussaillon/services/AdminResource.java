@@ -35,12 +35,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * Administration de l'instance, réservée à l'administrateur défini dans la configuration (admin.username,
- * admin.password, admin.email) : création des chantiers, gestion de leur abonnement (gratuit, modules,
- * paiements reçus, résiliation), suspension de leur accès et suppression.
+ * admin.password, admin.email) : création des chantiers, changement de leur code, gestion de leur abonnement
+ * (gratuit, modules, paiements reçus, résiliation), suspension de leur accès et suppression.
  */
 @Path("/admin")
 @ApplicationScoped
@@ -60,6 +61,9 @@ public class AdminResource {
 
     @ConfigProperty(name = "admin.email", defaultValue = "")
     String email;
+
+    @ConfigProperty(name = "chantier.par-defaut")
+    Optional<String> chantierParDefaut;
 
     @Inject
     TokenService tokenService;
@@ -109,6 +113,10 @@ public class AdminResource {
         public Boolean accesSuspendu;
     }
 
+    public static class ChangementCode {
+        public String code;
+    }
+
     @POST
     @Path("/authenticate")
     @Consumes(MediaType.APPLICATION_JSON)
@@ -156,11 +164,7 @@ public class AdminResource {
         if (creation == null) {
             throw requeteInvalide("Les informations du chantier sont requises.");
         }
-        String code = ChantierEntity.normaliser(creation.code);
-        if (!ChantierEntity.codeValide(code)) {
-            throw requeteInvalide("Code chantier invalide : 2 à " + ChantierEntity.LONGUEUR_CODE
-                + " caractères parmi les lettres minuscules, les chiffres et le tiret, en commençant par une lettre ou un chiffre.");
-        }
+        String code = codeSaisi(creation.code);
         if (creation.nom == null || creation.nom.isBlank()) {
             throw requeteInvalide("Le nom du chantier est requis.");
         }
@@ -221,6 +225,66 @@ public class AdminResource {
             }
         });
         return vue(chantierCode);
+    }
+
+    /**
+     * Change le code du chantier, dans le registre et dans toutes ses données, en une seule transaction. Les jetons
+     * émis avec l'ancien code sont refusés : utilisateurs, clients et techniciens se reconnectent avec le nouveau.
+     */
+    @PUT
+    @Path("/chantiers/{code}/code")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public ChantierVue changerCode(@PathParam("code") String code, ChangementCode changement) {
+        String ancien = existant(code).code;
+        String nouveau = codeSaisi(changement == null ? null : changement.code);
+        if (nouveau.equals(ancien)) {
+            return vue(ancien);
+        }
+        if (chantierParDefaut.map(ChantierEntity::normaliser).filter(ancien::equals).isPresent()) {
+            throw requeteInvalide("Le chantier " + ancien + " est le chantier par défaut de l'instance (propriété chantier.par-defaut) :"
+                + " changez d'abord cette propriété.");
+        }
+        if (chantiers.trouver(nouveau) != null) {
+            throw requeteInvalide("Le chantier " + nouveau + " existe déjà.");
+        }
+        chantiers.enRacine(() -> SocieteEntity.getEntityManager().unwrap(Session.class)
+            .doWork(connection -> remplacerCode(connection, ancien, nouveau)));
+        LOG.infof("Code du chantier %s changé en %s", ancien, nouveau);
+        return vue(nouveau);
+    }
+
+    /**
+     * Remplace le code du chantier dans le registre et dans la colonne chantier de chaque table. Refusé si des
+     * données portent déjà le nouveau code (restes d'un chantier qui n'est plus au registre) : le chantier les
+     * récupérerait.
+     */
+    static void remplacerCode(Connection connection, String ancien, String nouveau) throws SQLException {
+        List<String> tables = DataInitializer.tablesChantier(connection);
+        for (String table : tables) {
+            try (PreparedStatement requete = connection.prepareStatement("SELECT COUNT(*) FROM " + table + " WHERE chantier = ?")) {
+                requete.setString(1, nouveau);
+                try (ResultSet rs = requete.executeQuery()) {
+                    if (rs.next() && rs.getLong(1) > 0) {
+                        throw requeteInvalide("Des données portent déjà le code " + nouveau + " (table " + table + ") : choisissez un autre code.");
+                    }
+                }
+            }
+        }
+        try (PreparedStatement requete = connection.prepareStatement("UPDATE ChantierEntity SET code = ? WHERE code = ?")) {
+            requete.setString(1, nouveau);
+            requete.setString(2, ancien);
+            requete.executeUpdate();
+        }
+        for (String table : tables) {
+            try (PreparedStatement requete = connection.prepareStatement("UPDATE " + table + " SET chantier = ? WHERE chantier = ?")) {
+                requete.setString(1, nouveau);
+                requete.setString(2, ancien);
+                int lignes = requete.executeUpdate();
+                if (lignes > 0) {
+                    LOG.infof("%s : %d ligne(s) passée(s) du chantier %s au chantier %s", table, lignes, ancien, nouveau);
+                }
+            }
+        }
     }
 
     /** Modules souscrits par le chantier, sans paiement (les utilisateurs perdent les modules retirés). */
@@ -408,6 +472,16 @@ public class AdminResource {
             vue.societe = SocieteEntity.courante() == null ? null : societeResource.get();
             return vue;
         });
+    }
+
+    /** Code chantier saisi, normalisé ; refusé s'il n'a pas le format des codes. */
+    private static String codeSaisi(String saisi) {
+        String code = ChantierEntity.normaliser(saisi);
+        if (!ChantierEntity.codeValide(code)) {
+            throw requeteInvalide("Code chantier invalide : 2 à " + ChantierEntity.LONGUEUR_CODE
+                + " caractères parmi les lettres minuscules, les chiffres et le tiret, en commençant par une lettre ou un chiffre.");
+        }
+        return code;
     }
 
     private ChantierEntity existant(String code) {

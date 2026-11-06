@@ -5,8 +5,8 @@ import {
 } from 'antd';
 import { PlusOutlined, ReloadOutlined, SearchOutlined, SettingOutlined } from '@ant-design/icons';
 import api, {
-    ChantierVue, FORMAT_CODE, MODULES, MODULE_PARAMETRAGE, Societe, formatDate, formatMontant, lienEspace, messageErreur,
-    statutAbonnement,
+    ChantierVue, FORMAT_CODE, MESSAGE_FORMAT_CODE, MODULES, MODULE_PARAMETRAGE, Societe, formatDate, formatMontant, lienEspace,
+    messageErreur, statutAbonnement,
 } from './api.ts';
 import ChantierDetail from './chantier-detail.tsx';
 
@@ -211,11 +211,11 @@ export default function Chantiers() {
                     <Form.Item
                         name="code"
                         label="Code chantier"
-                        extra="Saisi à la connexion. Lettres minuscules, chiffres et tirets ; il ne pourra plus changer."
+                        extra="Saisi à la connexion, et dans les liens des espaces du chantier. Lettres minuscules, chiffres et tirets."
                         normalize={(valeur: string) => (valeur || '').toLowerCase()}
                         rules={[
                             { required: true, message: 'Le code chantier est requis' },
-                            { pattern: FORMAT_CODE, message: '2 à 40 caractères : lettres minuscules, chiffres et tirets, sans tiret au début' },
+                            { pattern: FORMAT_CODE, message: MESSAGE_FORMAT_CODE },
                         ]}
                     >
                         <Input placeholder="ms-plaisance" autoCapitalize="none" />
@@ -269,6 +269,12 @@ export default function Chantiers() {
                     <ChantierDetail
                         vue={vueSelectionnee}
                         onChange={majVue}
+                        onRename={(ancien, vue) => {
+                            setVues((precedentes) => precedentes
+                                .map((v) => (v.chantier.code === ancien ? vue : v))
+                                .sort((a, b) => a.chantier.code.localeCompare(b.chantier.code)));
+                            setSelection(vue.chantier.code);
+                        }}
                         onDelete={(code) => {
                             setSelection(null);
                             setVues((precedentes) => precedentes.filter((v) => v.chantier.code !== code));
