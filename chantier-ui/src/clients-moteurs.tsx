@@ -580,7 +580,7 @@ const ClientsMoteurs: React.FC<ClientsMoteursProps> = ({ clientId }) => {
                   label: 'Forfaits',
                   children: (
                     <Form layout="vertical">
-                      <ForfaitsAssocies moteurId={editing.id} />
+                      <ForfaitsAssocies moteurId={editing.id} numeroSerie={editing.numeroSerie} modeleId={editing.modele?.id} />
                     </Form>
                   ),
                 },

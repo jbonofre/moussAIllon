@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.ArrayList;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.ManyToMany;
@@ -28,7 +29,11 @@ public class ForfaitEntity extends PanacheEntityChantier {
     public List<BateauClientEntity> bateauxClientsAssocies = new ArrayList<>();
     @ManyToMany
     public List<MoteurClientEntity> moteursClientsAssocies = new ArrayList<>();
-    
+
+    // Motifs de numéros de série des moteurs clients concernés (jokers, plages : voir MotifNumeroSerie)
+    @Column(length = 2000)
+    public String numerosSerieMoteur;
+
     @OneToMany(cascade = CascadeType.ALL, orphanRemoval = true)
     @JoinColumn(name = "forfait_id")
     @OrderBy("id")

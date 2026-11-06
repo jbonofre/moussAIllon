@@ -25,6 +25,7 @@ import { produitLigneOptions, mainOeuvreLigneOptions, filterLigneOption } from '
 import LignesArticles from './LignesArticles.tsx';
 import SectionLignes from './SectionLignes.tsx';
 import { aplatirTaches, tachesDeLigne } from './checklistParLigne.ts';
+import { MOTIFS_NUMERO_SERIE_AIDE, MOTIFS_NUMERO_SERIE_PLACEHOLDER } from './numero-serie.ts';
 import { useReferenceValeurs } from './useReferenceValeurs.ts';
 import ImageUpload from './ImageUpload.tsx';
 import { paginationConfig } from './pagination.ts';
@@ -119,6 +120,7 @@ interface ForfaitEntity {
     bateauxAssocies: BateauCatalogueEntity[];
     bateauxClientsAssocies?: Array<{ id: number }>;
     moteursClientsAssocies?: Array<{ id: number }>;
+    numerosSerieMoteur?: string;
     produits: ForfaitProduitEntity[];
     mainOeuvres: ForfaitMainOeuvreEntity[];
     heuresFonctionnement: number;
@@ -138,6 +140,7 @@ interface ForfaitFormValues {
     bateauIds: number[];
     moteurClientIds: number[];
     bateauClientIds: number[];
+    numerosSerieMoteur: string;
     produits: Array<{ produitId?: number; quantite?: number }>;
     mainOeuvres: Array<{ mainOeuvreId?: number; quantite?: number; taches?: Array<{ nom?: string; description?: string }> }>;
     heuresFonctionnement: number;
@@ -158,6 +161,7 @@ const defaultForfait: ForfaitFormValues = {
     bateauIds: [],
     moteurClientIds: [],
     bateauClientIds: [],
+    numerosSerieMoteur: '',
     produits: [{}],
     mainOeuvres: [{}],
     heuresFonctionnement: 0,
@@ -370,6 +374,7 @@ export default function Forfaits() {
                 bateauIds: (forfait.bateauxAssocies || []).map((b) => b.id),
                 moteurClientIds: (forfait.moteursClientsAssocies || []).map((m) => m.id),
                 bateauClientIds: (forfait.bateauxClientsAssocies || []).map((b) => b.id),
+                numerosSerieMoteur: forfait.numerosSerieMoteur || '',
                 produits: (forfait.produits || [])
                     .filter((item) => item.produit?.id)
                     .map<ForfaitFormValues['produits'][number]>((item) => ({ produitId: item.produit!.id, quantite: item.quantite || 1 }))
@@ -467,6 +472,7 @@ export default function Forfaits() {
             .filter(Boolean) as BateauCatalogueEntity[],
         bateauxClientsAssocies: (values.bateauClientIds || []).map((id) => ({ id })),
         moteursClientsAssocies: (values.moteurClientIds || []).map((id) => ({ id })),
+        numerosSerieMoteur: values.numerosSerieMoteur?.trim() || undefined,
         produits: (values.produits || [])
             .filter((item) => item.produitId)
             .map((item) => ({
@@ -667,7 +673,8 @@ export default function Forfaits() {
             title: 'Moteurs',
             dataIndex: 'moteursAssocies',
             sorter: (a: ForfaitEntity, b: ForfaitEntity) => (a.moteursAssocies?.length || 0) - (b.moteursAssocies?.length || 0),
-            render: (values: MoteurCatalogueEntity[]) => values?.length || 0
+            render: (values: MoteurCatalogueEntity[], record: ForfaitEntity) =>
+                record.numerosSerieMoteur ? `${values?.length || 0} (n° ${record.numerosSerieMoteur})` : values?.length || 0
         },
         {
             title: 'Bateaux',
@@ -843,6 +850,10 @@ export default function Forfaits() {
                             </Form.Item>
                         </Col>
                     </Row>
+
+                    <Form.Item name="numerosSerieMoteur" label="Numéros de série moteur" tooltip={MOTIFS_NUMERO_SERIE_AIDE}>
+                        <Input allowClear placeholder={MOTIFS_NUMERO_SERIE_PLACEHOLDER} />
+                    </Form.Item>
 
                     <Form.Item name="dureeEstimee" label="Durée estimée" tooltip="Calculée automatiquement : 1h par unité de main d'œuvre">
                         <InputNumber min={0} step={0.25} precision={2} style={{ width: '100%' }} addonAfter="h" disabled />

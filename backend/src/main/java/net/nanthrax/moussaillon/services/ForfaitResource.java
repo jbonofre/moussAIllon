@@ -39,7 +39,7 @@ public class ForfaitResource {
         }
 
         String likePattern = "%" + q.toLowerCase() + "%";
-        return ForfaitEntity.list(
+        List<ForfaitEntity> forfaits = new ArrayList<>(ForfaitEntity.list(
                 "select distinct f from ForfaitEntity f"
                         + " left join f.bateauxClientsAssocies bc"
                         + " left join bc.modele bcm"
@@ -47,11 +47,19 @@ public class ForfaitResource {
                         + " left join f.moteursClientsAssocies mc"
                         + " left join mc.modele mcm"
                         + " left join mc.proprietaire mcp"
-                        + " where LOWER(f.nom) LIKE ?1 OR LOWER(f.reference) LIKE ?1"
+                        + " where LOWER(f.nom) LIKE ?1 OR LOWER(f.reference) LIKE ?1 OR LOWER(f.numerosSerieMoteur) LIKE ?1"
                         + " OR LOWER(bc.name) LIKE ?1 OR LOWER(bc.immatriculation) LIKE ?1 OR LOWER(bc.numeroSerie) LIKE ?1"
                         + " OR LOWER(bcm.designation) LIKE ?1 OR LOWER(bcmot.designation) LIKE ?1"
                         + " OR LOWER(mc.numeroSerie) LIKE ?1 OR LOWER(mcm.designation) LIKE ?1 OR LOWER(mcp.nom) LIKE ?1",
-                likePattern);
+                likePattern));
+        // Un numéro de série moteur saisi trouve aussi les forfaits dont les motifs le couvrent
+        List<ForfaitEntity> avecMotifs = ForfaitEntity.list("numerosSerieMoteur is not null and numerosSerieMoteur <> ''");
+        for (ForfaitEntity forfait : avecMotifs) {
+            if (!forfaits.contains(forfait) && MotifNumeroSerie.correspond(forfait.numerosSerieMoteur, q)) {
+                forfaits.add(forfait);
+            }
+        }
+        return forfaits;
     }
 
     @POST
@@ -101,6 +109,7 @@ public class ForfaitResource {
                 ? forfait.bateauxClientsAssocies : new ArrayList<>();
         entity.moteursClientsAssocies = forfait.moteursClientsAssocies != null
                 ? forfait.moteursClientsAssocies : new ArrayList<>();
+        entity.numerosSerieMoteur = forfait.numerosSerieMoteur;
         entity.produits.clear();
         if (forfait.produits != null) {
             entity.produits.addAll(forfait.produits);
