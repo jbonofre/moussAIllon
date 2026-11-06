@@ -53,7 +53,11 @@ const donnees: Record<string, any[]> = {
     '/catalogue/bateaux': [bateau],
     '/catalogue/moteurs': [moteur],
     '/forfaits': [forfait],
-    '/clients': [{ id: 3, nom: 'Jean Dupont' }, { id: 4, nom: 'Armement Le Goff', type: 'PROFESSIONNEL_MER' }],
+    '/clients': [
+        { id: 3, nom: 'Jean Dupont' },
+        { id: 4, nom: 'Armement Le Goff', type: 'PROFESSIONNEL_MER' },
+        { id: 5, nom: 'Chantier Naval Kerbrat', remise: 10 },
+    ],
 };
 
 const mockedApi = api as jest.Mocked<typeof api>;
@@ -142,6 +146,86 @@ describe('Transactions - professionnel de la mer', () => {
         expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('0.00');
         expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('0.00');
         await waitFor(() => expect(within(modal).getByLabelText('TVA (%)')).toBeDisabled());
+    });
+});
+
+describe('Transactions - remise du client', () => {
+    const CHAMP_CLIENT = 'Rechercher un client par prénom ou nom';
+
+    it('applique la remise de la fiche client et la garde en pourcentage quand des lignes sont ajoutées', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00'));
+
+        await choisir(modal, CHAMP_CLIENT, 'Chantier Naval Kerbrat');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Remise (%)')).toHaveValue('10.00'));
+        expect(within(modal).getByLabelText('Remise (EUR)')).toHaveValue('1.20');
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('10.80');
+
+        await choisirDansLaLigneVide(modal, 'FORFAIT-001 - Hivernage');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Remise (EUR)')).toHaveValue('31.20'));
+        expect(within(modal).getByLabelText('Remise (%)')).toHaveValue('10.00');
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('280.80');
+    });
+
+    it('retire la remise du client précédent', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+        await choisir(modal, CHAMP_CLIENT, 'Chantier Naval Kerbrat');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('10.80'));
+
+        const champClient = within(modal).getAllByText('Chantier Naval Kerbrat')[0].closest('.ant-select') as HTMLElement;
+        fireEvent.mouseDown(within(champClient).getByRole('combobox'));
+        const option = await waitFor(() => {
+            const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+                .find((element) => element.textContent === 'Jean Dupont');
+            expect(found).toBeTruthy();
+            return found as HTMLElement;
+        });
+        fireEvent.click(option);
+
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00'));
+        expect(within(modal).getByLabelText('Remise (EUR)')).toHaveValue('0.00');
+    });
+
+    it('ne remplace pas une remise saisie à la main', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00'));
+        fireEvent.change(within(modal).getByLabelText('Remise (EUR)'), { target: { value: '2' } });
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('10.00'));
+
+        await choisir(modal, CHAMP_CLIENT, 'Chantier Naval Kerbrat');
+
+        await waitFor(() => expect(within(modal).getAllByText('Chantier Naval Kerbrat').length).toBeGreaterThan(0));
+        expect(within(modal).getByLabelText('Remise (EUR)')).toHaveValue('2.00');
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('10.00');
+    });
+
+    it('garde en pourcentage la remise du client d\'une transaction enregistrée', async () => {
+        const vente = {
+            id: 21, date: '2026-10-20T10:00:00', status: 'DEVIS', bonPourAccord: true,
+            client: { id: 5, nom: 'Chantier Naval Kerbrat', remise: 10 },
+            venteForfaits: [{ id: 1, forfait, quantite: 1, status: 'EN_ATTENTE' }],
+            montantHT: 250, tva: 20, montantTVA: 50, montantTTC: 300, remise: 30, prixVenteTTC: 270,
+        };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes' ? [vente] : url === '/ventes/21' ? vente : (donnees[url] || []),
+        }) as any);
+        render(<Vente />);
+
+        fireEvent.click(await screen.findByText('FACT-2026-00021'));
+        await screen.findByText('Transaction/Prestation');
+        const modal = document.querySelector('.ant-modal') as HTMLElement;
+        expect(await within(modal).findByText('Hivernage')).toBeInTheDocument();
+        await waitFor(() => expect(within(modal).getByLabelText('Remise (%)')).toHaveValue('10.00'));
+
+        await choisirDansLaLigneVide(modal, 'AN-1 - Anode zinc');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Remise (EUR)')).toHaveValue('31.20'));
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('280.80');
     });
 });
 

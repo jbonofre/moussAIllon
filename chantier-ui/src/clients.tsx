@@ -6,6 +6,7 @@ import {
   Modal,
   Form,
   Input,
+  InputNumber,
   Select,
   Space,
   message,
@@ -266,7 +267,9 @@ function Clients() {
 
   const handleModalOk = async () => {
     try {
-      const { confirmPassword, ...values } = await form.validateFields();
+      const { confirmPassword, ...saisie } = await form.validateFields();
+      // Une remise effacée vaut 0 %
+      const values = { ...saisie, remise: saisie.remise || 0 };
       setLoading(true);
       if (editing && editing.id) {
         // update
@@ -630,8 +633,8 @@ function Clients() {
           </Form.Item>
           <Row gutter={16}>
             <Col span={12}>
-              <Form.Item label="Remise (%)" name="remise" initialValue={0}>
-                <Input type="number" min={0} max={100}/>
+              <Form.Item label="Remise (%)" name="remise" initialValue={0} tooltip="Appliquée automatiquement aux nouvelles transactions du client">
+                <InputNumber min={0} max={100} step={0.01} style={{ width: '100%' }} addonAfter="%" />
               </Form.Item>
             </Col>
             <Col span={12}>

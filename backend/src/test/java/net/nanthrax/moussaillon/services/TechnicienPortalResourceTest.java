@@ -561,6 +561,55 @@ public class TechnicienPortalResourceTest {
             .body("tva", is(0.0f));
     }
 
+    @Test
+    void testAjouterProduitConserveLePourcentageDeRemiseDuClient() {
+        int venteId = venteAvecRemiseEtPieceAjoutee(30.0);
+
+        // La remise de 10 % du client porte aussi sur la pièce ajoutée par le technicien
+        given()
+            .when().get("/ventes/" + venteId)
+            .then()
+            .statusCode(200)
+            .body("montantTTC", is(420.0f))
+            .body("remise", is(42.0f))
+            .body("prixVenteTTC", is(378.0f));
+    }
+
+    @Test
+    void testAjouterProduitConserveUneRemiseSaisieALaMain() {
+        int venteId = venteAvecRemiseEtPieceAjoutee(20.0);
+
+        given()
+            .when().get("/ventes/" + venteId)
+            .then()
+            .statusCode(200)
+            .body("montantTTC", is(420.0f))
+            .body("remise", is(20.0f))
+            .body("prixVenteTTC", is(400.0f));
+    }
+
+    // Vente de 300 € TTC à un client remisé à 10 %, avec la remise donnée, où le technicien ajoute 120 € de pièces
+    private static int venteAvecRemiseEtPieceAjoutee(double remise) {
+        int clientId = given()
+            .contentType("application/json")
+            .body("{\"nom\":\"Plaisancier Remise 755 " + remise + "\",\"type\":\"PARTICULIER\",\"remise\":10.0}")
+            .when().post("/clients")
+            .then().statusCode(200).extract().path("id");
+        int produitId = nouveauProduit("Filtre Remise Client 755 " + remise, 10);
+
+        io.restassured.response.Response vente = venteAvecForfait("FACTURE_EN_ATTENTE", "EN_COURS",
+            "\"client\":{\"id\":" + clientId + "},\"remise\":" + remise + ",");
+        int forfaitId = vente.path("venteForfaits[0].id");
+
+        given()
+            .contentType("application/json")
+            .body("{\"produitId\":" + produitId + ",\"quantite\":10}")
+            .when().post("/technicien-portal/forfaits/" + forfaitId + "/produits")
+            .then()
+            .statusCode(200);
+        return vente.path("id");
+    }
+
     // Vente de 300 € TTC (TVA 20 %) avec un forfait au statut donné ; un forfait terminé a toutes ses tâches cochées
     private static io.restassured.response.Response venteAvecForfait(String statutVente, String statutForfait) {
         return venteAvecForfait(statutVente, statutForfait, "");

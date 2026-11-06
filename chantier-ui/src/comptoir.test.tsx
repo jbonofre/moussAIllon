@@ -93,6 +93,19 @@ const choisirDansLaDerniereLigne = async (modal: HTMLElement, libelle: string) =
     fireEvent.click(option);
 };
 
+const choisirClient = async (modal: HTMLElement, nom: string) => {
+    const champ = modal.querySelector('#clientId') as HTMLElement;
+    fireEvent.mouseDown(champ);
+    fireEvent.change(champ, { target: { value: nom } });
+    const option = await waitFor(() => {
+        const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
+            .find((element) => element.textContent === nom);
+        expect(found).toBeTruthy();
+        return found as HTMLElement;
+    });
+    fireEvent.click(option);
+};
+
 describe('Comptoir - liste', () => {
     it('classe les ventes du plus récent au plus ancien', async () => {
         const ventes = [
@@ -209,19 +222,6 @@ describe('Comptoir - professionnel de la mer', () => {
         }) as any);
     });
 
-    const choisirClient = async (modal: HTMLElement, nom: string) => {
-        const champ = modal.querySelector('#clientId') as HTMLElement;
-        fireEvent.mouseDown(champ);
-        fireEvent.change(champ, { target: { value: nom } });
-        const option = await waitFor(() => {
-            const found = Array.from(document.querySelectorAll('.ant-select-dropdown:not(.ant-select-dropdown-hidden) .ant-select-item-option'))
-                .find((element) => element.textContent === nom);
-            expect(found).toBeTruthy();
-            return found as HTMLElement;
-        });
-        fireEvent.click(option);
-    };
-
     it('vend au prix HT, sans TVA, à un professionnel de la mer', async () => {
         const modal = await ouvrirNouvelleVente();
         await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
@@ -248,6 +248,37 @@ describe('Comptoir - professionnel de la mer', () => {
         expect(within(modal).getByLabelText('TVA (%)')).toHaveValue('20.00');
         expect(within(modal).getByLabelText('Montant TVA')).toHaveValue('2.00');
         await waitFor(() => expect(within(modal).getByLabelText('TVA (%)')).toBeEnabled());
+    });
+});
+
+describe('Comptoir - remise du client', () => {
+    beforeEach(() => {
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url.startsWith('/clients/search') ? [{ id: 7, nom: 'Chantier Naval Kerbrat', type: 'PARTICULIER', remise: 10 }] : donnees[url] || [],
+        }) as any);
+    });
+
+    it('applique la remise de la fiche client et la garde en pourcentage quand les montants changent', async () => {
+        const modal = await ouvrirNouvelleVente();
+        await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
+        await waitFor(() => expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('12.00'));
+
+        await choisirClient(modal, 'Chantier Naval Kerbrat');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Remise (%)')).toHaveValue('10.00'));
+        expect(within(modal).getByLabelText('Remise (EUR)')).toHaveValue('1.20');
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('10.80');
+
+        await choisirDansLaDerniereLigne(modal, 'AN-1 - Anode zinc');
+
+        await waitFor(() => expect(within(modal).getByLabelText('Remise (EUR)')).toHaveValue('2.40'));
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('21.60');
+
+        fireEvent.change(within(modal).getByLabelText('TVA (%)'), { target: { value: '10' } });
+
+        await waitFor(() => expect(within(modal).getByLabelText('Remise (EUR)')).toHaveValue('2.20'));
+        expect(within(modal).getByLabelText('Remise (%)')).toHaveValue('10.00');
+        expect(within(modal).getByLabelText('Montant TTC')).toHaveValue('19.80');
     });
 });
 
