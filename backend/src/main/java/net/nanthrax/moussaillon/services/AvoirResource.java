@@ -111,13 +111,10 @@ public class AvoirResource {
         avoir.dateCreation = new Timestamp(System.currentTimeMillis());
         // Le mode de remboursement n'est renseigné qu'au remboursement de l'avoir
         avoir.modeRemboursement = null;
+        // Le numéro de l'avoir est attribué à son émission, dans la série continue des avoirs
+        avoir.reference = null;
 
         avoir.persist();
-
-        if (avoir.reference == null || avoir.reference.isBlank()) {
-            int year = java.time.LocalDate.now().getYear();
-            avoir.reference = String.format("AV-%d-%05d", year, avoir.id);
-        }
         return avoir;
     }
 
@@ -263,11 +260,6 @@ public class AvoirResource {
         avoir.montantTTC = round2(avoir.lignes.stream().mapToDouble(l -> l.totalTTC).sum());
 
         avoir.persist();
-
-        if (avoir.reference == null || avoir.reference.isBlank()) {
-            int year = java.time.LocalDate.now().getYear();
-            avoir.reference = String.format("AV-%d-%05d", year, avoir.id);
-        }
         return avoir.id;
     }
 
@@ -305,12 +297,7 @@ public class AvoirResource {
             entity.vente = null;
         }
 
-        if (data.reference != null && !data.reference.isBlank()) {
-            entity.reference = data.reference.trim();
-        } else if (entity.reference == null || entity.reference.isBlank()) {
-            int year = java.time.LocalDate.now().getYear();
-            entity.reference = String.format("AV-%d-%05d", year, entity.id);
-        }
+        // Le numéro de l'avoir n'est pas modifiable : il est attribué à son émission
         entity.motif = data.motif;
         entity.notes = data.notes;
         entity.montantHT = data.montantHT;
@@ -350,10 +337,9 @@ public class AvoirResource {
         }
         entity.status = AvoirEntity.Status.EMIS;
         entity.dateEmission = new Timestamp(System.currentTimeMillis());
-        if (entity.reference == null || entity.reference.isBlank()) {
-            int year = java.time.LocalDate.now().getYear();
-            entity.reference = String.format("AV-%d-%05d", year, entity.id);
-        }
+        // Numéro définitif, suivant le dernier avoir émis (un brouillon créé avant la numérotation continue
+        // portait un numéro provisoire, tiré de son identifiant)
+        entity.reference = NumerotationDocuments.prochainAvoir();
         return entity;
     }
 

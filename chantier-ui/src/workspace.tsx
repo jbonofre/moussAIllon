@@ -2,7 +2,7 @@ import { fetchWithAuth } from './api.ts';
 import { chantierMemorise } from './chantier.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Button, Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
-import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined, FundOutlined, LineChartOutlined, BarChartOutlined, BellOutlined, ScheduleOutlined } from '@ant-design/icons';
+import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined, FundOutlined, ExportOutlined, LineChartOutlined, BarChartOutlined, BellOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
 import { ReactComponent as BoatOutlined } from './boat.svg';
@@ -21,6 +21,7 @@ import Reglements from './reglements.tsx';
 import Connecteurs from './connecteurs.tsx';
 import RapprochementBancaire from './rapprochement-bancaire.tsx';
 import KpisFinanciers from './kpis-financiers.tsx';
+import ExportComptable from './export-comptable.tsx';
 import KpisCommerciaux from './kpis-commerciaux.tsx';
 import KpisAtelier from './kpis-atelier.tsx';
 import Utilisateurs from './utilisateurs.tsx';
@@ -94,6 +95,7 @@ const MENU_ITEMS = [
     { key: '/reglements', label: 'Règlements', icon: <WalletOutlined/> },
     { key: '/rapprochement-bancaire', label: 'Rapprochement bancaire', icon: <ReconciliationOutlined/> },
     { key: '/kpis-financiers', label: 'KPIs financiers', icon: <FundOutlined/> },
+    { key: '/export-comptable', label: 'Export comptable', icon: <ExportOutlined/> },
   ] },
   { key: 'parametrage', label: 'Paramétrage', icon: <SettingOutlined/>, module: 'PARAMETRAGE', children: [
     { key: '/societe', label: 'Société', icon: <BankOutlined/> },
@@ -586,6 +588,8 @@ export default function Workspace(props) {
                 return <RapprochementBancaire />;
             case '/kpis-financiers':
                 return <KpisFinanciers />;
+            case '/export-comptable':
+                return <ExportComptable />;
             case '/kpis-commerciaux':
                 return <KpisCommerciaux />;
             case '/kpis-atelier':

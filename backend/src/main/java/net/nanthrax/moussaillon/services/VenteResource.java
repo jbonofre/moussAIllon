@@ -446,6 +446,8 @@ public class VenteResource {
     @Transactional
     public Response create(VenteEntity vente) {
         vente.id = null;
+        // Le numéro du document est toujours attribué par le serveur (série continue des factures)
+        vente.numeroFacture = null;
         // Copy template taches from catalogue forfait if none provided
         if (vente.venteForfaits != null) {
             for (VenteForfaitEntity vf : vente.venteForfaits) {
@@ -531,6 +533,13 @@ public class VenteResource {
             throw new WebApplicationException(
                 Response.status(Response.Status.BAD_REQUEST)
                     .entity(java.util.Map.of("error", "Une vente payée ne peut pas être supprimée"))
+                    .build());
+        }
+        // Supprimer une facture émise romprait la numérotation continue des factures
+        if (factureEmise(entity)) {
+            throw new WebApplicationException(
+                Response.status(Response.Status.BAD_REQUEST)
+                    .entity(java.util.Map.of("error", "Une facture émise ne peut pas être supprimée : générez un avoir pour l'annuler"))
                     .build());
         }
         List<CommandeFournisseurEntity> commandes = CommandeFournisseurEntity.list("vente.id", id);
@@ -947,15 +956,25 @@ public class VenteResource {
         return v.ordreDeReparation ? "OR" : "DE";
     }
 
+    /** Facture émise (numéro définitif) : elle ne peut plus être supprimée, seulement annulée par un avoir. */
+    static boolean factureEmise(VenteEntity v) {
+        return v.numeroFacture != null && v.numeroFacture.startsWith("FA");
+    }
+
     static void attribuerNumeroDocument(VenteEntity v) {
         if (v.id == null || v.status == null) {
             return;
         }
-        if (v.numeroFacture != null && v.numeroFacture.startsWith("FA")) {
+        if (factureEmise(v)) {
+            return;
+        }
+        String prefixe = prefixeDocument(v);
+        if ("FA".equals(prefixe)) {
+            v.numeroFacture = NumerotationDocuments.prochaineFacture();
             return;
         }
         int year = java.time.LocalDate.now().getYear() % 100;
-        v.numeroFacture = String.format("%s%02d-%06d", prefixeDocument(v), year, v.id);
+        v.numeroFacture = String.format("%s%02d-%06d", prefixe, year, v.id);
     }
 
     public static class AjouterPaiementRequest {

@@ -698,6 +698,9 @@ const compterInterventions = (lignes: LigneUnifiee[]) =>
     lignes.filter((l) => (l.type === 'forfait' || l.type === 'service') && l.itemId).length;
 
 const formatEuro = (value?: number) => `${(value || 0).toFixed(2)} EUR`;
+// Facture émise (numéro définitif FA…) : elle ne se supprime pas, elle s'annule par un avoir
+const estFactureEmise = (vente: { status?: string; numeroFacture?: string }) =>
+    vente.status === 'FACTURE_PAYEE' || !!vente.numeroFacture?.startsWith('FA');
 const getSoldeDu = (vente: { status?: string; prixVenteTTC?: number; paiements?: Array<{ montant: number }> }) => {
     if (vente.status === 'FACTURE_PAYEE') return 0;
     const totalPaye = (vente.paiements ?? []).reduce((sum, p) => sum + (p.montant || 0), 0);
@@ -3467,9 +3470,14 @@ export default function Vente() {
                         onConfirm={() => handleDelete(record.id)}
                         okText="Oui"
                         cancelText="Non"
-                        disabled={record.status === 'FACTURE_PAYEE'}
+                        disabled={estFactureEmise(record)}
                     >
-                        <Button danger icon={<DeleteOutlined />} disabled={record.status === 'FACTURE_PAYEE'} />
+                        <Button
+                            danger
+                            icon={<DeleteOutlined />}
+                            disabled={estFactureEmise(record)}
+                            title={estFactureEmise(record) ? "Une facture émise ne se supprime pas : générez un avoir" : undefined}
+                        />
                     </Popconfirm>
                 </Space>
             )

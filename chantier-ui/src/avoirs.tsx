@@ -433,7 +433,6 @@ export default function Avoirs() {
         const payload: AvoirEntity = {
             client: { id: formClientId } as ClientRef,
             vente: formVenteId ? { id: formVenteId } as VenteRef : undefined,
-            reference: formReference.trim() || undefined,
             motif: formMotif,
             notes: formNotes,
             lignes: formLignes,
@@ -959,11 +958,11 @@ export default function Avoirs() {
                             </Form.Item>
                         </Col>
                         <Col span={8}>
-                            <Form.Item label="Référence de l'avoir">
+                            <Form.Item label="Numéro de l'avoir">
                                 <Input
                                     value={formReference}
-                                    onChange={(e) => setFormReference(e.target.value)}
-                                    placeholder="Auto-généré si vide (ex: AV-2026-00001)"
+                                    disabled
+                                    placeholder="Attribué à l'émission (ex : AV-2026-00001)"
                                 />
                             </Form.Item>
                         </Col>
