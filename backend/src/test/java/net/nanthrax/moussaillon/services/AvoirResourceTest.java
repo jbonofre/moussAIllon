@@ -6,13 +6,15 @@ import org.junit.jupiter.api.Test;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.CoreMatchers.*;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.hamcrest.Matchers.matchesPattern;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @QuarkusTest
 public class AvoirResourceTest {
 
     @Test
     void testCreerEtModifierAvoirAvecReferences() {
-        // Create an avoir with a reference and line reference
+        // Create an avoir with a reference and line reference : le numéro de l'avoir, attribué à son émission, est ignoré
         String jsonCreate = "{\n" +
                 "  \"client\": {\"id\": 100},\n" +
                 "  \"reference\": \"AV-2026-TEST\",\n" +
@@ -40,7 +42,7 @@ public class AvoirResourceTest {
                 .when().post("/avoirs")
                 .then()
                 .statusCode(200)
-                .body("reference", is("AV-2026-TEST"))
+                .body("reference", nullValue())
                 .body("lignes[0].reference", is("FILT-001"))
                 .body("lignes[0].designation", is("Filtre à huile"))
                 .extract().path("id");
@@ -50,16 +52,8 @@ public class AvoirResourceTest {
                 .when().get("/avoirs/" + id)
                 .then()
                 .statusCode(200)
-                .body("reference", is("AV-2026-TEST"))
+                .body("reference", nullValue())
                 .body("lignes[0].reference", is("FILT-001"));
-
-        // Search by reference
-        given()
-                .when().get("/avoirs/search?reference=AV-2026-TEST")
-                .then()
-                .statusCode(200)
-                .body("size()", greaterThanOrEqualTo(1))
-                .body("[0].reference", is("AV-2026-TEST"));
 
         // Update avoir
         String jsonUpdate = "{\n" +
@@ -89,12 +83,35 @@ public class AvoirResourceTest {
                 .when().put("/avoirs/" + id)
                 .then()
                 .statusCode(200)
-                .body("reference", is("AV-2026-UPDATED"))
+                .body("reference", nullValue())
                 .body("lignes[0].reference", is("FILT-002"));
+
+        // Émis, l'avoir reçoit son numéro, retrouvé par la recherche et que la modification ne change pas
+        String reference = given()
+                .contentType("application/json")
+                .when().post("/avoirs/" + id + "/emettre")
+                .then()
+                .statusCode(200)
+                .extract().path("reference");
+
+        given()
+                .when().get("/avoirs/search?reference=" + reference)
+                .then()
+                .statusCode(200)
+                .body("size()", is(1))
+                .body("[0].id", is(id));
+
+        given()
+                .contentType("application/json")
+                .body(jsonUpdate)
+                .when().put("/avoirs/" + id)
+                .then()
+                .statusCode(200)
+                .body("reference", is(reference));
     }
 
     @Test
-    void testGenerationAutomatiqueReferenceAvoir() {
+    void testNumerotationContinueDesAvoirs() {
         int year = java.time.LocalDate.now().getYear();
 
         // Create an avoir without reference
@@ -117,23 +134,41 @@ public class AvoirResourceTest {
                 "  ]\n" +
                 "}";
 
-        int id = given()
+        int premier = given()
                 .contentType("application/json")
                 .body(jsonCreate)
                 .when().post("/avoirs")
                 .then()
                 .statusCode(200)
-                .body("reference", startsWith("AV-" + year + "-"))
+                .body("reference", nullValue())
                 .extract().path("id");
+        // Brouillon supprimé : il n'a pas consommé de numéro
+        int supprime = given().contentType("application/json").body(jsonCreate).when().post("/avoirs")
+                .then().statusCode(200).extract().path("id");
+        given().when().delete("/avoirs/" + supprime).then().statusCode(204);
+        int second = given().contentType("application/json").body(jsonCreate).when().post("/avoirs")
+                .then().statusCode(200).extract().path("id");
 
-        // Verify that emettre maintains the auto-generated reference
-        given()
+        String numeroPremier = given()
                 .contentType("application/json")
-                .when().post("/avoirs/" + id + "/emettre")
+                .when().post("/avoirs/" + premier + "/emettre")
                 .then()
                 .statusCode(200)
-                .body("reference", startsWith("AV-" + year + "-"))
-                .body("status", is("EMIS"));
+                .body("reference", matchesPattern("AV-" + year + "-\\d{5}"))
+                .body("status", is("EMIS"))
+                .extract().path("reference");
+        String numeroSecond = given()
+                .contentType("application/json")
+                .when().post("/avoirs/" + second + "/emettre")
+                .then()
+                .statusCode(200)
+                .extract().path("reference");
+
+        assertEquals(numero(numeroPremier) + 1, numero(numeroSecond));
+    }
+
+    private static int numero(String reference) {
+        return Integer.parseInt(reference.substring(reference.lastIndexOf('-') + 1));
     }
 
     @Test

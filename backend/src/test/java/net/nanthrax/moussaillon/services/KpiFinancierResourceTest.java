@@ -183,14 +183,16 @@ public class KpiFinancierResourceTest {
     void testSuppressionDUneVenteSortieDuStock() {
         int bateau = creer("/catalogue/bateaux", "{\"designation\":\"Semi-rigide KPI\",\"type\":\"Annexe\",\"stock\":1,"
                 + "\"prixVenteTTC\":3000,\"prixAchatMoyenHT\":2000}");
-        String vente = "\"comptoir\":true,\"prixVenteTTC\":3000,\"venteBateauxCatalogue\":[{\"bateau\":{\"id\":" + bateau + "},\"quantite\":1}]";
-        int venteId = creer("/ventes", "{\"status\":\"DEVIS\"," + vente + "}");
-        given().contentType("application/json").body("{\"status\":\"FACTURE_PRETE\"," + vente + "}")
+        // Le stock sort dès qu'une prestation de la vente est lancée, avant toute facture émise
+        String vente = "\"bonPourAccord\":true,\"prixVenteTTC\":3200,\"venteBateauxCatalogue\":[{\"bateau\":{\"id\":" + bateau + "},\"quantite\":1}],"
+                + "\"venteForfaits\":[{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"%s\"}]";
+        int venteId = creer("/ventes", "{\"status\":\"DEVIS\"," + String.format(vente, "EN_ATTENTE") + "}");
+        given().contentType("application/json").body("{\"status\":\"DEVIS\"," + String.format(vente, "EN_COURS") + "}")
                 .when().put("/ventes/" + venteId)
                 .then().statusCode(200);
         assertEquals(0, ((Number) given().when().get("/catalogue/bateaux/" + bateau).then().extract().path("stock")).intValue());
 
-        // La sortie de stock du bateau, inscrite à son historique, n'empêche pas de supprimer la vente non payée
+        // La sortie de stock du bateau, inscrite à son historique, n'empêche pas de supprimer la vente non facturée
         given().when().delete("/ventes/" + venteId).then().statusCode(204);
     }
 

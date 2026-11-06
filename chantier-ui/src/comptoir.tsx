@@ -433,6 +433,9 @@ const toBackendDateValue = (value?: dayjs.Dayjs | string) => {
 };
 
 const formatEuro = (value?: number) => `${(value || 0).toFixed(2)} EUR`;
+// Facture émise (numéro définitif FA…) : elle ne se supprime pas, elle s'annule par un avoir
+const estFactureEmise = (vente: { status?: string; numeroFacture?: string }) =>
+    vente.status === 'FACTURE_PAYEE' || !!vente.numeroFacture?.startsWith('FA');
 const formatDatePrint = (value?: string) => {
     if (!value) return '-';
     const parsed = new Date(value);
@@ -1962,9 +1965,14 @@ export default function Comptoir() {
                         onConfirm={() => handleDelete(record.id)}
                         okText="Oui"
                         cancelText="Non"
-                        disabled={record.status === 'FACTURE_PAYEE'}
+                        disabled={estFactureEmise(record)}
                     >
-                        <Button danger icon={<DeleteOutlined />} disabled={record.status === 'FACTURE_PAYEE'} />
+                        <Button
+                            danger
+                            icon={<DeleteOutlined />}
+                            disabled={estFactureEmise(record)}
+                            title={estFactureEmise(record) ? "Une facture émise ne se supprime pas : générez un avoir" : undefined}
+                        />
                     </Popconfirm>
                 </Space>
             )

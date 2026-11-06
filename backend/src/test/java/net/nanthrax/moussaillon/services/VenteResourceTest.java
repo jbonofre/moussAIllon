@@ -15,6 +15,7 @@ import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasItem;
 import static org.hamcrest.Matchers.hasKey;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @QuarkusTest
@@ -508,6 +509,77 @@ public class VenteResourceTest {
             .then()
             .statusCode(200)
             .body("numeroFacture", is(numero));
+    }
+
+    @Test
+    void testNumerotationContinueDesFactures() {
+        String premiere = emettreFacture();
+        // Les devis et ordres de réparation créés entre deux factures ne font pas de trou dans la série des factures
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":10.0}")
+            .when().post("/ventes")
+            .then().statusCode(201);
+        String seconde = emettreFacture();
+
+        String prefixe = String.format("FA%02d-", java.time.LocalDate.now().getYear() % 100);
+        assertTrue(premiere.matches(prefixe + "\\d{6}"), premiere);
+        assertEquals(numero(premiere) + 1, numero(seconde));
+    }
+
+    @Test
+    void testNumeroFactureAttribueParLeServeur() {
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"numeroFacture\":\"FA-MANUEL\",\"prixVenteTTC\":80.0}")
+            .when().post("/ventes")
+            .then()
+            .statusCode(201)
+            .body("numeroFacture", not("FA-MANUEL"))
+            .body("numeroFacture", startsWith("FA"));
+    }
+
+    @Test
+    void testFactureEmiseNonSupprimable() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":150.0}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+        given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":150.0}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200);
+
+        given()
+            .when().delete("/ventes/" + id)
+            .then()
+            .statusCode(400)
+            .body("error", containsString("avoir"));
+
+        given()
+            .when().get("/ventes/" + id)
+            .then()
+            .statusCode(200);
+    }
+
+    // Émet une facture (devis passé en facture complète) et renvoie son numéro
+    private static String emettreFacture() {
+        int id = given()
+            .contentType("application/json")
+            .body("{\"status\":\"DEVIS\",\"prixVenteTTC\":150.0}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().path("id");
+        return given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_PRETE\",\"prixVenteTTC\":150.0}")
+            .when().put("/ventes/" + id)
+            .then().statusCode(200).extract().path("numeroFacture");
+    }
+
+    private static int numero(String numeroFacture) {
+        return Integer.parseInt(numeroFacture.substring(numeroFacture.lastIndexOf('-') + 1));
     }
 
     /** Conditions de paiement de la société, modifiées dans une transaction à part pour être vues des appels REST. */

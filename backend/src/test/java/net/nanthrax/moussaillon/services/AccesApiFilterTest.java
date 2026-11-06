@@ -87,6 +87,10 @@ public class AccesApiFilterTest {
         assertNull(refus(COMPTABLE, "GET", "/reglements"));
         assertNotNull(refus(VENDEUR, "GET", "/kpis-financiers"));
         assertNull(refus(COMPTABLE, "GET", "/kpis-financiers"));
+        assertNotNull(refus(VENDEUR, "GET", "/export-comptable/fec"));
+        assertNotNull(refus(ADMIN, "PUT", "/export-comptable/parametres"));
+        assertNull(refus(COMPTABLE, "GET", "/export-comptable/fec"));
+        assertNull(refus(COMPTABLE, "PUT", "/export-comptable/parametres"));
         assertNull(refus(COMPTABLE, "POST", "/connecteurs/1/synchronisation"));
         assertNull(refus(ADMIN, "GET", "/connecteurs"));
         assertNotNull(refus(VENDEUR, "GET", "/connecteurs"));
