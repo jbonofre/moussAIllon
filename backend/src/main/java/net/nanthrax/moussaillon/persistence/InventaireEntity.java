@@ -4,7 +4,6 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
@@ -20,7 +19,7 @@ import jakarta.persistence.OrderBy;
  * comptées sont enregistrées au fil du comptage, puis sa validation applique au stock l'écart de chaque article compté.
  */
 @Entity
-public class InventaireEntity extends PanacheEntity {
+public class InventaireEntity extends PanacheEntityChantier {
 
     public enum Statut {
         EN_COURS,

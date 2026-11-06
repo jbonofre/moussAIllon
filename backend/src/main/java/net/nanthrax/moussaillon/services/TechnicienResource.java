@@ -179,7 +179,7 @@ public class TechnicienResource {
 
         technicien.motDePasse = PasswordUtil.hash(request.password);
 
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
 
         String subject = "Votre mot de passe - Espace Technicien " + societeNom;

@@ -1,0 +1,27 @@
+.login-page {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #001529;
+  background-size: cover;
+  background-position: center;
+}
+
+.login-card {
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  background: rgba(255, 255, 255, 0.96);
+  border-radius: 20px;
+  padding: 48px 40px 36px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.25);
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: #001529;
+}

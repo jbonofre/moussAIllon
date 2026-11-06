@@ -5,6 +5,7 @@ import io.quarkus.mailer.Mailer;
 import io.quarkus.narayana.jta.runtime.TransactionConfiguration;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
+import jakarta.persistence.TypedQuery;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
@@ -38,14 +39,7 @@ public class ClientResource {
     @GET
     public List<ClientEntity> list() {
         List<ClientEntity> clients = ClientEntity.listAll();
-        clients.forEach(c -> {
-            c.motDePasse = null;
-            c.soldeDu = computeSoldeDu(c.id);
-            c.nombreBateaux = computeNombreBateaux(c.id);
-            c.bateaux = listBateaux(c.id);
-            c.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(c.id);
-        });
-        renseignerSuiviCommercial(clients);
+        completer(clients, null);
         return clients;
     }
 
@@ -62,14 +56,7 @@ public class ClientResource {
                 likePattern
             );
         }
-        clients.forEach(c -> {
-            c.motDePasse = null;
-            c.soldeDu = computeSoldeDu(c.id);
-            c.nombreBateaux = computeNombreBateaux(c.id);
-            c.bateaux = listBateaux(c.id);
-            c.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(c.id);
-        });
-        renseignerSuiviCommercial(clients);
+        completer(clients, null);
         return clients;
     }
 
@@ -196,12 +183,7 @@ public class ClientResource {
         if (entity == null) {
             throw new WebApplicationException("Le client (" + id + ") n'est pas trouvé", 404);
         }
-        entity.motDePasse = null;
-        entity.soldeDu = computeSoldeDu(id);
-        entity.nombreBateaux = computeNombreBateaux(id);
-        entity.bateaux = listBateaux(id);
-        entity.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(id);
-        renseignerSuiviCommercial(List.of(entity));
+        completer(List.of(entity), id);
         return entity;
     }
 
@@ -255,12 +237,7 @@ public class ClientResource {
 
         entity.flush();
         ClientEntity.getEntityManager().detach(entity);
-        entity.motDePasse = null;
-        entity.soldeDu = computeSoldeDu(id);
-        entity.nombreBateaux = computeNombreBateaux(id);
-        entity.bateaux = listBateaux(id);
-        entity.delaiPaiementMoyenJours = computeDelaiPaiementMoyenJours(id);
-        renseignerSuiviCommercial(List.of(entity));
+        completer(List.of(entity), id);
         return entity;
     }
 
@@ -337,47 +314,81 @@ public class ClientResource {
         return dates;
     }
 
-    private double computeSoldeDu(long clientId) {
-        List<VenteEntity> unpaid = VenteEntity.list(
-            "client.id = ?1 and (status = ?2 or status = ?3)",
-            clientId, VenteEntity.Status.FACTURE_EN_ATTENTE, VenteEntity.Status.FACTURE_PRETE
-        );
-        return unpaid.stream().mapToDouble(v -> v.prixVenteTTC).sum();
+    /**
+     * Champs calculés des clients : solde dû, bateaux, délai de paiement moyen et suivi commercial. Quelques requêtes
+     * pour toute la liste, et non plusieurs par client (la liste de tous les clients en faisait des milliers) ; pour
+     * un seul client (seul), elles se limitent à lui.
+     */
+    private static void completer(List<ClientEntity> clients, Long seul) {
+        if (clients.isEmpty()) {
+            return;
+        }
+        Map<Long, Double> soldes = soldesDus(seul);
+        Map<Long, List<Map<String, Object>>> bateaux = bateauxParClient(seul);
+        Map<Long, Double> delais = delaisPaiementMoyens(seul);
+        for (ClientEntity client : clients) {
+            client.motDePasse = null;
+            client.soldeDu = soldes.getOrDefault(client.id, 0.0);
+            client.bateaux = bateaux.getOrDefault(client.id, new java.util.ArrayList<>());
+            client.nombreBateaux = (long) client.bateaux.size();
+            client.delaiPaiementMoyenJours = delais.get(client.id);
+        }
+        renseignerSuiviCommercial(clients);
     }
 
-    private List<java.util.Map<String, Object>> listBateaux(long clientId) {
-        List<Object[]> rows = BateauClientEntity.getEntityManager()
-            .createQuery("SELECT b.id, b.name FROM BateauClientEntity b JOIN b.proprietaires p WHERE p.id = :clientId ORDER BY b.name", Object[].class)
-            .setParameter("clientId", clientId)
-            .getResultList();
-        return rows.stream()
-            .map(r -> {
-                java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
-                m.put("id", r[0]);
-                m.put("name", r[1]);
-                return m;
-            })
-            .collect(java.util.stream.Collectors.toList());
+    /** Solde dû par client : total TTC de ses factures en attente ou prêtes. */
+    private static Map<Long, Double> soldesDus(Long seul) {
+        Map<Long, Double> soldes = new HashMap<>();
+        TypedQuery<Object[]> requete = VenteEntity.getEntityManager()
+            .createQuery("SELECT v.client.id, SUM(v.prixVenteTTC) FROM VenteEntity v WHERE v.status IN (:statuts)"
+                + (seul != null ? " AND v.client.id = :client" : "") + " GROUP BY v.client.id", Object[].class)
+            .setParameter("statuts", List.of(VenteEntity.Status.FACTURE_EN_ATTENTE, VenteEntity.Status.FACTURE_PRETE));
+        pourLeClient(requete, seul).getResultList()
+            .forEach(r -> soldes.put((Long) r[0], ((Number) r[1]).doubleValue()));
+        return soldes;
     }
 
-    private long computeNombreBateaux(long clientId) {
-        return BateauClientEntity.getEntityManager()
-            .createQuery("SELECT COUNT(b) FROM BateauClientEntity b JOIN b.proprietaires p WHERE p.id = :clientId", Long.class)
-            .setParameter("clientId", clientId)
-            .getSingleResult();
+    /** Bateaux de chaque client (identifiant et nom), par nom. */
+    private static Map<Long, List<Map<String, Object>>> bateauxParClient(Long seul) {
+        Map<Long, List<Map<String, Object>>> bateaux = new HashMap<>();
+        TypedQuery<Object[]> requete = BateauClientEntity.getEntityManager()
+            .createQuery("SELECT p.id, b.id, b.name FROM BateauClientEntity b JOIN b.proprietaires p"
+                + (seul != null ? " WHERE p.id = :client" : "") + " ORDER BY b.name", Object[].class);
+        pourLeClient(requete, seul).getResultList()
+            .forEach(r -> {
+                Map<String, Object> bateau = new java.util.LinkedHashMap<>();
+                bateau.put("id", r[1]);
+                bateau.put("name", r[2]);
+                bateaux.computeIfAbsent((Long) r[0], c -> new java.util.ArrayList<>()).add(bateau);
+            });
+        return bateaux;
     }
 
     /**
-     * Délai moyen, en jours, entre l'émission d'une facture (dateFacturePrete) et son
-     * paiement (dateFacturePayee), sur les factures payées de ce client. Retourne null
-     * si le client n'a aucune facture payée avec ces deux dates renseignées.
+     * Délai moyen, en jours, entre l'émission d'une facture (dateFacturePrete) et son paiement (dateFacturePayee),
+     * sur les factures payées de chaque client ayant ces deux dates (absent pour un client sans telle facture).
      */
-    private Double computeDelaiPaiementMoyenJours(long clientId) {
-        List<VenteEntity> payees = VenteEntity.list(
-            "client.id = ?1 and status = ?2 and dateFacturePrete is not null and dateFacturePayee is not null",
-            clientId, VenteEntity.Status.FACTURE_PAYEE
-        );
-        return averageDelaiPaiementJours(payees);
+    private static Map<Long, Double> delaisPaiementMoyens(Long seul) {
+        Map<Long, double[]> cumuls = new HashMap<>();
+        TypedQuery<Object[]> requete = VenteEntity.getEntityManager()
+            .createQuery("SELECT v.client.id, v.dateFacturePrete, v.dateFacturePayee FROM VenteEntity v WHERE v.status = :payee"
+                + " AND v.dateFacturePrete IS NOT NULL AND v.dateFacturePayee IS NOT NULL"
+                + (seul != null ? " AND v.client.id = :client" : ""), Object[].class)
+            .setParameter("payee", VenteEntity.Status.FACTURE_PAYEE);
+        pourLeClient(requete, seul).getResultList()
+            .forEach(r -> {
+                double[] cumul = cumuls.computeIfAbsent((Long) r[0], c -> new double[2]);
+                cumul[0] += (((Timestamp) r[2]).getTime() - ((Timestamp) r[1]).getTime()) / 86400000.0;
+                cumul[1]++;
+            });
+        Map<Long, Double> delais = new HashMap<>();
+        cumuls.forEach((client, cumul) -> delais.put(client, cumul[0] / cumul[1]));
+        return delais;
+    }
+
+    /** Restreint la requête au client (paramètre client), s'il y en a un. */
+    private static TypedQuery<Object[]> pourLeClient(TypedQuery<Object[]> requete, Long seul) {
+        return seul == null ? requete : requete.setParameter("client", seul);
     }
 
     static Double averageDelaiPaiementJours(List<VenteEntity> ventesPayees) {
@@ -407,7 +418,7 @@ public class ClientResource {
 
         client.motDePasse = PasswordUtil.hash(request.password);
 
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
 
         String subject = "Votre mot de passe - Espace Client " + societeNom;

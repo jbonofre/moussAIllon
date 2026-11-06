@@ -1,18 +1,20 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 
 import java.util.ArrayList;
 import java.util.List;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class FournisseurEntity extends PanacheEntity {
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"chantier", "nom"}))
+public class FournisseurEntity extends PanacheEntityChantier {
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false)
     @FormatNom
     public String nom;
 

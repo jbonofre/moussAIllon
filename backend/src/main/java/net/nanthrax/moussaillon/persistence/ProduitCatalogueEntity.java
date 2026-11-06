@@ -1,6 +1,5 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -12,7 +11,7 @@ import java.util.List;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class ProduitCatalogueEntity extends PanacheEntity {
+public class ProduitCatalogueEntity extends PanacheEntityChantier {
 
     @jakarta.persistence.Transient
     public List<String> referencesFournisseurs;

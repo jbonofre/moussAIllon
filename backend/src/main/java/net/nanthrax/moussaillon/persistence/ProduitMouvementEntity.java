@@ -2,7 +2,6 @@ package net.nanthrax.moussaillon.persistence;
 
 import java.sql.Timestamp;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbProperty;
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
@@ -18,7 +17,7 @@ import jakarta.persistence.ManyToOne;
  * des ventes figent le coût d'achat de l'article, pour la marge.
  */
 @Entity
-public class ProduitMouvementEntity extends PanacheEntity {
+public class ProduitMouvementEntity extends PanacheEntityChantier {
 
     public enum Type {
         VENTE,

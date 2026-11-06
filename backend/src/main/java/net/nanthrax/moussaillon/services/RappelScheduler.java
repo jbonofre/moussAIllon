@@ -49,10 +49,19 @@ public class RappelScheduler {
     @Inject
     Mailer mailer;
 
+    @Inject
+    Chantiers chantiers;
+
     @Scheduled(cron = "0 0 8 * * ?")
+    void planifierRelances() {
+        chantiers.pourChaqueChantier("Relances de paiement", this::envoyerRelances);
+        chantiers.pourChaqueChantier("Relances de devis", this::envoyerRelancesDevis);
+    }
+
+    /** Envoie les relances de paiement dues du chantier courant, si elles sont automatiques. */
     @Transactional
     public void envoyerRelances() {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         // Sans envoi automatique, les relances attendent d'être validées dans le journal des relances.
         if (societe == null || !societe.relancesAutomatiques) {
             return;
@@ -60,10 +69,10 @@ public class RappelScheduler {
         relancesFactures(societe, LocalDate.now()).forEach(this::envoyer);
     }
 
-    @Scheduled(cron = "0 0 8 * * ?")
+    /** Envoie les relances de devis/OR dues du chantier courant, si elles sont automatiques. */
     @Transactional
     public void envoyerRelancesDevis() {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         if (societe == null || !societe.relancesAutomatiques) {
             return;
         }
@@ -246,7 +255,7 @@ public class RappelScheduler {
      * (0) prend le modèle de la relance qui suit la dernière envoyée.
      */
     public RappelHistoriqueEntity envoyerRelanceDevis(VenteEntity vente, int numeroRelance) {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
 
         Map<String, String> variables = new LinkedHashMap<>();
         variables.put("{client}", vente.client.nom != null ? vente.client.nom : "");
@@ -267,7 +276,7 @@ public class RappelScheduler {
     }
 
     private static Map<String, String> variablesRelance(VenteEntity vente, int numeroRelance) {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
         String numeroFacture = vente.numeroFacture != null ? vente.numeroFacture : String.valueOf(vente.id);
         double soldeDu = VenteResource.soldeDu(vente);

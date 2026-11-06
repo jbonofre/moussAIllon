@@ -1,6 +1,7 @@
 import { fetchWithAuth } from './api.ts';
+import { chantierMemorise } from './chantier.ts';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
+import { Alert, Button, Layout, Input, Col, Row, Image, Menu, Form, Modal, message, ConfigProvider, Grid, theme as antdTheme, Switch as AntSwitch } from 'antd';
 import { UserOutlined, TeamOutlined, HomeOutlined, RocketOutlined, SettingOutlined, ToolOutlined, StockOutlined, NotificationOutlined, TruckOutlined, ReadOutlined, ShopOutlined, DisconnectOutlined, CalendarOutlined, FileDoneOutlined, CheckSquareOutlined, HourglassOutlined, ShoppingCartOutlined, MailOutlined, SendOutlined, BankOutlined, NodeIndexOutlined, DatabaseOutlined, DollarOutlined, AppstoreOutlined, SolutionOutlined, RollbackOutlined, GiftOutlined, AuditOutlined, WalletOutlined, ApiOutlined, ReconciliationOutlined, FundOutlined, LineChartOutlined, BarChartOutlined, BellOutlined, ScheduleOutlined } from '@ant-design/icons';
 import { NavigationContext } from './navigation-context.tsx';
 import Icon from '@ant-design/icons';
@@ -220,8 +221,10 @@ function Header(props) {
         }
     };
 
+    const chantier = chantierMemorise();
     const menuUser = [
               { key: 'user', label: props.user, icon: <UserOutlined />, children: [
+                ...(chantier ? [{ key: 'chantier', label: 'Chantier : ' + chantier, icon: <ShopOutlined/>, disabled: true }] : []),
                 { key: 'preferences', label: 'Préférences', icon: <SettingOutlined/> },
                 { key: 'deconnexion', label: 'Déconnexion', icon: <DisconnectOutlined/> }
               ]}
@@ -447,6 +450,9 @@ export default function Workspace(props) {
     // Abonnement non activé, ou échéance impayée depuis 2 mois ou plus : l'accès est limité à la facturation
     const [ accesLimite, setAccesLimite ] = useState<boolean>(!!props.accesLimiteFacturation);
     const [ abonnementActif, setAbonnementActif ] = useState<boolean>(props.abonnementActif !== false);
+    // Période d'essai gratuite du chantier inscrit en ligne : sa fin, et si elle est en cours
+    const [ essaiFin, setEssaiFin ] = useState<string | null>(null);
+    const [ enEssai, setEnEssai ] = useState(false);
 
     const navigate = useCallback((page: string, state?: any) => {
         setPageState(state || null);
@@ -456,6 +462,8 @@ export default function Workspace(props) {
     const majAbonnement = useCallback((societe: any) => {
         setAccesLimite(!!societe.accesLimiteFacturation);
         setAbonnementActif(!!societe.abonnementActif);
+        setEssaiFin(societe.essaiFin || null);
+        setEnEssai(!!societe.enEssai);
     }, []);
 
     // L'abonnement a pu être activé, l'impayé survenir ou être réglé depuis la connexion
@@ -519,7 +527,9 @@ export default function Workspace(props) {
         const accueil = <Dashboard user={props.user} />;
         if (accesLimite) {
             if (!hasModule(modules, 'PARAMETRAGE')) {
-                const raison = abonnementActif ? "L'abonnement est impayé depuis 2 mois ou plus." : "L'abonnement n'est pas activé.";
+                const raison = abonnementActif
+                    ? "L'abonnement est impayé depuis 2 mois ou plus."
+                    : essaiFin ? "La période d'essai gratuite est terminée et l'abonnement n'est pas activé." : "L'abonnement n'est pas activé.";
                 return <Result status="403" title="Accès bloqué" subTitle={`${raison} Contactez un administrateur.`} />;
             }
             return (
@@ -528,10 +538,12 @@ export default function Workspace(props) {
                         type="error"
                         showIcon
                         style={{ marginBottom: 16 }}
-                        message="Accès limité à la facturation"
+                        title="Accès limité à la facturation"
                         description={abonnementActif
                             ? "Une échéance de l'abonnement est impayée depuis 2 mois ou plus. Réglez les échéances en retard pour rétablir l'accès à l'application."
-                            : "L'abonnement n'est pas activé. Activez-le en payant les frais d'activation avec le premier mois ou la première année pour accéder à l'application."}
+                            : essaiFin
+                                ? "La période d'essai gratuite est terminée. Activez l'abonnement en payant les frais d'activation avec le premier mois ou la première année pour continuer à utiliser l'application."
+                                : "L'abonnement n'est pas activé. Activez-le en payant les frais d'activation avec le premier mois ou la première année pour accéder à l'application."}
                     />
                     <Facturation onSocieteChange={majAbonnement} />
                 </>
@@ -632,6 +644,16 @@ export default function Workspace(props) {
                     color: isDarkTheme ? '#f5f5f5' : undefined,
                     animation: 'fadeInUp 0.3s ease-out',
                 }}>
+                    {enEssai && essaiFin && !accesLimite && currentPage !== '/facturation' && hasModule(modules, 'PARAMETRAGE') && (
+                        <Alert
+                            type="info"
+                            showIcon
+                            style={{ marginBottom: 16 }}
+                            title={`Essai gratuit jusqu'au ${new Date(essaiFin).toLocaleDateString('fr-FR')}`}
+                            description="Activez votre abonnement pour continuer à utiliser moussAIllon ensuite : le premier mois payé commence à la fin de l'essai."
+                            action={<Button size="small" type="primary" onClick={() => navigate('/facturation')}>Activer l'abonnement</Button>}
+                        />
+                    )}
                     {renderPage()}
                 </Layout.Content>
               </Layout>

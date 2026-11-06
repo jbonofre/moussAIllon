@@ -100,7 +100,7 @@ public class VenteResource {
                     .build());
         }
 
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
 
         try {
             byte[] pdfFacturX = facturXService.generer(vente, societe);
@@ -129,7 +129,7 @@ public class VenteResource {
             throw new WebApplicationException("Le client n'a pas d'adresse email", 400);
         }
 
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
         String clientName = entity.client.nom;
         String dateStr = entity.date != null
@@ -1132,7 +1132,7 @@ public class VenteResource {
      * Appelé tant que la facture n'est pas émise : une facture émise garde les conditions en vigueur à son émission.
      */
     static void appliquerConditionsPaiement(VenteEntity vente) {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         if (societe == null) {
             return;
         }
@@ -1269,7 +1269,7 @@ public class VenteResource {
     }
 
     private void sendIncidentNotification(VenteEntity vente, String itemNom, String incidentDetails, java.sql.Date incidentDate) {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
         String clientName = vente.client.nom;
 

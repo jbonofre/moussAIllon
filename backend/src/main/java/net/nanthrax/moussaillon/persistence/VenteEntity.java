@@ -4,7 +4,6 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Entity;
@@ -16,7 +15,7 @@ import jakarta.persistence.OrderBy;
 import jakarta.persistence.FetchType;
 
 @Entity
-public class VenteEntity extends PanacheEntity {
+public class VenteEntity extends PanacheEntityChantier {
 
     // Mention légale portée sur les factures d'un client exonéré de TVA
     public static final String MENTION_EXONERATION_TVA = "Exonération de TVA, article 262 II du Code général des impôts";

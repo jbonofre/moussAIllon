@@ -39,7 +39,7 @@ public class PlateformeAnnonceResource {
 
     @GET
     public List<PlateformeAnnonceEntity> list() {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         List<PlateformeAnnonceEntity> plateformes = PlateformeAnnonceEntity.listAll();
         plateformes.forEach(p -> completer(p, societe));
         return plateformes;
@@ -67,7 +67,7 @@ public class PlateformeAnnonceResource {
         plateforme.actif = data.actif;
         plateforme.format = format;
         plateforme.notes = data.notes;
-        completer(plateforme, SocieteEntity.findById(1L));
+        completer(plateforme, SocieteEntity.courante());
         return plateforme;
     }
 
@@ -82,7 +82,7 @@ public class PlateformeAnnonceResource {
             throw new WebApplicationException("La plateforme (" + code + ") n'est pas configurée", 404);
         }
         plateforme.jeton = nouveauJeton();
-        completer(plateforme, SocieteEntity.findById(1L));
+        completer(plateforme, SocieteEntity.courante());
         return plateforme;
     }
 

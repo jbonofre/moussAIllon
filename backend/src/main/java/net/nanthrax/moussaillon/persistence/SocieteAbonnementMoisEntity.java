@@ -1,6 +1,5 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.*;
@@ -17,7 +16,7 @@ import java.util.Set;
  * Les mois à payer ne sont pas enregistrés : ils sont calculés au prix en vigueur.
  */
 @Entity
-public class SocieteAbonnementMoisEntity extends PanacheEntity {
+public class SocieteAbonnementMoisEntity extends PanacheEntityChantier {
 
     public enum Statut { PAYE, A_PAYER, IMPAYE }
 

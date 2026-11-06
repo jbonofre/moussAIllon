@@ -3,7 +3,6 @@ package net.nanthrax.moussaillon.persistence;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
@@ -16,7 +15,7 @@ import jakarta.persistence.ManyToMany;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class MoteurCatalogueEntity extends PanacheEntity {
+public class MoteurCatalogueEntity extends PanacheEntityChantier {
 
     @jakarta.persistence.Transient
     public List<String> referencesFournisseurs;

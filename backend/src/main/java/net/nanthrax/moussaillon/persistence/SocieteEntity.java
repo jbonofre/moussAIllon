@@ -1,18 +1,21 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.panache.common.Sort;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.*;
+import org.hibernate.Session;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class SocieteEntity extends PanacheEntity {
+public class SocieteEntity extends PanacheEntityChantier {
 
     @Column(nullable = false)
     @FormatNom
@@ -142,9 +145,18 @@ public class SocieteEntity extends PanacheEntity {
     @Transient
     public boolean accesBloqueImpaye;
 
-    // Version « Free » (propriété abonnement.free) : les accès ne sont jamais bloqués.
+    // Abonnement gratuit, accordé par l'administrateur au chantier : les accès ne sont jamais bloqués.
     @Transient
     public boolean versionFree;
+
+    // Période d'essai gratuite du chantier (voir ChantierEntity.essaiFin) : sa fin, et si elle est en cours
+    // (abonnement pas encore activé).
+    @Transient
+    @JsonbTypeAdapter(TimestampJsonbAdapter.class)
+    public Timestamp essaiFin;
+
+    @Transient
+    public boolean enEssai;
 
     // Champs calculés (non persistés) du suivi de l'abonnement mois par mois.
     // Abonnement activé (frais d'activation payés).
@@ -177,5 +189,31 @@ public class SocieteEntity extends PanacheEntity {
     public String stripePaymentLinkAnnuel;
     public String payplugPaymentLinkMensuel;
     public String payplugPaymentLinkAnnuel;
+
+    // Identifiant de la société de chaque chantier : courante() est appelée à chaque requête (limitation de l'accès
+    // à la facturation). Par identifiant, la société est lue en une requête, puis reprise de la session.
+    private static final Map<Object, Long> ID_PAR_CHANTIER = new ConcurrentHashMap<>();
+
+    /** Société du chantier courant (une par chantier), ou null s'il n'y en a pas encore. */
+    public static SocieteEntity courante() {
+        Object chantier = getEntityManager().unwrap(Session.class).getTenantIdentifierValue();
+        Long id = chantier == null ? null : ID_PAR_CHANTIER.get(chantier);
+        if (id != null) {
+            // Filtrée par chantier : une société supprimée (chantier supprimé puis recréé) n'est pas trouvée
+            SocieteEntity societe = findById(id);
+            if (societe != null) {
+                return societe;
+            }
+        }
+        SocieteEntity societe = SocieteEntity.<SocieteEntity>findAll(Sort.ascending("id")).firstResult();
+        if (chantier != null) {
+            if (societe != null) {
+                ID_PAR_CHANTIER.put(chantier, societe.id);
+            } else {
+                ID_PAR_CHANTIER.remove(chantier);
+            }
+        }
+        return societe;
+    }
 
 }

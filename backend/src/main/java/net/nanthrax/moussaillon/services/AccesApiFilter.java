@@ -14,6 +14,7 @@ import java.util.function.Supplier;
 /**
  * Contrôle d'accès à l'API selon le jeton de l'appelant :
  * <ul>
+ *   <li>l'administrateur de l'instance n'accède qu'à l'administration (/admin), réservée à lui seul ;</li>
  *   <li>les portails client et technicien n'accèdent qu'à leurs propres points d'API ;</li>
  *   <li>dans le chantier, les fonctions sensibles sont réservées à leur module (utilisateurs, paramètres
  *   et abonnement, comptabilité, marketing, KPIs atelier). Les données métier que les pages croisent (ventes, clients,
@@ -27,6 +28,9 @@ public class AccesApiFilter implements ContainerRequestFilter {
 
     // Groupe porté par le jeton des utilisateurs du chantier, en plus de leurs modules.
     static final String GROUPE_CHANTIER = "chantier";
+
+    // Groupe porté par le jeton de l'administrateur de l'instance (application d'administration).
+    static final String GROUPE_ADMIN = "admin-instance";
 
     private static final String PARAMETRAGE = ModuleApplication.PARAMETRAGE.name();
     private static final String COMPTABILITE = ModuleApplication.COMPTABILITE.name();
@@ -58,8 +62,14 @@ public class AccesApiFilter implements ContainerRequestFilter {
      */
     static String motifRefus(Set<String> groupes, String utilisateur, String methode, String chemin,
                              Supplier<String> limitationFacturation) {
-        if (sous(chemin, "/users/authenticate")) {
+        if (sous(chemin, "/users/authenticate", "/admin/authenticate")) {
             return null;
+        }
+        if (groupes.contains(GROUPE_ADMIN)) {
+            return sous(chemin, "/admin") ? null : "Accès réservé aux chantiers.";
+        }
+        if (sous(chemin, "/admin")) {
+            return "Accès réservé à l'administration de l'instance.";
         }
         if (groupes.contains("client")) {
             boolean portail = sous(chemin, "/portal", "/annonces", "/images", "/documents")

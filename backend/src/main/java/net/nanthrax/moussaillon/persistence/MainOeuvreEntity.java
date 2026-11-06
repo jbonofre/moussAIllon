@@ -1,12 +1,11 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EntityListeners;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
-public class MainOeuvreEntity extends PanacheEntity {
+public class MainOeuvreEntity extends PanacheEntityChantier {
 
     public String reference;
 

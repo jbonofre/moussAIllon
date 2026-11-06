@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Form, Button, Input, Image, message, Typography } from 'antd';
-import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { MailOutlined, LockOutlined, ShopOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import { codeChantierInitial, enteteChantier, memoriserChantier } from './chantier.ts';
 
 const { Title, Text } = Typography;
 
@@ -22,19 +23,20 @@ export default function Login({ setUser }: LoginProps) {
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
 
-    const handleLogin = async (values: { email: string; motDePasse?: string }) => {
+    const handleLogin = async (values: { chantier: string; email: string; motDePasse?: string }) => {
         setLoading(true);
         try {
             const res = await axios.post('/api/technicien-portal/login', {
                 email: values.email,
                 motDePasse: values.motDePasse || ''
-            });
+            }, { headers: enteteChantier(values.chantier) });
             const { token, ...userData } = res.data;
+            memoriserChantier(values.chantier);
             localStorage.setItem('moussaillon-technicien-token', token);
             localStorage.setItem('moussaillon-technicien-user', JSON.stringify(userData));
             setUser(userData);
-        } catch {
-            message.error("Identifiants invalides.");
+        } catch (error) {
+            message.error(messageErreurConnexion(error, "Identifiants invalides."));
         } finally {
             setLoading(false);
         }
@@ -85,6 +87,7 @@ export default function Login({ setUser }: LoginProps) {
                         form={form}
                         layout="vertical"
                         autoComplete="off"
+                        initialValues={{ chantier: codeChantierInitial() }}
                         onFinish={handleLogin}
                         onKeyUp={(event: React.KeyboardEvent) => {
                             if (event.key === 'Enter') {
@@ -92,6 +95,19 @@ export default function Login({ setUser }: LoginProps) {
                             }
                         }}
                     >
+                        <Form.Item
+                            name="chantier"
+                            rules={[{ required: true, whitespace: true, message: 'Le code chantier est requis' }]}
+                        >
+                            <Input
+                                prefix={<ShopOutlined style={{ color: '#bfbfbf' }} />}
+                                placeholder="Code chantier"
+                                aria-label="Code chantier"
+                                size="large"
+                                autoCapitalize="none"
+                                style={{ borderRadius: 10, height: 48 }}
+                            />
+                        </Form.Item>
                         <Form.Item
                             name="email"
                             rules={[

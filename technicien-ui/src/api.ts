@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { enteteChantier } from './chantier.ts';
 
 const api = axios.create({ baseURL: '/api' });
 
@@ -6,6 +7,8 @@ api.interceptors.request.use((config) => {
     const token = localStorage.getItem('moussaillon-technicien-token');
     if (token) {
         config.headers.Authorization = `Bearer ${token}`;
+    } else {
+        Object.assign(config.headers, enteteChantier());
     }
     return config;
 });

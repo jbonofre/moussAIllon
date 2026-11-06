@@ -141,7 +141,7 @@ public class PretRecuperationService {
                 || vente.client.email == null || vente.client.email.isBlank()) {
             return;
         }
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
         String client = vente.client.nom != null ? vente.client.nom : "";
         String reference = String.valueOf(vente.id);

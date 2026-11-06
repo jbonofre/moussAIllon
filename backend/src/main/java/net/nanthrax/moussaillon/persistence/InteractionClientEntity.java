@@ -1,6 +1,5 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbProperty;
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
@@ -17,7 +16,7 @@ import java.sql.Timestamp;
  * ou une action commerciale à faire à une échéance (rappeler, envoyer une offre...), confiée à un utilisateur.
  */
 @Entity
-public class InteractionClientEntity extends PanacheEntity {
+public class InteractionClientEntity extends PanacheEntityChantier {
 
     public enum Type {
         APPEL,

@@ -29,12 +29,20 @@ public class EmailSequenceScheduler {
     @Inject
     Mailer mailer;
 
+    @Inject
+    Chantiers chantiers;
+
     @Scheduled(cron = "0 5 8 * * ?")
+    void planifierSequences() {
+        chantiers.pourChaqueChantier("Séquences d'emails", this::envoyerSequences);
+    }
+
+    /** Envoie les étapes de séquence d'emails dues du chantier courant. */
     @Transactional
     public void envoyerSequences() {
         LocalDate today = LocalDate.now();
 
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
 
         traiterClients(today, societeNom);
@@ -52,7 +60,7 @@ public class EmailSequenceScheduler {
         List<EmailSequenceEtapeEntity> etapes = EmailSequenceEtapeEntity.listActivesByCible(Cible.BATEAU);
         if (etapes.isEmpty()) return;
 
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         String societeNom = societe != null ? societe.nom : "moussAIllon";
 
         traiterBateau(LocalDate.now(), societeNom, etapes, bateau);

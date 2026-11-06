@@ -1,6 +1,5 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -9,7 +8,7 @@ import jakarta.persistence.Enumerated;
 import java.util.List;
 
 @Entity
-public class EmailSequenceEtapeEntity extends PanacheEntity {
+public class EmailSequenceEtapeEntity extends PanacheEntityChantier {
 
     public enum Cible {
         CLIENT,

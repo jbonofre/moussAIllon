@@ -7,6 +7,7 @@ import jakarta.transaction.Transactional;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import net.nanthrax.moussaillon.persistence.ChantierEntity;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import net.nanthrax.moussaillon.persistence.ModuleApplication;
 import net.nanthrax.moussaillon.persistence.SocieteAbonnementMoisEntity;
@@ -15,7 +16,6 @@ import net.nanthrax.moussaillon.persistence.SocietePaiementEntity;
 import net.nanthrax.moussaillon.persistence.TechnicienEntity;
 import net.nanthrax.moussaillon.persistence.UserEntity;
 import org.eclipse.microprofile.config.Config;
-import org.eclipse.microprofile.config.ConfigProvider;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
 import java.sql.Timestamp;
@@ -101,7 +101,7 @@ public class SocieteResource {
     @GET
     @Transactional
     public SocieteEntity get() {
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
         }
@@ -137,7 +137,7 @@ public class SocieteResource {
     public Map<String, String> paiementEnLigne(PaiementEnLigneRequest request) {
         SocietePaiementEntity.Type type = typePaiement(request == null ? null : request.type);
         boolean annuel = type == SocietePaiementEntity.Type.ANNUEL;
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
         }
@@ -187,7 +187,7 @@ public class SocieteResource {
      * Modifie les modules souscrits (le module Paramétrage l'est toujours). Les utilisateurs
      * perdent l'accès aux modules qui ne sont plus souscrits. Une fois l'abonnement activé, un module
      * ajouté est payé tout de suite (paiement de type MODULES) : il n'est enregistré ici que s'il n'y a
-     * rien à payer (module déjà payé pour les mois en cours, version Free).
+     * rien à payer (module déjà payé pour les mois en cours, abonnement gratuit).
      */
     @PUT
     @Path("/modules")
@@ -196,7 +196,7 @@ public class SocieteResource {
         if (modules == null) {
             throw new WebApplicationException("Les modules souscrits sont requis", 400);
         }
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
         }
@@ -222,7 +222,7 @@ public class SocieteResource {
         if (societe.indemniteForfaitaire < 0) {
             throw new WebApplicationException("L'indemnité forfaitaire doit être positive", 400);
         }
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
         }
@@ -282,7 +282,7 @@ public class SocieteResource {
         if (request.signature == null || request.signature.isBlank()) {
             throw new WebApplicationException("La signature est requise", 400);
         }
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
         }
@@ -322,7 +322,8 @@ public class SocieteResource {
 
     /**
      * Paie le mois suivant non payé, ou les 12 suivants au prix annuel. Le premier paiement active
-     * l'abonnement, qui démarre ce jour-là, et comprend les frais d'activation.
+     * l'abonnement et comprend les frais d'activation ; l'abonnement démarre ce jour-là, ou à la fin de la
+     * période d'essai si elle est en cours (l'essai n'est pas écourté).
      */
     private void payerMois(SocieteEntity entity, SocietePaiementEntity.Type type, SocietePaiementEntity.Mode mode) {
         boolean annuel = type == SocietePaiementEntity.Type.ANNUEL;
@@ -331,8 +332,9 @@ public class SocieteResource {
         double activation = fraisActivationDus(entity);
         Timestamp maintenant = horodatage();
         if (!entity.abonnementActif) {
+            Timestamp finEssai = finEssai();
             entity.abonnementActivationDate = maintenant;
-            entity.abonnementProchainPaiementDate = maintenant;
+            entity.abonnementProchainPaiementDate = finEssai != null && finEssai.after(maintenant) ? finEssai : maintenant;
         }
         Timestamp debut = entity.abonnementProchainPaiementDate;
         Timestamp fin = plusMois(debut, nombreMois);
@@ -442,7 +444,7 @@ public class SocieteResource {
         return SocieteAbonnementMoisEntity.list("societe = ?1 and fin > ?2", Sort.ascending("debut"), entity, Timestamp.from(Instant.now()));
     }
 
-    private static void appliquerModules(SocieteEntity entity, Set<ModuleApplication> modules) {
+    static void appliquerModules(SocieteEntity entity, Set<ModuleApplication> modules) {
         entity.modules.clear();
         entity.modules.addAll(modules);
         entity.modules.add(ModuleApplication.PARAMETRAGE);
@@ -492,7 +494,7 @@ public class SocieteResource {
     @Path("/resilier")
     @Transactional
     public SocieteEntity resilier() {
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
         }
@@ -511,7 +513,7 @@ public class SocieteResource {
     @Path("/reactiver")
     @Transactional
     public SocieteEntity reactiver() {
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         if (entity == null) {
             throw new WebApplicationException("La société n'est pas trouvée", 404);
         }
@@ -564,7 +566,7 @@ public class SocieteResource {
 
     /** Modules souscrits par la société ; tous si la société n'existe pas encore. */
     static Set<ModuleApplication> modulesSouscrits() {
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         return entity == null ? EnumSet.allOf(ModuleApplication.class) : modulesSouscrits(entity);
     }
 
@@ -600,6 +602,8 @@ public class SocieteResource {
 
         entity.versionFree = versionFree();
         entity.abonnementActif = entity.abonnementActivationDate != null;
+        entity.essaiFin = finEssai();
+        entity.enEssai = enEssai(entity);
         entity.abonnementAJour = entity.abonnementActif && entity.abonnementProchainPaiementDate != null
             && entity.abonnementProchainPaiementDate.after(Timestamp.from(Instant.now()));
         entity.abonnementBlocageDate = dateBlocageResiliation(entity);
@@ -632,14 +636,27 @@ public class SocieteResource {
     }
 
     /**
-     * Version « Free » (propriété abonnement.free) : les accès ne sont jamais bloqués, ni sans abonnement activé,
-     * ni pour impayé, ni après résiliation.
+     * Abonnement gratuit, accordé au chantier courant par l'administrateur de l'instance : les accès ne sont
+     * jamais bloqués, ni sans abonnement activé, ni pour impayé, ni après résiliation.
      */
     static boolean versionFree() {
-        return ConfigProvider.getConfig().getOptionalValue("abonnement.free", Boolean.class).orElse(false);
+        ChantierEntity chantier = Chantiers.courant();
+        return chantier != null && chantier.gratuit;
     }
 
-    /** Fin de la période de rétractation après résiliation ; null si l'abonnement n'est pas résilié ou en version Free. */
+    /** Fin de la période d'essai gratuite du chantier courant ; null s'il n'en a pas eu. */
+    static Timestamp finEssai() {
+        ChantierEntity chantier = Chantiers.courant();
+        return chantier == null ? null : chantier.essaiFin;
+    }
+
+    /** Période d'essai en cours : l'abonnement n'est pas encore activé et l'essai n'est pas terminé. */
+    static boolean enEssai(SocieteEntity entity) {
+        Timestamp fin = finEssai();
+        return entity.abonnementActivationDate == null && fin != null && !depasse(fin);
+    }
+
+    /** Fin de la période de rétractation après résiliation ; null si l'abonnement n'est pas résilié ou est gratuit. */
     static Timestamp dateBlocageResiliation(SocieteEntity entity) {
         if (versionFree() || !entity.abonnementResilie || entity.abonnementResiliationDate == null) {
             return null;
@@ -647,7 +664,7 @@ public class SocieteResource {
         return Timestamp.valueOf(entity.abonnementResiliationDate.toLocalDateTime().plusDays(DUREE_RETRACTATION_JOURS));
     }
 
-    /** Échéance non réglée depuis {@link #DELAI_BLOCAGE_IMPAYE_MOIS} mois ; null sans abonnement activé ou en version Free. */
+    /** Échéance non réglée depuis {@link #DELAI_BLOCAGE_IMPAYE_MOIS} mois ; null sans abonnement activé ou s'il est gratuit. */
     static Timestamp dateBlocageImpaye(SocieteEntity entity) {
         if (versionFree() || entity.abonnementActivationDate == null || entity.abonnementProchainPaiementDate == null) {
             return null;
@@ -668,22 +685,26 @@ public class SocieteResource {
      * ({@link #DUREE_RETRACTATION_JOURS} jours) : plus aucune connexion n'est possible.
      */
     public static boolean accesBloqueParResiliation() {
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         return entity != null && depasse(dateBlocageResiliation(entity));
     }
 
     /**
-     * Motif pour lequel l'accès est limité à la facturation, ou null : abonnement non activé, ou échéance
-     * impayée depuis {@link #DELAI_BLOCAGE_IMPAYE_MOIS} mois ou plus (hors version Free). Seuls les
-     * utilisateurs du module Paramétrage peuvent alors se connecter, pour activer l'abonnement ou régler
-     * les échéances en retard.
+     * Motif pour lequel l'accès est limité à la facturation, ou null : abonnement non activé (après la période
+     * d'essai s'il y en a une), ou échéance impayée depuis {@link #DELAI_BLOCAGE_IMPAYE_MOIS} mois ou plus
+     * (hors abonnement gratuit). Seuls les utilisateurs du module Paramétrage peuvent alors se connecter, pour
+     * activer l'abonnement ou régler les échéances en retard.
      */
     static String motifLimitationFacturation(SocieteEntity entity) {
         if (versionFree()) {
             return null;
         }
         if (entity.abonnementActivationDate == null) {
-            return "l'abonnement n'est pas activé";
+            Timestamp fin = finEssai();
+            if (fin == null) {
+                return "l'abonnement n'est pas activé";
+            }
+            return depasse(fin) ? "la période d'essai gratuite est terminée et l'abonnement n'est pas activé" : null;
         }
         if (depasse(dateBlocageImpaye(entity))) {
             return "l'abonnement est impayé depuis " + DELAI_BLOCAGE_IMPAYE_MOIS + " mois ou plus";
@@ -692,13 +713,13 @@ public class SocieteResource {
     }
 
     public static String motifLimitationFacturation() {
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         return entity == null ? null : motifLimitationFacturation(entity);
     }
 
     /** L'abonnement a été activé (frais d'activation payés). */
     public static boolean abonnementActif() {
-        SocieteEntity entity = SocieteEntity.findById(1);
+        SocieteEntity entity = SocieteEntity.courante();
         return entity == null || entity.abonnementActivationDate != null;
     }
 

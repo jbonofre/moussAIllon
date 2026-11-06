@@ -6,11 +6,8 @@ import java.sql.Statement;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import io.quarkus.runtime.StartupEvent;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
 import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
 import net.nanthrax.moussaillon.persistence.ClientEntity;
 import org.hibernate.Session;
 
@@ -24,8 +21,8 @@ import org.hibernate.Session;
 @ApplicationScoped
 public class ClientNomMigrator {
 
-    @Transactional
-    void onStart(@Observes StartupEvent event) {
+    /** Appelé au démarrage par DataInitializer (SQL, pour tous les chantiers). */
+    void migrer() {
         EntityManager em = ClientEntity.getEntityManager();
         em.unwrap(Session.class).doWork(connection -> {
             if (!hasPrenomColumn(connection)) {

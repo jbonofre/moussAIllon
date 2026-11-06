@@ -1,10 +1,11 @@
 package net.nanthrax.moussaillon.persistence;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.json.bind.annotation.JsonbTransient;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.persistence.Transient;
 
 import java.sql.Timestamp;
@@ -13,10 +14,11 @@ import java.util.List;
 
 // Plateforme d'annonces alimentée par un flux XML qu'elle vient lire (Leboncoin, Boat24, YouBoat...)
 @Entity
-public class PlateformeAnnonceEntity extends PanacheEntity {
+@Table(uniqueConstraints = @UniqueConstraint(columnNames = {"chantier", "code"}))
+public class PlateformeAnnonceEntity extends PanacheEntityChantier {
 
     // Même code que dans les publications de l'annonce (LEBONCOIN, BOAT24, YOUBOAT)
-    @Column(unique = true, nullable = false)
+    @Column(nullable = false)
     public String code;
 
     public boolean actif;

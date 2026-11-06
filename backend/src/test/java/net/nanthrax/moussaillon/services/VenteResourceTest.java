@@ -513,7 +513,7 @@ public class VenteResourceTest {
     /** Conditions de paiement de la société, modifiées dans une transaction à part pour être vues des appels REST. */
     private static void conditionsSociete(String conditions, String penalites, double indemnite) {
         QuarkusTransaction.requiringNew().run(() -> {
-            SocieteEntity societe = SocieteEntity.findById(1L);
+            SocieteEntity societe = SocieteEntity.courante();
             societe.conditionsPaiement = conditions;
             societe.penalitesRetard = penalites;
             societe.indemniteForfaitaire = indemnite;

@@ -29,7 +29,7 @@ public class RelanceResourceTest {
 
     // Relances à valider dans le journal (pas d'envoi automatique)
     private static void parametrerRelances() {
-        SocieteEntity societe = SocieteEntity.findById(1L);
+        SocieteEntity societe = SocieteEntity.courante();
         societe.relancesAutomatiques = false;
         societe.relance1Jours = 15;
         societe.relance2Jours = 30;
@@ -222,7 +222,7 @@ public class RelanceResourceTest {
     @TestTransaction
     void testRelance3ParCourrierAImprimer() {
         parametrerRelances();
-        SocieteEntity.<SocieteEntity>findById(1L).relance3Courrier = true;
+        SocieteEntity.courante().relance3Courrier = true;
         ClientEntity client = ClientEntity.findById(100L);
         VenteEntity courrier = facture(client, 50);
         VenteEntity email = facture(client, 20);
@@ -262,7 +262,7 @@ public class RelanceResourceTest {
     @TestTransaction
     void testCourrierDUneFactureSoldeeNonListe() {
         parametrerRelances();
-        SocieteEntity.<SocieteEntity>findById(1L).relance3Courrier = true;
+        SocieteEntity.courante().relance3Courrier = true;
         VenteEntity vente = facture(ClientEntity.findById(100L), 50);
         RelanceResource.EnvoiRequest request = new RelanceResource.EnvoiRequest();
         request.ventes = List.of(vente.id);

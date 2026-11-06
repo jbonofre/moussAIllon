@@ -76,6 +76,52 @@ public class DataInitializerTest {
     }
 
     @Test
+    void testUnicitesGlobalesSupprimees() throws SQLException {
+        try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:unicites");
+             Statement statement = connection.createStatement()) {
+            statement.executeUpdate("CREATE TABLE FournisseurEntity (id BIGINT PRIMARY KEY, chantier VARCHAR(40), nom VARCHAR(255))");
+            statement.executeUpdate("ALTER TABLE FournisseurEntity ADD CONSTRAINT UK_NOM UNIQUE (nom)");
+            statement.executeUpdate("ALTER TABLE FournisseurEntity ADD CONSTRAINT UK_CHANTIER_NOM UNIQUE (chantier, nom)");
+            statement.executeUpdate("CREATE TABLE ChantierEntity (code VARCHAR(40) PRIMARY KEY, nom VARCHAR(255) UNIQUE)");
+
+            List<String> tables = DataInitializer.tablesChantier(connection);
+            assertEquals(List.of("FOURNISSEURENTITY"), tables);
+            DataInitializer.supprimerUnicitesGlobales(connection, tables);
+
+            // Même nom dans deux chantiers, pas deux fois dans le même
+            statement.executeUpdate("INSERT INTO FournisseurEntity VALUES (1, 'a', 'Marine Parts')");
+            statement.executeUpdate("INSERT INTO FournisseurEntity VALUES (2, 'b', 'Marine Parts')");
+            assertThrows(SQLException.class, () -> statement.executeUpdate("INSERT INTO FournisseurEntity VALUES (3, 'a', 'Marine Parts')"));
+            // Les tables communes gardent leurs contraintes
+            statement.executeUpdate("INSERT INTO ChantierEntity VALUES ('a', 'Port')");
+            assertThrows(SQLException.class, () -> statement.executeUpdate("INSERT INTO ChantierEntity VALUES ('b', 'Port')"));
+        }
+    }
+
+    @Test
+    void testAnciensUtilisateursLus() throws SQLException {
+        try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:utilisateurs");
+             Statement statement = connection.createStatement()) {
+            assertTrue(DataInitializer.lireAnciensUtilisateurs(connection).isEmpty());
+
+            statement.executeUpdate("CREATE TABLE UserEntity (name VARCHAR(255) PRIMARY KEY, password VARCHAR(255), email VARCHAR(255), theme TINYINT, roles VARCHAR(255))");
+            statement.executeUpdate("CREATE TABLE UserEntity_modules (UserEntity_name VARCHAR(255), modules VARCHAR(64))");
+            statement.executeUpdate("INSERT INTO UserEntity VALUES ('admin', 'hash', 'admin@port.fr', 1, NULL)");
+            statement.executeUpdate("INSERT INTO UserEntity VALUES ('vendeur', 'hash2', 'v@port.fr', NULL, 'vendeur')");
+            statement.executeUpdate("INSERT INTO UserEntity_modules VALUES ('admin', 'PARAMETRAGE'), ('admin', 'ATELIER'), ('admin', 'INCONNU')");
+
+            List<DataInitializer.AncienUtilisateur> utilisateurs = DataInitializer.lireAnciensUtilisateurs(connection);
+            assertEquals(2, utilisateurs.size());
+            DataInitializer.AncienUtilisateur admin = utilisateurs.stream().filter(u -> u.name().equals("admin")).findFirst().orElseThrow();
+            assertEquals("hash", admin.password());
+            assertEquals(1, admin.theme());
+            assertEquals(EnumSet.of(ModuleApplication.PARAMETRAGE, ModuleApplication.ATELIER), admin.modules());
+            DataInitializer.AncienUtilisateur vendeur = utilisateurs.stream().filter(u -> u.name().equals("vendeur")).findFirst().orElseThrow();
+            assertEquals(EnumSet.of(ModuleApplication.VENTE), vendeur.modules());
+        }
+    }
+
+    @Test
     void testQuantitesConverties() throws SQLException {
         try (Connection connection = DriverManager.getConnection("jdbc:h2:mem:quantites");
              Statement statement = connection.createStatement()) {

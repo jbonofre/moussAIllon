@@ -1,16 +1,17 @@
 -- Test data for integration tests
 
 -- Users
-INSERT INTO UserEntity (name, password, email, theme) VALUES ('admin', 'admin123', 'admin@test.com', 0);
-INSERT INTO UserEntity (name, password, email, theme) VALUES ('technicien1', 'tech123', 'tech@test.com', 0);
-INSERT INTO UserEntity_modules (UserEntity_name, modules) VALUES ('admin', 'VENTE'), ('admin', 'PARC'), ('admin', 'CATALOGUE'), ('admin', 'ATELIER'), ('admin', 'MARKETING'), ('admin', 'COMPTABILITE'), ('admin', 'PARAMETRAGE');
+-- (sans chantier : DataInitializer les affecte au chantier test, comme toutes les données ci-dessous)
+INSERT INTO UtilisateurEntity (id, name, password, email, theme) VALUES (10000, 'admin', 'admin123', 'admin@test.com', 0);
+INSERT INTO UtilisateurEntity (id, name, password, email, theme) VALUES (10001, 'technicien1', 'tech123', 'tech@test.com', 0);
+INSERT INTO UtilisateurEntity_modules (UtilisateurEntity_id, modules) VALUES (10000, 'VENTE'), (10000, 'PARC'), (10000, 'CATALOGUE'), (10000, 'ATELIER'), (10000, 'MARKETING'), (10000, 'COMPTABILITE'), (10000, 'PARAMETRAGE');
 
--- Societe (ID=1 required by SocieteResource)
-INSERT INTO SocieteEntity (id, nom, siren, adresse, siret, email, telephone, capital, abonnementResilie, abonnementActivationDate, abonnementActivationMontant, abonnementProchainPaiementDate) VALUES (1, 'MS Plaisance', '123456789', '10 quai du Port', '12345678900010', 'contact@msplaisance.com', '0400000000', 10000, false, LOCALTIMESTAMP, 350.0, DATEADD(MONTH, 1, LOCALTIMESTAMP));
+-- Societe du chantier test (id élevé : séquence)
+INSERT INTO SocieteEntity (id, nom, siren, adresse, siret, email, telephone, capital, abonnementResilie, abonnementActivationDate, abonnementActivationMontant, abonnementProchainPaiementDate) VALUES (10000, 'MS Plaisance', '123456789', '10 quai du Port', '12345678900010', 'contact@msplaisance.com', '0400000000', 10000, false, LOCALTIMESTAMP, 350.0, DATEADD(MONTH, 1, LOCALTIMESTAMP));
 -- Abonnement activé aujourd'hui : frais d'activation et mois en cours payés (ids élevés : séquences)
-INSERT INTO SocietePaiementEntity (id, type, mode, montant, montantActivation, date, periodeDebut, periodeFin, nombreUtilisateurs, nombreTechniciens, nombreClients, societe_id) VALUES (10000, 'MENSUEL', 'VIREMENT', 500.1, 350.0, LOCALTIMESTAMP, LOCALTIMESTAMP, DATEADD(MONTH, 1, LOCALTIMESTAMP), 2, 1, 1, 1);
+INSERT INTO SocietePaiementEntity (id, type, mode, montant, montantActivation, date, periodeDebut, periodeFin, nombreUtilisateurs, nombreTechniciens, nombreClients, societe_id) VALUES (10000, 'MENSUEL', 'VIREMENT', 500.1, 350.0, LOCALTIMESTAMP, LOCALTIMESTAMP, DATEADD(MONTH, 1, LOCALTIMESTAMP), 2, 1, 1, 10000);
 INSERT INTO SocietePaiementEntity_modules (SocietePaiementEntity_id, modules) VALUES (10000, 'VENTE'), (10000, 'PARC'), (10000, 'CATALOGUE'), (10000, 'ATELIER'), (10000, 'MARKETING'), (10000, 'COMPTABILITE'), (10000, 'PARAMETRAGE');
-INSERT INTO SocieteAbonnementMoisEntity (id, debut, fin, montant, nombreUtilisateurs, nombreTechniciens, nombreClients, payeLe, typePaiement, societe_id) VALUES (10000, LOCALTIMESTAMP, DATEADD(MONTH, 1, LOCALTIMESTAMP), 150.1, 2, 1, 1, LOCALTIMESTAMP, 'MENSUEL', 1);
+INSERT INTO SocieteAbonnementMoisEntity (id, debut, fin, montant, nombreUtilisateurs, nombreTechniciens, nombreClients, payeLe, typePaiement, societe_id) VALUES (10000, LOCALTIMESTAMP, DATEADD(MONTH, 1, LOCALTIMESTAMP), 150.1, 2, 1, 1, LOCALTIMESTAMP, 'MENSUEL', 10000);
 INSERT INTO SocieteAbonnementMoisEntity_modules (SocieteAbonnementMoisEntity_id, modules) VALUES (10000, 'VENTE'), (10000, 'PARC'), (10000, 'CATALOGUE'), (10000, 'ATELIER'), (10000, 'MARKETING'), (10000, 'COMPTABILITE'), (10000, 'PARAMETRAGE');
 
 -- Clients (use high IDs to avoid sequence conflicts)
@@ -107,3 +108,22 @@ ALTER TABLE BateauOptionEntity ALTER COLUMN id RESTART WITH 200;
 -- Les identifiants des ventes viennent d'une séquence Hibernate (non concernée par RESTART ci-dessus) :
 -- elle part au-delà de la vente pré-insérée (id 100), que les ventes créées par les tests finiraient par atteindre.
 ALTER SEQUENCE VenteEntity_SEQ RESTART WITH 1000;
+-- Idem pour les autres données pré-insérées (ids 100 et suivants) : les tests créent assez de données pour les atteindre.
+ALTER SEQUENCE ClientEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE TechnicienEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE FournisseurEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE BateauCatalogueEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE MoteurCatalogueEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE HeliceCatalogueEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE RemorqueCatalogueEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE ProduitCatalogueEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE MainOeuvreEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE ServiceEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE ForfaitEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE TransactionEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE AnnonceEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE VenteForfaitEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE TaskEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE FournisseurProduitEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE CommandeFournisseurEntity_SEQ RESTART WITH 1000;
+ALTER SEQUENCE CommandeFournisseurLigneEntity_SEQ RESTART WITH 1000;

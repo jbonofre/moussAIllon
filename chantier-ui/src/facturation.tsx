@@ -489,7 +489,7 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
             <Card title={
                 <Space>
                     <CreditCardOutlined /> Facturation
-                    {societe.versionFree && <Tag color="blue">Version Free</Tag>}
+                    {societe.versionFree && <Tag color="blue">Abonnement gratuit</Tag>}
                 </Space>
             }>
                 {societe.versionFree && (
@@ -497,14 +497,21 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                         type="info"
                         showIcon
                         style={{ marginBottom: 16 }}
-                        message="Version Free : les accès ne sont jamais bloqués"
-                        description="Ni un abonnement non activé, ni une échéance impayée, ni une résiliation ne bloquent l'accès à l'application, et les modules s'ajoutent sans paiement. Les paiements restent possibles."
+                        message="Abonnement gratuit : les accès ne sont jamais bloqués"
+                        description="Accordé par l'éditeur de moussAIllon : ni un abonnement non activé, ni une échéance impayée, ni une résiliation ne bloquent l'accès à l'application, et les modules s'ajoutent sans paiement. Les paiements restent possibles."
                     />
                 )}
                 <Descriptions title="Abonnement" column={1} bordered size="small">
                     <Descriptions.Item label="Date d'activation">
                         {actif ? formatDate(societe.abonnementActivationDate) : 'Au premier paiement'}
                     </Descriptions.Item>
+                    {!actif && societe.essaiFin && (
+                        <Descriptions.Item label="Essai gratuit">
+                            {societe.enEssai
+                                ? `Jusqu'au ${formatDate(societe.essaiFin)} : activé avant, l'abonnement démarre à cette date`
+                                : `Terminé le ${formatDate(societe.essaiFin)}`}
+                        </Descriptions.Item>
+                    )}
                     <Descriptions.Item label="Montant d'activation">
                         {formatMontant(societe.abonnementActivationMontant)}
                         {!actif && ' — payé avec le premier mois ou la première année'}
@@ -528,7 +535,9 @@ export default function Facturation(props: { onSocieteChange?: (societe: any) =>
                                     ? <Tag color="green">Actif</Tag>
                                     : societe.versionFree
                                         ? <Tag color="orange">Non activé</Tag>
-                                        : <Tag color="orange">Non activé : accès limité à la facturation jusqu'au premier paiement</Tag>}
+                                        : societe.enEssai
+                                            ? <Tag color="cyan">Essai gratuit jusqu'au {formatDate(societe.essaiFin)}</Tag>
+                                            : <Tag color="orange">Non activé : accès limité à la facturation jusqu'au premier paiement</Tag>}
                             {actif && societe.abonnementAJour && (
                                 <Tag color="green">Payé jusqu'au {formatDate(societe.abonnementProchainPaiementDate)}</Tag>
                             )}

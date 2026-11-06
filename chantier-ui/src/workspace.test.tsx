@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import Workspace from './workspace.tsx';
 import { fetchWithAuth } from './api.ts';
@@ -47,10 +47,10 @@ const mockedFetch = fetchWithAuth as jest.Mock;
 
 const reponse = (data: any) => Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(data) });
 
-const serveur = (modules: string[], accesLimiteFacturation: boolean, abonnementActif = true) => {
+const serveur = (modules: string[], accesLimiteFacturation: boolean, abonnementActif = true, societe: object = {}) => {
     mockedFetch.mockReset();
     mockedFetch.mockImplementation((url: string) => {
-        if (url === '/societe') return reponse({ id: 1, accesLimiteFacturation, abonnementActif });
+        if (url === '/societe') return reponse({ id: 1, accesLimiteFacturation, abonnementActif, ...societe });
         return reponse({ name: 'marie', modules, theme: 'LIGHT' });
     });
 };
@@ -84,6 +84,25 @@ describe('Workspace - modules et abonnement', () => {
         expect(await screen.findByText(/L'abonnement n'est pas activé/)).toBeInTheDocument();
         expect(screen.getByText('Page Facturation')).toBeInTheDocument();
         expect(screen.queryByText('Page Accueil')).not.toBeInTheDocument();
+    });
+
+    it("rappelle l'essai gratuit en cours et propose d'activer l'abonnement", async () => {
+        serveur(['VENTE', 'PARAMETRAGE'], false, false, { enEssai: true, essaiFin: '2026-12-06T10:00:00' });
+        render(<Workspace user="marie" modules={['VENTE', 'PARAMETRAGE']} abonnementActif={false} setUser={() => {}} />);
+
+        expect(await screen.findByText("Essai gratuit jusqu'au 06/12/2026")).toBeInTheDocument();
+        expect(screen.getByText('Page Accueil')).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: "Activer l'abonnement" }));
+        expect(await screen.findByText('Page Facturation')).toBeInTheDocument();
+        expect(screen.queryByText("Essai gratuit jusqu'au 06/12/2026")).not.toBeInTheDocument();
+    });
+
+    it("explique la fin de l'essai gratuit", async () => {
+        serveur(['VENTE', 'PARAMETRAGE'], true, false, { enEssai: false, essaiFin: '2026-10-06T10:00:00' });
+        render(<Workspace user="marie" modules={['VENTE', 'PARAMETRAGE']} setUser={() => {}} />);
+
+        expect(await screen.findByText(/La période d'essai gratuite est terminée/)).toBeInTheDocument();
+        expect(screen.getByText('Page Facturation')).toBeInTheDocument();
     });
 
     it("bloque l'utilisateur sans le module Paramétrage quand l'abonnement est impayé", async () => {

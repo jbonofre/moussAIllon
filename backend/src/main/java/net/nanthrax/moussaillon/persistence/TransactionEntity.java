@@ -4,13 +4,12 @@ import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 
 @Entity
-public class TransactionEntity extends PanacheEntity {
+public class TransactionEntity extends PanacheEntityChantier {
 
     public String status;
 
