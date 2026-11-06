@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
@@ -227,7 +228,7 @@ public class TechnicienPortalResource {
                     }
                 }
             }
-            item.produitsExtra = collectProduitsTechnicien(vente);
+            item.produitsExtra = collectProduitsTechnicien(vente, vf.id, null);
             item.images = new ArrayList<>();
             if (vente.images != null) {
                 item.images.addAll(vente.images);
@@ -314,7 +315,7 @@ public class TechnicienPortalResource {
                     }
                 }
             }
-            item.produitsExtra = collectProduitsTechnicien(vente);
+            item.produitsExtra = collectProduitsTechnicien(vente, null, vs.id);
             item.images = new ArrayList<>();
             if (vente.images != null) {
                 item.images.addAll(vente.images);
@@ -966,7 +967,7 @@ public class TechnicienPortalResource {
             throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
         }
         VenteEntity parentVente = venteParenteForfait(itemId);
-        ajouterProduitAVente(parentVente, request);
+        ajouterProduitAVente(parentVente, request, vf.id, null);
         return PlanningItemWithVente.fromForfait(vf, parentVente);
     }
 
@@ -979,7 +980,7 @@ public class TechnicienPortalResource {
             throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
         }
         VenteEntity parentVente = venteParenteForfait(itemId);
-        retirerProduitDeVente(parentVente, produitLigneId);
+        retirerProduitDeVente(parentVente, produitLigneId, vf.id, null);
         return PlanningItemWithVente.fromForfait(vf, parentVente);
     }
 
@@ -992,7 +993,7 @@ public class TechnicienPortalResource {
             throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
         }
         VenteEntity parentVente = venteParenteService(itemId);
-        ajouterProduitAVente(parentVente, request);
+        ajouterProduitAVente(parentVente, request, null, vs.id);
         return PlanningItemWithVente.fromService(vs, parentVente);
     }
 
@@ -1005,7 +1006,7 @@ public class TechnicienPortalResource {
             throw new WebApplicationException("Element non trouve", Response.Status.NOT_FOUND);
         }
         VenteEntity parentVente = venteParenteService(itemId);
-        retirerProduitDeVente(parentVente, produitLigneId);
+        retirerProduitDeVente(parentVente, produitLigneId, null, vs.id);
         return PlanningItemWithVente.fromService(vs, parentVente);
     }
 
@@ -1110,8 +1111,9 @@ public class TechnicienPortalResource {
         return ventes.isEmpty() ? null : ventes.get(0);
     }
 
-    // Ajoute le produit comme vraie ligne de la vente (venteProduits) et met a jour les montants.
-    private void ajouterProduitAVente(VenteEntity vente, AddProduitRequest request) {
+    // Ajoute le produit comme vraie ligne de la vente (venteProduits), rattachée à la prestation
+    // (forfait ou service) sur laquelle il est saisi, et met a jour les montants.
+    private void ajouterProduitAVente(VenteEntity vente, AddProduitRequest request, Long venteForfaitId, Long venteServiceId) {
         if (vente == null) {
             throw new WebApplicationException("Prestation parente non trouvee", Response.Status.NOT_FOUND);
         }
@@ -1128,6 +1130,8 @@ public class TechnicienPortalResource {
         ligne.produit = produit;
         ligne.quantite = quantite;
         ligne.ajouteParTechnicien = true;
+        ligne.venteForfaitId = venteForfaitId;
+        ligne.venteServiceId = venteServiceId;
         // Enregistrée tout de suite pour renvoyer son identifiant : l'application peut alors la retirer
         ligne.persist();
         vente.venteProduits.add(ligne);
@@ -1138,14 +1142,15 @@ public class TechnicienPortalResource {
         }
     }
 
-    // Retire une ligne produit ajoutee par le technicien et met a jour les montants.
-    private void retirerProduitDeVente(VenteEntity vente, long produitLigneId) {
+    // Retire une ligne produit ajoutee par le technicien sur la prestation et met a jour les montants.
+    private void retirerProduitDeVente(VenteEntity vente, long produitLigneId, Long venteForfaitId, Long venteServiceId) {
         if (vente == null) {
             throw new WebApplicationException("Prestation parente non trouvee", Response.Status.NOT_FOUND);
         }
         verifierVenteNonPayee(vente);
         VenteProduitEntity ligne = vente.venteProduits.stream()
-                .filter(vp -> vp.ajouteParTechnicien && vp.id != null && vp.id.equals(produitLigneId))
+                .filter(vp -> vp.ajouteParTechnicien && vp.id != null && vp.id.equals(produitLigneId)
+                        && estRattacheeA(vp, venteForfaitId, venteServiceId))
                 .findFirst().orElse(null);
         if (ligne == null) {
             return;
@@ -1198,14 +1203,23 @@ public class TechnicienPortalResource {
         return Math.round(valeur * 100.0) / 100.0;
     }
 
-    // Construit la liste des produits ajoutes par le technicien pour l'affichage.
-    private static List<ProduitItem> collectProduitsTechnicien(VenteEntity vente) {
+    // Pièce saisie sur cette prestation ; une pièce non rattachée (ajoutée avant le rattachement)
+    // reste affichée sur toutes les prestations de la vente
+    private static boolean estRattacheeA(VenteProduitEntity vp, Long venteForfaitId, Long venteServiceId) {
+        if (vp.venteForfaitId == null && vp.venteServiceId == null) {
+            return true;
+        }
+        return Objects.equals(vp.venteForfaitId, venteForfaitId) && Objects.equals(vp.venteServiceId, venteServiceId);
+    }
+
+    // Construit la liste des produits ajoutes par le technicien sur la prestation pour l'affichage.
+    private static List<ProduitItem> collectProduitsTechnicien(VenteEntity vente, Long venteForfaitId, Long venteServiceId) {
         List<ProduitItem> result = new ArrayList<>();
         if (vente == null || vente.venteProduits == null) {
             return result;
         }
         for (VenteProduitEntity vp : vente.venteProduits) {
-            if (vp.ajouteParTechnicien && vp.produit != null) {
+            if (vp.ajouteParTechnicien && vp.produit != null && estRattacheeA(vp, venteForfaitId, venteServiceId)) {
                 ProduitItem pi = new ProduitItem();
                 pi.id = vp.id;
                 pi.designation = vp.produit.designation;

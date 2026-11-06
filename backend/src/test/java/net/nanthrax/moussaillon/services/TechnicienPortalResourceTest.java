@@ -367,6 +367,52 @@ public class TechnicienPortalResourceTest {
     }
 
     @Test
+    void testPieceAjouteeNApparaitQueSurSaPrestation() {
+        int produitMaintenance = nouveauProduit("Filtre Maintenance 752", 10);
+        int produitAntifouling = nouveauProduit("Rouleau Antifouling 752", 10);
+        io.restassured.response.Response vente = given()
+            .contentType("application/json")
+            .body("{\"status\":\"FACTURE_EN_ATTENTE\",\"bonPourAccord\":true,"
+                + "\"montantTTC\":600.0,\"prixVenteTTC\":600.0,\"tva\":20.0,"
+                + "\"venteForfaits\":["
+                + "{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"},"
+                + "{\"forfait\":{\"id\":100},\"quantite\":1,\"status\":\"EN_COURS\"}]}")
+            .when().post("/ventes")
+            .then().statusCode(201).extract().response();
+        int venteId = vente.path("id");
+        int maintenanceId = vente.path("venteForfaits[0].id");
+        int antifoulingId = vente.path("venteForfaits[1].id");
+
+        int ligneMaintenance = given()
+            .contentType("application/json")
+            .body("{\"produitId\":" + produitMaintenance + ",\"quantite\":1}")
+            .when().post("/technicien-portal/forfaits/" + maintenanceId + "/produits")
+            .then().statusCode(200)
+            .body("produitsExtra.size()", is(1))
+            .extract().path("produitsExtra[0].id");
+
+        // La pièce de la maintenance n'apparaît pas sur l'antifouling
+        given()
+            .contentType("application/json")
+            .body("{\"produitId\":" + produitAntifouling + ",\"quantite\":1}")
+            .when().post("/technicien-portal/forfaits/" + antifoulingId + "/produits")
+            .then().statusCode(200)
+            .body("produitsExtra.size()", is(1))
+            .body("produitsExtra[0].designation", is("Rouleau Antifouling 752"));
+
+        // Ni retirée depuis l'antifouling
+        given()
+            .when().delete("/technicien-portal/forfaits/" + antifoulingId + "/produits/" + ligneMaintenance)
+            .then().statusCode(200)
+            .body("produitsExtra.size()", is(1));
+
+        // Les deux pièces restent des lignes de la vente
+        given().when().get("/ventes/" + venteId)
+            .then().statusCode(200)
+            .body("venteProduits.size()", is(2));
+    }
+
+    @Test
     void testPlanningGeneral() {
         given()
             .when().get("/technicien-portal/planning-general")
