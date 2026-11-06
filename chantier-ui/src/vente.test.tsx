@@ -426,6 +426,31 @@ describe('Transactions - lignes forfait', () => {
             })],
         })));
     });
+
+    it('conserve les pièces ajoutées par le technicien et leur prestation', async () => {
+        const vente = {
+            id: 20, date: '2026-10-20T10:00:00', status: 'DEVIS', bonPourAccord: true,
+            client: { id: 3, nom: 'Jean Dupont' },
+            venteForfaits: [{ id: 11, forfait, quantite: 1, status: 'EN_COURS' }],
+            venteProduits: [{ id: 30, produit, quantite: 2, ajouteParTechnicien: true, venteForfaitId: 11 }],
+        };
+        mockedApi.get.mockImplementation((url: string) => Promise.resolve({
+            data: url === '/ventes' ? [vente] : url === '/ventes/20' ? vente : (donnees[url] || []),
+        }) as any);
+        mockedApi.put.mockImplementation((_url: string, body: any) => Promise.resolve({ data: body }) as any);
+        render(<Vente />);
+
+        fireEvent.click(await screen.findByText('FACT-2026-00020'));
+        await screen.findByText('Transaction/Prestation');
+        const modal = document.querySelector('.ant-modal') as HTMLElement;
+        expect(await within(modal).findByText('Hivernage')).toBeInTheDocument();
+
+        fireEvent.click(bouton(modal, 'Enregistrer'));
+        await waitFor(() => expect(mockedApi.put).toHaveBeenCalledWith('/ventes/20', expect.objectContaining({
+            venteForfaits: [expect.objectContaining({ id: 11 })],
+            venteProduits: [expect.objectContaining({ ajouteParTechnicien: true, venteForfaitId: 11, quantite: 2 })],
+        })));
+    });
 });
 
 describe('Transactions - recherche par référence', () => {

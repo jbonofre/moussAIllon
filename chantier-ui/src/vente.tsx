@@ -438,6 +438,10 @@ interface VenteProduitLigne {
     quantite: number;
     remise?: number;
     remisePourcentage?: number;
+    // Pièce ajoutée par le technicien, rattachée à la ligne forfait ou service sur laquelle il l'a saisie
+    ajouteParTechnicien?: boolean;
+    venteForfaitId?: number;
+    venteServiceId?: number;
 }
 
 interface VenteBateauCatalogueLigne {
@@ -565,6 +569,11 @@ interface LigneUnifiee {
     taches?: Array<{ nom?: string; description?: string; done?: boolean; nonFait?: boolean; motif?: string }>;
     images?: string[];
     documents?: string[];
+    // Identifiant de la ligne forfait ou service enregistrée : les pièces du technicien y restent rattachées
+    ligneId?: number;
+    ajouteParTechnicien?: boolean;
+    venteForfaitId?: number;
+    venteServiceId?: number;
 }
 
 const estLigneVide = (ligne?: LigneUnifiee) => !ligne?.type && !ligne?.itemId && !ligne?.libre;
@@ -1875,6 +1884,7 @@ export default function Vente() {
             lignes.push({
                 type: 'forfait',
                 itemId: vf.forfait?.id,
+                ligneId: vf.id,
                 quantite: vf.quantite || 1,
                 remise: vf.remise || 0,
                 remisePourcentage: vf.remisePourcentage || 0,
@@ -1897,6 +1907,7 @@ export default function Vente() {
             lignes.push({
                 type: 'service',
                 itemId: vs.service?.id,
+                ligneId: vs.id,
                 quantite: vs.quantite || 1,
                 remise: vs.remise || 0,
                 remisePourcentage: vs.remisePourcentage || 0,
@@ -1916,7 +1927,10 @@ export default function Vente() {
             });
         });
         (vente.venteProduits || []).forEach((l) => {
-            if (l.produit?.id) lignes.push({ type: 'produit', itemId: l.produit.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
+            if (l.produit?.id) lignes.push({
+                type: 'produit', itemId: l.produit.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0,
+                ajouteParTechnicien: l.ajouteParTechnicien, venteForfaitId: l.venteForfaitId, venteServiceId: l.venteServiceId,
+            });
         });
         (vente.venteBateauxCatalogue || []).forEach((l) => {
             if (l.bateau?.id) lignes.push({ type: 'bateau', itemId: l.bateau.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
@@ -2154,6 +2168,9 @@ export default function Vente() {
         const moteurLines = allLignes.filter((l) => l.type === 'moteur');
         const heliceLines = allLignes.filter((l) => l.type === 'helice');
         const remorqueLines = allLignes.filter((l) => l.type === 'remorque');
+        // Identifiant d'origine d'une prestation, renvoyé seulement en modification : le backend la recrée
+        // et y rattache de nouveau les pièces ajoutées par le technicien
+        const ligneEnregistree = (line: LigneUnifiee) => (currentVente?.id ? line.ligneId : undefined);
 
         return {
             status: values.status,
@@ -2172,6 +2189,7 @@ export default function Vente() {
                     : (selectedForfait?.taches || []).filter((t) => t.nom?.trim()).map((t) => ({ nom: t.nom, description: t.description || '', done: false }));
                 const existingVf = (currentVente?.venteForfaits || []).find((vf) => vf.forfait?.id === line.itemId);
                 return {
+                    id: ligneEnregistree(line),
                     forfait: selectedForfait,
                     quantite: line.quantite || 1,
                     remise: line.remise || 0,
@@ -2202,6 +2220,7 @@ export default function Vente() {
                     ? existingTaches.map((t: { nom?: string; description?: string; done?: boolean; nonFait?: boolean; motif?: string }) => ({ nom: t.nom, description: t.description, done: t.done || false, nonFait: t.nonFait || false, motif: t.motif }))
                     : (existingVs?.taches || []).map((t) => ({ nom: t.nom, description: t.description || '', done: t.done || false, nonFait: t.nonFait || false, motif: t.motif }));
                 return {
+                    id: ligneEnregistree(line),
                     service: services.find((s) => s.id === line.itemId),
                     quantite: line.quantite || 1,
                     remise: line.remise || 0,
@@ -2233,6 +2252,9 @@ export default function Vente() {
                     quantite: quantiteLigne(line.quantite),
                     remise: line.remise || 0,
                     remisePourcentage: line.remisePourcentage || 0,
+                    ajouteParTechnicien: line.ajouteParTechnicien,
+                    venteForfaitId: line.venteForfaitId,
+                    venteServiceId: line.venteServiceId,
                 }] : [];
             }),
             venteBateauxCatalogue: bateauLines.flatMap<VenteBateauCatalogueLigne>((line) => {
@@ -4100,6 +4122,16 @@ export default function Vente() {
                                                                     </Form.Item>
                                                                     {/* Techniciens non affichés : conservés pour ne pas perdre l'affectation faite au planning */}
                                                                     <Form.Item name={[field.name, 'technicienIds']} hidden><Select mode="multiple" /></Form.Item>
+                                                                    {/* Ligne enregistrée : les pièces ajoutées par le technicien y restent rattachées */}
+                                                                    <Form.Item name={[field.name, 'ligneId']} hidden><InputNumber /></Form.Item>
+                                                                </>
+                                                            )}
+                                                            {lineType === 'produit' && ligne.ajouteParTechnicien && (
+                                                                <>
+                                                                    {/* Pièce ajoutée par le technicien : conservée avec sa prestation */}
+                                                                    <Form.Item name={[field.name, 'ajouteParTechnicien']} valuePropName="checked" hidden><Checkbox /></Form.Item>
+                                                                    <Form.Item name={[field.name, 'venteForfaitId']} hidden><InputNumber /></Form.Item>
+                                                                    <Form.Item name={[field.name, 'venteServiceId']} hidden><InputNumber /></Form.Item>
                                                                 </>
                                                             )}
                                                             {isEmptyLine && (
