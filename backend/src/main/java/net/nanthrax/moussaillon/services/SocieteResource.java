@@ -640,13 +640,13 @@ public class SocieteResource {
      * jamais bloqués, ni sans abonnement activé, ni pour impayé, ni après résiliation.
      */
     static boolean versionFree() {
-        ChantierEntity chantier = ChantierEntity.findById(ChantierContexte.courant());
+        ChantierEntity chantier = Chantiers.courant();
         return chantier != null && chantier.gratuit;
     }
 
     /** Fin de la période d'essai gratuite du chantier courant ; null s'il n'en a pas eu. */
     static Timestamp finEssai() {
-        ChantierEntity chantier = ChantierEntity.findById(ChantierContexte.courant());
+        ChantierEntity chantier = Chantiers.courant();
         return chantier == null ? null : chantier.essaiFin;
     }
 

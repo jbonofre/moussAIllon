@@ -7,7 +7,9 @@ import net.nanthrax.moussaillon.persistence.ChantierEntity;
 import org.jboss.logging.Logger;
 
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Exécution de traitements dans les données d'un chantier donné, hors requête de ce chantier : tâches planifiées
@@ -18,6 +20,14 @@ import java.util.concurrent.Callable;
 public class Chantiers {
 
     private static final Logger LOG = Logger.getLogger(Chantiers.class);
+
+    // Le registre est lu à chaque requête (ChantierFilter, abonnement gratuit, essai) : un chantier trouvé est gardé
+    // en mémoire quelques secondes, et oublié dès que l'administration le modifie (voir oublier).
+    static final long DUREE_CACHE_MS = 30_000;
+
+    private static final Map<String, EnCache> REGISTRE = new ConcurrentHashMap<>();
+
+    private record EnCache(ChantierEntity chantier, long expiration) {}
 
     @Inject
     ChantierContexte contexte;
@@ -49,12 +59,42 @@ public class Chantiers {
         return dans(ChantierContexte.RACINE, traitement);
     }
 
-    /** Chantier portant ce code, lu dans une transaction à part (sans ouvrir la session de la requête). */
+    /**
+     * Chantier portant ce code, en lecture seule : gardé en mémoire, sinon lu dans une transaction à part (sans ouvrir
+     * la session de la requête). Un code inconnu n'est pas gardé : un chantier créé est trouvé aussitôt.
+     */
     public ChantierEntity trouver(String code) {
+        return enCache(code);
+    }
+
+    /** Chantier de la requête ou de la tâche en cours (lecture seule), null s'il n'y en a pas. */
+    public static ChantierEntity courant() {
+        return enCache(ChantierContexte.courant());
+    }
+
+    private static ChantierEntity enCache(String code) {
         if (code == null || code.isBlank()) {
             return null;
         }
-        return QuarkusTransaction.requiringNew().call(() -> ChantierEntity.<ChantierEntity>findById(code));
+        long maintenant = System.currentTimeMillis();
+        EnCache enCache = REGISTRE.get(code);
+        if (enCache != null && enCache.expiration() > maintenant) {
+            return enCache.chantier();
+        }
+        ChantierEntity chantier = QuarkusTransaction.requiringNew().call(() -> ChantierEntity.<ChantierEntity>findById(code));
+        if (chantier != null) {
+            REGISTRE.put(code, new EnCache(chantier, maintenant + DUREE_CACHE_MS));
+        } else {
+            REGISTRE.remove(code);
+        }
+        return chantier;
+    }
+
+    /** Le chantier a changé, de code ou a été supprimé : il est relu à sa prochaine utilisation. */
+    public void oublier(String code) {
+        if (code != null) {
+            REGISTRE.remove(code);
+        }
     }
 
     /** Codes de tous les chantiers. */

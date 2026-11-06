@@ -125,6 +125,8 @@ public class InscriptionResourceTest {
                 ChantierEntity chantier = ChantierEntity.findById(code);
                 chantier.essaiFin = Timestamp.valueOf(LocalDateTime.now().minusDays(1));
             }));
+            // Modifié hors de l'administration : le registre gardé en mémoire est relu
+            chantiers.oublier(code);
 
             // Essai terminé sans abonnement activé : accès limité à la facturation
             String jeton = connexion(code);

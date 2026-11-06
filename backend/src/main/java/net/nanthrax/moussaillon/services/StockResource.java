@@ -2,6 +2,7 @@ package net.nanthrax.moussaillon.services;
 
 import io.quarkus.arc.Arc;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.panache.common.Sort;
 import io.quarkus.security.identity.SecurityIdentity;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -339,12 +340,18 @@ public class StockResource {
     @GET
     @Path("/reapprovisionnement")
     public List<ArticleAReapprovisionner> reapprovisionnement() {
+        List<ArticleStock> articles = articles().stream()
+                .filter(a -> {
+                    double projete = a.disponible + a.enCommande;
+                    return projete < 0 || (a.seuil > 0 && projete <= a.seuil);
+                })
+                .toList();
+        Map<String, List<Long>> idsParType = new HashMap<>();
+        articles.forEach(a -> idsParType.computeIfAbsent(a.type, t -> new ArrayList<>()).add(a.id));
+        Map<String, List<FournisseurPropose>> fournisseurs = fournisseurs(idsParType);
         List<ArticleAReapprovisionner> aCommander = new ArrayList<>();
-        for (ArticleStock a : articles()) {
+        for (ArticleStock a : articles) {
             double projete = a.disponible + a.enCommande;
-            if (projete >= 0 && (a.seuil <= 0 || projete > a.seuil)) {
-                continue;
-            }
             ArticleAReapprovisionner r = new ArticleAReapprovisionner();
             r.cle = a.cle;
             r.type = a.type;
@@ -357,7 +364,7 @@ public class StockResource {
             r.reserve = a.reserve;
             r.disponible = a.disponible;
             r.enCommande = a.enCommande;
-            r.fournisseurs = fournisseurs(a.type, a.id);
+            r.fournisseurs = fournisseurs.getOrDefault(a.type + "-" + a.id, new ArrayList<>());
             FournisseurPropose propose = r.fournisseurs.stream()
                     .filter(f -> f.prixAchatHT > 0)
                     .min(Comparator.comparingDouble(f -> f.prixAchatHT))
@@ -378,21 +385,33 @@ public class StockResource {
         return Math.max(Math.ceil(cible - projete), Math.max(minimumCommande, 1));
     }
 
-    private static List<FournisseurPropose> fournisseurs(String type, Long id) {
-        List<FournisseurPropose> fournisseurs = new ArrayList<>();
-        switch (type) {
-            case PRODUIT -> FournisseurProduitEntity.<FournisseurProduitEntity>list("produit.id", id).forEach(f ->
-                    fournisseurs.add(fournisseur(f.fournisseur, f.reference, f.prixAchatHT, f.tva, f.nombreMinACommander)));
-            case BATEAU -> FournisseurBateauEntity.<FournisseurBateauEntity>list("bateau.id", id).forEach(f ->
-                    fournisseurs.add(fournisseur(f.fournisseur, f.reference, f.prixAchatHT, f.tva, f.nombreMinACommander)));
-            case MOTEUR -> FournisseurMoteurEntity.<FournisseurMoteurEntity>list("moteur.id", id).forEach(f ->
-                    fournisseurs.add(fournisseur(f.fournisseur, f.reference, f.prixAchatHT, f.tva, f.nombreMinACommander)));
-            case REMORQUE -> FournisseurRemorqueEntity.<FournisseurRemorqueEntity>list("remorque.id", id).forEach(f ->
-                    fournisseurs.add(fournisseur(f.fournisseur, f.reference, f.prixAchatHT, f.tva, f.nombreMinACommander)));
-            default -> { }
-        }
-        fournisseurs.removeIf(f -> f.fournisseurId == null);
+    /**
+     * Fournisseurs des articles (identifiants par type), par article (clé « type-id ») : une requête par type d'article
+     * et non une par article :
+     * la liste des articles à commander en faisait des centaines.
+     */
+    private static Map<String, List<FournisseurPropose>> fournisseurs(Map<String, List<Long>> idsParType) {
+        Map<String, List<FournisseurPropose>> fournisseurs = new HashMap<>();
+        idsParType.forEach((type, ids) -> {
+            switch (type) {
+                case PRODUIT -> FournisseurProduitEntity.<FournisseurProduitEntity>list("produit.id in ?1", Sort.by("id"), ids).forEach(f ->
+                        ajouter(fournisseurs, type, f.produit.id, fournisseur(f.fournisseur, f.reference, f.prixAchatHT, f.tva, f.nombreMinACommander)));
+                case BATEAU -> FournisseurBateauEntity.<FournisseurBateauEntity>list("bateau.id in ?1", Sort.by("id"), ids).forEach(f ->
+                        ajouter(fournisseurs, type, f.bateau.id, fournisseur(f.fournisseur, f.reference, f.prixAchatHT, f.tva, f.nombreMinACommander)));
+                case MOTEUR -> FournisseurMoteurEntity.<FournisseurMoteurEntity>list("moteur.id in ?1", Sort.by("id"), ids).forEach(f ->
+                        ajouter(fournisseurs, type, f.moteur.id, fournisseur(f.fournisseur, f.reference, f.prixAchatHT, f.tva, f.nombreMinACommander)));
+                case REMORQUE -> FournisseurRemorqueEntity.<FournisseurRemorqueEntity>list("remorque.id in ?1", Sort.by("id"), ids).forEach(f ->
+                        ajouter(fournisseurs, type, f.remorque.id, fournisseur(f.fournisseur, f.reference, f.prixAchatHT, f.tva, f.nombreMinACommander)));
+                default -> { }
+            }
+        });
         return fournisseurs;
+    }
+
+    private static void ajouter(Map<String, List<FournisseurPropose>> fournisseurs, String type, Long id, FournisseurPropose fournisseur) {
+        if (fournisseur.fournisseurId != null) {
+            fournisseurs.computeIfAbsent(type + "-" + id, c -> new ArrayList<>()).add(fournisseur);
+        }
     }
 
     private static FournisseurPropose fournisseur(FournisseurEntity fournisseur, String reference, double prixAchatHT,
@@ -445,7 +464,8 @@ public class StockResource {
             if (ligne.fournisseurId == null) {
                 throw erreur(400, "Choisissez le fournisseur de « " + article.designation() + " »");
             }
-            FournisseurPropose tarif = fournisseurs(article.type(), ligne.id).stream()
+            FournisseurPropose tarif = fournisseurs(Map.of(article.type(), List.of(ligne.id)))
+                    .getOrDefault(article.type() + "-" + ligne.id, List.of()).stream()
                     .filter(f -> f.fournisseurId.equals(ligne.fournisseurId)).findFirst().orElse(null);
             CommandeFournisseurResource.CreateCommandeLigneRequest l = new CommandeFournisseurResource.CreateCommandeLigneRequest();
             l.type = article.type();

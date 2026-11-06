@@ -185,6 +185,7 @@ public class AdminResource {
                 LOG.infof("Accès du chantier %s %s", chantierCode, chantier.accesSuspendu ? "suspendu" : "rétabli");
             }
         });
+        chantiers.oublier(chantierCode);
         return vue(chantierCode);
     }
 
@@ -210,6 +211,8 @@ public class AdminResource {
         }
         chantiers.enRacine(() -> SocieteEntity.getEntityManager().unwrap(Session.class)
             .doWork(connection -> remplacerCode(connection, ancien, nouveau)));
+        chantiers.oublier(ancien);
+        chantiers.oublier(nouveau);
         LOG.infof("Code du chantier %s changé en %s", ancien, nouveau);
         return vue(nouveau);
     }
@@ -313,6 +316,7 @@ public class AdminResource {
         }
         supprimerDonnees(chantierCode);
         QuarkusTransaction.requiringNew().run(() -> ChantierEntity.deleteById(chantierCode));
+        chantiers.oublier(chantierCode);
         LOG.infof("Chantier %s supprimé", chantierCode);
         return Response.noContent().build();
     }

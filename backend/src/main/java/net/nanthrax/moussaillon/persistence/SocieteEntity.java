@@ -3,12 +3,15 @@ package net.nanthrax.moussaillon.persistence;
 import io.quarkus.panache.common.Sort;
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
 import jakarta.persistence.*;
+import org.hibernate.Session;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Entity
 @EntityListeners(FormatNomListener.class)
@@ -187,9 +190,30 @@ public class SocieteEntity extends PanacheEntityChantier {
     public String payplugPaymentLinkMensuel;
     public String payplugPaymentLinkAnnuel;
 
+    // Identifiant de la société de chaque chantier : courante() est appelée à chaque requête (limitation de l'accès
+    // à la facturation). Par identifiant, la société est lue en une requête, puis reprise de la session.
+    private static final Map<Object, Long> ID_PAR_CHANTIER = new ConcurrentHashMap<>();
+
     /** Société du chantier courant (une par chantier), ou null s'il n'y en a pas encore. */
     public static SocieteEntity courante() {
-        return SocieteEntity.<SocieteEntity>findAll(Sort.ascending("id")).firstResult();
+        Object chantier = getEntityManager().unwrap(Session.class).getTenantIdentifierValue();
+        Long id = chantier == null ? null : ID_PAR_CHANTIER.get(chantier);
+        if (id != null) {
+            // Filtrée par chantier : une société supprimée (chantier supprimé puis recréé) n'est pas trouvée
+            SocieteEntity societe = findById(id);
+            if (societe != null) {
+                return societe;
+            }
+        }
+        SocieteEntity societe = SocieteEntity.<SocieteEntity>findAll(Sort.ascending("id")).firstResult();
+        if (chantier != null) {
+            if (societe != null) {
+                ID_PAR_CHANTIER.put(chantier, societe.id);
+            } else {
+                ID_PAR_CHANTIER.remove(chantier);
+            }
+        }
+        return societe;
     }
 
 }

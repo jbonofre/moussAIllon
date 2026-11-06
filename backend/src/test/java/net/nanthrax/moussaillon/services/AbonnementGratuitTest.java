@@ -1,5 +1,6 @@
 package net.nanthrax.moussaillon.services;
 
+import io.quarkus.arc.Arc;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import net.nanthrax.moussaillon.persistence.ChantierEntity;
@@ -29,6 +30,8 @@ public class AbonnementGratuitTest {
 
     static void gratuit(boolean gratuit) {
         QuarkusTransaction.requiringNew().run(() -> ChantierEntity.<ChantierEntity>findById("test").gratuit = gratuit);
+        // Modifié hors de l'administration : le registre gardé en mémoire est relu
+        Arc.container().instance(Chantiers.class).get().oublier("test");
     }
 
     @Test
