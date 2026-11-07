@@ -218,4 +218,16 @@ public class VenteEntity extends PanacheEntityChantier {
         return prixHT > 0 ? prixHT : Math.round(prixTTC / (1 + tva / 100.0) * 100.0) / 100.0;
     }
 
+    // Remise de la fiche client (en % du montant TTC), 0 si le client n'en a pas
+    public double tauxRemiseClient() {
+        return client != null ? Math.min(Math.max(client.remise, 0.0), 100.0) : 0.0;
+    }
+
+    // La vente porte la remise de son client si sa remise vaut le taux du client appliqué à son montant TTC,
+    // au centime près (les arrondis peuvent différer d'un centime) : elle suit alors le montant de la vente
+    public boolean appliqueRemiseClient() {
+        double taux = tauxRemiseClient();
+        return taux > 0 && Math.abs(Math.round(remise * 100.0) - Math.round(montantTTC * taux)) <= 1;
+    }
+
 }

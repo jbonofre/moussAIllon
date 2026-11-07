@@ -1168,6 +1168,7 @@ public class TechnicienPortalResource {
 
     // Applique un delta TTC et recalcule les montants derives de la vente.
     private static void appliquerDeltaMontant(VenteEntity vente, double deltaTTC) {
+        boolean remiseClient = vente.appliqueRemiseClient();
         vente.montantTTC = arrondi(vente.montantTTC + deltaTTC);
         // Un client exonéré ne paie aucune TVA
         if (vente.exonereTva()) {
@@ -1178,6 +1179,10 @@ public class TechnicienPortalResource {
         double baseTaxableTTC = Math.max(0.0, vente.montantTTC - montantOccasionTTC(vente));
         vente.montantTVA = (100.0 + tva) != 0.0 ? arrondi(baseTaxableTTC / (100.0 + tva) * tva) : 0.0;
         vente.montantHT = arrondi(vente.montantTTC - vente.montantTVA);
+        // La remise du client garde son pourcentage ; une remise saisie à la main garde son montant
+        if (remiseClient) {
+            vente.remise = arrondi(vente.montantTTC * vente.tauxRemiseClient() / 100.0);
+        }
         vente.prixVenteTTC = arrondi(vente.montantTTC - vente.remise);
     }
 

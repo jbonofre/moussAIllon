@@ -27,6 +27,7 @@ import {
     TOOLTIP_EXONERATION_TVA,
     TVA_VENTE_DEFAUT,
 } from './tva-vente.ts';
+import { remiseClientEnVigueur, remiseSurMontant, tauxRemiseClient } from './remise-client.ts';
 import { comparerDatesVentes } from './tri-ventes.ts';
 import { forfaitCorrespondAuMoteur, motifsNumeroSerie } from './numero-serie.ts';
 import { calculerMarge } from './marge-vente.ts';
@@ -110,6 +111,8 @@ interface ClientEntity {
     // Accord particulier : aucune vente du client n'est relancée
     relancesSuspendues?: boolean;
     motifSuspensionRelances?: string;
+    // Remise (en %) accordée au client sur ses ventes
+    remise?: number;
 }
 
 interface CatalogueMoteurEntity {
@@ -785,6 +788,9 @@ export default function Vente() {
     const interventionsConnuesRef = React.useRef(0);
     // Ligne en cours de déplacement : aucune valeur ne change, rien n'est recalculé
     const deplacementLigneRef = React.useRef(false);
+    // Remise de la fiche client appliquée à la vente : son pourcentage est conservé quand les montants changent,
+    // jusqu'à ce que la remise soit modifiée à la main
+    const remiseClientRef = React.useRef(false);
     const [isEdit, setIsEdit] = useState(false);
     const [currentVente, setCurrentVente] = useState<VenteEntity | null>(null);
     const [rappelHistorique, setRappelHistorique] = useState<RappelHistoriqueEntity[]>([]);
@@ -1251,7 +1257,7 @@ export default function Vente() {
                 form.setFieldValue('clientId', clientId);
                 if (bateauId) form.setFieldValue('bateauId', bateauId);
                 handleClientChange(clientId);
-                appliquerTvaClient(client);
+                appliquerConditionsClient(client);
             })();
         }
     }, [pageState]);
@@ -1791,7 +1797,7 @@ export default function Vente() {
             message.success('Client ajouté avec succès');
             setClients((prev) => [...prev, created]);
             form.setFieldValue('clientId', created.id);
-            appliquerTvaClient(created);
+            appliquerConditionsClient(created);
             setNewClientModalVisible(false);
         } catch {
             // validation errors shown in form
@@ -1945,6 +1951,8 @@ export default function Vente() {
             if (l.remorque?.id) lignes.push({ type: 'remorque', itemId: l.remorque.id, quantite: l.quantite || 1, remise: l.remise || 0, remisePourcentage: l.remisePourcentage || 0 });
         });
         interventionsConnuesRef.current = compterInterventions(lignes);
+        // Une vente qui porte la remise de son client la garde en pourcentage quand ses montants changent
+        remiseClientRef.current = remiseClientEnVigueur(vente.client, vente.remise, vente.montantTTC);
         form.resetFields();
         form.setFieldsValue({
             status: vente.status || 'DEVIS',
@@ -1959,7 +1967,9 @@ export default function Vente() {
             date: toDateDayjs(vente.date) || getTodayDayjs(),
             montantHT: vente.montantHT || 0,
             remise: vente.remise || 0,
-            remisePourcentage: vente.montantTTC ? Math.round((((vente.remise || 0) / vente.montantTTC) * 100 + Number.EPSILON) * 100) / 100 : 0,
+            remisePourcentage: remiseClientRef.current
+                ? tauxRemiseClient(vente.client)
+                : vente.montantTTC ? Math.round((((vente.remise || 0) / vente.montantTTC) * 100 + Number.EPSILON) * 100) / 100 : 0,
             tva: vente.tva || 0,
             montantTVA: vente.montantTVA || 0,
             montantTTC: vente.montantTTC || 0,
@@ -2150,6 +2160,7 @@ export default function Vente() {
             setRappelHistorique([]);
             snapshotSavedLines(null);
             interventionsConnuesRef.current = 0;
+            remiseClientRef.current = false;
             form.resetFields();
             form.setFieldsValue({ ...defaultVente, date: getTodayDayjs() });
             setFormDirty(false);
@@ -3161,7 +3172,7 @@ export default function Vente() {
         const montantTTC = Math.round((totalTTC + Number.EPSILON) * 100) / 100;
         const { montantTVA, montantHT } = calculerTvaVente(montantTTC, totalOccasionTTC, tva);
 
-        if (remiseSource === 'percentage') {
+        if (remiseSource === 'percentage' || (remiseSource === 'auto' && remiseClientRef.current)) {
             remise = Math.round((((montantTTC * remisePourcentage) / 100) + Number.EPSILON) * 100) / 100;
         } else {
             remisePourcentage = montantTTC > 0
@@ -3215,6 +3226,23 @@ export default function Vente() {
         recalculateFromLines(changement ? 'percentage' : 'auto', { exonere });
     };
 
+    // Remise de la fiche client (#755) : au changement de client, la vente prend son pourcentage de remise.
+    // Une remise saisie à la main n'est pas écrasée ; celle du client précédent est remplacée.
+    const appliquerRemiseClient = (client?: ClientEntity) => {
+        const taux = tauxRemiseClient(client);
+        const remiseManuelle = !remiseClientRef.current && (form.getFieldValue('remise') || 0) > 0;
+        if (remiseManuelle || (taux === 0 && !remiseClientRef.current)) return;
+        remiseClientRef.current = taux > 0;
+        form.setFieldValue('remisePourcentage', taux);
+        recalculateFromLines('percentage', { exonere: clientExonereTva(client) });
+    };
+
+    // Conditions accordées au client choisi : exonération de TVA et remise
+    const appliquerConditionsClient = (client?: ClientEntity) => {
+        appliquerTvaClient(client);
+        appliquerRemiseClient(client);
+    };
+
     // Un package n'est pas une ligne de vente : la ligne où il est choisi est remplacée par les articles qu'il regroupe
     const deplierPackage = (lineIndex: number, packageId: number) => {
         const pack = packages.find((p) => p.id === packageId);
@@ -3247,7 +3275,7 @@ export default function Vente() {
             return;
         }
         if ('clientId' in changedValues) {
-            appliquerTvaClient(clients.find((client) => client.id === changedValues.clientId));
+            appliquerConditionsClient(clients.find((client) => client.id === changedValues.clientId));
             return;
         }
         if (changedValues.lignes !== undefined) {
@@ -3288,14 +3316,13 @@ export default function Vente() {
             return;
         }
 
-        // HT, taux ou montant de TVA modifié : le HT est conservé, le TTC en découle (la remise en EUR est conservée)
+        // HT, taux ou montant de TVA modifié : le HT est conservé, le TTC en découle (la remise en EUR est conservée,
+        // sauf la remise du client qui garde son pourcentage)
         const appliquerMontantTTC = (montantTTC: number) => {
-            const remise = allValues.remise || 0;
-            const remisePourcentage = montantTTC > 0
-                ? Math.round((((remise / montantTTC) * 100) + Number.EPSILON) * 100) / 100
-                : 0;
-            const prixVenteTTC = Math.round(((montantTTC - remise) + Number.EPSILON) * 100) / 100;
+            const { remise, remisePourcentage, prixVenteTTC } = remiseSurMontant(
+                montantTTC, allValues.remise || 0, allValues.remisePourcentage || 0, remiseClientRef.current);
             form.setFieldValue('montantTTC', montantTTC);
+            form.setFieldValue('remise', remise);
             form.setFieldValue('remisePourcentage', remisePourcentage);
             form.setFieldValue('prixVenteTTC', prixVenteTTC);
         };
@@ -3314,6 +3341,11 @@ export default function Vente() {
             if (tva !== undefined) form.setFieldValue('tva', tva);
             appliquerMontantTTC(Math.round(((montantHT + montantTVA) + Number.EPSILON) * 100) / 100);
             return;
+        }
+
+        // Remise modifiée à la main : son montant ne suit plus celui de la vente
+        if (changedValues.prixVenteTTC !== undefined || changedValues.remisePourcentage !== undefined || changedValues.remise !== undefined) {
+            remiseClientRef.current = false;
         }
 
         if (changedValues.prixVenteTTC !== undefined) {
