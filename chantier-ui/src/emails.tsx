@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchWithAuth } from './api.ts';
 import { Alert, Card, Space, Button, Form, Input, Table, Modal, Tag, Spin, message } from 'antd';
 import { MailOutlined, EditOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
+import EditeurEmail from './EditeurEmail.tsx';
 
 // Libellés des modèles, dans leur ordre d'affichage : un modèle par relance (1 à 3), de paiement puis de devis/OR.
 // RAPPEL est le nom historique du modèle de la relance de paiement 1.
@@ -212,7 +211,7 @@ export default function Emails() {
                         label="Contenu de l'email"
                         rules={[{ required: true, message: 'Le contenu est requis' }]}
                     >
-                        <ReactQuill theme="snow" style={{ height: 300, marginBottom: 42 }} />
+                        <EditeurEmail hauteur={400} />
                     </Form.Item>
                 </Form>
             </Modal>

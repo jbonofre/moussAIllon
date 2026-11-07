@@ -6,7 +6,9 @@ import jakarta.enterprise.context.control.ActivateRequestContext;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
+import net.nanthrax.moussaillon.persistence.AnnonceEntity;
 import net.nanthrax.moussaillon.persistence.ChantierEntity;
+import net.nanthrax.moussaillon.persistence.EmailTemplateEntity;
 import net.nanthrax.moussaillon.persistence.ModuleApplication;
 import net.nanthrax.moussaillon.persistence.PanacheEntityChantier;
 import net.nanthrax.moussaillon.persistence.ProduitCatalogueEntity;
@@ -411,9 +413,9 @@ public class DataInitializer {
             LOG.warn("Impossible de supprimer les anciennes colonnes de rappel de VenteEntity", e);
         }
         try {
-            elargirContenuHistoriqueRappels();
+            SocieteEntity.getEntityManager().unwrap(Session.class).doWork(DataInitializer::elargirColonnesTexte);
         } catch (Exception e) {
-            LOG.warn("Impossible d'élargir la colonne contenu de RappelHistoriqueEntity", e);
+            LOG.warn("Impossible d'élargir les colonnes des textes mis en forme", e);
         }
         try {
             convertirEnumEnVarchar("EmailTemplateEntity", "type");
@@ -598,26 +600,43 @@ public class DataInitializer {
         return mois;
     }
 
+    /** Colonne de texte agrandie au démarrage. */
+    record ColonneTexte(String table, String colonne, int longueur) {
+    }
+
+    /** Textes mis en forme : HTML des emails (modèle, étape de séquence, campagne ou envoi) et description des annonces. */
+    static final List<ColonneTexte> COLONNES_TEXTE = List.of(
+        new ColonneTexte("CampagneEntity", "contenu", EmailTemplateEntity.LONGUEUR_CONTENU),
+        new ColonneTexte("EmailSequenceEtapeEntity", "contenu", EmailTemplateEntity.LONGUEUR_CONTENU),
+        new ColonneTexte("EmailSequenceHistoriqueEntity", "contenu", EmailTemplateEntity.LONGUEUR_CONTENU),
+        new ColonneTexte("EmailTemplateEntity", "contenu", EmailTemplateEntity.LONGUEUR_CONTENU),
+        new ColonneTexte("RappelHistoriqueEntity", "contenu", EmailTemplateEntity.LONGUEUR_CONTENU),
+        new ColonneTexte("AnnonceEntity", "description", AnnonceEntity.LONGUEUR_DESCRIPTION));
+
     /**
-     * Le contenu des relances était limité à 255 caractères : tout email issu d'un modèle
-     * dépassait cette taille et l'enregistrement de l'historique échouait.
+     * Les textes mis en forme dans l'éditeur (issue #757) dépassent vite la taille d'origine de leur colonne : 10000
+     * caractères pour les emails, 255 pour l'historique des relances et la description des annonces. L'enregistrement
+     * échouait. La stratégie de schéma "update" n'agrandit pas une colonne existante ; les valeurs et le NOT NULL sont
+     * conservés.
      */
-    private void elargirContenuHistoriqueRappels() {
-        EntityManager em = SocieteEntity.getEntityManager();
-        em.unwrap(Session.class).doWork(connection -> {
-            try (Statement query = connection.createStatement();
-                 ResultSet rs = query.executeQuery(
-                     "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS "
-                         + "WHERE TABLE_NAME = 'RAPPELHISTORIQUEENTITY' AND COLUMN_NAME = 'CONTENU'")) {
-                if (!rs.next() || rs.getLong(1) >= 10000) {
-                    return;
+    static void elargirColonnesTexte(Connection connection) throws SQLException {
+        for (ColonneTexte colonne : COLONNES_TEXTE) {
+            try (PreparedStatement query = connection.prepareStatement(
+                     "SELECT CHARACTER_MAXIMUM_LENGTH FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = ? AND COLUMN_NAME = ?")) {
+                query.setString(1, colonne.table().toUpperCase(Locale.ROOT));
+                query.setString(2, colonne.colonne().toUpperCase(Locale.ROOT));
+                try (ResultSet rs = query.executeQuery()) {
+                    if (!rs.next() || rs.getLong(1) >= colonne.longueur()) {
+                        continue;
+                    }
                 }
             }
             try (Statement alter = connection.createStatement()) {
-                alter.executeUpdate("ALTER TABLE RappelHistoriqueEntity ALTER COLUMN contenu SET DATA TYPE VARCHAR(10000)");
-                LOG.info("Colonne RappelHistoriqueEntity.contenu élargie à 10000 caractères");
+                alter.executeUpdate("ALTER TABLE " + colonne.table() + " ALTER COLUMN " + colonne.colonne()
+                        + " SET DATA TYPE VARCHAR(" + colonne.longueur() + ")");
+                LOG.infof("Colonne %s.%s élargie à %d caractères", colonne.table(), colonne.colonne(), colonne.longueur());
             }
-        });
+        }
     }
 
     /**

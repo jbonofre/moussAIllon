@@ -20,7 +20,7 @@ public class RappelHistoriqueEntity extends PanacheEntityChantier {
     public String sujet;
 
     // Corps HTML de l'email, bien au-delà des 255 caractères par défaut
-    @Column(length = 10000)
+    @Column(length = EmailTemplateEntity.LONGUEUR_CONTENU)
     public String contenu;
 
     @JsonbTypeAdapter(TimestampJsonbAdapter.class)

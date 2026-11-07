@@ -10,8 +10,7 @@ jest.mock('./api.ts', () => ({
     fetchWithAuth: jest.fn(),
 }));
 // L'éditeur riche ne fonctionne pas sous jsdom : une zone de texte suffit pour le formulaire
-jest.mock('react-quill-new/dist/quill.snow.css', () => ({}));
-jest.mock('react-quill-new', () => ({
+jest.mock('./EditeurEmail.tsx', () => ({
     __esModule: true,
     default: ({ id, value, onChange }: any) => (
         <textarea id={id} value={value || ''} onChange={(e) => onChange(e.target.value)} />

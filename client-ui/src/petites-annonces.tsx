@@ -22,6 +22,8 @@ import {
 } from '@ant-design/icons';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
+import EditeurTexte, { TexteFormate } from './EditeurTexte.tsx';
+import { nettoyerSaisie } from './texte-riche.ts';
 import { paginationConfig } from './pagination.ts';
 
 interface BateauClientEntity {
@@ -158,7 +160,7 @@ export default function PetitesAnnonces({ clientId, initialPhotos, initialBateau
             const photos = values.photos || [];
             const payload: any = {
                 titre: values.titre,
-                description: values.description,
+                description: nettoyerSaisie(values.description),
                 prix: values.prix || 0,
                 contact: values.contact,
                 telephone: values.telephone,
@@ -322,7 +324,7 @@ export default function PetitesAnnonces({ clientId, initialPhotos, initialBateau
                         />
                     </Form.Item>
                     <Form.Item name="description" label="Description">
-                        <Input.TextArea rows={4} placeholder="Description detaillee du bateau, equipements, etat, ..." />
+                        <EditeurTexte placeholder="Description détaillée du bateau, équipements, état..." />
                     </Form.Item>
                     <Form.Item name="prix" label="Prix de vente (EUR)" rules={[{ required: true, message: 'Le prix est requis' }]}>
                         <InputNumber min={0} step={100} style={{ width: '100%' }} placeholder="Ex: 25000" />
@@ -363,9 +365,9 @@ export default function PetitesAnnonces({ clientId, initialPhotos, initialBateau
                         <p><strong>Bateau:</strong> {bateauLabel(detailAnnonce.bateau)}</p>
                         <p><strong>Prix:</strong> <span style={{ fontSize: 18, color: '#1890ff' }}>{formatEuro(detailAnnonce.prix)}</span></p>
                         <p><strong>Description:</strong></p>
-                        <p style={{ whiteSpace: 'pre-wrap', background: '#fafafa', padding: 12, borderRadius: 4 }}>
-                            {detailAnnonce.description || 'Pas de description'}
-                        </p>
+                        <div style={{ background: '#fafafa', padding: 12, borderRadius: 4, marginBottom: 16 }}>
+                            <TexteFormate texte={detailAnnonce.description} vide="Pas de description" />
+                        </div>
                         <p><strong>Contact:</strong> {detailAnnonce.contact || '-'}</p>
                         <p><strong>Telephone:</strong> {detailAnnonce.telephone || '-'}</p>
                         <p><strong>Date de publication:</strong> {formatDate(detailAnnonce.dateCreation)}</p>

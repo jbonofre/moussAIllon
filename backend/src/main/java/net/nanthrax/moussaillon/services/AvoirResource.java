@@ -4,7 +4,6 @@ import java.sql.Timestamp;
 import java.util.List;
 
 import io.quarkus.narayana.jta.QuarkusTransaction;
-import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -475,7 +474,7 @@ public class AvoirResource {
                     + "<p>Cordialement,<br/>" + societeNom + "</p>";
         }
 
-        mailer.send(Mail.withHtml(entity.client.email, subject, body));
+        mailer.send(EmailHtml.mail(entity.client.email, subject, body));
         return Response.ok().build();
     }
 

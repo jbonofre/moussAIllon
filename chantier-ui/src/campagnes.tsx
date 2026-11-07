@@ -17,8 +17,7 @@ import {
 } from 'antd';
 import { ClockCircleOutlined, DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
 import api from './api.ts';
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
+import EditeurEmail from './EditeurEmail.tsx';
 import dayjs from 'dayjs';
 import { paginationConfig } from './pagination.ts';
 import SearchAutoComplete from './SearchAutoComplete.tsx';
@@ -442,7 +441,7 @@ export default function Campagnes() {
                 onOk={handleSave}
                 okText={editing ? 'Mettre à jour' : 'Créer'}
                 cancelText="Fermer"
-                width="48vw"
+                width="max(48vw, 760px)"
                 destroyOnHidden
             >
                 <Form form={form} layout="vertical" onValuesChange={(changed) => {
@@ -504,11 +503,10 @@ export default function Campagnes() {
                     )}
                     <Form.Item label={selectedCanal === 'EMAIL' ? "Contenu de l'email" : "Contenu du SMS"}>
                         {selectedCanal === 'EMAIL' ? (
-                            <ReactQuill
-                                theme="snow"
+                            <EditeurEmail
                                 value={contenu}
                                 onChange={(val) => { setContenu(val); setFormDirty(true); }}
-                                style={{ height: 250, marginBottom: 42 }}
+                                hauteur={400}
                             />
                         ) : (
                             <Input.TextArea
@@ -568,7 +566,7 @@ export default function Campagnes() {
                             <>
                                 <p><strong>Contenu :</strong></p>
                                 {detailCampagne.canal === 'EMAIL' ? (
-                                    <div style={{ background: '#fafafa', padding: 12, borderRadius: 4 }} dangerouslySetInnerHTML={{ __html: detailCampagne.contenu }} />
+                                    <div className="contenu-email" style={{ background: '#fafafa', padding: 12, borderRadius: 4 }} dangerouslySetInnerHTML={{ __html: detailCampagne.contenu }} />
                                 ) : (
                                     <p style={{ whiteSpace: 'pre-wrap', background: '#fafafa', padding: 12, borderRadius: 4 }}>{detailCampagne.contenu}</p>
                                 )}

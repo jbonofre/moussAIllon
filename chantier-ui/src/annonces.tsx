@@ -20,6 +20,8 @@ import {
 import { DeleteOutlined, EditOutlined, EyeOutlined, PlusCircleOutlined, PrinterOutlined, ReloadOutlined, SendOutlined, StopOutlined } from '@ant-design/icons';
 import api from './api.ts';
 import ImageUpload from './ImageUpload.tsx';
+import EditeurTexte, { TexteFormate } from './EditeurTexte.tsx';
+import { htmlVersTexte, nettoyerSaisie } from './texte-riche.ts';
 import { useNavigation } from './navigation-context.tsx';
 import { paginationConfig } from './pagination.ts';
 import { anneeMiseEnService, buildAfficheAnnonceHtml, motorisation } from './printing/afficheAnnonce.ts';
@@ -221,7 +223,7 @@ export default function Annonces() {
             const photos = values.photos || [];
             const payload: any = {
                 titre: values.titre,
-                description: values.description,
+                description: nettoyerSaisie(values.description),
                 prix: values.prix || 0,
                 contact: values.contact,
                 telephone: values.telephone,
@@ -511,7 +513,7 @@ export default function Annonces() {
         if (!q) return annonces;
         return annonces.filter((a) => {
             const titre = (a.titre ?? '').toLowerCase();
-            const description = (a.description ?? '').toLowerCase();
+            const description = htmlVersTexte(a.description).toLowerCase();
             const clientLabel = a.client ? (a.client.nom ?? '').toLowerCase() : '';
             return titre.includes(q) || description.includes(q) || clientLabel.includes(q);
         });
@@ -621,7 +623,7 @@ export default function Annonces() {
                     <Row gutter={16}>
                         <Col span={24}>
                         <Form.Item name="description" label="Description">
-                            <Input.TextArea rows={4} placeholder="Description detaillee du bateau, equipements, etat, ..." />
+                            <EditeurTexte placeholder="Description détaillée du bateau, équipements, état..." />
                         </Form.Item>
                         </Col>
                     </Row>
@@ -680,9 +682,9 @@ export default function Annonces() {
                         {detailAnnonce.moteur && <p><strong>Moteur:</strong> {moteurLabel(detailAnnonce.moteur)}</p>}
                         <p><strong>Prix:</strong> <span style={{ fontSize: 18, color: '#1890ff' }}>{formatEuro(detailAnnonce.prix)}</span></p>
                         <p><strong>Description:</strong></p>
-                        <p style={{ whiteSpace: 'pre-wrap', background: '#fafafa', padding: 12, borderRadius: 4 }}>
-                            {detailAnnonce.description || 'Pas de description'}
-                        </p>
+                        <div style={{ background: '#fafafa', padding: 12, borderRadius: 4, marginBottom: 16 }}>
+                            <TexteFormate texte={detailAnnonce.description} vide="Pas de description" />
+                        </div>
                         <p><strong>Contact:</strong> {detailAnnonce.contact || '-'}</p>
                         <p><strong>Telephone:</strong> {detailAnnonce.telephone || '-'}</p>
                         <p><strong>Date de publication:</strong> {formatDate(detailAnnonce.dateCreation)}</p>

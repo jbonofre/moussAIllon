@@ -33,7 +33,10 @@ public class EmailTemplateEntity extends PanacheEntityChantier {
     @Column(nullable = false)
     public String sujet;
 
-    @Column(nullable = false, length = 10000)
+    /** Longueur maximale (caractères) du HTML d'un email enregistré : modèles, séquences, campagnes et historiques. */
+    public static final int LONGUEUR_CONTENU = 100000;
+
+    @Column(nullable = false, length = LONGUEUR_CONTENU)
     public String contenu;
 
     public String description;

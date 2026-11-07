@@ -227,14 +227,20 @@ public final class NautixFlux {
         w.writeEndElement(); // advert
     }
 
-    // HTML autorisé par NautiX : le texte est échappé et les retours à la ligne conservés
+    // HTML autorisé par NautiX : le texte brut est échappé et ses retours à la ligne conservés ; une description mise en
+    // forme garde son gras, son italique, son soulignement et ses listes (en lignes)
     static String description(AnnonceEntity annonce) {
         List<String> blocs = new ArrayList<>();
         if (!estVide(annonce.titre)) {
             blocs.add("<b>" + html(annonce.titre.trim()) + "</b>");
         }
         if (!estVide(annonce.description)) {
-            blocs.add(html(annonce.description.trim()).replaceAll("\\R", "<br>"));
+            String description = TexteRiche.estHtml(annonce.description)
+                    ? TexteRiche.versHtmlSimple(annonce.description)
+                    : html(annonce.description.trim()).replaceAll("\\R", "<br>");
+            if (!description.isBlank()) {
+                blocs.add(description);
+            }
         }
         return blocs.isEmpty() ? null : String.join("<br><br>", blocs);
     }

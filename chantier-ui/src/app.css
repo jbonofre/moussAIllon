@@ -317,3 +317,113 @@
 .fade-in-up {
     animation: fadeInUp 0.4s ease-out;
 }
+
+/* ── Éditeur d'email (rendu « newsletter ») ───────── */
+/* La zone de saisie reprend la colonne de l'email envoyé (voir editeur-email.ts et EmailHtml côté serveur) */
+.editeur-email .ql-container {
+    background: #f4f5f7;
+    overflow-y: auto;
+}
+
+.editeur-email .ql-editor {
+    box-sizing: border-box;
+    max-width: 600px;
+    height: auto;
+    min-height: 100%;
+    margin: 0 auto;
+    padding: 20px;
+    overflow-y: visible;
+    background: #ffffff;
+    color: #222222;
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.editeur-email .ql-editor h1,
+.editeur-email .ql-editor h2,
+.editeur-email .ql-editor h3 {
+    line-height: 1.25;
+}
+
+.editeur-email .ql-editor img {
+    height: auto;
+    cursor: pointer;
+}
+
+.editeur-email .ql-editor hr {
+    cursor: default;
+}
+
+.editeur-email-cadre-image {
+    position: absolute;
+    z-index: 9;
+    outline: 2px solid #1677ff;
+    pointer-events: none;
+}
+
+.editeur-email-barre-image {
+    position: absolute;
+    z-index: 10;
+    width: max-content;
+    white-space: nowrap;
+    padding: 4px;
+    background: #ffffff;
+    border: 1px solid #d9d9d9;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Infobulle des liens de Quill, en français */
+.editeur-email .ql-snow .ql-tooltip::before {
+    content: "Lien :";
+}
+
+.editeur-email .ql-snow .ql-tooltip[data-mode=link]::before {
+    content: "Adresse du lien :";
+}
+
+.editeur-email .ql-snow .ql-tooltip a.ql-action::after {
+    content: "Modifier";
+}
+
+.editeur-email .ql-snow .ql-tooltip.ql-editing a.ql-action::after {
+    content: "Enregistrer";
+}
+
+.editeur-email .ql-snow .ql-tooltip a.ql-remove::before {
+    content: "Retirer";
+}
+
+.editeur-email .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="1"]::before,
+.editeur-email .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="1"]::before {
+    content: "Titre 1";
+}
+
+.editeur-email .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="2"]::before,
+.editeur-email .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="2"]::before {
+    content: "Titre 2";
+}
+
+.editeur-email .ql-snow .ql-picker.ql-header .ql-picker-label[data-value="3"]::before,
+.editeur-email .ql-snow .ql-picker.ql-header .ql-picker-item[data-value="3"]::before {
+    content: "Titre 3";
+}
+
+/* Contenu d'un email affiché dans l'application (détail d'une campagne, historique) */
+.contenu-email img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Texte mis en forme (description des annonces), comme dans l'éditeur */
+.texte-riche p,
+.texte-riche ul,
+.texte-riche ol {
+    margin: 0;
+}
+
+.texte-riche ul,
+.texte-riche ol {
+    padding-left: 1.5em;
+}

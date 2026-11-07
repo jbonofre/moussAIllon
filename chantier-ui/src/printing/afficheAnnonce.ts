@@ -1,6 +1,7 @@
 // Affiche « À vendre » d'une petite annonce : une page A4 à apposer sur le bateau.
 
 import { escapeHtml, InvoicePrintSociete, urlAbsolue } from './invoiceTemplate.ts';
+import { estHtml, htmlSur } from '../texte-riche.ts';
 
 export interface AffichePrintBateau {
     name?: string;
@@ -79,6 +80,9 @@ const AFFICHE_STYLES = `
     .carac strong { font-size: 16px; }
     .description { white-space: pre-wrap; font-size: 14px; line-height: 1.4; max-height: 40mm; overflow: hidden; flex-shrink: 0; }
     .sans-photo .description { flex: 1 1 0; max-height: none; min-height: 0; }
+    .description.texte-riche { white-space: normal; }
+    .texte-riche p, .texte-riche ul, .texte-riche ol { margin: 0; }
+    .texte-riche ul, .texte-riche ol { padding-left: 6mm; }
     .contact { text-align: center; flex-shrink: 0; }
     .contact-titre { font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #595959; }
     .contact-telephone { font-size: 40px; font-weight: bold; }
@@ -111,7 +115,9 @@ export const buildAfficheAnnonceHtml = (annonce: AffichePrintAnnonce, societe?: 
     ${autresPhotos.length > 0 ? `<div class="photos-secondaires">${autresPhotos.slice(0, 3).map((url) => `<img src="${escapeHtml(urlAbsolue(url))}" alt="" />`).join('')}</div>` : ''}
     <div class="prix">${escapeHtml(formatPrixAffiche(annonce.prix))}</div>
     ${caracteristiques.length > 0 ? `<div class="caracteristiques">${caracteristiques.map(([label, value]) => `<div class="carac"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('')}</div>` : ''}
-    ${description ? `<div class="description">${escapeHtml(description)}</div>` : ''}
+    ${description ? (estHtml(description)
+        ? `<div class="description texte-riche">${htmlSur(description)}</div>`
+        : `<div class="description">${escapeHtml(description)}</div>`) : ''}
     ${telephone || email ? `<div class="contact">
         <div class="contact-titre">Renseignements</div>
         ${telephone ? `<div class="contact-telephone">${escapeHtml(telephone)}</div>` : ''}

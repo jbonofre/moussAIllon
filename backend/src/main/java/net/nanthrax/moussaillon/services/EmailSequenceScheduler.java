@@ -5,7 +5,6 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 
-import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -165,7 +164,7 @@ public class EmailSequenceScheduler {
 
     private void envoyerEtape(Cible cible, long cibleId, String email, EmailSequenceEtapeEntity etape, String subject, String body) {
         try {
-            mailer.send(Mail.withHtml(email, subject, body));
+            mailer.send(EmailHtml.mail(email, subject, body));
         } catch (Exception e) {
             LOG.warnf(e, "Échec de l'envoi de l'email de séquence (cible=%s, cibleId=%d, etapeId=%d) à %s", cible, cibleId, etape.id, email);
             return;

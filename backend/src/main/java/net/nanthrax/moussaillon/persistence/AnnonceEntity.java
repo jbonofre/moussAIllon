@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import jakarta.json.bind.annotation.JsonbTypeAdapter;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.ManyToOne;
 
@@ -21,6 +22,10 @@ public class AnnonceEntity extends PanacheEntityChantier {
 
     public String titre;
 
+    /** Longueur maximale (caractères) de la description, mise en forme (HTML) depuis l'éditeur. */
+    public static final int LONGUEUR_DESCRIPTION = 10000;
+
+    @Column(length = LONGUEUR_DESCRIPTION)
     public String description;
 
     public double prix;

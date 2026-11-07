@@ -16,7 +16,7 @@ import java.util.UUID;
 @Path("/images")
 public class ImageResource {
 
-    private static final java.nio.file.Path UPLOAD_DIR = java.nio.file.Path.of("./data/images");
+    static final java.nio.file.Path UPLOAD_DIR = java.nio.file.Path.of("./data/images");
 
     private void ensureUploadDir() throws IOException {
         if (!Files.exists(UPLOAD_DIR)) {
