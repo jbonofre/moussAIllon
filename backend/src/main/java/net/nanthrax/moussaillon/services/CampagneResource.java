@@ -6,7 +6,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import io.quarkus.panache.common.Sort;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -185,7 +184,7 @@ public class CampagneResource {
             int envoyes = 0;
             for (Destinataire dest : destinataires) {
                 try {
-                    mailer.send(Mail.withHtml(dest.email, entity.sujet, entity.contenu));
+                    mailer.send(EmailHtml.mail(dest.email, entity.sujet, entity.contenu));
                     envoyes++;
                 } catch (Exception e) {
                     erreur = e.getMessage();

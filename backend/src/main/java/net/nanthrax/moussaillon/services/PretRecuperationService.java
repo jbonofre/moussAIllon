@@ -6,7 +6,6 @@ import java.util.List;
 
 import org.jboss.logging.Logger;
 
-import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -161,7 +160,7 @@ public class PretRecuperationService {
                     + "<p>Cordialement,<br/>" + societeNom + "</p>";
         }
         try {
-            mailer.send(Mail.withHtml(vente.client.email, subject, body));
+            mailer.send(EmailHtml.mail(vente.client.email, subject, body));
         } catch (RuntimeException e) {
             LOG.warn("Impossible d'envoyer le mail « prêt à récupérer » pour la vente " + vente.id, e);
         }

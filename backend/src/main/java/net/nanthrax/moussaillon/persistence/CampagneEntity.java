@@ -53,7 +53,7 @@ public class CampagneEntity extends PanacheEntityChantier {
 
     public String cibleFiltre;
 
-    @Column(length = 10000)
+    @Column(length = EmailTemplateEntity.LONGUEUR_CONTENU)
     public String contenu;
 
     public int nombreDestinataires;

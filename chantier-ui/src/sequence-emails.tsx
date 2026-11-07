@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { fetchWithAuth } from './api.ts';
 import { Card, Space, Button, Form, Input, InputNumber, Table, Modal, Tag, Spin, Switch, Tabs, message, Popconfirm } from 'antd';
 import { SendOutlined, PlusCircleOutlined, EditOutlined, DeleteOutlined, InfoCircleOutlined } from '@ant-design/icons';
-import ReactQuill from 'react-quill-new';
-import 'react-quill-new/dist/quill.snow.css';
+import EditeurEmail from './EditeurEmail.tsx';
 
 interface Etape {
     id?: number;
@@ -243,7 +242,7 @@ function SequenceTable({ cible, variables }: { cible: string; variables: string 
                 title={editing && editing.id ? 'Modifier l\'étape' : 'Ajouter une étape'}
                 okText="Enregistrer"
                 cancelText="Fermer"
-                width="95vw"
+                width="47.5vw"
                 onOk={() => form.submit()}
                 onCancel={() => {
                     form.resetFields();
@@ -297,7 +296,7 @@ function SequenceTable({ cible, variables }: { cible: string; variables: string 
                         label="Contenu de l'email"
                         rules={[{ required: true, message: 'Le contenu est requis' }]}
                     >
-                        <ReactQuill theme="snow" style={{ height: 300, marginBottom: 42 }} />
+                        <EditeurEmail hauteur={400} />
                     </Form.Item>
                 </Form>
             </Modal>

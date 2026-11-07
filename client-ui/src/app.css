@@ -213,3 +213,15 @@
 .fade-in-up {
     animation: fadeInUp 0.4s ease-out;
 }
+
+/* Texte mis en forme (description des annonces), comme dans l'éditeur */
+.texte-riche p,
+.texte-riche ul,
+.texte-riche ol {
+    margin: 0;
+}
+
+.texte-riche ul,
+.texte-riche ol {
+    padding-left: 1.5em;
+}

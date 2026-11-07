@@ -23,7 +23,7 @@ public class EmailSequenceHistoriqueEntity extends PanacheEntityChantier {
 
     public String sujet;
 
-    @Column(length = 10000)
+    @Column(length = EmailTemplateEntity.LONGUEUR_CONTENU)
     public String contenu;
 
     public Timestamp dateEnvoi;

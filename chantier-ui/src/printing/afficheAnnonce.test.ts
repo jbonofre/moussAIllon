@@ -65,6 +65,17 @@ describe('afficheAnnonce', () => {
         expect(doc.querySelector('.affiche')?.classList.contains('sans-photo')).toBe(false);
     });
 
+    it('imprime la description mise en forme sans ses attributs', () => {
+        const { doc } = affiche(buildAfficheAnnonceHtml({
+            titre: 'Flyer 7.7',
+            prix: 25000,
+            description: '<p><strong>Très bon état</strong></p><ul><li onclick="alert(1)">GPS</li></ul>',
+        }));
+        const description = doc.querySelector('.description');
+        expect(description?.classList.contains('texte-riche')).toBe(true);
+        expect(description?.innerHTML).toBe('<p><strong>Très bon état</strong></p><ul><li>GPS</li></ul>');
+    });
+
     it('renvoie vers le chantier quand l\'annonce n\'a pas de contact', () => {
         const { doc, contenu } = affiche(buildAfficheAnnonceHtml(
             { titre: 'Zodiac', prix: 3000 },

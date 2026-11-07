@@ -30,7 +30,7 @@ public class EmailSequenceEtapeEntity extends PanacheEntityChantier {
     @Column(nullable = false)
     public String sujet;
 
-    @Column(nullable = false, length = 10000)
+    @Column(nullable = false, length = EmailTemplateEntity.LONGUEUR_CONTENU)
     public String contenu;
 
     public String description;

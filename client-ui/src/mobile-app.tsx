@@ -34,6 +34,7 @@ import {
 } from '@ant-design/icons';
 import { moteursAvecSerie } from './moteurs-serie.ts';
 import api from './api.ts';
+import { TexteFormate } from './EditeurTexte.tsx';
 
 interface Client {
     id: number;
@@ -528,9 +529,9 @@ export default function MobileApp({ user, onLogout }: MobileAppProps) {
                         <p><strong>Bateau:</strong> {bateauLabel(detailAnnonce.bateau as any)}</p>
                         <p><strong>Prix:</strong> <span style={{ fontSize: 18, color: '#1890ff' }}>{formatEuro(detailAnnonce.prix)}</span></p>
                         <p><strong>Description:</strong></p>
-                        <p style={{ whiteSpace: 'pre-wrap', background: '#fafafa', padding: 12, borderRadius: 4 }}>
-                            {detailAnnonce.description || 'Pas de description'}
-                        </p>
+                        <div style={{ background: '#fafafa', padding: 12, borderRadius: 4, marginBottom: 16 }}>
+                            <TexteFormate texte={detailAnnonce.description} vide="Pas de description" />
+                        </div>
                         <p><strong>Contact:</strong> {detailAnnonce.contact || '-'}</p>
                         <p><strong>Telephone:</strong> {detailAnnonce.telephone || '-'}</p>
                         <p><strong>Date:</strong> {formatDate(detailAnnonce.dateCreation)}</p>

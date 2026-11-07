@@ -9,7 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import io.quarkus.scheduler.Scheduled;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -313,7 +312,7 @@ public class RappelScheduler {
     }
 
     private RappelHistoriqueEntity envoyer(VenteEntity vente, int numeroRelance, String subject, String body) {
-        mailer.send(Mail.withHtml(vente.client.email, subject, body));
+        mailer.send(EmailHtml.mail(vente.client.email, subject, body));
 
         RappelHistoriqueEntity historique = new RappelHistoriqueEntity();
         historique.vente = vente;

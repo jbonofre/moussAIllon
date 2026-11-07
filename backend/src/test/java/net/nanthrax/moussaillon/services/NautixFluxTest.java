@@ -89,6 +89,19 @@ class NautixFluxTest {
     }
 
     @Test
+    void testDescriptionMiseEnForme() {
+        AnnonceEntity annonce = new AnnonceEntity();
+        annonce.titre = "Flyer 7.7";
+        annonce.description = "<p><strong>Très bon état</strong>, <em>hivernage</em> fait</p><ul><li>GPS</li><li>Sondeur</li></ul>";
+        assertEquals("<b>Flyer 7.7</b><br><br><b>Très bon état</b>, <i>hivernage</i> fait<br>• GPS<br>• Sondeur",
+                NautixFlux.description(annonce));
+
+        // Éditeur vidé : seul le titre reste
+        annonce.description = "<p></p>";
+        assertEquals("<b>Flyer 7.7</b>", NautixFlux.description(annonce));
+    }
+
+    @Test
     void testValeurs() {
         assertEquals("25000", NautixFlux.decimal(25000));
         assertEquals("7.7", NautixFlux.decimal(7.7));

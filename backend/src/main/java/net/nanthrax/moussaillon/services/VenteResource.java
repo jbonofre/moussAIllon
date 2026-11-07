@@ -6,7 +6,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.quarkus.mailer.Mail;
 import io.quarkus.mailer.Mailer;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -313,7 +312,7 @@ public class VenteResource {
             body = bodyBuilder.toString();
         }
 
-        mailer.send(Mail.withHtml(entity.client.email, subject, body));
+        mailer.send(EmailHtml.mail(entity.client.email, subject, body));
         return Response.ok().build();
     }
 
@@ -1345,7 +1344,7 @@ public class VenteResource {
                     + "Cordialement,\n" + societeNom;
         }
 
-        mailer.send(Mail.withHtml(vente.client.email, subject, body));
+        mailer.send(EmailHtml.mail(vente.client.email, subject, body));
     }
 
     /**

@@ -57,6 +57,7 @@ public class AnnonceResource {
     @POST
     @Transactional
     public AnnonceEntity create(AnnonceEntity annonce) {
+        annonce.description = TexteRiche.nettoyer(annonce.description);
         annonce.dateCreation = new Timestamp(System.currentTimeMillis());
         annonce.dateModification = annonce.dateCreation;
         if (annonce.status == null) {
@@ -75,7 +76,7 @@ public class AnnonceResource {
             throw new WebApplicationException("Annonce non trouvee", Response.Status.NOT_FOUND);
         }
         entity.titre = annonce.titre;
-        entity.description = annonce.description;
+        entity.description = TexteRiche.nettoyer(annonce.description);
         entity.prix = annonce.prix;
         entity.contact = annonce.contact;
         entity.telephone = annonce.telephone;
